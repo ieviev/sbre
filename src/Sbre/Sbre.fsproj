@@ -1,0 +1,55 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net7.0</TargetFramework>
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+<!--        tail calls always on -->
+        <Tailcalls>true</Tailcalls>
+<!--        <OutputType>Exe</OutputType>-->
+        <OutputType>Library</OutputType>
+        <NoWarn>9</NoWarn>
+        <!-- dont warn unused -->
+        <NoWarn>FS1182</NoWarn> 
+        <!--  opt-in warnings   -->
+        <WarnOn>21</WarnOn>
+<!--    warn heap allocations    -->
+        <WarnOn>3180</WarnOn> 
+        <WarnOn>52</WarnOn>
+<!--    warn inlineiflambda failures    -->
+        <WarnOn>3517</WarnOn>
+        <WarnOn>3366</WarnOn>
+        <WarnOn>1182</WarnOn>
+        
+<!--        <DefineConstants>$(DefineConstants);OPTIMIZE;HOTPATH</DefineConstants>-->
+<!--        <DefineConstants>$(DefineConstants);OPTIMIZE;HOTPATH</DefineConstants>-->
+        <DefineConstants>$(DefineConstants);OPTIMIZE;</DefineConstants>
+        
+    </PropertyGroup>
+
+    <ItemGroup>
+        <Compile Include="Common.fs" />
+        <Compile Include="Types.fs" />
+        <Compile Include="Patterns.fs" />
+        <Compile Include="Info.fs" />
+        <Compile Include="Cache.fs" />
+        <Compile Include="Startsets.fs" />
+        <Compile Include="CachePatterns.fs" />
+        <Compile Include="RegexNodeConverter.fs" />
+        <Compile Include="Minterms.fs" />
+        <Compile Include="Optimizations.fs" />
+        <Compile Include="Regex.fs" />
+        <Compile Include="Matcher.fs" />
+    </ItemGroup>
+
+    <ItemGroup>
+<!-- Stdlib -->
+<!--      <DefaultReferenceExclusion Include="System.Text.RegularExpressions" />-->
+        <ProjectReference Include="..\RuntimeRegexCopy\RuntimeRegexCopy.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <PackageReference Include="FSharp.Data.Adaptive" Version="1.2.14" />
+      <PackageReference Include="FSharpx.Collections" Version="3.1.0" />
+    </ItemGroup>
+
+</Project>

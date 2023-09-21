@@ -1,0 +1,150 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+
+        <!-- modified start -->
+        <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+        <EnableDefaultEmbeddedResourceItems>false</EnableDefaultEmbeddedResourceItems>
+        <NetCoreAppCurrent>net7.0</NetCoreAppCurrent>
+        <Nullable>enable</Nullable>
+        <!-- modified end  -->
+
+        <TargetFramework>$(NetCoreAppCurrent)</TargetFramework>
+    </PropertyGroup>
+
+    <!-- modified start   -->
+    <ItemGroup>
+        <InternalsVisibleTo Include="Sbre" />
+    </ItemGroup>
+
+    <ItemGroup Label="Embedded Resources">
+        <EmbeddedResource Update="Resources\Strings.resx">
+            <Generator>ResXFileCodeGenerator</Generator>
+            <LastGenOutput>System.SR.cs</LastGenOutput>
+        </EmbeddedResource>
+    </ItemGroup>
+    <!-- modified end  -->
+
+    <ItemGroup>
+<!--        <DefaultReferenceExclusion Include="System.Text.RegularExpressions"/>-->
+        
+        <Compile Include="Globals.cs" />
+        <Compile Include="Resources\System.SR.cs">
+            <DesignTime>True</DesignTime>
+            <AutoGen>True</AutoGen>
+            <DependentUpon>System.SR.resx</DependentUpon>
+        </Compile>
+        <Compile Include="System\Collections\HashtableExtensions.cs" />
+        <Compile Include="System\Text\RegularExpressions\ExtendedRegexParser.cs" />
+        <Compile Include="System\Text\RegularExpressions\ValueMatch.cs" />
+        <Compile Include="System\Threading\StackHelper.cs" />
+        <Compile Include="System\Text\SegmentStringBuilder.cs" />
+        <Compile Include="System\Text\RegularExpressions\Capture.cs" />
+        <Compile Include="System\Text\RegularExpressions\CaptureCollection.cs" />
+        <Compile Include="System\Text\RegularExpressions\CollectionDebuggerProxy.cs" />
+        <Compile Include="System\Text\RegularExpressions\Group.cs" />
+        <Compile Include="System\Text\RegularExpressions\GroupCollection.cs" />
+        <Compile Include="System\Text\RegularExpressions\Match.cs" />
+        <Compile Include="System\Text\RegularExpressions\MatchCollection.cs" />
+        <Compile Include="System\Text\RegularExpressions\Regex.cs" />
+        <Compile Include="System\Text\RegularExpressions\Regex.Cache.cs" />
+        <Compile Include="System\Text\RegularExpressions\Regex.Count.cs" />
+        <Compile Include="System\Text\RegularExpressions\Regex.Debug.cs" />
+        <Compile Include="System\Text\RegularExpressions\Regex.Match.cs" />
+        <Compile Include="System\Text\RegularExpressions\Regex.Replace.cs" />
+        <Compile Include="System\Text\RegularExpressions\Regex.Split.cs" />
+        <Compile Include="System\Text\RegularExpressions\Regex.EnumerateMatches.cs" />
+        <Compile Include="System\Text\RegularExpressions\Regex.Timeout.cs" />
+        <Compile Include="System\Text\RegularExpressions\RegexCaseBehavior.cs" />
+        <Compile Include="System\Text\RegularExpressions\RegexCaseEquivalences.Data.cs" />
+        <Compile Include="System\Text\RegularExpressions\RegexCaseEquivalences.cs" />
+        <Compile Include="System\Text\RegularExpressions\RegexCharClass.cs" />
+        <Compile Include="System\Text\RegularExpressions\RegexCompilationInfo.cs" />
+        <Compile Include="System\Text\RegularExpressions\RegexFindOptimizations.cs" />
+        <Compile Include="System\Text\RegularExpressions\GeneratedRegexAttribute.cs" />
+        <Compile Include="System\Text\RegularExpressions\RegexInterpreter.cs" />
+        <Compile Include="System\Text\RegularExpressions\RegexInterpreterCode.cs" />
+        <Compile Include="System\Text\RegularExpressions\RegexMatchTimeoutException.cs" />
+        <Compile Include="System\Text\RegularExpressions\RegexNode.cs" />
+        <Compile Include="System\Text\RegularExpressions\RegexNodeKind.cs" />
+        <Compile Include="System\Text\RegularExpressions\RegexOpcode.cs" />
+        <Compile Include="System\Text\RegularExpressions\RegexOptions.cs" />
+        <Compile Include="System\Text\RegularExpressions\RegexParseError.cs" />
+        <Compile Include="System\Text\RegularExpressions\RegexParseException.cs" />
+        <Compile Include="System\Text\RegularExpressions\RegexParser.cs" />
+        <Compile Include="System\Text\RegularExpressions\RegexPrefixAnalyzer.cs" />
+        <Compile Include="System\Text\RegularExpressions\RegexReplacement.cs" />
+        <Compile Include="System\Text\RegularExpressions\RegexRunner.cs" />
+        <Compile Include="System\Text\RegularExpressions\RegexRunnerFactory.cs" />
+        <Compile Include="System\Text\RegularExpressions\RegexRunnerMode.cs" />
+        <Compile Include="System\Text\RegularExpressions\RegexTree.cs" />
+        <Compile Include="System\Text\RegularExpressions\RegexTreeAnalyzer.cs" />
+        <Compile Include="System\Text\RegularExpressions\RegexWriter.cs" />
+        <Compile Include="System\Text\RegularExpressions\ThrowHelper.cs" />
+        <!-- RegexOptions.Compiled -->
+        <Compile Include="System\Text\RegularExpressions\CompiledRegexRunnerFactory.cs" />
+        <Compile Include="System\Text\RegularExpressions\CompiledRegexRunner.cs" />
+        <Compile Include="System\Text\RegularExpressions\RegexCompiler.cs" />
+        <Compile Include="System\Text\RegularExpressions\RegexLWCGCompiler.cs" />
+        <!-- RegexOptions.NonBacktracking -->
+        <Compile Include="System\Text\RegularExpressions\Symbolic\BDD.cs" />
+        <Compile Include="System\Text\RegularExpressions\Symbolic\BDDRangeConverter.cs" />
+        <Compile Include="System\Text\RegularExpressions\Symbolic\BitVector.cs" />
+        <Compile Include="System\Text\RegularExpressions\Symbolic\BitVectorSolver.cs" />
+        <Compile Include="System\Text\RegularExpressions\Symbolic\CharKind.cs" />
+        <Compile Include="System\Text\RegularExpressions\Symbolic\CharSetSolver.cs" />
+        <Compile Include="System\Text\RegularExpressions\Symbolic\DerivativeEffect.cs" />
+        <Compile Include="System\Text\RegularExpressions\Symbolic\MatchingState.cs" />
+        <Compile Include="System\Text\RegularExpressions\Symbolic\DoublyLinkedList.cs" />
+        <Compile Include="System\Text\RegularExpressions\Symbolic\ISolver.cs" />
+        <Compile Include="System\Text\RegularExpressions\Symbolic\MintermClassifier.cs" />
+        <Compile Include="System\Text\RegularExpressions\Symbolic\MintermGenerator.cs" />
+        <Compile Include="System\Text\RegularExpressions\Symbolic\RegexNodeConverter.cs" />
+        <Compile Include="System\Text\RegularExpressions\Symbolic\SparseIntMap.cs" />
+        <Compile Include="System\Text\RegularExpressions\Symbolic\StateFlags.cs" />
+        <Compile Include="System\Text\RegularExpressions\Symbolic\SymbolicMatch.cs" />
+        <Compile Include="System\Text\RegularExpressions\Symbolic\SymbolicRegexBuilder.cs" />
+        <Compile Include="System\Text\RegularExpressions\Symbolic\SymbolicRegexNode.cs" />
+        <Compile Include="System\Text\RegularExpressions\Symbolic\SymbolicRegexKind.cs" />
+        <Compile Include="System\Text\RegularExpressions\Symbolic\SymbolicRegexInfo.cs" />
+        <Compile Include="System\Text\RegularExpressions\Symbolic\SymbolicRegexMatcher.Automata.cs" />
+        <Compile Include="System\Text\RegularExpressions\Symbolic\SymbolicRegexMatcher.cs" />
+        <Compile Include="System\Text\RegularExpressions\Symbolic\SymbolicRegexMatcher.Dgml.cs" />
+        <Compile Include="System\Text\RegularExpressions\Symbolic\SymbolicRegexMatcher.Explore.cs" />
+        <Compile Include="System\Text\RegularExpressions\Symbolic\SymbolicRegexMatcher.Sample.cs" />
+        <Compile Include="System\Text\RegularExpressions\Symbolic\SymbolicRegexRunnerFactory.cs" />
+        <Compile Include="System\Text\RegularExpressions\Symbolic\SymbolicRegexThresholds.cs" />
+        <Compile Include="System\Text\RegularExpressions\Symbolic\UInt64Solver.cs" />
+        <Compile Include="System\Text\RegularExpressions\Symbolic\UnicodeCategoryConditions.cs" />
+        <Compile Include="System\Text\RegularExpressions\Symbolic\UnicodeCategoryRanges.cs" />
+        <Compile Include="System\Text\RegularExpressions\Symbolic\UnicodeCategoryRangesGenerator.cs" />
+        <!-- Common or Common-branched source files -->
+                <Compile Include="Dependencies\HexConverter.cs" />
+                <Compile Include="Dependencies\Obsoletions.cs" />
+                <Compile Include="Dependencies\ValueStringBuilder.cs" />
+                <Compile Include="Dependencies\ValueListBuilder.cs" />
+                <Compile Include="Dependencies\ValueListBuilder.Pop.cs" />
+<!--        <Compile Include="$(CommonPath)System\HexConverter.cs" Link="Common\System\HexConverter.cs" />-->
+<!--        <Compile Include="$(CommonPath)System\Obsoletions.cs" Link="Common\System\Obsoletions.cs" />-->
+<!--        <Compile Include="$(CommonPath)System\Text\ValueStringBuilder.cs" Link="Common\System\Text\ValueStringBuilder.cs" />-->
+<!--        <Compile Include="$(CoreLibSharedDir)System\Collections\Generic\ValueListBuilder.cs" Link="Common\System\Collections\Generic\ValueListBuilder.cs" />-->
+<!--        <Compile Include="$(CoreLibSharedDir)System\Collections\Generic\ValueListBuilder.Pop.cs" Link="Common\System\Collections\Generic\ValueListBuilder.Pop.cs" />-->
+    </ItemGroup>
+    <ItemGroup>
+<!--        <Reference Include="System.Collections" />-->
+<!--        <Reference Include="System.Collections.Concurrent" />-->
+<!--        <Reference Include="System.Memory" />-->
+<!--        <Reference Include="System.Runtime" />-->
+<!--        <Reference Include="System.Runtime.InteropServices" />-->
+<!--        <Reference Include="System.Threading" />-->
+        <!-- References required for RegexOptions.Compiled -->
+<!--        <Reference Include="System.Reflection.Emit" />-->
+<!--        <Reference Include="System.Reflection.Emit.ILGeneration" />-->
+<!--        <Reference Include="System.Reflection.Emit.Lightweight" />-->
+<!--        <Reference Include="System.Reflection.Primitives" />-->
+    </ItemGroup>
+    <ItemGroup>
+      <Folder Include="Dependencies" />
+    </ItemGroup>
+
+</Project>
