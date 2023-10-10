@@ -7,8 +7,15 @@ open System.Text.RuntimeRegexCopy
 open Sbre.Minterms
 open Sbre.Regex
 open Sbre.Types
-open Sbre.Patterns
+open Sbre.Pat
 
+
+type MatchResult = {
+    Success : bool
+    Value : string
+    StartIndex : int
+    Length : int
+}
 
 [<CLIMutable>]
 type MatchPosition = { startIndex: int; endIndex: int }
@@ -32,44 +39,59 @@ type Matcher(pattern: string) =
     let bddBuilder =
         SymbolicRegexBuilder<BDD>(charsetSolver, charsetSolver)
 
-    // builder from this library
-    let _ =
-        RegexNodeConverter.BddNodeBuilder(charsetSolver)
+    let converter = RegexNodeConverter(bddBuilder, null)
 
-    let symbolicBddnode =
-        RegexNodeConverter.convertToSymbolicRegexNode (charsetSolver, bddBuilder, regexTree.Root)
+    // builder from this library
+    let bddBuilder2 =
+        RegexBuilder(converter,charsetSolver,charsetSolver)
+
+    let symbolicBddnode: RegexNode<BDD> =
+        RegexNodeConverter.convertToSymbolicRegexNode (charsetSolver, bddBuilder, bddBuilder2, regexTree.Root)
 
     let implicitAnyStar =
         Loop(
-            [ Singleton charsetSolver.Full ],
+            Singleton charsetSolver.Full,
             0,
             Int32.MaxValue,
             { Flags =
                 RegexNodeFlags.IsAlwaysNullable
                 ||| RegexNodeFlags.CanBeNullable
                 ||| RegexNodeFlags.CanSkip
-              Startset = charsetSolver.Full }
+              Startset = charsetSolver.Full
+               }
         )
 
-    let dotStarredPattern =
-        implicitAnyStar :: symbolicBddnode
+    let dotStarredPattern: RegexNode<BDD> =
+        match symbolicBddnode with
+        | Concat(head,tail,info) -> Concat(implicitAnyStar, Concat(head,tail,info),info)
+        | (Singleton pred) as node -> Concat(implicitAnyStar, node, Info.defaultInfo(charsetSolver) )
+        | (And (xs,info)) as node -> Concat(implicitAnyStar, node, info )
+        | (Or (xs,info)) as node -> Concat(implicitAnyStar, node, info )
+        | (Loop (xs,low,up,info)) as node -> Concat(implicitAnyStar, node, info )
+        | (LookAround (xs,low,up)) as node -> Concat(implicitAnyStar, node, Info.defaultInfo(charsetSolver) )
+        | Epsilon -> implicitAnyStar
+        | Not(xs, info) as node ->
+            let negflags = Info.Flags.inferNode xs
+            Concat(implicitAnyStar, node,  Info.ofFlagsAndStartset(negflags, charsetSolver.Full) )
 
     let minterms =
         dotStarredPattern |> Minterms.compute bddBuilder
 
     let solver = UInt64Solver(minterms, charsetSolver)
 
-    let singletonCache =
-        SingletonCache(charsetSolver, solver)
+    let uintbuilder = RegexBuilder(converter,solver,charsetSolver)
+
+    // let singletonCache =
+    //     SingletonCache(charsetSolver, solver)
 
 #if DEBUG
     do debuggerSolver <- Some solver
 #endif
-    let dotStarredUint64Node =
-        List.map (Minterms.transform singletonCache charsetSolver solver) dotStarredPattern
+    let dotStarredUint64Node: RegexNode<uint64>  =
+        (Minterms.transform uintbuilder charsetSolver solver) dotStarredPattern
 
-    let rawUint64Node =
-        List.map (Minterms.transform singletonCache charsetSolver solver) symbolicBddnode
+    let rawUint64Node: RegexNode<uint64> =
+        (Minterms.transform uintbuilder charsetSolver solver) symbolicBddnode
 
 
 
@@ -81,22 +103,12 @@ type Matcher(pattern: string) =
             solver,
             charsetSolver,
             _implicitDotstarPattern = dotStarredUint64Node,
-            _singletonCache = singletonCache,
+            _rawPattern = rawUint64Node,
+            _builder = uintbuilder,
             _optimizations = optimizations
         )
 
-    do Optimizations.generateStartsets (cache)
-
-    // init startsets
-    do
-        cache.InitialStartsetCharsArray <-
-            [| for minterm in cache.initialMintermsArray do
-                   yield Startsets.createStartsetCharsOfMinterm (cache.Solver, charsetSolver, minterm)
-
-               |]
-
-    let reverseUint64Node =
-        List.rev (List.map (RegexNode.rev cache) rawUint64Node)
+    let reverseUint64Node = RegexNode.rev cache rawUint64Node
 
     member this.IsMatch(input: string) =
         let mutable currPos = 0
@@ -124,14 +136,99 @@ type Matcher(pattern: string) =
 
         if not foundStartPos then
             match rawUint64Node with
-            | [ Not(_) ] -> // a negation that was not found means its the entire string
+            | Not(_) -> // a negation that was not found means its the entire string
                 ValueSome input.Length
             | _ -> ValueNone
         else
         let startLocation = Location.create input currPos
         RegexNode.matchEnd (cache, startLocation, ValueNone, dotStarredUint64Node)
 
-    member this.Match(input: string) =
+
+    member this.Match(input: string) : MatchResult =
+        let mutable startPos = 0
+
+        let success =
+            optimizations.TryFindNextStartingPositionLeftToRight(input.AsSpan(), &startPos, 0)
+
+        if not success then
+            {
+                Success = false
+                Value = ""
+                StartIndex = 0
+                Length = 0
+            }
+        else
+
+            let startLocation = Location.create input startPos
+            match RegexNode.matchEnd (cache, startLocation, ValueNone, dotStarredUint64Node) with
+            | ValueNone ->
+                {
+                    Success = false
+                    Value = ""
+                    StartIndex = 0
+                    Length = 0
+                }
+            | ValueSome endPos ->
+                let reverseLocation =
+                    (Location.rev { startLocation with Position = endPos })
+
+                let startPos =
+                    RegexNode.matchEnd (cache, reverseLocation, ValueNone, reverseUint64Node)
+
+                match startPos with
+                | ValueNone ->
+                    failwith
+                        $"match succeeded left to right but not right to left:\nmatch end: {endPos}\nreverse pattern: {reverseUint64Node}"
+                | ValueSome start ->
+                    {
+                        Success = true
+                        Value = input[start .. endPos - 1]
+                        StartIndex = start
+                        Length = endPos - start
+                    }
+
+
+    member this.Matches(input: string) =
+
+        let mutable location = Location.create input 0
+
+        let rec loop location =
+            seq {
+                let initialpos = location.Position //
+
+                match this.MatchFromLocation(location) with
+                | ValueNone ->
+                    ()
+                | ValueSome (endPos:int) ->
+                    let reverseLocation =
+                        (Location.rev { location with Position = endPos })
+
+                    let startPos =
+                        RegexNode.matchEnd (cache, reverseLocation, ValueNone, reverseUint64Node)
+
+                    match startPos with
+                    | ValueNone ->
+                        failwith "match succeeded left to right but not right to left\nthis may occur because of an unimplemented feature"
+                    | ValueSome start ->
+                        // initialpos -1 is the end of the previous match, cancel the overlap
+                        // let response : MatchPosition = { endIndex = endPos - 1; startIndex =  max (initialpos) start }
+                        yield {
+                            Success = true
+                            Value = input[start .. endPos - 1]
+                            StartIndex = max (initialpos) start
+                            Length = endPos - (max (initialpos) start)
+                        }
+                        // continue
+                    if endPos <> input.Length then
+                        if endPos = initialpos then
+                            yield! (loop (Location.create input (endPos + 1)))
+                        else
+                            yield! (loop (Location.create input (endPos)))
+
+            }
+        loop location
+
+    member this.MatchText(input: string) =
         let mutable startPos = 0
 
         let success =
@@ -217,20 +314,18 @@ type Matcher(pattern: string) =
                         else
                             yield! (loop (Location.create input (endPos)))
 
-
-
             }
         loop location
 
 
     // accessors
-    member this.DotStarredPattern: RegexNode<uint64> list =
+    member this.DotStarredPattern: RegexNode<uint64> =
         dotStarredUint64Node
 
-    member this.RawPattern: RegexNode<uint64> list =
+    member this.RawPattern: RegexNode<uint64> =
         rawUint64Node
 
-    member this.ReversePattern: RegexNode<uint64> list =
+    member this.ReversePattern: RegexNode<uint64> =
         reverseUint64Node
 
     member this.Cache = cache

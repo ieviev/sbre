@@ -6,7 +6,8 @@ open System.Text.RuntimeRegexCopy.Symbolic
 #if DEBUG
 let debugcharSetSolver = System.Text.RuntimeRegexCopy.Symbolic.CharSetSolver()
 let bddBuilder = SymbolicRegexBuilder<BDD>(debugcharSetSolver,debugcharSetSolver)
-let mutable debuggerSolver : ISolver<uint64> option = None
+let mutable debuggerSolver : ISolver<uint64> option =
+    None
 
 
 let logger = System.Console.Out
@@ -36,6 +37,7 @@ let inline logDiagnostic (txt:string) : unit =
 #endif
 
 let inline isNull x  = obj.ReferenceEquals(null,x)
+let inline refEq x y  = obj.ReferenceEquals(x,y)
 let inline isNullOrEmpty item =
     obj.ReferenceEquals(null,item)
     || (^t: (member IsEmpty : bool) item)

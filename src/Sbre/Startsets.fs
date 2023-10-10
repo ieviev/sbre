@@ -2,7 +2,7 @@ module Sbre.Startsets
 
 open System.Text.RuntimeRegexCopy
 open System.Text.RuntimeRegexCopy.Symbolic
-open Sbre.Patterns
+open Sbre.Pat
 open Sbre.Types
 open System
 open Info
@@ -51,8 +51,8 @@ type Jump() =
                     else
                         cache.CharToMinterm(&slice[sharedIndex + 1])
 #if DEBUG
-                let d_pred = cache.PrettyPrintMinterm(cache.initialMintermsArray[1])
-                let d_loc = cache.PrettyPrintMinterm(nextmt)
+                // let d_pred = cache.PrettyPrintMinterm(cache.initialMintermsArray[1])
+                // let d_loc = cache.PrettyPrintMinterm(nextmt)
 #endif
 
                 if cache.Solver.isElemOfSet(expectedNextMinterm,nextmt) then

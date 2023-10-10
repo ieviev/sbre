@@ -4,59 +4,92 @@ open System
 open System.Runtime.CompilerServices
 open System.Text.RuntimeRegexCopy.Symbolic
 open Sbre.Types
-open Patterns
+open Pat
 
+
+type Flag = RegexNodeFlags
+
+module Flag =
+    let inline withFlag (arg: RegexNodeFlags) (sourceFlags: RegexNodeFlags) =
+        sourceFlags
+        ||| arg
+
+    let inline withoutFlag (arg: RegexNodeFlags) (sourceFlags: RegexNodeFlags) =
+        sourceFlags
+        &&& ~~~arg
+
+    let inline withFlagIf (cond: bool) (arg: RegexNodeFlags) (sourceFlags: RegexNodeFlags) =
+        if cond then
+            sourceFlags
+            ||| arg
+        else
+            sourceFlags
+
+    let inline hasFlag (arg: RegexNodeFlags) (sourceFlags: RegexNodeFlags) =
+        sourceFlags.HasFlag(arg)
+
+    let inline getContainsFlags (sourceFlags: RegexNodeFlags) =
+        (RegexNodeFlags.ContainsEpsilon
+         ||| RegexNodeFlags.ContainsLookaround)
+        &&& sourceFlags
+
+    /// bitwise or for multiple flags
+    let inline mergeFlags (sourceFlags: RegexNodeFlags seq) =
+        (RegexNodeFlags.None, sourceFlags)
+        ||> Seq.fold (fun acc v -> acc ||| v)
 
 // accessors and common functions
-let rec canSkip (node: RegexNode<'t> list) : bool =
+let rec canSkip (node: RegexNode<'t>) : bool =
     match node with
-    | Singleton _::_ -> false
-    | Or(info=info)::_ -> info.Flags.HasFlag(RegexNodeFlags.CanSkip)
-    | And(info=info)::_ -> info.Flags.HasFlag(RegexNodeFlags.CanSkip)
-    | Loop(low=0;up=Int32.MaxValue)::_ -> true
-    | Loop(_)::_ -> false
-    | Not (inner,info)::_ -> info.Flags.HasFlag(RegexNodeFlags.CanSkip)
-    | LookAround _::_ -> false
-    | [] -> false
+    | Singleton _ -> false
+    | Or(info = info) -> info.Flags.HasFlag(RegexNodeFlags.CanSkip)
+    | And(info = info) -> info.Flags.HasFlag(RegexNodeFlags.CanSkip)
+    | Loop(low = 0; up = Int32.MaxValue) -> true
+    | Loop _ -> false
+    | Not(inner, info) -> info.Flags.HasFlag(RegexNodeFlags.CanSkip)
+    | LookAround _ -> false
+    | Epsilon -> false
+    | Concat(info = info) -> Flag.hasFlag Flag.CanSkip info.Flags
 
 
-let inline removeFlag (flags:byref<RegexNodeFlags>) (flagsToRemove:RegexNodeFlags) = flags <- flags &&& ~~~flagsToRemove
-let inline addFlag (flags:byref<RegexNodeFlags>) (flagsToAdd:RegexNodeFlags) = flags <- flags ||| flagsToAdd
-let inline invertFlag (flags:byref<RegexNodeFlags>) (flagsToInvert:RegexNodeFlags) =
-    if flags.HasFlag(flagsToInvert)
-    then flags <- flags &&& ~~~flagsToInvert
-    else flags <- flags ||| flagsToInvert
+let inline removeFlag (flags: byref<RegexNodeFlags>) (flagsToRemove: RegexNodeFlags) =
+    flags <-
+        flags
+        &&& ~~~flagsToRemove
 
+let inline addFlag (flags: byref<RegexNodeFlags>) (flagsToAdd: RegexNodeFlags) =
+    flags <-
+        flags
+        ||| flagsToAdd
 
+let inline invertFlag (flags: byref<RegexNodeFlags>) (flagsToInvert: RegexNodeFlags) =
+    if flags.HasFlag(flagsToInvert) then
+        flags <-
+            flags
+            &&& ~~~flagsToInvert
+    else
+        flags <-
+            flags
+            ||| flagsToInvert
 
-[<AutoOpen>]
-module Extensions =
-    type ISolver<'t> with
-        /// si ∈ [[ψ]]
-        /// - i.e. location si is elem of Singleton ψ
-        /// - (location is smaller than singleton)
-        /// - predicate matches location
-        [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-        member this.isElemOfSet(predicate: 't, locationMinterm: 't) =
-            not (this.IsEmpty(this.And(locationMinterm, predicate)))
 
 
 // Patterns
-[<return:Struct>]
-let (|CanNotBeNullable|_|) (x:RegexNodeInfo<'t>) =
+[<return: Struct>]
+let (|CanNotBeNullable|_|) (x: RegexNodeInfo<'t>) =
     match x.Flags.HasFlag(RegexNodeFlags.CanBeNullable) with
     | false -> ValueSome()
     | _ -> ValueNone
 
-[<return:Struct>]
-let (|IsAlwaysNullable|_|) (x:RegexNodeInfo<'t>) =
+[<return: Struct>]
+let (|IsAlwaysNullable|_|) (x: RegexNodeInfo<'t>) =
     match x.Flags.HasFlag(RegexNodeFlags.IsAlwaysNullable) with
     | true -> ValueSome()
     | _ -> ValueNone
 
 
-[<return:Struct>]
-let (|NodeIsAlwaysNullable|_|) (x:RegexNode<'t>) =
+[<return: Struct>]
+let (|NodeIsAlwaysNullable|_|) (x: RegexNode<'t>) =
     match x with
     | Or(xs, IsAlwaysNullable) -> ValueSome()
     | Singleton foo -> ValueNone
@@ -66,441 +99,390 @@ let (|NodeIsAlwaysNullable|_|) (x:RegexNode<'t>) =
     | LookAround(node, lookBack, negate) -> ValueNone
     | _ -> ValueNone
 
-[<return:Struct>]
-let (|ConcatIsAlwaysNullable|_|) (nodes:RegexNode<'t> list) =
-    nodes |> seqforall (fun v ->
+[<return: Struct>]
+let (|ConcatIsAlwaysNullable|_|) (nodes: RegexNode<'t> list) =
+    nodes
+    |> seqforall (fun v ->
         match v with
         | NodeIsAlwaysNullable -> true
         | _ -> false
-    ) |> vopt
+    )
+    |> vopt
 
-[<return:Struct>]
-let (|CanBeNullable|_|) (x:RegexNodeInfo<'t>) =
+[<return: Struct>]
+let (|CanBeNullable|_|) (x: RegexNodeInfo<'t>) =
     match x.Flags.HasFlag(RegexNodeFlags.CanBeNullable) with
     | true -> ValueSome()
     | _ -> ValueNone
 
-[<return:Struct>]
-let (|ContainsLookaround|_|) (x:RegexNodeInfo<'t>) =
+[<return: Struct>]
+let (|ContainsLookaround|_|) (x: RegexNodeInfo<'t>) =
     match x.Flags.HasFlag(RegexNodeFlags.ContainsLookaround) with
     | true -> ValueSome()
     | _ -> ValueNone
 
-// //
+
+module rec Startset =
+
+    let rec inferMergeStartset (_solver: ISolver<'t>) (nodes: seq<RegexNode<'t>>) =
+        nodes
+        |> Seq.map (inferStartset _solver)
+        |> Solver.mapOr _solver id
 
 
-let rec isAlwaysNullable (node: RegexNode<'t> list) : bool voption =
-    let inline Null node = isAlwaysNullable node
+    let rec inferConcatStartset (_solver: ISolver<'t>) (head: RegexNode<'t>) (tail: RegexNode<'t>) =
 
-    let inline NullTrue node =
-        (isAlwaysNullable node |> (fun v -> v.IsSome && v.Value))
 
-    let V x = ValueSome x
-    let OR x y = y |> ValueOption.orElse x
-    let AND x y = y |> ValueOption.map (fun _ -> x)
+        match head with
+        | Loop(node = Singleton pred; low = 0; up = Int32.MaxValue) ->
+            // if head.IsAlwaysNullable then
+            //     inferStartset _solver tail
+            // else
+            let tailStartset = inferStartset _solver tail
+            let invertedPred = _solver.Not(pred)
+            _solver.Or(invertedPred, tailStartset)
 
-    match node with
-    | [] -> V true // Nullx () = true
-    | head :: tail ->
+        | Loop(node = node; low = low; up = up) ->
 
-        match Null tail with
-        | ValueNone -> V false
-        | ValueSome false -> V false
-        | _ ->
-
-            match head with
-            | Singleton _ -> V false // Nullx (ψ) = false
-            // 3.2 Nullability and anchor-contexts
-            | Or(xs,info) -> // Nullx (R) or Nullx (S)
-                match info with
-                | IsAlwaysNullable -> V true
-                | _ -> V false
-
-            | And(xs,info) -> // Nullx (R) and Nullx (S)
-                match info with
-                | IsAlwaysNullable -> V true
-                | _ -> V false
-            | Loop(regexNode, lower, _,info) -> // Nullx (R{m, n, _}) = m = 0 or Nullx (R)
-                V(lower = 0 || (NullTrue regexNode))
-            // (lower = 0 || isNullable' regexNode) && isNullable' tail
-            | Not (node,info) -> V(not (NullTrue node)) // not(Nullx (R))
-            // 3.7 Lookarounds
-            | LookAround _ -> ValueNone
-
-let rec private getStartset(_solver:ISolver<uint64>,node: RegexNode< uint64 > list) =
-    let rec loop (pos:int, node:RegexNode< uint64> list) =
-        if pos > 3 then _solver.Full
-        else
-        let current =
-            match node with
-            | RegexNode.Singleton pred::_ -> pred
-            | RegexNode.Or(xs,_)::_ ->
-                [yield! xs]
-                |> List.fold (fun acc v -> _solver.Or(acc, loop(pos,v))) _solver.Empty
-            | RegexNode.Loop(R,low,_,info)::tail ->
-                match low with
-                | 0 -> _solver.Or(loop(pos,R),loop(pos,tail))
-                | _ -> loop(pos,R)
-            | RegexNode.And(xs,info)::_ ->
+            let inner = inferStartset _solver node
+            // failwith "debug2"
+            match low with
+            | 0 -> _solver.Full // TODO: optimize
+            | _ -> inner
+        | Singleton pred -> pred
+        | Or(xs, info) ->
+            let sets =
                 xs
-                |> Solver.mapAnd _solver (fun v -> loop(pos,v) )
-                // |> Set.map (fun v -> loop(pos,v))
-                // |> Set.fold (fun acc v -> _solver.And(acc, v)) (_solver.And(loop(pos,x1),loop(pos,x2)))
-            | RegexNode.Not(inner,info)::tail -> _solver.Or(loop(pos,inner),loop(pos,tail))
-            // TBD: return full set for lookbacks now
-            | RegexNode.LookAround(lookBack=true)::_ -> _solver.Full
-            | RegexNode.LookAround(body,_,negate)::tail ->
-            // (?=\d)2
-                if not negate then _solver.And(loop(pos,body),loop(pos,tail))
-                else _solver.Full
-            | [] -> _solver.Empty
+                |> Seq.map (inferStartset _solver)
+                // |> Seq.toArray
 
+            let merged =
+                sets
+                |> Solver.mapOr _solver id
+
+            merged
+        | Not(node, info) ->
+            // let tailConcat = Concat(tail, info)
+            let tailStartset = inferStartset _solver tail
+            let headStartset = inferStartset _solver node
+            let merged = _solver.Or(headStartset, tailStartset)
+            merged
+        | LookAround _ -> _solver.Full
+        | Epsilon -> inferStartset _solver tail
+        | And(nodes, info) -> failwith "todo and startset"
+        | Concat(chead, ctail, info) ->
+            inferConcatStartset _solver chead ctail
+
+
+
+    let rec inferLoopStartset (_solver: ISolver<'t>) (R, low, up) =
+        match (R, low, up) with
+        | Concat _, 0, Int32.MaxValue -> _solver.Full
+        | _ ->
+            let bodyStartset = inferStartset _solver R
+
+            match low, up with
+            | 0, Int32.MaxValue -> _solver.Not(bodyStartset)
+            | _ -> bodyStartset
+
+    let rec inferStartset (_solver: ISolver<'t>) (node: RegexNode<'t>) =
         match node with
-        | ZeroWidthNode::_ ->
-            if _solver.IsFull(current) then current else
-            let currset = _solver.Or(current,loop(pos+1,node))
-            currset
-        | _ ->
-            current
-    loop (0,node)
+        | Epsilon -> _solver.Full
+        | Singleton pred -> pred
+        // TODO: how to optimize (a|ab)*
+        | Loop(Concat _, low, up, info) -> _solver.Full
+        | Loop(loopBody, low, up, info) ->
+            let bodyStartset = inferStartset _solver loopBody
+
+            match low, up with
+            | 0, Int32.MaxValue -> _solver.Not(bodyStartset)
+            | _ -> bodyStartset
+
+        | Or(xs, info) ->
+            let sets =
+                xs
+                |> Seq.map (inferStartset _solver)
+                // |> Seq.toArray
+
+            let merged =
+                sets
+                |> Solver.mapOr _solver id
+
+            merged
+        | Not(inner, info) -> inferStartset _solver inner
+        | LookAround(node = body; lookBack = false) -> _solver.Full // TODO: optimize
+        | LookAround(lookBack = true) -> _solver.Full
+        | Concat(h, t, info) -> inferConcatStartset _solver h t
+        | And(xs, info) ->
+            let sets =
+                xs
+                |> Seq.map (inferStartset _solver)
+
+            let merged =
+                sets
+                |> Solver.mapOr _solver id
+
+            merged
+
+    let rec inferStartset2 (_solver: ISolver<'t>) (node: RegexNode<'t>) =
+        match node with
+        | Epsilon -> _solver.Full
+        | Singleton pred -> pred
+        // TODO: how to optimize (a|ab)*
+        | Loop(Concat _, low, up, info) -> _solver.Full
+        | Loop(loopBody, low, up, info) ->
+            let bodyStartset = inferStartset _solver loopBody
+
+            match low, up with
+            | 0, Int32.MaxValue -> _solver.Not(bodyStartset)
+            | _ -> bodyStartset
+
+        | Or(xs, info) ->
+            let sets =
+                xs
+                |> Seq.map (inferStartset2 _solver)
+                |> Seq.toArray
+
+            let merged =
+                sets
+                |> Solver.mapOr _solver id
+
+            merged
+        | Not(inner, info) -> inferStartset2 _solver inner
+        | LookAround(node = body; lookBack = false) -> _solver.Full // TODO: optimize
+        | LookAround(lookBack = true) -> _solver.Full
+        | Concat(Loop(node=Singleton pred;low=0;up=Int32.MaxValue), Concat(head,tail,_), info) ->
+            inferStartset2 _solver tail
+        | Concat(h, t, info) ->
+            inferConcatStartset _solver h t
+        | And(xs, info) ->
+            let sets =
+                xs
+                |> Seq.map (inferStartset2 _solver)
+
+            let merged =
+                sets
+                |> Solver.mapOr _solver id
+
+            merged
 
 
-let rec inferStartset1List (s:ISolver<'t>) (acc:'t) (nodeLists: NodeSet<'t>)  =
-    match nodeLists with
-    | Empty -> acc
-    | nodeset ->
-        let nodes = head nodeset
-        if s.IsFull(acc) then acc else
-        match nodes with
-        | [] -> s.Empty
-        | Singleton pred::tail -> inferStartset1List s (s.Or(acc,pred)) (remove nodes nodeset)
-        | Loop(inner,low,up,info)::tail ->
-            let headpred = inferStartset1List s acc (singleton inner)
+module rec Flags =
 
-            if low = 0 then
-                let tailpred = inferStartset1List s acc ((remove nodes nodeset)|> add tail)
-                if
-                    s.isElemOfSet(headpred,tailpred) then
-                    tailpred
-                else inferStartset1List s (s.Or(acc,s.Or(headpred,tailpred))) (remove nodes nodeset)
-            else inferStartset1List s (s.Or(acc,headpred)) ((remove nodes nodeset))// getHeadPred()
-        | Or(xs,info)::tail ->
-            // TBD: proper implementation - unoptimized for now
-            s.Full
+    let rec inferLoop (R, lower, upper) =
+        match (R, lower, upper) with
+        | _, 0, Int32.MaxValue ->
+            RegexNodeFlags.CanBeNullable
+            |> Flag.withFlag RegexNodeFlags.IsAlwaysNullable
+            |> Flag.withFlag RegexNodeFlags.CanSkip
+        | _, 0, _ ->
+            RegexNodeFlags.CanBeNullable
+            |> Flag.withFlag RegexNodeFlags.IsAlwaysNullable
+        | _ -> inferNode R
 
-        | Not(inner,info)::tail ->
-            inferStartset1List s acc ((remove nodes nodeset)|> add tail |> add inner) //(inner::tail::listTail)
-        | LookAround(node=body; lookBack=false)::tail ->
-            // TBD: proper implementation - unoptimized for now
-            s.Full
-        | LookAround(lookBack=true)::tail -> s.Full
-        | _ ->
-            // TBD: proper implementation - unoptimized for now
-            s.Full
-
-
-let rec inferStartset1(_solver:ISolver<'t>) (nodes: RegexNode<'t> list)  =
-    let rec loop (ss) tail =
-        match nodes with
-        | [] -> _solver.Empty
-        | Singleton pred::tail -> pred
-        | Loop(loopBody,low,up,info)::tail ->
-            let loopBodyStartset = inferStartset1(_solver)(loopBody)
-            if low = 0 then
-                let tailStartset = inferStartset1(_solver)(tail)
-                if _solver.isElemOfSet(loopBodyStartset,tailStartset) then
-                    tailStartset
-                else _solver.Or(loopBodyStartset,tailStartset)
-            else loopBodyStartset
-        | Or(xs,info)::tail ->
-            let mutable disjointStartset = _solver.Empty
-            for x in xs do
-                disjointStartset <- _solver.Or(disjointStartset,inferStartset1(_solver)(x))
-            if not (info.Flags.HasFlag(RegexNodeFlags.CanBeNullable)) then
-                disjointStartset
-            else // overestimation
-                _solver.Or(disjointStartset,inferStartset1(_solver)(tail))
-        | Not(inner,info)::tail ->
-            let headPred = inferStartset1(_solver)(inner)
-            let tailPred = inferStartset1(_solver)(tail)
-            _solver.Or(headPred,tailPred)
-        | LookAround(node=body; lookBack=false)::tail ->
-            _solver.Or(inferStartset1(_solver)(body),inferStartset1(_solver)(tail))
-        | LookAround(lookBack=true)::tail -> _solver.Full
-        | _ ->
-            // TBD: proper implementation - unoptimized for now
-            _solver.Full
-    loop _solver.Empty nodes
-
-
-let rec inferStartset2(s:ISolver<'t>)(nodes: RegexNode<'t> list)  =
-    match nodes with
-    | [] -> s.Empty
-    | Singleton _::tail -> inferStartset1(s)(tail)
-    | [ Not(Solver.TrueStar s::Singleton _::tail,info) ] -> inferStartset1(s)(tail)
-    | Not(Solver.TrueStar s::Singleton _::innertail,info)::outertail ->
-        let ss1 = inferStartset1(s)(innertail)
-        let ss2 = inferStartset2(s)(outertail)
-        s.Or(ss1,ss2)
-    | Loop(inner,low,Int32.MaxValue,info)::Singleton _::tail ->
-        let headPred = inferStartset1(s)(inner)
-        let tailPred = inferStartset1(s)(tail)
-        if low < 2 then
-            if
-                s.isElemOfSet(headPred,tailPred) then
-                s.And(headPred,tailPred)
-            else s.Or(headPred,tailPred)
-        else headPred
-    | Loop(inner,low,Int32.MaxValue,info)::(Or(info=CanNotBeNullable) as orNode)::tail ->
-        let headPred = inferStartset1(s)(inner)
-        let tailPred = inferStartset1(s)(orNode::tail)
-        if low < 2 then
-            if
-                s.isElemOfSet(headPred,tailPred) then
-                // s.And(headPred,tailPred)
-                tailPred
-            else s.Or(headPred,tailPred)
-        else headPred
-    | Or(xs=xs;info=info)::tail ->
-        if info.Flags.HasFlag(RegexNodeFlags.CanBeNullable) then
-            let ss2 = inferStartset2(s)(tail)
-            s.Or(info.Startset,ss2)
-        else
+    let inferAnd (xs: seq<RegexNode<'t>>) : RegexNodeFlags =
+        let inner =
             xs
-            |> Set.map (fun v -> inferStartset2 s v )
-            |> Seq.reduce (fun c v -> s.Or(c,v) )
-    | Loop([Singleton pred],0,Int32.MaxValue,info)::tail ->
-        // invert loop startset
-        let innerstartset1 = s.Not(pred)
-        let tailstartset = inferStartset2(s)(tail)
-        s.Or(innerstartset1,tailstartset)
-    | Not(inner,info)::tail ->
-        let innerstartset2 = inferStartset2(s)(inner)
-        let tailstartset = inferStartset2(s)(tail)
-        s.Or(innerstartset2,tailstartset)
-    | head::tail ->
-        // TBD: proper implementation - unoptimized for now
-        s.Full
+            |> Seq.map inferNodeOptimized
+            |> Seq.toArray
 
-let rec createNullabilityFlags(nodes: RegexNode<'t> list)  =
+        let allCanBeNull =
+            inner
+            |> Array.forall (fun v -> v.HasFlag(Flag.CanBeNullable))
 
-    let mutable flags = RegexNodeFlags.None
+        let allCanSkip =
+            inner
+            |> Array.forall (fun v -> v.HasFlag(Flag.CanSkip))
 
-    match nodes with
-    | [] ->
-        flags <- flags ||| (RegexNodeFlags.CanBeNullable ||| RegexNodeFlags.IsAlwaysNullable)
-    | Singleton _::tail ->
-        flags <- flags &&& ~~~RegexNodeFlags.CanBeNullable
-        flags <- flags &&& ~~~RegexNodeFlags.IsAlwaysNullable
-    | Loop(low=0)::tail ->
-        flags <- createNullabilityFlags(tail)
-    | Not(inner,info)::tail ->
-        let tailFlags = createNullabilityFlags(tail)
-        if tailFlags.HasFlag(RegexNodeFlags.ContainsLookaround) then
-            flags <- flags ||| RegexNodeFlags.ContainsLookaround
-        if not (tailFlags.HasFlag(RegexNodeFlags.CanBeNullable)) then () else
+        let allAlwaysNull =
+            inner
+            |> Array.forall (Flag.hasFlag Flag.IsAlwaysNullable)
 
-        let innerFlags = createNullabilityFlags(inner)
-        // if inner nullable then not nullable
-        if innerFlags.HasFlag(RegexNodeFlags.IsAlwaysNullable) then () else
-        // conditional nullable
-        if innerFlags.HasFlag(RegexNodeFlags.CanBeNullable) then
-            flags <- flags ||| RegexNodeFlags.CanBeNullable
-        else // not nullable => always nullable
-            flags <- flags ||| RegexNodeFlags.IsAlwaysNullable
-            flags <- flags ||| RegexNodeFlags.CanBeNullable
+        let newFlags =
+            inner
+            |> Array.map Flag.getContainsFlags
+            |> Flag.mergeFlags
+            |> Flag.withFlagIf allCanBeNull Flag.CanBeNullable
+            |> Flag.withFlagIf allAlwaysNull Flag.IsAlwaysNullable
+            |> Flag.withFlagIf allCanSkip Flag.CanSkip
 
+        newFlags
+
+    let inferConcat (head: RegexNode<'t>) (tail: RegexNode<'t>) =
+
+        let infos =
+            [|
+                inferNodeOptimized head
+                inferNodeOptimized tail
+            |]
+            // |> Seq.map inferNode
+            // |> Seq.map inferNodeOptimized
+            |> Seq.toArray
+
+        let allCanBeNull =
+            infos
+            |> Array.forall (fun v -> v.HasFlag(Flag.CanBeNullable))
+
+        let allAlwaysNull =
+            infos
+            |> Array.forall (Flag.hasFlag Flag.IsAlwaysNullable)
+
+        let canSkipHead =
+            infos[0]
+            |> Flag.hasFlag Flag.CanSkip
+
+        let newFlags =
+            infos
+            |> Seq.map Flag.getContainsFlags
+            |> Flag.mergeFlags
+            |> Flag.withFlagIf allCanBeNull Flag.CanBeNullable
+            |> Flag.withFlagIf allAlwaysNull Flag.IsAlwaysNullable
+            |> Flag.withFlagIf canSkipHead Flag.CanSkip
+
+        newFlags
+
+
+    let inferNodeOptimized (node: RegexNode<'t>) : RegexNodeFlags =
+        match node with
+        | Concat(info = info) -> info.Flags
+        | Epsilon ->
+            Flag.CanBeNullable
+            ||| Flag.IsAlwaysNullable
+            ||| Flag.ContainsEpsilon
+        | Or(nodes, info) -> info.Flags
+        | Singleton foo -> Flag.None
+        | Loop(node, low, up, info) -> info.Flags
+        | And(nodes, info) -> info.Flags
+        | Not(node, info) -> info.Flags
+        | LookAround(node, lookBack, negate) ->
+            Flag.CanBeNullable
+            ||| Flag.ContainsLookaround
+
+    let inferConcatOptimized (nodes: RegexNode<'t> list) =
+        match nodes with
+        | head :: tail ->
+            let infos =
+                nodes
+                |> Seq.map inferNodeOptimized
+                |> Seq.toArray
+
+            let allCanBeNull =
+                infos
+                |> Array.forall (fun v -> v.HasFlag(Flag.CanBeNullable))
+
+            let allAlwaysNull =
+                infos
+                |> Array.forall (Flag.hasFlag Flag.IsAlwaysNullable)
+
+            let canSkipHead =
+                infos[0]
+                |> Flag.hasFlag Flag.CanSkip
+
+            let newFlags =
+                infos
+                |> Seq.map Flag.getContainsFlags
+                |> Flag.mergeFlags
+                |> Flag.withFlagIf allCanBeNull Flag.CanBeNullable
+                |> Flag.withFlagIf allAlwaysNull Flag.IsAlwaysNullable
+                |> Flag.withFlagIf canSkipHead Flag.CanSkip
+
+            newFlags
+
+        | _ -> failwith "bug ??"
+
+    let inferNot (inner: RegexNode<'t>) =
+        let innerInfo = inferNodeOptimized inner
+        // not nullable => always nullable
+        let isAlwaysNullable =
+            if innerInfo.HasFlag(RegexNodeFlags.IsAlwaysNullable) then
+                false
+            elif innerInfo.HasFlag(RegexNodeFlags.CanBeNullable) then
+                false
+            else
+                true
+
+        let merged =
+            Flag.None
+            |> Flag.withFlagIf
+                isAlwaysNullable
+                (Flag.IsAlwaysNullable
+                 ||| Flag.CanBeNullable)
+            |> Flag.withFlagIf
+                (Flag.hasFlag
+                    (Flag.CanBeNullable
+                     ||| Flag.ContainsLookaround)
+                    innerInfo)
+                Flag.CanBeNullable
+            |> Flag.withFlagIf
+                (Flag.hasFlag Flag.ContainsLookaround innerInfo)
+                Flag.ContainsLookaround
+            |> Flag.withFlagIf (Flag.hasFlag Flag.ContainsEpsilon innerInfo) Flag.ContainsEpsilon
+            |> Flag.withFlagIf (Flag.hasFlag Flag.CanSkip innerInfo) Flag.CanSkip
+
+        merged
+
+    let rec inferOr (xs: seq<RegexNode<'t>>) : RegexNodeFlags =
+        let inner =
+            xs
+            |> Seq.map inferNodeOptimized
+            |> Seq.toArray
+
+        let existsCanBeNull =
+            inner
+            |> Array.exists (fun v -> v.HasFlag(Flag.CanBeNullable))
+
+        let allCanSkip =
+            inner
+            |> Array.forall (fun v -> v.HasFlag(Flag.CanSkip))
+
+        let existsAlwaysNull =
+            inner
+            |> Array.exists (Flag.hasFlag Flag.IsAlwaysNullable)
+
+        let newFlags =
+            inner
+            |> Seq.map Flag.getContainsFlags
+            |> Flag.mergeFlags
+            |> Flag.withFlagIf existsCanBeNull Flag.CanBeNullable
+            |> Flag.withFlagIf existsAlwaysNull Flag.IsAlwaysNullable
+            |> Flag.withFlagIf allCanSkip Flag.CanSkip
+
+        newFlags
+
+    let rec inferNode (node: RegexNode<'t>) =
+        match node with
+        | Epsilon ->
+            RegexNodeFlags.CanBeNullable
+            |> Flag.withFlag RegexNodeFlags.IsAlwaysNullable
+            |> Flag.withFlag RegexNodeFlags.ContainsEpsilon
+        | Singleton _ -> RegexNodeFlags.None
+        | Not(inner, info) -> inferNot inner
         // not nullable
-    | Or(_,info)::tail ->
-        if not (info.Flags.HasFlag(RegexNodeFlags.CanBeNullable)) then ()
-        let tailFlags = createNullabilityFlags(tail)
-        if tailFlags.HasFlag(RegexNodeFlags.ContainsLookaround) then
-            flags <- flags ||| RegexNodeFlags.ContainsLookaround
-        // markIfHasAnchor(&flags,tailFlags)
-        if tailFlags.HasFlag(RegexNodeFlags.CanBeNullable) then
-            flags <- flags ||| RegexNodeFlags.CanBeNullable
-            if tailFlags.HasFlag(RegexNodeFlags.IsAlwaysNullable)
-               && info.Flags.HasFlag(RegexNodeFlags.IsAlwaysNullable)
-            then flags <- flags ||| RegexNodeFlags.IsAlwaysNullable
-        else ()
-    | LookAround _::tail ->
-        let tailFlags = createNullabilityFlags(tail)
-        if tailFlags.HasFlag(RegexNodeFlags.CanBeNullable) then
-            flags <- flags ||| RegexNodeFlags.CanBeNullable
-        else ()
-        flags <- flags ||| RegexNodeFlags.ContainsLookaround
-    | Loop _::tail ->
-        let tailFlags = createNullabilityFlags(tail)
-        if tailFlags.HasFlag(RegexNodeFlags.ContainsLookaround) then
-            flags <- flags ||| RegexNodeFlags.ContainsLookaround
-        if tailFlags.HasFlag(RegexNodeFlags.ContainsLookaround) then
-            flags <- flags ||| RegexNodeFlags.ContainsLookaround
-    | And(_,info)::tail ->
-        if not (info.Flags.HasFlag(RegexNodeFlags.CanBeNullable)) then ()
-        let tailFlags = createNullabilityFlags(tail)
-        if tailFlags.HasFlag(RegexNodeFlags.ContainsLookaround) then
-            flags <- flags ||| RegexNodeFlags.ContainsLookaround
-        // markIfHasAnchor(&flags,tailFlags)
-        if tailFlags.HasFlag(RegexNodeFlags.CanBeNullable) then
-            flags <- flags ||| RegexNodeFlags.CanBeNullable
-            if tailFlags.HasFlag(RegexNodeFlags.IsAlwaysNullable)
-               && info.Flags.HasFlag(RegexNodeFlags.IsAlwaysNullable)
-            then flags <- flags ||| RegexNodeFlags.IsAlwaysNullable
-        else ()
+        | Or(xs, info) -> inferOr xs
+        | LookAround _ ->
+            RegexNodeFlags.ContainsLookaround
+            ||| RegexNodeFlags.CanBeNullable
 
-    flags
+        | Loop(node, low, up, info) -> inferLoop (node, low, up)
 
+        | And(xs, info) -> inferAnd xs
 
-let mergeOrFlags(infos:RegexNodeFlags[])  =
+        | Concat(head, tail, info) -> inferConcat head tail
 
-    let mutable flags = RegexNodeFlags.None
+let ofFlagsAndStartset (flags, ss) = { Flags = flags; Startset = ss; }
+let createInfo (flags, ss, nodeId) = { Flags = flags; Startset = ss; }
 
-
-    let anyCanBeNull =
-        infos
-        |> Array.exists (fun v -> v.HasFlag(RegexNodeFlags.CanBeNullable))
-
-    if anyCanBeNull then
-        flags <- flags ||| RegexNodeFlags.CanBeNullable
-
-
-    let anyAlwaysNull =
-        infos
-        |> Array.exists (fun v -> v.HasFlag(RegexNodeFlags.IsAlwaysNullable))
-
-    if anyAlwaysNull then
-        flags <- flags ||| RegexNodeFlags.IsAlwaysNullable
-
-    if infos |> Array.exists (fun v -> v.HasFlag(RegexNodeFlags.ContainsLookaround)) then
-        flags <- flags ||| RegexNodeFlags.ContainsLookaround
-
-
-    {Flags = flags; Startset = Unchecked.defaultof<_>}
-
-
-let mergeAndInfos(infos:RegexNodeFlags[])  =
-    let mutable flags = RegexNodeFlags.None
-
-
-    let allCanBeNull =
-        infos
-        |> Array.forall (fun v -> v.HasFlag(RegexNodeFlags.CanBeNullable))
-
-    if allCanBeNull then
-        flags <- flags ||| RegexNodeFlags.CanBeNullable
-
-
-    let allAlwaysNull =
-        infos
-        |> Array.forall (fun v -> v.HasFlag(RegexNodeFlags.IsAlwaysNullable))
-
-    if allAlwaysNull then
-        flags <- flags ||| RegexNodeFlags.IsAlwaysNullable
-
-    if infos |> Array.exists (fun v -> v.HasFlag(RegexNodeFlags.ContainsLookaround)) then
-        flags <- flags ||| RegexNodeFlags.ContainsLookaround
-
-    {Flags = flags; Startset = Unchecked.defaultof<_>}
-
-
-let ofFlagsAndStartset(flags, ss) = {Flags = flags; Startset = ss}
-
-let ofEpsilon<'t>() = {
-    Flags =
-        RegexNodeFlags.IsAlwaysNullable
-        ||| RegexNodeFlags.CanBeNullable
-        ||| RegexNodeFlags.ContainsEpsilon
-    Startset = Unchecked.defaultof<'t>
-}
-
-
-let convertFromSetBDD(xs:NodeSet<'t>,solver: ISolver<'t>,info:RegexNodeInfo<BDD>): RegexNodeInfo<'t> =
-    let mutable ss = solver.Empty
-    if not (isNull xs) then
-        for x in xs do
-            ss <- solver.Or(ss,inferStartset1(solver)(x))
+let defaultInfo (solver: ISolver<'t>) : RegexNodeInfo<'t> =
     {
-        Flags = info.Flags
-        Startset = ss
+        Flags = Flag.None
+        Startset = solver.Full
     }
 
-
-let convertFromBDD(newStartset:'t2) (info:RegexNodeInfo<BDD>): RegexNodeInfo<'t2> =
-    {
-        Flags = info.Flags
-        Startset = newStartset
-    }
-
-
-
-let reverseFromSet(xs:NodeSet<'t>,solver: ISolver<'t>,info:RegexNodeInfo<'t>): RegexNodeInfo<'t> =
-    let mutable ss = solver.Empty
-
-    let mutable canHopFlag = RegexNodeFlags.CanSkip
-
-    if not (isNull xs) then
-        for x in xs do
-            ss <- solver.Or(ss,inferStartset1(solver)(x))
-            if not (canSkip x) then
-                canHopFlag <- canHopFlag &&& RegexNodeFlags.None
-
-    {
-        Flags = info.Flags ||| canHopFlag
-        Startset = ss
-    }
-
-
-
-let ofNegationInner(xs:RegexNode<'t> list,solver: ISolver<'t>,info:RegexNodeInfo<'b>): RegexNodeInfo<'t> =
-    let mutable ss = inferStartset1(solver)(xs)
-
-    let canhopflag =
-        if not(canSkip xs) then RegexNodeFlags.None else RegexNodeFlags.CanSkip
-
-    {
-        Flags = info.Flags ||| canhopflag
-        Startset = ss
-    }
-
-
-let convertLoop(xs:RegexNode<'t> list,solver: ISolver<'t>,info:RegexNodeInfo<'b>): RegexNodeInfo<'t> =
-    let mutable ss = inferStartset1(solver)(xs)
-    {
-        Flags = info.Flags
-        Startset = ss
-    }
-
-let inline updateLoopInfo(solver:ISolver<'t>,xs:RegexNode<'t> list,info:RegexNodeInfo<'t>,newlow:int) =
-    if newlow = 0 then
-        {
-          info with
-            Flags =
-                info.Flags ||| RegexNodeFlags.IsAlwaysNullable ||| RegexNodeFlags.CanSkip ||| RegexNodeFlags.CanBeNullable
-            Startset = solver.Or(inferStartset1 solver (xs), info.Startset)
-        }
-    else info
-
-
-[<return: Struct>]
-let rec (|DoesNotMatchStartset|_|) (s:ISolver<uint64>) (loc_pred:uint64) (node: RegexNode< uint64 > list) : unit voption =
-
-    let inline tailNoMatch (info:RegexNodeInfo<uint64>,loc_pred:uint64,tail: RegexNode< uint64 > list) =
-        if s.isElemOfSet(info.Startset,loc_pred) then ValueNone else
-        if info.Flags.HasFlag(RegexNodeFlags.CanBeNullable) then ValueNone else
-        match tail with
-        | DoesNotMatchStartset s loc_pred _ -> ValueSome()
-        | _ -> ValueNone
-
-    match node with
-    | [] -> ValueNone
-    | Or(info=info)::tail -> tailNoMatch(info,loc_pred,tail)
-    | And(info=info)::tail -> tailNoMatch(info,loc_pred,tail)
-    | Not(info=info)::tail -> tailNoMatch(info,loc_pred,tail)
-    | Loop(info=info)::tail -> tailNoMatch(info,loc_pred,tail)
-    | Singleton pred::tail -> if not (s.isElemOfSet(pred,loc_pred)) then ValueSome() else ValueNone
-    | LookAround _::_ -> ValueNone
-
-
-
-
-
+let convertLoop
+    (
+        xs: RegexNode<'t>,
+        solver: ISolver<'t>,
+        info: RegexNodeInfo<'b>
+    ) : RegexNodeInfo<'t> =
+    let startset = Startset.inferStartset solver xs
+    { Flags = info.Flags; Startset = startset; }

@@ -3,12 +3,9 @@ namespace rec Sbre.Types
 open System
 open System.Collections.Generic
 open System.Collections.Immutable
-open System.Runtime.CompilerServices
 open System.Text.RuntimeRegexCopy
 open System.Text.RuntimeRegexCopy.Symbolic
 open FSharp.Data.Adaptive
-open FSharp.Data.Traceable
-open Microsoft.FSharp.Reflection
 open Sbre
 open System.Diagnostics
 
@@ -18,9 +15,9 @@ open System.Diagnostics
 [<DebuggerDisplay("{DebugDisplay()}")>]
 [<Struct>]
 type Location = {
-    Input : string
-    mutable Position : int32
-    Reversed : bool
+    Input: string
+    mutable Position: int32
+    Reversed: bool
 }
 #if DEBUG
     with
@@ -34,77 +31,121 @@ type Location = {
 
 #endif
 
-[<Flags>]
+[<System.Flags>]
 type RegexNodeFlags =
-    | None =                0uy
-    | CanBeNullable =       1uy
-    | IsAlwaysNullable =    2uy
-    | ContainsLookaround =  4uy
-    | ContainsEpsilon =     8uy
-    | CanSkip =              16uy
+    | None = 0uy
+    | CanBeNullable = 1uy
+    | IsAlwaysNullable = 2uy
+    | ContainsLookaround = 4uy
+    | ContainsEpsilon = 8uy
+    | CanSkip = 16uy
+    | All = 31uy
 
 
 [<Struct>]
 type RegexNodeInfo<'tset> = {
-    mutable Flags : RegexNodeFlags
-    Startset : 'tset
-}
+    Flags: RegexNodeFlags
+    Startset: 'tset
+} with
+    member this.IsAlwaysNullable = this.Flags.HasFlag(RegexNodeFlags.IsAlwaysNullable)
+    member this.CanBeNullable = this.Flags.HasFlag(RegexNodeFlags.CanBeNullable)
+    member this.ContainsLookaround = this.Flags.HasFlag(RegexNodeFlags.ContainsLookaround)
 
 
 // TBD: experimenting with various other sets
-type NodeSet<'tset
-    when
-        'tset :> IComparable<'tset>
-    and 'tset :> IEquatable<'tset>
-    and 'tset : equality
-    and 'tset : comparison> =
-        Microsoft.FSharp.Collections.Set<
-            RegexNode<'tset> list>
+type NodeSet<'tset when 'tset :> IEquatable<'tset> and 'tset: equality > = ImmutableHashSet<RegexNode<'tset>>
 
 [<DebuggerDisplay("{ToStringHelper()}")>]
-// [<ReferenceEquality>]
-[<CustomEquality;CustomComparison>]
-type RegexNode<'tset
-    when
-        'tset :> IComparable<'tset>
-    and 'tset :> IEquatable<'tset>
-    and 'tset : equality
-    and 'tset : comparison
-    > =
+[<ReferenceEquality>]
+type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
     // ------------
-    // Concat is just a linked list of RegexNodes
-    // Epsilon is an empty linked list
-    | Or of                                 // RE|RE
-        xs:NodeSet<'tset>
-        * info:RegexNodeInfo<'tset>
-    | Singleton of set: 'tset               // 𝜓 predicate
-    | Loop of                               // RE{𝑚, 𝑛}
-        node:RegexNode<'tset> list * low: int * up: int
-        * info:RegexNodeInfo<'tset>
-    | And of                                // RE&RE ..
-        xs:NodeSet<'tset>
-        * info:RegexNodeInfo<'tset>
-
-    | Not of RegexNode<'tset> list          // ~RE
-        * info:RegexNodeInfo<'tset>
-    | LookAround of node:RegexNode<'tset> list  // anchors
-        * lookBack:bool * negate:bool
-
-
+    | Concat of  // RE.RE
+        head: RegexNode<'tset> *
+        tail: RegexNode<'tset> *
+        info: RegexNodeInfo<'tset>
+    | Epsilon // ε
+    | Or of  // RE|RE
+        nodes: NodeSet<'tset> *
+        info: RegexNodeInfo<'tset>
+    | Singleton of set: 'tset // 𝜓 predicate
+    | Loop of  // RE{𝑚, 𝑛}
+        node: RegexNode<'tset> *
+        low: int *
+        up: int *
+        info: RegexNodeInfo<'tset>
+    | And of  // RE&RE ..
+        nodes: NodeSet<'tset> *
+        info: RegexNodeInfo<'tset>
+    | Not of
+        node: RegexNode<'tset> *  // ~RE
+        info: RegexNodeInfo<'tset>
+    | LookAround of
+        node: RegexNode<'tset> *  // anchors
+        lookBack: bool *
+        negate: bool
 
 
 #if DEBUG
-    override this.ToString() : string =
-        let display (nodes:RegexNode<_> list) =
-            nodes |> List.map (fun v -> v.ToStringHelper()) |> String.concat ""
+    member this.StartsetPretty(solver: ISolver<_>, css: CharSetSolver) =
         match this with
-        | Or(xs,_) -> $"Or({xs})"
-            // $"Or({display x1}; {display x2}; {xs})"
+        | Or(info = info) -> solver.PrettyPrint(info.Startset, css)
+        | Singleton pred -> solver.PrettyPrint(pred, css)
+        | Loop(info = info) -> solver.PrettyPrint(info.Startset, css)
+        | And(info = info) -> solver.PrettyPrint(info.Startset, css)
+        | Not(info = info) -> solver.PrettyPrint(info.Startset, css)
+        | LookAround _ -> "FULL"
+        | Concat(info = info) -> solver.PrettyPrint(info.Startset, css)
+        | Epsilon -> "FULL"
+#endif
+
+    member inline this.ContainsLookaround =
+        match this with
+        | Or(info = info) -> info.ContainsLookaround
+        | Singleton _ -> false
+        | Loop(info = info) -> info.ContainsLookaround
+        | And(info = info) -> info.ContainsLookaround
+        | Not(info = info) -> info.ContainsLookaround
+        | LookAround _ -> true
+        | Concat(info = info) -> info.ContainsLookaround
+        | Epsilon -> false
+
+    member inline this.IsAlwaysNullable =
+        match this with
+        | Or(info = info) -> info.IsAlwaysNullable
+        | Singleton _ -> false
+        | Loop(info = info) -> info.IsAlwaysNullable
+        | And(info = info) -> info.IsAlwaysNullable
+        | Not(info = info) -> info.IsAlwaysNullable
+        | LookAround _ -> true
+        | Concat(info = info) -> info.IsAlwaysNullable
+        | Epsilon -> false
+
+    member inline this.CanNotBeNullable =
+        match this with
+        | Or(info = info) -> not (info.CanBeNullable)
+        | Singleton _ -> true
+        | Loop(info = info) -> not (info.CanBeNullable)
+        | And(info = info) -> not (info.CanBeNullable)
+        | Not(info = info) -> not (info.CanBeNullable)
+        | LookAround _ -> false
+        | Concat(info = info) -> not (info.CanBeNullable)
+        | Epsilon -> false
+
+
+#if DEBUG
+
+
+
+    override this.ToString() : string =
+        match this with
+        | Or(xs, _) -> $"Or({xs})"
         | Singleton _ -> this.ToStringHelper()
         | Loop _ -> this.ToStringHelper()
         | And _ -> this.ToStringHelper()
         | Not _ -> this.ToStringHelper()
         | LookAround _ -> this.ToStringHelper()
+        | Concat(h, t, info) -> h.ToStringHelper() + t.ToStringHelper()
+        | Epsilon -> "ε"
 
     member this.TagName() =
         match this with
@@ -114,14 +155,15 @@ type RegexNode<'tset
         | And _ -> "And"
         | Not _ -> "Not"
         | LookAround _ -> "Look"
-
+        | Concat _ -> "Concat"
+        | Epsilon -> "ε"
 
     member this.debuggerSolver =
         match Common.debuggerSolver with
         | None -> failwith "debugger solver not initialized"
         | Some solver -> solver
 
-    member this.isFull(node:RegexNode<'t>) =
+    member this.isFull(node: RegexNode<'t>) =
         match node with
         | Singleton v ->
             match box v with
@@ -132,64 +174,71 @@ type RegexNode<'tset
 
     /// used to display the node during debugging
     member this.ToStringHelper() =
-        let display (nodes: RegexNode<'tset> seq) = nodes |> Seq.map (fun f -> f.ToStringHelper())
-        let asString (nodes: RegexNode<'tset> seq) = nodes |> Seq.map (fun f -> f.ToStringHelper()) |> String.concat ""
+        let display(nodes: RegexNode<'tset>) = nodes.ToStringHelper()
+        let asString(nodes: RegexNode<'tset>) = nodes.ToStringHelper()
         let paren str = $"({str})"
 
-        let tostr (v: 'tset) =
+        let tostr(v: 'tset) =
             match debuggerSolver with
-            | None -> $"{v}L"
-            | Some db ->
+            | None ->
                 match box v with
                 | :? System.Text.RuntimeRegexCopy.Symbolic.BDD as v ->
-                    if v = debugcharSetSolver.Full then "⊤"
-                    elif debugcharSetSolver.IsEmpty(unbox v) then "⊥"
+                    debugcharSetSolver.PrettyPrint(v)
+                | _ -> $"{v}L"
+            | Some db ->
+                match box v with
+                | :? BDD as v ->
+                    if v = debugcharSetSolver.Full then
+                        "⊤"
+                    elif debugcharSetSolver.IsEmpty(unbox v) then
+                        "⊥"
                     else
                         match debugcharSetSolver.PrettyPrint(v) with
                         | @"[^\n]" -> "."
-                        | c when c.Length > 5 -> "φ" // dont expand massive sets
+                        | c when c.Length > 12 -> "φ" // dont expand massive sets
                         | c -> c
                 | _ ->
-                    if unbox v = db.Full then "⊤"
-                    elif db.IsEmpty(unbox v) then "⊥"
+                    if unbox v = db.Full then
+                        "⊤"
+                    elif db.IsEmpty(unbox v) then
+                        "⊥"
                     else
                         match db.PrettyPrint(unbox (box v), debugcharSetSolver) with
                         | @"[^\n]" -> "."
-                        | c when c.Length > 5 -> "φ" // dont expand massive sets
+                        | c when c.Length > 12 -> "φ" // dont expand massive sets
                         | c -> c
 
         match this with
         | Singleton v -> tostr v
-        | Or (items,_) ->
-            let setItems : string list =
-                if not (obj.ReferenceEquals(items,null)) then
-                    items |> Seq.map (display >> String.concat "") |> Seq.toList   else []
+        | Or(items, _) ->
+            let setItems: string list =
+                if not (obj.ReferenceEquals(items, null)) then
+                    items |> Seq.map display |> Seq.toList
+                else
+                    []
+
             let combinedList = setItems
-            combinedList
-            |> String.concat "|"
-            |> paren
-        | And (items,_) ->
-            let setItems : string list =
-                if not (obj.ReferenceEquals(items,null)) then
-                    items |> Seq.map (display >> String.concat "") |> Seq.toList   else []
-            setItems
-            |> String.concat "&"
-            |> paren
-        | Not (items,info) ->
-            let inner =
-                items
-                |> Seq.map (fun v -> v.ToStringHelper())
-                |> String.concat ""
+
+            combinedList |> String.concat "|" |> paren
+        | And(items, _) ->
+            let setItems: string list =
+                if not (obj.ReferenceEquals(items, null)) then
+                    items |> Seq.map display |> Seq.toList
+                else
+                    []
+
+            setItems |> String.concat "&" |> paren
+        | Not(items, info) ->
+            let inner = items.ToStringHelper()
+
             $"~({inner})"
-        | Loop (body, lower, upper, info) ->
-            let inner =
-                body
-                |> Seq.map (fun v -> v.ToStringHelper())
-                |> String.concat ""
+        | Loop(body, lower, upper, info) ->
+            let inner = body.ToStringHelper()
 
             let isStar = lower = 0 && upper = Int32.MaxValue
 
             let inner = $"{inner}"
+
             let loopCount =
                 if isStar then "*"
                 elif lower = 1 && upper = Int32.MaxValue then "+"
@@ -201,10 +250,8 @@ type RegexNode<'tset
             | false -> inner + loopCount
 
         | LookAround(body, lookBack, negate) ->
-            let inner =
-                body
-                |> Seq.map (fun v -> v.ToStringHelper())
-                |> String.concat ""
+            let inner = body.ToStringHelper()
+
             match lookBack, negate with
             // | true, true when this.isFull body.Head -> "\\A"
             // | false, true when this.isFull body.Head -> "\\z"
@@ -213,83 +260,12 @@ type RegexNode<'tset
             | true, true -> $"(?<!{inner})"
             | true, false -> $"(?<={inner})"
 
+        | Concat(h, t, info) -> h.ToStringHelper() + t.ToStringHelper()
+        | Epsilon -> "ε"
 
 
 
 #endif
-
-
-    // proper equality
-    member inline this.GetTagId () =
-        match this with
-        | Or _ -> 0
-        | Singleton _ -> 1
-        | Loop _ -> 2
-        | And _ -> 3
-        | Not _ -> 4
-        | LookAround _ -> 5
-
-
-    interface IComparable with
-        member this.CompareTo(other) =
-
-             let vother = other  :?> RegexNode<'tset>
-             if obj.ReferenceEquals(this,vother) then 0 else
-             match this,vother  with
-             | Loop (xs,low,up,info1), Loop (ys,low2,up2,info2) ->
-                 let x = compare low low2
-                 if x <> 0 then x else
-                 let x = compare up up2
-                 if x <> 0 then x else
-                 if obj.ReferenceEquals(xs,ys) then 0 else
-                 -1
-
-             | Singleton tset1, Singleton tset2 -> compare tset1 tset2
-             | Not (t1,info1), Not (t2,info2) ->
-                 let x = compare info1 info2
-                 if x <> 0 then x else
-                 compare t1 t2
-             | Or(xs, info1), Or(ys, info2)
-             | And(xs, info1), And(ys, info2) ->
-                 if obj.ReferenceEquals(xs,ys) then 0 else
-                 let x = compare info1 info2
-                 if x <> 0 then x else
-                 compare xs ys
-
-             | LookAround(R, lookBack, negate), LookAround(R2, back, negate2) ->
-                let x = compare lookBack back
-                if x <> 0 then x else
-                let x = compare negate negate2
-                if x <> 0 then x else
-                compare R R2
-             | _ -> compare (this.GetTagId()) (vother.GetTagId())
-
-    override this.Equals(other) =
-        if obj.ReferenceEquals(this, other) then true else
-        let tagcompare = compare (this.GetTagId()) ((other :?> RegexNode<'tset>).GetTagId())
-        if tagcompare <> 0 then false else
-
-        match this, (other :?> RegexNode<_>) with
-        | Or(xs,info), Or(ys,info2) -> info = info2 && setequals xs ys
-        | And(xs,info), And(ys,info2) ->
-            if obj.ReferenceEquals(xs,ys) then true else
-            info = info2
-            && setequals xs ys
-        | Not(x1,info), Not(x2,info2) -> x1 = x2
-        | Singleton(x1), Singleton(x2) -> x1 = x2
-        | Loop(xs,x12,x13,info), Loop(ys,x22,x23,info2) ->
-            x12 = x22 && x13 = x23 && xs = ys
-        | LookAround(x11,x12,x13), LookAround(x21,x22,x23) -> x12 = x22 && x13 = x23 && x11 = x21
-        | _ -> failwith "impossible case"
-    override this.GetHashCode() =
-        match this with
-        | Or(xs, info) -> LanguagePrimitives.GenericLimitedHash 3 xs
-        | Singleton foo -> Convert.ToInt32(foo)
-        | Loop(node, low, up, info) -> LanguagePrimitives.GenericLimitedHash 3 node
-        | And(xs, info) -> LanguagePrimitives.GenericLimitedHash 3 xs
-        | Not(xs, info) -> LanguagePrimitives.GenericLimitedHash 3 xs
-        | LookAround(node, lookBack, negate) -> LanguagePrimitives.GenericLimitedHash 3 node
-
 
 
 [<Flags>]
@@ -299,42 +275,50 @@ type StartsetFlags =
     | IsEmpty = 2uy
     | Inverted = 4uy
 
-[<Struct>]
+// [<Struct>]
 type StartsetChars = {
-    Flags : StartsetFlags
-    Chars : char[]
-}
-    with
-    static member Of (inverted, startset) = { Flags = inverted; Chars = startset }
+    Flags: StartsetFlags
+    Chars: char[]
+} with
+
+    static member Of(inverted, startset) = { Flags = inverted; Chars = startset }
 
 
-[<DebuggerDisplay("{DebugDisplay}")>]
-[<CLIMutable>]
-[<CustomEquality; NoComparison>]
-type ToplevelOR = {
-    mutable Node : RegexNode<uint64> list
-    mutable LastNullablePos : int
-}
-    with
-    static member Of (node:RegexNode<_> list, hasbeennull) = { Node = node; LastNullablePos = hasbeennull }
-    member this.SetNode (node) = this.Node <- node
-    member this.SetNullability (node) = this.LastNullablePos <- node
+type ToplevelORCollection() =
+    let lastNullableArray: ResizeArray<int> = ResizeArray()
+    let nodeArray: ResizeArray<RegexNode<uint64>> = ResizeArray()
 
-    override this.Equals(other) =
-        if obj.ReferenceEquals(this,other) then true else
-        this.Node = ((other :?> ToplevelOR).Node)
+    member this.Add(node: RegexNode<uint64>, nullableState: int) =
+        nodeArray.Add(node)
+        lastNullableArray.Add(nullableState)
+
+    member this.UpdateTransition
+        (
+            oldNode: RegexNode<uint64>,
+            node: RegexNode<uint64>,
+            nullableState: int
+        ) =
+        let oldIndex = nodeArray.IndexOf(oldNode)
+        nodeArray[oldIndex] <- node
+        lastNullableArray[oldIndex] <- nullableState
+
+    member this.BumpIsAlwaysNullable(oldNode: RegexNode<uint64>, nullableState: int) =
+        let oldIndex = nodeArray.IndexOf(oldNode)
+        lastNullableArray[oldIndex] <- nullableState
 
 
-    override this.GetHashCode() =
-        // TBD: this currently always collides,
-        // this could have a heuristic
-        0
+    member this.Remove(oldNode: RegexNode<uint64>) =
+        let oldIndex = nodeArray.IndexOf(oldNode)
+        nodeArray.RemoveAt(oldIndex)
+        lastNullableArray.RemoveAt(oldIndex)
 
-#if DEBUG
-    member this.DebugDisplay =
-        let currnode = this.Node |> Seq.map (fun v -> v.ToStringHelper()) |> String.concat ""
-        $"{this.LastNullablePos}, {currnode}"
-#endif
+    member this.GetLastNullPos(node: RegexNode<uint64>) =
+        let idx = nodeArray.IndexOf(node)
+        lastNullableArray[idx]
+
+    member this.Count = nodeArray.Count
+
+    member this.Items() = nodeArray
 
 
 
@@ -345,29 +329,68 @@ module Common =
     let inline head coll = Seq.head coll
     let inline tail coll = List.tail coll
     let inline iter f coll = Seq.iter f coll
-    let inline remove f (coll:Set<'t>) = coll.Remove(f)
-    let setequals set1 set2 = set1 = set2
-    let inline add f (coll:Set<'t>) = coll.Add(f)
-    let inline exists f (coll:Set<'t>) = coll |> Set.exists f
-    let inline forall f (coll:Set<'t>) = Set.forall f coll
-    let inline flatten (coll:Set<'t>) = Seq.collect id coll
-    let inline seqforall f (coll) = Seq.forall f coll
-    let inline singleton item = Set.singleton item
-    let inline of2 (x,y) = Set.ofSeq( seq{yield x;yield y})
-    let inline ofSeq coll = Set.ofSeq(coll)
-    let inline filter f (coll) = Set.filter f coll
-    let inline map f (coll) = Set.map f coll
+    // let setequals set1 set2 = set1 = set2
+    // let inline remove f (coll: Set<'t>) = coll.Remove(f)
+    // let inline add f (coll: Set<'t>) = coll.Add(f)
+    // let inline exists f (coll: Set<'t>) =
+    //     coll
+    //     |> Set.exists f
+    // let inline forall f (coll: Set<'t>) = Set.forall f coll
+    // let inline flatten (coll: Set<'t>) = Seq.collect id coll
+    let inline seqforall f coll = Seq.forall f coll
+    // let inline singleton item = Set.singleton item
+
+    // let inline of2(x, y) =
+    //     Set.ofSeq (
+    //         seq {
+    //             yield x
+    //             yield y
+    //         }
+    //     )
+
+    // let inline ofSeq coll = Set.ofSeq coll
+    // let inline filter f coll = Set.filter f coll
+    // let inline map f coll = Set.map f coll
+
 
     [<return: Struct>]
-    let inline (|Empty|_|) (node: Set<'tset>) =
+    let inline (|Empty|_|)(node: Set<'tset>) =
         match node.IsEmpty with
         | true -> ValueSome()
         | _ -> ValueNone
 
 
+    let equalityComparer =
+        { new IEqualityComparer<RegexNode<_>> with
+            member this.Equals(x, y) = obj.ReferenceEquals(x, y)
+            member this.GetHashCode(x) = LanguagePrimitives.PhysicalHash x
+        }
+
+
     // TBD: other implementations
-    // let inline singleton item = ImmutableHashSet.Create(equalityComparer,item=item)
-    // let inline of2 (x,y) = ImmutableHashSet.CreateRange(equalityComparer, seq{yield x;yield y})
-    // let inline ofSeq coll = ImmutableHashSet.CreateRange(equalityComparer,coll)
-    // let inline filter f (coll:ImmutableHashSet<_>) = ImmutableHashSet.CreateRange(equalityComparer,Seq.filter f coll)
-    // let inline map f (coll:ImmutableHashSet<'t>) = ImmutableHashSet.CreateRange(equalityComparer,Seq.map f coll)
+    let inline singleton item =
+        ImmutableHashSet.Create(equalityComparer, item = item)
+
+    let inline of2(x, y) =
+        ImmutableHashSet.CreateRange(
+            equalityComparer,
+            seq {
+                yield x
+                yield y
+            }
+        )
+
+    let inline ofSeq coll =
+        ImmutableHashSet.CreateRange(equalityComparer, coll)
+
+    let inline filter f (coll: ImmutableHashSet<RegexNode<'t>>) =
+        ImmutableHashSet.CreateRange(equalityComparer, Seq.filter f coll)
+
+    let inline map f (coll: ImmutableHashSet<RegexNode<'t>>) =
+        ImmutableHashSet.CreateRange(equalityComparer, Seq.map f coll)
+    // todo inline
+    let setequals(coll1: ImmutableHashSet<RegexNode<_>>, coll2: ImmutableHashSet<RegexNode<_>>) =
+        coll1.SetEquals(coll2)
+
+    let inline exists f (coll: ImmutableHashSet<'t>) = coll |> Seq.exists f
+    let inline forall f (coll: ImmutableHashSet<'t>) = coll |> Seq.forall f

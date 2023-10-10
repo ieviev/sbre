@@ -29,8 +29,9 @@
     <ItemGroup>
         <Compile Include="Common.fs" />
         <Compile Include="Types.fs" />
-        <Compile Include="Patterns.fs" />
+        <Compile Include="Pat.fs" />
         <Compile Include="Info.fs" />
+        <Compile Include="RegexBuilder.fs" />
         <Compile Include="Cache.fs" />
         <Compile Include="Startsets.fs" />
         <Compile Include="CachePatterns.fs" />

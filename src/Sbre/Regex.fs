@@ -3,280 +3,249 @@ module rec Sbre.Regex
 open System
 open System.Collections.Generic
 open System.Runtime.CompilerServices
+open FSharpx.Collections
 open Microsoft.FSharp.Core.CompilerServices
 open Sbre.Info
 open Sbre.Optimizations
-open Sbre.Patterns
+open Sbre.Pat
 open Sbre.Types
 open Sbre.Cache
-module P = Sbre.Patterns
+
+module P = Sbre.Pat
 module C = Sbre.Cache
 
 
 module Helpers =
-    let isNullablePosition(c: RegexCache< uint64 >,loc:inref<Location>, nodes: HashSet<ToplevelOR>) =
-        let mutable e = nodes.GetEnumerator()
+    let isNullablePosition
+        (
+            c: RegexCache<uint64>,
+            loc: inref<Location>,
+            // nodes: HashSet<ToplevelOR>
+            // nodes: ResizeArray<ToplevelOR>
+            nodes: ToplevelORCollection
+        )
+        : bool
+        =
+        let mutable e = nodes.Items().GetEnumerator()
         let mutable isNullable = false
+
         while e.MoveNext() && not isNullable do
             let curr = e.Current
-            match Regex.RegexNode.isNullable(c,loc,curr.Node) with
+
+            match Regex.RegexNode.isNullable (c, loc, curr) with
             | true -> isNullable <- true
             | _ -> ()
-        isNullable
 
+        isNullable
 
 
 module RegexNode =
 
-    #if DEBUG
-    let display (node: RegexNode<'tset> list) =
-        node |> Seq.map (fun v -> v.ToStringHelper()) |> String.concat ""
+#if DEBUG
+    let display(node: RegexNode<'tset>) = node.ToStringHelper()
 
-    let displayIndividual (node: RegexNode<'tset> list) =
+    let displayIndividual(node: RegexNode<'tset> list) =
         node |> Seq.map (fun v -> v.ToStringHelper()) |> String.concat "\n"
 
-    let displayTopOR (toplevelor: HashSet<ToplevelOR>) =
-        toplevelor |> Seq.map (fun v -> display v.Node ) |> String.concat "\n"
 
-    let displayTopORIndividual (toplevelor: HashSet<ToplevelOR>) =
-        toplevelor |> Seq.map (fun v -> displayIndividual v.Node ) |> String.concat "\n"
 
-    #endif
+#endif
 
     // 3.6 Reversal
 
     // Concat is done to a list
     //  (R·S)r = Sr·Rr
     // important identities are preserved with cache
-    let rec rev (cache:RegexCache<'tset>) (node: RegexNode<'tset>) =
-        let inline revList (nodes: RegexNode<'tset> list) =
-            match nodes with
-            | Cache.IsAnyStarList cache
-            | Cache.IsFalseList cache -> nodes
-            | [ _ ] -> List.map (rev cache) nodes
-            | _ -> nodes |> List.map (rev cache) |> List.rev
-
+    let rec rev (cache: RegexCache<'tset>) (node: RegexNode<'tset>) =
         match node with
-        | Cache.IsTrue cache
-        | Cache.IsFalse cache
-        | Cache.IsAnyStar cache -> node
-        | _ ->
-
-        match node with
-        | Singleton _ -> node // ψr = ψ
-
+        // ψr = ψ
+        | Singleton _ -> node
         // // (R|S)r = Rr|Sr
-        | Or(xs,info) ->
-            let xs' =
-                if isNull xs then Unchecked.defaultof<_> else
-                xs |> map revList
-            let info' = Info.reverseFromSet(xs',cache.Solver,info)
-            Or(xs',info')
+        | Or(xs, info) ->
+            let xs' = xs |> map (rev cache)
+
+            cache.Builder.mkOr (Seq.toArray xs')
         // R{m, n, b}r = Rr{m, n, b}
-        | Loop(xs, low, up,info) ->
-            let xs' = revList xs
-            let info' = Info.ofNegationInner(xs',cache.Solver,info)
-            Loop(xs', low, up, info')
+        | Loop(xs, low, up, info) ->
+            let xs' = (rev cache) xs
+            cache.Builder.mkLoop (xs', low, up)
         // B: EXTENDED REGEXES
         // (R & S)r = Rr & S r
-        | And(xs,info) ->
-            let xs' =
-                if isNull xs then Unchecked.defaultof<_> else
-                xs |> map revList
-            let info' = Info.reverseFromSet(xs',cache.Solver,info)
-            And(xs',info')
+        | And(xs, info) ->
+            let xs' = xs |> map (rev cache)
+
+            cache.Builder.mkAnd (Seq.toArray xs')
         // (~R)r = ~(Rr)
         | Not(xs, info) ->
-            let xs' = revList xs
-            let info' = Info.ofNegationInner(xs',cache.Solver,info)
-            Not(xs',info')
+            let xs' = (rev cache) xs
+            cache.Builder.mkNot (xs')
         // 3.7 Lookarounds
         // (?=R)r = (?<=Rr)
         | LookAround(node = node'; lookBack = false; negate = false) ->
-            LookAround(revList node', lookBack = true, negate = false)
+            LookAround((rev cache) node', lookBack = true, negate = false)
         // (?<=R)r = (?=Rr)
         | LookAround(node = node'; lookBack = true; negate = false) ->
-            LookAround(revList node', lookBack = false, negate = false)
+            LookAround((rev cache) node', lookBack = false, negate = false)
         // (?!R)r = (?<!Rr)
         | LookAround(node = node'; lookBack = false; negate = true) ->
-            LookAround(revList node', lookBack = true, negate = true)
+            LookAround((rev cache) node', lookBack = true, negate = true)
         // (?<!R)r = (?!Rr)
         | LookAround(node = node'; lookBack = true; negate = true) ->
-            LookAround(revList node', lookBack = false, negate = true)
+            LookAround((rev cache) node', lookBack = false, negate = true)
+
+        | Concat(head, tail, info) ->
+            let rev_tail =
+                let der = rev cache tail
+                if der = tail then tail else der
+
+            let rev_head =
+                let der = rev cache head
+                if der = head then head else der
+
+            // if
+            //     head = rev_head
+            //     && tail = rev_tail
+            // then
+            //     node
+            // else
+
+            cache.Builder.mkConcat2 (rev_tail, rev_head)
+        | Epsilon -> Epsilon
 
 
+    let rec isNullable(cache: RegexCache<uint64>, loc: Location, node: RegexNode<uint64>) : bool =
+        let inline Null node = isNullable (cache, loc, node)
 
-    let rec  isNullableSingle (cache: RegexCache<uint64>, loc: Location, node: RegexNode<uint64>) : bool =
-        let inline Null node = isNullable(cache,loc,node)
         let isMatch' loc body =
-            match matchEnd(cache, loc, ValueNone, body) with
+            match matchEnd (cache, loc, ValueNone, body) with
             | ValueNone -> false
             | ValueSome _ -> true
 
+
+#if DIAGNOSTIC
+        //logDiagnostic $"{RegexNode.display node}"
+#endif
         // 3.2 Nullability and anchor-contexts
         // epsilon is considered an empty list of nodes
         match node with
+        // Nullx () = true
+        | Epsilon -> true
         // Nullx (ψ) = false
         | Singleton _ -> false
         // Nullx (R) or Nullx (S)
-        | Or(info=Info.CanNotBeNullable) -> false
-        | Or(info=Info.IsAlwaysNullable) -> true
-        | Or(xs, info) ->
-            (if isNull xs then false else exists Null xs)
+        | Or(info = Info.CanNotBeNullable) -> false
+        | Or(info = Info.IsAlwaysNullable) -> true
+        | Or(xs, info) -> (if isNull xs then false else exists Null xs)
         // Nullx (R) and Nullx (S)
-        | And(info=Info.CanNotBeNullable) -> false
-        | And(info=Info.IsAlwaysNullable) -> true
-        | And(xs, info) ->
-            if isNull xs then true else
-            forall Null xs
+        | And(info = Info.CanNotBeNullable as info) -> false
+        | And(info = Info.IsAlwaysNullable as info) -> true
+        | And(xs, info) -> if isNull xs then true else forall Null xs
         // Nullx (R{m, n}) = m = 0 or Nullx (R)
-        | Loop (R, low, _,info) -> low = 0 || Null R
+        | Loop(info = Info.CanNotBeNullable as info) -> false
+        | Loop(info = Info.IsAlwaysNullable as info) -> true
+        | Loop(R, low, _, info) -> low = 0 || Null R
         // not(Nullx (R))
-        | Not(info=Info.CanNotBeNullable) -> false
-        | Not(info=Info.IsAlwaysNullable) -> true
-        | Not (node,info) -> not (Null node)
-        // 3.7 Lookarounds
-        | LookAround (body, lookBack, negate) ->
-            match lookBack, negate with
-            | false, false -> isMatch' loc body         // Nullx ((?=R)) = IsMatch(x, R)
-            | false, true -> not (isMatch' loc body)    // Nullx ((?!R)) = not IsMatch(x, R)
-            | true, false ->                            // Nullx ((?<=R)) = IsMatch(xr, Rr)
-                isMatch' (Location.rev loc) (List.rev (List.map (RegexNode.rev cache) body))
-            | true, true -> // Nullx ((?<!R)) = not IsMatch(x r, Rr)
-                let revloc = Location.rev loc
-                let revr = (List.rev (List.map (RegexNode.rev cache) body))
-                not (isMatch' revloc revr)
-
-
-
-    let rec isNullable (cache: RegexCache<uint64>, loc: Location, node: RegexNode<uint64> list) : bool =
-        let inline isNullable' node = isNullable(cache,loc,node)
-        let isMatch' loc body =
-            match matchEnd(cache, loc, ValueNone, body) with
-            | ValueNone -> false
-            | ValueSome _ -> true
-#if DIAGNOSTIC
-        // logDiagnostic $"{RegexNode.display nodes}"
-#endif
-        match node with
-        | Singleton _::_ -> false // Nullx (ψ) = false
-        | [] -> true // Nullx () = true
-        // 3.2 Nullability and anchor-contexts
-        | Or(info=Info.CanNotBeNullable)::tail -> false
-        | Or(info=Info.IsAlwaysNullable)::tail -> isNullable' tail
-        // Nullx (R) or Nullx (S)
-        | Or(xs,_)::tail ->
-             (not (obj.ReferenceEquals(xs,null)) && exists isNullable' xs)
-            && isNullable' tail
+        | Not(info = Info.CanNotBeNullable as info) -> false
+        | Not(info = Info.IsAlwaysNullable as info) -> true
+        | Not(node, info) -> not (Null node)
         // Nullx (R) and Nullx (S)
-        | And(info=Info.CanNotBeNullable)::tail -> false
-        | And(info=Info.IsAlwaysNullable)::tail -> isNullable' tail
-        | And(xs,_)::tail ->
-            let headNullable =
-                forall isNullable' xs
-            headNullable && isNullable' tail
-        | Loop (regexNode, lower, _,info)::tail ->               // Nullx (R{m, n, _}) = m = 0 or Nullx (R)
-            (lower = 0 || isNullable' regexNode) && isNullable' tail
-        | Not (node,info)::tail ->                          // not(Nullx (R))
-            not (isNullable' node) && isNullable' tail
+        | Concat(info = Info.CanNotBeNullable as info) -> false
+        | Concat(info = Info.IsAlwaysNullable as info) -> true
+        | Concat(head, tail, _) -> isNullable (cache, loc, head) && isNullable (cache, loc, tail)
         // 3.7 Lookarounds
-        | LookAround (body, lookBack, negate)::tail ->
-            let lookaroundIsNullable() =
-                match lookBack, negate with
-                | false, false -> isMatch' loc body         // Nullx ((?=R)) = IsMatch(x, R)
-                | false, true -> not (isMatch' loc body)    // Nullx ((?!R)) = not IsMatch(x, R)
-                | true, false ->                            // Nullx ((?<=R)) = IsMatch(xr, Rr)
-                    isMatch' (Location.rev loc) (List.rev (List.map (RegexNode.rev cache) body))
-                | true, true -> // Nullx ((?<!R)) = not IsMatch(x r, Rr)
-                    let revloc = Location.rev loc
-                    let revr = (List.rev (List.map (RegexNode.rev cache) body))
-                    not (isMatch' revloc revr)
-            lookaroundIsNullable() && isNullable' tail
+        | LookAround(body, lookBack, negate) ->
+            match lookBack, negate with
+            | false, false -> isMatch' loc body // Nullx ((?=R)) = IsMatch(x, R)
+            // Nullx ((?!R)) = not IsMatch(x, R)
+            | false, true ->
+                let ism = isMatch' loc body
+                not ism
 
+            | true, false -> // Nullx ((?<=R)) = IsMatch(xr, Rr)
+                let revnode = (RegexNode.rev cache body)
+                let revloc = (Location.rev loc)
+                let ism = isMatch' revloc revnode
+                ism
+            | true, true -> // Nullx ((?<!R)) = not IsMatch(x r, Rr)
+                let loc_rev = Location.rev loc
+                let R_rev = RegexNode.rev cache body
+                not (isMatch' loc_rev R_rev)
 
 
     // max(x,⊥) = max(⊥,x) = x
-    let inline maxPos (x: int voption, y: int voption) =
+    let inline maxPos(x: int voption, y: int voption) =
         match y with
         | ValueSome _ -> y
         | ValueNone -> x
 
     /// 3.3 Derivatives and MatchEnd: Null(fail)x(R) = if Nullx (R) then x else None
-    let isNullpos(cache:RegexCache<uint64>,loc:Location,node:RegexNode<uint64> list) =
-        match isNullable(cache,loc,node) with
+    let isNullpos(cache: RegexCache<uint64>, loc: Location, node: RegexNode<uint64>) =
+        match isNullable (cache, loc, node) with
         | true -> ValueSome(loc.Position)
         | false -> ValueNone
 
 
     /// uses .NET FindMatchOptimizations to find the next startset
-    let inline jumpNextLocation(cache: RegexCache<'t>, loc : byref<Location>) : bool =
+    let inline jumpNextLocation(cache: RegexCache<'t>, loc: byref<Location>) : bool =
         let mutable newPos = loc.Position
+
         let success =
             cache.Optimizations.TryFindNextStartingPositionLeftToRight(
                 loc.Input.AsSpan(),
                 &newPos,
                 loc.Position
             )
+
         if success then
             loc.Position <- newPos
             true
 
-        else false
+        else
+            false
 
 
-    /// 3.3 Derivatives and MatchEnd: if Final(x) then Nullx (R) else max(Nullx (R), MatchEnd(x+1, Derx (R)))
+    let tryMakeTransition(cache: RegexCache<_>, loc: Location, currNode: RegexNode<_>, loc_pred) =
+        createDerivative (cache, loc, loc_pred, currNode)
+
+
+    //     /// 3.3 Derivatives and MatchEnd: if Final(x) then Nullx (R) else max(Nullx (R), MatchEnd(x+1, Derx (R)))
     let matchEnd
-        (cache: RegexCache<uint64>,
-        initialLocation: Location,
-        initialMax: int voption,
-        initialNode: RegexNode<uint64> list)
-        : int voption =
+        (
+            cache: RegexCache<uint64>,
+            initialLocation: Location,
+            initialMax: int voption,
+            initialNode: RegexNode<uint64>
+        )
+        : int voption
+        =
 
         let mutable loc = initialLocation
         let mutable currentMax = initialMax
         // current active branches, without implicit dotstar node
-        let mutable toplevelOr = HashSet<ToplevelOR>()
-        let pendingRemoval = ResizeArray()
-        let pendingAddition = ResizeArray()
-
+        let mutable toplevelOr = ToplevelORCollection()
+        let tempArray = ResizeArray()
         let mutable looping = true
         let mutable foundmatch = false
 
-
         // initial node
         let initialIsDotStarred = cache.IsImplicitDotStarred initialNode
-        let initialWithoutDotstar =
-            if initialIsDotStarred then initialNode.Tail else initialNode
-        let initialIsNegation =
-            match initialWithoutDotstar with
-            | Not(_)::_ -> true
-            | _ -> false
 
-        let mutable initialContainsLookarounds =
-            let mutable ancs = false
-            let e = (initialWithoutDotstar :>seq<_>).GetEnumerator()
-            while not ancs && e.MoveNext() do
-                match e.Current with
-                | Or(info=Info.ContainsLookaround) -> ancs <- true
-                | And(info=Info.ContainsLookaround) -> ancs <- true
-                | Not(info=Info.ContainsLookaround) -> ancs <- true
-                | LookAround(_) -> ancs <- true
-                | Loop(node=R) ->
-                    for n in R do
-                        match n with
-                        | Or(info=Info.ContainsLookaround) -> ancs <- true
-                        | And(info=Info.ContainsLookaround) -> ancs <- true
-                        | Not(info=Info.ContainsLookaround) -> ancs <- true
-                        | LookAround(_) -> ancs <- true
-                        | _ -> ()
-                | _ -> ()
-            ancs
+        let initialWithoutDotstar =
+            if initialIsDotStarred then
+                cache.InitialPatternWithoutDotstar
+            else
+                initialNode
+
+
+        let startsetPredicate =
+            Info.Startset.inferStartset (cache.Solver) (initialWithoutDotstar)
 
         if not initialIsDotStarred then
-            let branchNullPos = if isNullable(cache,loc,initialNode) then loc.Position else -1
-            toplevelOr.Add(ToplevelOR.Of(initialNode,branchNullPos)) |> ignore
+            let branchNullPos = if isNullable (cache, loc, initialNode) then loc.Position else -1
+            // ToplevelOR.Of(initialNode, branchNullPos)
+            toplevelOr.Add(initialNode, branchNullPos) |> ignore
 
-        let inline exitWith (pos: int voption) =
+        let inline exitWith(pos: int voption) =
             currentMax <- pos
             looping <- false
 
@@ -285,287 +254,472 @@ module RegexNode =
             // 3.3 Derivatives and MatchEnd optimizations
             match Location.isFinal loc || foundmatch with
             | true ->
-                let isnullable = (fun v -> isNullable(cache,loc,v) )
+                let isnullable = (fun v -> isNullable (cache, loc, v))
+
                 match toplevelOr with
-                | ToplevelOrNullable isnullable -> exitWith(ValueSome loc.Position)
-                | _ -> exitWith(currentMax)
+                | ToplevelOrNullable isnullable -> exitWith (ValueSome loc.Position)
+                | _ -> exitWith (currentMax)
 
             | false ->
 
-            let locationPredicate = cache.MintermForLocation(loc)
+                let locationPredicate = cache.MintermForLocation(loc)
 
-            let createDerivatives() =
-                // current active branches
-                if toplevelOr.Count > 0 then
-                    for curr in toplevelOr do
-                        match createDerivative(cache,loc,locationPredicate,curr.Node) with
-                        | (Cache.IsFalseList cache as derivative) ->
-                            if currentMax.IsSome && curr.LastNullablePos > -1 then
-                                // a pattern successfully matched and turned to false,
-                                // so we can return match
-                                foundmatch <- true
-                            else
-                                pendingRemoval.Add(curr)
+
+                let createDerivatives() =
+                    // current active branches
+                    if toplevelOr.Count > 0 then
+                        tempArray.Clear()
+                        tempArray.AddRange(toplevelOr.Items())
+
+                        // for curr in toplevelOr.Items() do
+                        for curr in tempArray do
+                            let derivative = tryMakeTransition (cache, loc, curr, locationPredicate)
+
+
+                            match derivative with
+                            | (Cache.IsFalse cache as derivative) ->
+                                if
+                                    currentMax.IsSome
+                                    // && toplevelOr.GetLastNullPos(curr) curr.LastNullablePos > -1
+                                    && toplevelOr.GetLastNullPos(curr) > -1
+                                then
+                                    // a pattern successfully matched and turned to false,
+                                    // so we can return match
+                                    foundmatch <- true
+                                else
+                                    toplevelOr.Remove(curr)
+                            // pendingRemoval.Add(curr)
+                            | deriv ->
+
+                                if obj.ReferenceEquals(curr, deriv) then
+                                    if curr.CanNotBeNullable then
+                                        ()
+                                    elif curr.IsAlwaysNullable then
+                                        toplevelOr.BumpIsAlwaysNullable(curr, loc.Position + 1)
+                                    else
+                                        let newNullablePos =
+                                            if isNullable (cache, loc, deriv) then
+                                                loc.Position + 1
+                                            else
+                                                // in the case of a negation, we can return match
+                                                let lastNullPos = toplevelOr.GetLastNullPos(curr)
+
+                                                match deriv with
+                                                // | Not(_) when curr.LastNullablePos > -1 ->
+                                                | Not(_) when lastNullPos > -1 -> foundmatch <- true
+                                                | _ -> ()
+
+                                                lastNullPos
+
+                                        toplevelOr.UpdateTransition(curr, deriv, newNullablePos)
+                                else
+
+                                    let currloc = loc
+
+                                    let newNullablePos =
+                                        if isNullable (cache, loc, deriv) then
+                                            loc.Position + 1
+                                        else
+                                            // in the case of a negation, we can return match
+                                            let lastNullPos = toplevelOr.GetLastNullPos(curr)
+
+                                            match deriv with
+                                            // | Not(_) when curr.LastNullablePos > -1 ->
+                                            | Not(_) when lastNullPos > -1 -> foundmatch <- true
+                                            | _ -> ()
+
+                                            lastNullPos
+
+                                    toplevelOr.UpdateTransition(curr, deriv, newNullablePos)
+                    // let inst = ToplevelOR.Of(deriv, newNullablePos)
+
+                    // if toplevelOr.Contains(inst) then
+                    // pendingRemoval.Add(curr)
+                    // pendingAddition.Add(inst)
+                    // else
+                    //     curr.Node <- deriv // mutate directly if non-duplicate
+
+
+                    // create implicit dotstar derivative only if startset matches
+                    if
+                        cache.Solver.isElemOfSet (startsetPredicate, locationPredicate)
+                        && initialIsDotStarred
+                    then
+
+
+                        let newNode =
+                            tryMakeTransition (cache, loc, initialWithoutDotstar, locationPredicate)
+
+                        match newNode with
+                        | Cache.IsFalse cache -> ()
                         | deriv ->
-                            let currloc = loc
-                            if isNullable(cache,loc,deriv) then
-                                curr.LastNullablePos <- loc.Position + 1
-                            let inst = ToplevelOR.Of(deriv,curr.LastNullablePos)
-                            if toplevelOr.Contains(inst) then
-                                pendingRemoval.Add(curr)
-                                pendingAddition.Add(inst)
-                            else
-                                curr.Node <- deriv // mutate directly if non-duplicate
+                            let branchNullPos =
+                                if isNullable (cache, loc, deriv) then loc.Position else -1
 
-                // create implicit dotstar derivative only if startset matches
-                if initialIsDotStarred && cache.IsStartSetPredicate(locationPredicate) then
-                    match createDerivative(cache,loc,locationPredicate,initialWithoutDotstar) with
-                    | Cache.IsFalseList cache -> ()
-                    | deriv ->
-                        let branchNullPos = if isNullable(cache,loc,deriv) then loc.Position else -1
-                        toplevelOr.Add(ToplevelOR.Of(deriv,branchNullPos)) |> ignore
+                            toplevelOr.Add(deriv, branchNullPos) |> ignore
 
 
-            if initialIsDotStarred then
-                ()
+                createDerivatives ()
 
-            createDerivatives()
+                // for node in pendingRemoval do
+                //     toplevelOr.Remove(node)
+                //     |> ignore
+                //
+                // pendingRemoval.Clear()
+                //
+                // for node in pendingAddition do
+                //     toplevelOr.Add(node)
+                //     |> ignore
+                //
+                // pendingAddition.Clear()
 
-            for node in pendingRemoval do
-                toplevelOr.Remove(node) |> ignore
-            pendingRemoval.Clear()
-            for node in pendingAddition do
-                toplevelOr.Add(node) |> ignore
-            pendingAddition.Clear()
-            // found successful match - exit early
-            if foundmatch = true then
-                ()
-            else
-
-            loc.Position <- Location.nextPosition loc
-
-            #if DIAGNOSTIC
-            if loc.Position < 500 then
-                let locationstr = if Location.isFinal loc then "" else loc.DebugDisplay()
-                logDiagnostic ($"pos:{locationstr}\n{displayTopOR toplevelOr}" )
-
-            #endif
-
-            if toplevelOr.Count = 0 then
-                if not initialIsDotStarred then looping <- false
+                // found successful match - exit early
+                if foundmatch = true then
+                    ()
                 else
-                    let oldLocation = loc.Position
-                    // this uses .net optimizations to find the next startset
-                    // could be adjusted for & and ~ specifically
-                    if jumpNextLocation(cache,&loc) then
 
-                        if oldLocation = loc.Position then
-                            if not (cache.IsStartSetPredicate(locationPredicate))
-                               // && toplevelOr |> seqforall (Info.canHop)
-                            then
-                                Optimizations.tryJumpToStartset(cache,&loc,&toplevelOr)
-                            // else looping <- false
+                    loc.Position <- Location.nextPosition loc
+
+#if DIAGNOSTIC
+                    // if loc.Position < 500 then
+                    //     let locationstr =
+                    //         if Location.isFinal loc then
+                    //             ""
+                    //         else
+                    //             loc.DebugDisplay()
+                    //
+                    //     logDiagnostic ($"pos:{locationstr}\n{displayTopOR toplevelOr}")
+#endif
+
+                    if toplevelOr.Count = 0 then
+                        if not initialIsDotStarred then
+                            looping <- false
+                        else
+                            let oldLocation = loc.Position
+                            Optimizations.tryJumpToStartset (cache, &loc, &toplevelOr)
                     else
-                        // .net optimizations did not find a match
-                        // but in the case of negation this means we have a match
-                        if initialIsNegation then
-                            exitWith(ValueSome(Location.endPos loc))
-                        else looping <- false
-            else
+                        if Helpers.isNullablePosition (cache, &loc, toplevelOr) then
+                            currentMax <- ValueSome(loc.Position)
 
-            let currPosNullable = Helpers.isNullablePosition(cache,&loc,toplevelOr)
-
-            if Helpers.isNullablePosition(cache,&loc,toplevelOr) then
-                currentMax <- ValueSome(loc.Position)
-
-            if not (cache.IsStartSetPredicate(locationPredicate)) then
-                ()
-                // if toplevelOr |> seqforall (Info.canHop) then
-                Optimizations.tryJumpToStartset(cache,&loc,&toplevelOr)
+                        if
+                            not (cache.Solver.isElemOfSet (startsetPredicate, locationPredicate))
+                        then
+                            Optimizations.tryJumpToStartset (cache, &loc, &toplevelOr)
 
 
         currentMax
 
 
-/// creates derivative without returning initial dot-starred pattern
-let rec createDerivative (
-     c: RegexCache<uint64>,
-     loc: Location,
-     loc_pred: uint64,
-     nodes: RegexNode<uint64> list)
-    : RegexNode<uint64> list =
-    let inline Der newNode = createDerivative(c,loc,loc_pred,newNode) //
 
-    match nodes with
-    | IsAnyStar c::DoesNotMatchStartset c.Solver loc_pred -> nodes
+let refEqualsComparer: IEqualityComparer<struct ('t * RegexNode<'t>)> =
+    { new IEqualityComparer<struct (^t * RegexNode< ^t >)> with
+        member this.Equals((x1, x2), (y1, y2)) = obj.ReferenceEquals(x2, y2)
+        member this.GetHashCode((x, y)) = 0
+    }
+
+let equalsComparer: IEqualityComparer<struct ('t * RegexNode<'t>)> =
+    { new IEqualityComparer<struct (^t * RegexNode< ^t >)> with
+        member this.Equals((x1, x2), (y1, y2)) = obj.Equals(x2, y2)
+        member this.GetHashCode((x, y)) = 0
+    }
+
+
+let set1: HashSet<struct (uint64 * RegexNode<uint64>)> =
+    HashSet(comparer = refEqualsComparer)
+
+let set2: HashSet<struct (uint64 * RegexNode<uint64>)> =
+    HashSet(comparer = equalsComparer)
+
+/// creates derivative without returning initial dot-starred pattern
+let rec createDerivative
+    (
+        c: RegexCache<uint64>,
+        loc: Location,
+        loc_pred: uint64,
+        node: RegexNode<uint64>
+    )
+    : RegexNode<uint64>
+    =
+    let inline Der newNode = createDerivative (c, loc, loc_pred, newNode) //
+
+
+    match c.Builder.DerivativeCache.TryGetValue(struct (loc_pred, node)) with
+    | true, v ->
 
 #if DIAGNOSTIC
-    // | _ when (logDiagnostic $"{RegexNode.display nodes}";true ) = false -> failwith "todo"
+        // // diagnose reference equality
+        // let re = refEq node v
+        // let eq = node = v
+        // logDebug $"cache: {node.ToStringHelper()}-{loc_pred} -> {v.ToStringHelper()}"
+        // logDebug $"cache-eq: ref:{re} eq:{eq}"
+        // // if re <> eq then
+        // //     logDebug $"not eq!: {node.ToStringHelper()}-{loc_pred} -> {v.ToStringHelper()}"
+        // //     failwith "debug:"
 #endif
-    // 3.3: Derx (R) = ⊥ if R ∈ ANC or R = ()
-    | [LookAround _] | [] ->  c.FalseList
-    // ----------------
+#if DEBUG
+        // // check for cached duplicates
+        if not (refEq node v) && (node = v) then
+            let phy1 = LanguagePrimitives.PhysicalHash node
+            let phy2 = LanguagePrimitives.PhysicalHash v
+            c.Builder.DerivativeCache[(struct (loc_pred, node))] <- node
+            failwith $"dupl cache: {node.ToStringHelper()}, {c.PrettyPrintMinterm(loc_pred)}"
+            node
+        else
+#endif
+        v
+    | _ ->
 
-    // 3.3: Der s⟨i⟩ (ψ) = if si ∈ [[ψ]] then () else ⊥
-    | Singleton pred::tail ->
-        if c.IsValidPredicate(pred,loc_pred)
-        then tail
-        else c.FalseList
-
-
-
-    // 3.3: Derx (R{m, n}) =
-    // if m=0 or Null ∀(R)=true or Nullx (R)=false
-    // then Derx (R)·R{m −1, n −1}
-    // else Derx (R·R{m −1, n −1})
-    | Loop(R, low, up,info) as head :: tail ->
-
-        let inline decr x = if x = Int32.MaxValue || x = 0 then x else x - 1
-
-        // add tail derivative if concat is nullable
-        let inline S'() = Der tail
-
-        // this does case 1 in a single step
-        // returns Derx (R)·R{m −1, n −1} :: tail
-        let makeR_S newHead =
-            match newHead, (decr low, decr up) with
-            | IsFalseList c, _ -> newHead
-            | [], LoopKind LoopKind.EmptyLoop -> tail           // no remainder, just tail
-            | [], LoopKind LoopKind.Single -> tryAppend c R  tail          // single R remaining
-            | [], LoopKind LoopKind.Star ->
-                if low = 0 then nodes        // returns original pattern
-                else Loop(R, 0, up,info) :: tail // turned + to *
-            | [], (LoopKind LoopKind.Normal as (newlow,newup)) -> // decrement loop by 1
-                Loop(R, newlow, newup,updateLoopInfo(c.Solver,R,info,newlow)) ::tail
-            | _, LoopKind LoopKind.EmptyLoop -> tryAppend c newHead tail
-            | _, LoopKind LoopKind.Single -> tryAppend c (tryAppend c newHead R) tail
-            | _, LoopKind LoopKind.Star ->
-                if low = 0 then tryAppend c newHead nodes
-                else newHead @ Loop(R, 0, up, info ) :: tail
-            | _, (LoopKind LoopKind.Normal as (newlow,newup)) ->
-                newHead @ Loop(R, newlow, newup, updateLoopInfo(c.Solver,R,info,newlow)) ::tail
-            | _ -> failwith "impossible pattern"
-
-        // this does case 2
-        // returns Derx (R·R{m −1, n −1}) :: tail
-        let makeCase2(R: RegexNode<uint64> list) =
-            let loopremainder =
-                match decr low, decr up with
-                | LoopKind LoopKind.EmptyLoop -> []
-                | LoopKind LoopKind.Single -> R
-                | LoopKind LoopKind.Star -> if low = 0 then [head] else [Loop(R, 0, up,info )]
-                | LoopKind LoopKind.Normal as (newlow,newup) -> [Loop(R, newlow, newup, updateLoopInfo(c.Solver,R,info,newlow) )]
-                | _ -> failwith "impossible pattern"
-
-            tryAppend c (Der(tryAppend c R loopremainder)) tail
+        // DEBUG duplicates
+        // let cachedItems = c.Builder.DerivativeCache
+        // cachedItems |> Seq.iter (fun v -> set1.Add(v.Key) |> ignore )
+        // cachedItems |> Seq.iter (fun v -> set2.Add(v.Key) |> ignore )
+        // if set1.Count <> set2.Count then
+        //     let set1Array = set1 |> Seq.toArray
+        //     let removedSet =
+        //         set2
+        //         |> Seq.iter (fun v ->
+        //             set1.Remove(v) |> ignore
+        //         )
+        //     let struct (_,e1) = set1Array[72]
+        //     let struct (_,e2) = set1Array[74]
+        //     let eq1 = obj.Equals(e1,e2)
+        //     let eq2 = obj.ReferenceEquals(e1,e2)
+        //
+        //     let e2 = set1 |> Seq.skip 1 |> Seq.head
+        //
+        //     failwith "debug"
+        // let asdasd = 1
 
 
-        if not tail.IsEmpty && RegexNode.isNullableSingle(c,loc,head) then
 
-            let R_S =
-                // case 1 if low = 0 or always nullable, Derx (R)·R{m −1, n −1}
-                if low = 0 then
-                    (makeR_S(Der R))
-                // case 2 otherwise, Derx (R·R{m −1, n −1}) :: tail
+        let result =
+            match node with
+            // major optimization
+            | Cache.ReturnsInitialDerivative c loc loc_pred -> node
+
+            // 3.3: Derx (R) = ⊥ if R ∈ ANC or R = ()
+            | LookAround _
+            | Epsilon -> c.False
+            // ----------------
+
+            // 3.3: Der s⟨i⟩ (ψ) = if si ∈ [[ψ]] then () else ⊥
+            | Singleton pred -> if c.IsValidPredicate(pred, loc_pred) then Epsilon else c.False
+
+            // 3.3: Derx (R{m, n}) =
+            // if m=0 or Null ∀(R)=true or Nullx (R)=false
+            // then Derx (R)·R{m −1, n −1}
+            // else Derx (R·R{m −1, n −1})
+            | Loop(R, low, up, info) as head ->
+
+                let inline decr x =
+                    if x = Int32.MaxValue || x = 0 then x else x - 1
+
+
+                let case1 =
+                    low = 0
+                    || info.IsAlwaysNullable = true
+                    || not (RegexNode.isNullable (c, loc, R))
+
+
+                match case1 with
+                | true ->
+                    // Derx (R)·R{m −1, n −1, l}
+                    c.Builder.mkConcat2 (Der R, c.Builder.mkLoop (R, decr low, decr up))
+
+
+                | false ->
+                    // Derx (R·R{m −1, n −1, l})
+                    c.Builder.mkConcat2 (
+                        R,
+                        // Cache.mkLoop (c, R, decr low, decr up)
+                        c.Builder.mkLoop (R, decr low, decr up)
+                    )
+                    |> Der
+
+            // 3.3: Derx (R | S) = Derx (R) | Derx (S)
+            | Or(xs, info) as head ->
+                let ders =
+                    xs |> Seq.sortBy LanguagePrimitives.PhysicalHash |> Seq.map Der |> Seq.toArray
+
+                let newOr = c.Builder.mkOr (ders)
+
+                let isSameDerivative() =
+                    match newOr with
+                    | Or(newxs, _) ->
+                        xs.Count = newxs.Count && (xs, newxs) ||> Seq.forall2 (fun v1 v2 -> v1 = v2)
+                    | _ -> false
+
+
+                // if isSameDerivative() then node else newOr
+
+#if DEBUG
+                // TODO: force reference equals
+                if not (obj.ReferenceEquals(newOr, node)) && isSameDerivative () then
+                    let h1 = LanguagePrimitives.PhysicalHash newOr
+                    let h2 = LanguagePrimitives.PhysicalHash head
+                    failwith $"TODO: {head.ToStringHelper()}"
                 else
-                    makeCase2(R)
+#endif
 
-            let S_ = S'() // alt tail derivative because R is nullable
-            mkOr2(c,S_,R_S)
+                newOr
 
+            // B: EXTENDED REGEXES
+            // Derx (R & S) = Derx (R) & Derx (S)
+            | And(xs, info) as head ->
+                let ders = xs |> Seq.map Der |> Seq.toArray
 
-        else
-            // always case 1, Derx (R)·R{m −1, n −1}
-            let R'S = makeR_S(Der R)
+                let newAnd = c.Builder.mkAnd (ders)
 
+                let isSameDerivative() =
+                    match newAnd with
+                    | And(newXs, _) ->
+                        xs.Count = newXs.Count && (xs, newXs) ||> Seq.forall2 (fun v1 v2 -> v1 = v2)
+                    | _ -> false
 
-            R'S
-
-    // 3.3: Derx (R | S) = Derx (R) | Derx (S)
-    | Or (xs,info) as head::tail ->
-        // add concat tail if nullable
-        let S'() = Der tail
-
-        let newset = Set.empty
-
-        let inline DerIfNeeded (node) =
-            match node with
-            | IsAnyStar c::DoesNotMatchStartset c.Solver loc_pred -> node
-            | _ -> Der node
-
-        let derivatives =
-            seq {
-            for x in xs do
-                match x with
-                | [Or (xs,info)] ->
-                    yield! xs |> map DerIfNeeded
-                | _ -> yield DerIfNeeded x
-            }
+#if DEBUG
+                // TODO: force reference equals
+                if not (obj.ReferenceEquals(newAnd, head)) && isSameDerivative () then
+                    failwith $"DEBUG: duplicate derivative in: {head}"
+#endif
+                newAnd
 
 
-        let R'S = tryAppend c (Cache.mkOrOfSeq(c,ofSeq derivatives))  tail
+            // Derx(~R) = ~Derx (R)
+            | Not(inner, info) ->
+                let innerDerivative = Der inner
 
-        if
-            not tail.IsEmpty
-            && info.Flags.HasFlag(RegexNodeFlags.CanBeNullable)
-            && (info.Flags.HasFlag(RegexNodeFlags.IsAlwaysNullable) || RegexNode.isNullableSingle(c,loc,head)) then
-            let S' = S'()
-            Cache.mkOr2(c,S',R'S)
+                if refEq innerDerivative inner then
+                    node
+                else
 
-        else
-            R'S
-    // B: EXTENDED REGEXES
-    // Derx (R & S) = Derx (R) & Derx (S)
-    | And (xs,info) as head::tail ->
-        let inline isNullable node = RegexNode.isNullable(c,loc,node)
-        // add concat tail if nullable
-        let S'() = Der tail
+                    let newNot = c.Builder.mkNot (innerDerivative)
 
-        let inline DerIfNeeded (node) =
-            match node with
-            | IsAnyStar c::DoesNotMatchStartset c.Solver loc_pred -> node
-            | _ -> Der node
-
-        let derivatives =
-            xs
-            |> map DerIfNeeded
-
-        if derivatives |> Set.exists (fun v -> c.IsFalseList v) then c.FalseList else
+                    let isSameDerivative() =
+                        match newNot with
+                        | Not(newInner, _) ->
+                            let v = inner = newInner
+                            v
+                        | _ -> false
 
 
-        let R'S = (Cache.mkAndOfSeq c isNullable (derivatives) tail)
+#if DEBUG
+                    // TODO: force reference equals
+                    if not (obj.ReferenceEquals(newNot, node)) && isSameDerivative () then
+                        // node
+                        failwith $"DEBUG: duplicate derivative in: {node}"
+                    else
+#endif
 
-        if
-            not tail.IsEmpty
-            && info.Flags.HasFlag(RegexNodeFlags.CanBeNullable)
-            && (info.Flags.HasFlag(RegexNodeFlags.IsAlwaysNullable) || RegexNode.isNullableSingle(c,loc,head)) then
-            let S' = S'()
-            Cache.mkOr2(c, S', R'S)
-        else
-            R'S
+                    newNot
 
-    | Not (R,info) as head::tail ->
+            // 3.3: Derx (R·S) = if Nullx (R) then Derx (R)·S|Derx (S) else Derx (R)·S
+            | Concat(head, tail, info) ->
+                let R' = Der head
 
-        let S'() = Der tail
+                // Derx (R)·S
+                let R'S =
+                    // e.g. head is T*
+                    match R' with
+                    | Epsilon -> tail
+                    | _ when obj.ReferenceEquals(R', head) -> node
+                    | _ ->
+                        let newConcat = c.Builder.mkConcat2 (R', tail)
 
-        let R'S =
-            match Der R with
-            | IsFalseList c -> (c.AnyStar :: tail)
-            | deriv -> tryAppend (c) (mkNot(c,deriv)) (tail)
+                        let isSameDerivative() =
+                            match newConcat with
+                            | Concat(newHead, newTail, _) ->
+                                let v = newHead = head
+                                let v2 = newTail = tail
+                                v && v2
+                            | _ -> false
 
-        if not tail.IsEmpty && RegexNode.isNullableSingle(c,loc,head) then
-            let S' = S'()
-            mkOr2(c, S', R'S)
-        else
-            R'S
+#if DEBUG
+                        // TODO: force reference equals
+                        if not (obj.ReferenceEquals(newConcat, node)) && isSameDerivative () then
+                            failwith $"DEBUG: duplicate derivative in: {node}"
+#endif
 
 
-    // 3.3: Derx (R·S) = if Nullx (R) then Derx (R)·S|Derx (S) else Derx (R)·S
-    // the only way to get over a lookaround is if it's nullable
-    | LookAround _ as head::tail ->
-        let isnullable = RegexNode.isNullableSingle(c,loc,head)
-        if isnullable then Der tail
-        else c.FalseList
 
-    | _ :: _ -> failwith $"not implemented derivative for: {nodes}"
+                        newConcat
 
+
+                if RegexNode.isNullable (c, loc, head) then
+                    let S' = Der(tail)
+
+                    let newConcat = c.Builder.mkOr [| R'S; S' |]
+
+                    let isSameDerivative() =
+                        match newConcat with
+                        | Concat(newHead, newTail, _) -> newHead = head && newTail = tail
+                        | _ -> false
+
+#if DEBUG
+                    // TODO: force reference equals
+                    if not (obj.ReferenceEquals(newConcat, node)) && isSameDerivative () then
+                        failwith $"duplicate concat node: {node.ToStringHelper()}"
+#endif
+
+                    newConcat
+                else
+                    // Derx (R)·S
+                    R'S
+
+
+#if DIAGNOSTIC
+        // diagnose reference equality
+        // let re = refEq node result
+        // let eq = node = result
+        // logDebug $"der: {node.ToStringHelper()}-{loc_pred} -> {result.ToStringHelper()}"
+        // logDebug $"der-eq: ref:{re} eq:{eq}"
+        // if re <> eq then
+        //     logDebug $"not eq! {loc.DebugDisplay()}: {node.ToStringHelper()}-{loc_pred} -> {result.ToStringHelper()}"
+        //     failwith "debug:"
+#endif
+
+        // TODO: duplication here
+#if DEBUG
+        // if refEq node result then
+        //     logDebug $"cache ID: {node.ToStringHelper()}-{loc_pred}"
+        // else
+        //     logDebug $"cache: {node.ToStringHelper()}-{loc_pred} -> {result.ToStringHelper()}"
+        //
+        // let resstr = node.ToStringHelper()
+        // let req = refEq node result
+        // let eq2 = node = result
+        // let phy1 = LanguagePrimitives.PhysicalHash result
+        // let phy2 = LanguagePrimitives.PhysicalHash node
+        // if resstr = "(⊤*April⊤*&⊤*Thursday⊤*&⊤*Went⊤*)" && loc_pred = 16uL then
+        //     ()
+#endif
+
+        if not (node.ContainsLookaround) then
+            // if req then
+            //     c.Builder.DerivativeCache.TryAdd(struct (loc_pred , node), node)
+            //     |> ignore
+            // else
+
+            //  uint64
+            // 64 01
+            //
+            // let test =
+            //
+            //     let nodeHash = LanguagePrimitives.PhysicalHash node
+            //     let resultHash = LanguagePrimitives.PhysicalHash result
+            //
+            //     match node with
+            //     | And(items,info) when items.Count = 3 && info.Startset = 14uL ->
+            //         let hashes =
+            //             items
+            //             |> Seq.map LanguagePrimitives.PhysicalHash
+            //             |> Seq.toArray
+            //         ()
+            //     | _ -> ()
+
+            //
+            // if loc_pred = 1uL || loc_pred = 16uL then
+            //     ()
+
+            c.Builder.DerivativeCache.TryAdd(struct (loc_pred, node), result) |> ignore
+
+        result

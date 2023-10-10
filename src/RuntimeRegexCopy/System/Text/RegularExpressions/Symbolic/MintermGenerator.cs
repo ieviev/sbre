@@ -15,7 +15,7 @@ namespace System.Text.RuntimeRegexCopy.Symbolic
     /// minterm corresponding to "[0-9] and not [0-4]", since that is unsatisfiable (empty).
     /// </remarks>
     public static class MintermGenerator<TSet>
-        where TSet : IComparable<TSet>
+        
     {
         /// <summary>
         /// Given an array of sets {p_1, p_2, ..., p_n} where n>=0,

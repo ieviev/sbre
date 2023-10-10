@@ -1,0 +1,26 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>net7.0</TargetFramework>
+        <OtherFlags>$(OtherFlags) --optimize+ --extraoptimizationloops:1</OtherFlags>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <Compile Include="Twain.fs" />
+        <Compile Include="LongParagraph.fs" />
+        <Compile Include="FullMtwain.fs" />
+        <Compile Include="PasswordMatching.fs" />
+        <Compile Include="Program.fs" />
+        <Content Include="data\**\*.*" CopyToOutputDirectory="PreserveNewest"/>
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\Sbre\Sbre.fsproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <PackageReference Include="BenchmarkDotNet" Version="0.13.2" />
+    </ItemGroup>
+
+</Project>

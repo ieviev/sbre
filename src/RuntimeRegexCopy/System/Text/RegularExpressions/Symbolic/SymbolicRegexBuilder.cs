@@ -16,7 +16,7 @@ namespace System.Text.RuntimeRegexCopy.Symbolic
     /// Used to convert .NET regexes to symbolic regexes.
     /// </summary>
     public sealed class SymbolicRegexBuilder<TSet>
-        where TSet : IComparable<TSet>, IEquatable<TSet>
+        where TSet : IEquatable<TSet>
     {
         internal readonly CharSetSolver _charSetSolver;
         public readonly ISolver<TSet> _solver;
@@ -224,7 +224,7 @@ namespace System.Text.RuntimeRegexCopy.Symbolic
         }
 
         public SymbolicRegexNode<TNewSet> Transform<TNewSet>(SymbolicRegexNode<TSet> node, SymbolicRegexBuilder<TNewSet> builder, Func<SymbolicRegexBuilder<TNewSet>, TSet, TNewSet> setTransformer)
-            where TNewSet : IComparable<TNewSet>, IEquatable<TNewSet>
+            where TNewSet : IEquatable<TNewSet>
         {
             if (!StackHelper.TryEnsureSufficientExecutionStack())
             {

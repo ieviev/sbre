@@ -1,0 +1,171 @@
+[<Xunit.Collection("Sequential")>]
+module Sbre.Test._07_ComparisonTests
+
+open Sbre
+open Xunit
+
+let testSameAsRuntime pattern input =
+    let mymatcher = Matcher(pattern)
+    let runtime = System.Text.RegularExpressions.Regex(pattern)
+    let result = mymatcher.IsMatch(input)
+    let result2 = runtime.IsMatch(input)
+    Assert.True((result2 = result), $"should be the same: \n{pattern}\n{input}\sbre:{result} = runtime:{result2}")
+
+
+[<Fact>]
+let ``same as runtime 1``() =
+    let pattern = """^((31(?!\ (Feb(ruary)?|Apr(il)?|June?|(Sep(?=\b|t)t?|Nov)(ember)?)))|((30|29)(?!\ Feb(ruary)?))|(29(?=\ Feb(ruary)?\ (((1[6-9]|[2-9][0-9])(0[48]|[2468][048]|[13579][26])|((16|[2468][048]|[3579][26])00)))))|(0?[1-9])|1[0-9]|2[0-8])\ (Jan(uary)?|Feb(ruary)?|Ma(r(ch)?|y)|Apr(il)?|Ju((ly?)|(ne?))|Aug(ust)?|Oct(ober)?|(Sep(?=\b|t)t?|Nov|Dec)(ember)?)\ ((1[6-9]|[2-9][0-9])[0-9]{2})$"""
+    let input = "31 September 2003"
+    testSameAsRuntime pattern input
+
+
+[<Fact>]
+let ``same as runtime 1: short``() =
+    let pattern = """^(31|(0[1-9]))$"""
+    let input = "31 September"
+    testSameAsRuntime pattern input
+
+
+
+//
+[<Fact>]
+let ``same as runtime 2``() =
+    let pattern = """^(1(?= ((Sept?)(em)?)) Sept? 1)$"""
+    let input = "1 Sept 1"
+    testSameAsRuntime pattern input
+
+
+[<Fact>]
+let ``same as runtime 3``() =
+    let pattern = """^(((0?[1-9]|[12]\d|3[01])[\.\-\/](0?[13578]|1[02])[\.\-\/]((1[6-9]|[2-9]\d)?\d{2}))|((0?[1-9]|[12]\d|30)[\.\-\/](0?[13456789]|1[012])[\.\-\/]((1[6-9]|[2-9]\d)?\d{2}))|((0?[1-9]|1\d|2[0-8])[\.\-\/]0?2[\.\-\/]((1[6-9]|[2-9]\d)?\d{2}))|(29[\.\-\/]0?2[\.\-\/]((1[6-9]|[2-9]\d)?(0[48]|[2468][048]|[13579][26])|((16|[2468][048]|[3579][26])00)|00)))$"""
+    let input = "3.4.05"
+    testSameAsRuntime pattern input
+
+[<Fact>]
+let ``same as runtime 4``() =
+    let pattern = """^((0?[13578]\.)|(0?[13456789]\.))$"""
+    let input = "4."
+    testSameAsRuntime pattern input
+
+
+[<Fact>]
+let ``same as runtime 5``() =
+    let pattern = """^((\d{5}-\d{4})|(\d{5})|([A-Z]\d[A-Z]\s\d[A-Z]\d))$"""
+    let input = "44240"
+    testSameAsRuntime pattern input
+
+
+[<Fact>]
+let ``same as runtime 6``() =
+    let pattern = """^(1(?! ((Sep(?=\b|t)t?|Nov)(ember)?))).*$"""
+    let input = "31 September 2003"
+    testSameAsRuntime pattern input
+
+
+
+[<Fact>]
+let ``same as runtime 7``() =
+    let pattern = """^((\d{5}-\d{4})|(\d{5})|([A-Z]\d[A-Z]\s\d[A-Z]\d))"""
+    let input = "T2P 3C7"
+    testSameAsRuntime pattern input
+
+
+[<Fact>]
+let ``same as runtime 8``() =
+    let pattern = """^((\d{5}-\d{4})|(\d{5})|([A-Z]\d[A-Z]\s\d[A-Z]\d))$"""
+    let input = "T2P 3C7"
+    testSameAsRuntime pattern input
+
+
+[<Fact>]
+let ``same as runtime 9`` () =
+    let pattern = """^\d$"""
+    let input = "24"
+    testSameAsRuntime pattern input
+
+[<Fact>]
+let ``same as runtime 10`` () = // fails if or nullability is wrong
+    let pattern = """(\s|\n|^)h:"""
+    let input = """<a "h:"""
+    testSameAsRuntime pattern input
+
+
+[<Fact>]
+let ``regex with label 1``() =
+    let pattern = """(?<Time>^(?:0?[1-9]:[0-5]|1(?=[012])\d:[0-5])\d(?:[ap]m)?)"""
+    let input = "12:00am"
+    testSameAsRuntime pattern input
+
+
+[<Fact>]
+let ``regex with label 2``() =
+    let pattern = """^(?:0?[1-9]:[0-5]|1(?=[012])\d:[0-5])\d(?:[ap]m)?"""
+    let input = "12:00am"
+    testSameAsRuntime pattern input
+
+
+[<Fact>]
+let ``regex with label 3``() =
+    let pattern = """(?<Time>^\d)"""
+    let input = "12:00am"
+    testSameAsRuntime pattern input
+
+
+//
+[<Fact>]
+let ``deduplication test``() =
+    let pattern = """(\/\*(\s*|.*)*\*\/)|(\/\/.*)""" // multiline comments
+    let input = "/* This is a multi-line comment */"
+    let matcher = Matcher(pattern)
+    let result = matcher.IsMatch(input)
+    Assert.True(result)
+
+
+[<Fact>]
+let ``deduplication test 2 ``() =
+    let pattern = """^[a-zA-Z]+(([\'\,\.\- ][a-zA-Z ])?[a-zA-Z]*)*$""" // multiline comments
+    let input = "T.F. Johnson"
+    let matcher = Matcher(pattern)
+    let result = matcher.MatchText(input)
+    ()
+
+
+[<Fact>]
+let ``simple 1``() =
+    let input = "Lorem Ipsum is simply dummy text of the printing and typesetting industry.Lorem Ipsum has been the Aa11aBaAA standard"
+    testSameAsRuntime "types" input
+
+
+[<Fact>]
+let ``multi-nodes ordering comparison`` () =
+    let pattern = """((\s*|.*)*q/)"""
+    let input = " q/"
+    testSameAsRuntime pattern input
+
+[<Fact>]
+let ``http address optional`` () =
+    let pattern = """^(ht|f)tp(s?)\:\/\/[a-zA-Z0-9\-\._]+(\.[a-zA-Z0-9\-\._]+){2,}(\/?)([a-zA-Z0-9\-\.\?\,\'\/\\\+\&%\$#_]*)?$"""
+    let input = "http://www.wikipedia.org"
+    testSameAsRuntime pattern input
+
+
+[<Fact>]
+let ``massive or pattern`` () =
+    let pattern = """^((\d{2}((0[13578]|1[02])(0[1-9]|[12]\d|3[01])|(0[13456789]|1[012])(0[1-9]|[12]\d|30)|02(0[1-9]|1\d|2[0-8])))|([02468][048]|[13579][26])0229)$"""
+    let input = "751231"
+    testSameAsRuntime pattern input
+
+
+
+[<Fact>]
+let ``semantics test 1`` () =
+    let matcher = Matcher(@"(a|ab)*")
+    let ism = matcher.MatchText("abab")
+    Assert.Equal(ism, Some "abab")
+
+
+[<Fact>]
+let ``semantics test 2`` () =
+    let matcher = Matcher(@"(a|ab)*")
+    let ism = matcher.MatchText("bbfbfbababgfgfgfgabababab")
+    Assert.Equal(ism, Some "abab")

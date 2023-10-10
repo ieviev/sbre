@@ -1,21 +1,138 @@
 #I "../src/Sbre/bin/Debug/net7.0"
 #r "RuntimeRegexCopy.dll"
 #r "Sbre.dll"
+#r "nuget: FSharp.Data"
+
 open System
 open System.Threading
 open Sbre
+open FSharp.Data
+open System.Text.RuntimeRegexCopy
+open System.Globalization
+
+
+type Iso3Codes = FSharp.Data.CsvProvider<"/home/ian/Downloads/all.csv">
+
+let iso3 = Iso3Codes.GetSample()
+
+let iso3data =
+    iso3.Rows
+    |> Seq.map (fun v -> v.``Alpha-3``)
+    |> Seq.toArray
+
+
+iso3data.Length
+
+
+let iso3Regex = String.Join("|",iso3data)
+
+let regexTree =
+    ExtendedRegexParser.Parse(
+            iso3Regex,
+            RegexOptions.ExplicitCapture ||| RegexOptions.NonBacktracking,
+            CultureInfo.InvariantCulture
+        )
+
+
+// 249
+iso3data.Length 
+
+// 72
+regexTree.Root.Child(0).ChildCount()
+
+regexTree.Root.ToString()
+
+
+let charsetSolver =
+        System.Text.RuntimeRegexCopy.Symbolic.CharSetSolver()
+let bddBuilder =
+        System.Text.RuntimeRegexCopy.Symbolic.SymbolicRegexBuilder<System.Text.RuntimeRegexCopy.Symbolic.BDD>(charsetSolver, charsetSolver)
+let converter = System.Text.RuntimeRegexCopy.Symbolic.RegexNodeConverter(bddBuilder, null)
+
+let bddBuilder2 =
+    RegexBuilder(converter,charsetSolver,charsetSolver)
+
+let symbolicBddnode =
+    RegexNodeConverter.convertToSymbolicRegexNode (charsetSolver, bddBuilder, bddBuilder2, regexTree.Root)
+
+
+
+let minterms = symbolicBddnode |> Minterms.compute bddBuilder
+
+let solver = System.Text.RuntimeRegexCopy.Symbolic.UInt64Solver(minterms, charsetSolver)
+
+let uintbuilder = RegexBuilder(converter,solver,charsetSolver)
+
+
+let uint64Node: Types.RegexNode<uint64>  =
+    (Minterms.transform uintbuilder charsetSolver solver) symbolicBddnode
+
+
+symbolicBddnode.ToStringHelper()
+
+uint64Node.ToStringHelper()
+
+let a1 = 
+    match uint64Node with 
+    | Types.Or(nodes=inner) -> inner
+
+a1.Count
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+let r2 = @".*\wb"
+
+// let test = Sbre.Matcher("asdasd")
+
+let sampleText = " \n  author={Capp, Bernard Stuart and Capp, Bernard},\n  y"
+
+let matcher =
+    String.Join("&",
+        [
+            @"(?<=\{).*" // {
+            @".*(?=\})"  // }
+            "[a-zA-Z ,]*"  // [a-zA-Z ,]
+            "Capp.*"
+            ".*nard"
+            ".*Stuart.*"
+            @".*\p{Ll}"
+        ]
+    )
+    |> Matcher
+
+let res =
+    matcher.Match(sampleText)
+
+
 
 let s = System.IO.File.ReadAllText(__SOURCE_DIRECTORY__ + "/textsample.txt")
 
 // experimental `&` and `~` parser in Matcher.fs
-let test1a = Matcher("c...&...s").Match("raining cats and dogs") // Some "cats"
-let test1b = Matcher(".*rain.*&.*dogs.*").Match("raining cats and dogs") // Some "raining cats and dogs"
-let test1c = Matcher("and.*&.*dogs.*").Match("raining cats and dogs") // Some "and dogs"
+let test1a = Matcher("c...&...s").MatchText("raining cats and dogs") // Some "cats"
+let test1b = Matcher(".*rain.*&.*dogs.*").MatchText("raining cats and dogs") // Some "raining cats and dogs"
+let test1c = Matcher("and.*&.*dogs.*").MatchText("raining cats and dogs") // Some "and dogs"
 
 // .{0,5} is the maximum distance between 2 constraints
-let test2a = Matcher(".{0,5}&(?<=cats).*&.*(?=dogs)").Match("raining cats and dogs") // Some " and "
-let test2b = Matcher(".{0,4}&(?<=cats).*&.*(?=dogs)").Match("raining cats and dogs") // None
-let test2c = Matcher(".{0,4}&(?<=cats).*&.*(?=dogs)").Match("cats-dogs") // Some "-"
+let test2a = Matcher(".{0,5}&(?<=cats).*&.*(?=dogs)").MatchText("raining cats and dogs") // Some " and "
+let test2b = Matcher(".{0,4}&(?<=cats).*&.*(?=dogs)").MatchText("raining cats and dogs") // None
+let test2c = Matcher(".{0,4}&(?<=cats).*&.*(?=dogs)").MatchText("cats-dogs") // Some "-"
 
 /// find password
 let test3a =
@@ -28,7 +145,7 @@ let test3a =
             @"(?<=\b)\S*(?=\b)" // between boundaries
         ]
         |> String.concat "&"
-        ).Match(
+        ).MatchText(
         """
 Lorem Ipsum is simply dummy text of the printing and typesetting industry.
 Lorem Ipsum has been the industry's standard dummy text ever since the 1500s,
@@ -73,9 +190,9 @@ let test4b =
         |> String.concat "&"
     )
     [
-        matcher.Match("(A----B----C)")
-        matcher.Match("(B____A____C)")
-        matcher.Match("(C    B    A)")
+        matcher.MatchText("(A----B----C)")
+        matcher.MatchText("(B____A____C)")
+        matcher.MatchText("(C    B    A)")
     ]
 
 
@@ -140,10 +257,10 @@ let test5b =
         |> String.concat "&"
     )
     [
-        matcher.Match("(A-A-B-B-C--C)").Value
-        matcher.Match("(B-B-A-C-C--A)").Value
-        matcher.Match("(C-A-A-C-B--B)").Value
-        matcher.Match("(A-B-C-B-A--C)").Value
+        matcher.MatchText("(A-A-B-B-C--C)").Value
+        matcher.MatchText("(B-B-A-C-C--A)").Value
+        matcher.MatchText("(C-A-A-C-B--B)").Value
+        matcher.MatchText("(A-B-C-B-A--C)").Value
     ]
 
 
@@ -163,12 +280,15 @@ let password =
         )
 
 
-password.Match("Aa1aa")
-password.Match("Aa11aaAA")
+password.MatchText("Aa1aa")
+password.MatchText("Aa11aaAA")
 
 
 let until1 = System.Text.RegularExpressions.Regex(@"ab(?!\b)..").Match("abcde fgahij")
 let until2 = System.Text.RegularExpressions.Regex(@"ab(?=\B)..").Match("abcde fgahij")
+
+
+
 
 
 
