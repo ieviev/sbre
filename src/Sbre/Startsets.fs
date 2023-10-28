@@ -12,7 +12,7 @@ type Jump() =
     static member toValidStartPosition(
         cache:RegexCache<'t>,
         loc:byref<Location>,
-        startsetChars: StartsetChars,
+        startsetChars: PredStartset,
         expectedNextMinterm:'t) =
 
         let mutable successfulSkip = false
@@ -68,9 +68,9 @@ type Jump() =
 let createStartsetCharsOfMinterm(s:ISolver<'t>,css:CharSetSolver, minterm: 't) =
         match minterm with
         | _ when s.IsFull minterm ->
-            (StartsetChars.Of(StartsetFlags.IsFull, [||]))
+            (PredStartset.Of(StartsetFlags.IsFull, [||]))
         | _ when s.IsEmpty minterm  ->
-            (StartsetChars.Of(StartsetFlags.IsEmpty, [||]))
+            (PredStartset.Of(StartsetFlags.IsEmpty, [||]))
         | _ ->
             let firstbdd = s.ConvertToBDD(minterm, css)
             let rcc = RegexCharClass()
@@ -108,9 +108,9 @@ let createStartsetCharsOfMinterm(s:ISolver<'t>,css:CharSetSolver, minterm: 't) =
                         cc <- cc + 1u
                     i <- i + 1
                 let setChars = charArray.ToArray()
-                StartsetChars.Of(StartsetFlags.Inverted,setChars)
+                PredStartset.Of(StartsetFlags.Inverted,setChars)
 
             else
                 let setChars = charArray.ToArray()
-                StartsetChars.Of(StartsetFlags.None,setChars)
+                PredStartset.Of(StartsetFlags.None,setChars)
 

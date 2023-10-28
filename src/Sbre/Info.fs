@@ -99,15 +99,7 @@ let (|NodeIsAlwaysNullable|_|) (x: RegexNode<'t>) =
     | LookAround(node, lookBack, negate) -> ValueNone
     | _ -> ValueNone
 
-[<return: Struct>]
-let (|ConcatIsAlwaysNullable|_|) (nodes: RegexNode<'t> list) =
-    nodes
-    |> seqforall (fun v ->
-        match v with
-        | NodeIsAlwaysNullable -> true
-        | _ -> false
-    )
-    |> vopt
+
 
 [<return: Struct>]
 let (|CanBeNullable|_|) (x: RegexNodeInfo<'t>) =
@@ -124,10 +116,10 @@ let (|ContainsLookaround|_|) (x: RegexNodeInfo<'t>) =
 
 module rec Startset =
 
-    let rec inferMergeStartset (_solver: ISolver<'t>) (nodes: seq<RegexNode<'t>>) =
+    let inline inferMergeStartset (_solver: ISolver<'t>) (nodes: seq<RegexNode<'t>>) =
+        // todo! optimize
         nodes
-        |> Seq.map (inferStartset _solver)
-        |> Solver.mapOr _solver id
+        |> Solver.mapOr _solver (inferStartset _solver)
 
 
     let rec inferConcatStartset (_solver: ISolver<'t>) (head: RegexNode<'t>) (tail: RegexNode<'t>) =
@@ -151,16 +143,9 @@ module rec Startset =
             | _ -> inner
         | Singleton pred -> pred
         | Or(xs, info) ->
-            let sets =
-                xs
-                |> Seq.map (inferStartset _solver)
-                // |> Seq.toArray
+            use mutable e = xs.GetEnumerator()
+            Solver.mergeOrWithEnumerator _solver (inferStartset _solver) &e
 
-            let merged =
-                sets
-                |> Solver.mapOr _solver id
-
-            merged
         | Not(node, info) ->
             // let tailConcat = Concat(tail, info)
             let tailStartset = inferStartset _solver tail
@@ -169,7 +154,10 @@ module rec Startset =
             merged
         | LookAround _ -> _solver.Full
         | Epsilon -> inferStartset _solver tail
-        | And(nodes, info) -> failwith "todo and startset"
+        | And(nodes, info) ->
+            use mutable e = nodes.GetEnumerator()
+            Solver.mergeOrWithEnumerator _solver (inferStartset _solver) &e
+
         | Concat(chead, ctail, info) ->
             inferConcatStartset _solver chead ctail
 
@@ -199,72 +187,44 @@ module rec Startset =
             | _ -> bodyStartset
 
         | Or(xs, info) ->
-            let sets =
-                xs
-                |> Seq.map (inferStartset _solver)
-                // |> Seq.toArray
+            use mutable e = xs.GetEnumerator()
+            Solver.mergeOrWithEnumerator _solver (inferStartset _solver) &e
 
-            let merged =
-                sets
-                |> Solver.mapOr _solver id
-
-            merged
         | Not(inner, info) -> inferStartset _solver inner
         | LookAround(node = body; lookBack = false) -> _solver.Full // TODO: optimize
         | LookAround(lookBack = true) -> _solver.Full
         | Concat(h, t, info) -> inferConcatStartset _solver h t
         | And(xs, info) ->
-            let sets =
-                xs
-                |> Seq.map (inferStartset _solver)
+            use mutable e = xs.GetEnumerator()
+            Solver.mergeOrWithEnumerator _solver (inferStartset _solver) &e
 
-            let merged =
-                sets
-                |> Solver.mapOr _solver id
-
-            merged
 
     let rec inferStartset2 (_solver: ISolver<'t>) (node: RegexNode<'t>) =
+        // if true then _solver.Full else
         match node with
         | Epsilon -> _solver.Full
-        | Singleton pred -> pred
+        | Singleton pred -> _solver.Full
         // TODO: how to optimize (a|ab)*
-        | Loop(Concat _, low, up, info) -> _solver.Full
-        | Loop(loopBody, low, up, info) ->
-            let bodyStartset = inferStartset _solver loopBody
-
-            match low, up with
-            | 0, Int32.MaxValue -> _solver.Not(bodyStartset)
-            | _ -> bodyStartset
-
+        | Loop(_) -> _solver.Full // todo: how to optimize
         | Or(xs, info) ->
-            let sets =
-                xs
-                |> Seq.map (inferStartset2 _solver)
-                |> Seq.toArray
-
-            let merged =
-                sets
-                |> Solver.mapOr _solver id
-
-            merged
+            use mutable e = xs.GetEnumerator()
+            Solver.mergeOrWithEnumerator _solver (inferStartset2 _solver) &e
         | Not(inner, info) -> inferStartset2 _solver inner
         | LookAround(node = body; lookBack = false) -> _solver.Full // TODO: optimize
         | LookAround(lookBack = true) -> _solver.Full
-        | Concat(Loop(node=Singleton pred;low=0;up=Int32.MaxValue), Concat(head,tail,_), info) ->
-            inferStartset2 _solver tail
-        | Concat(h, t, info) ->
-            inferConcatStartset _solver h t
+        | Concat(Loop(node=Singleton pred;low=0;up=Int32.MaxValue), Concat(head,concatTail2,_), info) ->
+            concatTail2.Startset
+        | Concat(Not(node=inner;info=notInfo), tailNode, info) ->
+            let ss2 = tailNode.Startset
+            let ss1 = inferStartset2 _solver inner
+            _solver.Or(ss1,ss2)
+        | Concat(Singleton hpred, t, info) -> _solver.Full // todo: (.*dogs.*&and.*), (a.*&~(.*b.*)b)
+        | Concat(h, t, info) -> t.Startset
         | And(xs, info) ->
-            let sets =
-                xs
-                |> Seq.map (inferStartset2 _solver)
+            // avoid allocations
+            use mutable e = xs.GetEnumerator()
+            Solver.mergeOrWithEnumerator _solver (inferStartset2 _solver) &e
 
-            let merged =
-                sets
-                |> Solver.mapOr _solver id
-
-            merged
 
 
 module rec Flags =

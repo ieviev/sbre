@@ -4,20 +4,109 @@ open System
 open System.Collections.Generic
 open System.Globalization
 open System.Runtime.CompilerServices
+open System.Runtime.InteropServices
 open System.Text.RuntimeRegexCopy
 open System.Text.RuntimeRegexCopy.Symbolic
 open Sbre.Info
 open Sbre.Pat
 open Sbre.Types
 
+// TODO: proper startset optimization
+module StartsetHelpers =
+    let bddToStartsetChars(bdd: BDD) : PredStartset =
+        let rcc = RegexCharClass()
+        let mutable ranges = BDDRangeConverter.ToRanges(bdd)
+        let mutable e = ranges.GetEnumerator()
+        let mutable setTooBig = false
+        let mutable i = 0u
+        let sizeLimit = 1024u
+        let charArray = Array.zeroCreate<char> (int (sizeLimit))
+        let totalRange = ranges |> Seq.sumBy (fun struct (rs, re) -> re - rs)
+
+        while e.MoveNext() && not setTooBig do
+            let struct (rs, re) = e.Current :?> struct (uint32 * uint32)
+
+            if (i + (re - rs)) > sizeLimit then
+                setTooBig <- true
+            else
+                rcc.AddRange(char rs, char re)
+
+            for j = int rs to int re do
+                if i >= sizeLimit then
+                    setTooBig <- true
+                else
+                    charArray[int i] <- char j
+                    i <- i + 1u
+
+        let trimmed = charArray.AsSpan().Slice(0, int i).ToArray()
+
+        let ranges2 = PredStartset.Of(StartsetFlags.None, trimmed)
+
+        if setTooBig then
+            // no optimization if startset too large
+            PredStartset.Of(StartsetFlags.Inverted, [||])
+        else
+            ranges2
+
+    let startsetsFromMintermArray(bdds: BDD array) : PredStartset array =
+        let startsets1 = bdds[1..] |> Array.map bddToStartsetChars
+
+        let invertedStartset0 =
+            PredStartset.Of(StartsetFlags.Inverted, startsets1 |> Array.collect (fun v -> v.Chars))
+
+        Array.append [| invertedStartset0 |] startsets1
+
+    let static_merged_chars = Array.zeroCreate 1024 |> ResizeArray<char>
+
+    let getMergedIndexOfSpan
+        (
+            predStartsetArray: Types.PredStartset array,
+            uintMinterms: 't array,
+            solver: ISolver<'t>,
+            startset: 't
+        )
+        : Span<char>
+        =
+        let mergedCharSpan = CollectionsMarshal.AsSpan(static_merged_chars)
+        let mutable totalLen = 0
+
+        // anchors test 2
+        let shouldInvert =
+            solver.isElemOfSet (startset, uintMinterms[0])
+
+        if shouldInvert then
+            for i = 1 to predStartsetArray.Length - 1 do
+                let pureMt = uintMinterms[i]
+                match solver.isElemOfSet (startset, pureMt) with
+                | true -> ()
+                | false ->
+                    let targetSpan = mergedCharSpan.Slice(totalLen)
+                    let pspan = predStartsetArray[i].Chars.AsSpan()
+                    pspan.CopyTo(targetSpan)
+                    totalLen <- totalLen + pspan.Length
+
+            mergedCharSpan.Slice(0,totalLen)
+
+        else
+            for i = 1 to predStartsetArray.Length - 1 do
+                let pureMt = uintMinterms[i]
+                match solver.isElemOfSet (startset, pureMt) with
+                | true ->
+                    if predStartsetArray[i].Flags.HasFlag(StartsetFlags.Inverted) then
+                        failwith "TODO: optimizations"
+                    let targetSpan = mergedCharSpan.Slice(totalLen)
+                    let pspan = predStartsetArray[i].Chars.AsSpan()
+                    pspan.CopyTo(targetSpan)
+                    totalLen <- totalLen + pspan.Length
+                | false -> ()
+            mergedCharSpan.Slice(0,totalLen)
+
+
+
 /// reuses nodes and ensures reference equality
 [<Sealed>]
-type RegexBuilder< 't when ^t :> IEquatable< ^t > and ^t: equality>
-    (
-        converter: RegexNodeConverter,
-        solver: ISolver< ^t >,
-        bcss: CharSetSolver
-    ) as b =
+type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
+    (converter: RegexNodeConverter, solver: ISolver< ^t >, bcss: CharSetSolver) as b =
     let runtimeBuilder = SymbolicRegexBuilder< ^t>(solver, bcss)
 
     let _singletonLoopCache = Dictionary< ^t, RegexNode< ^t >>()
@@ -35,25 +124,25 @@ type RegexBuilder< 't when ^t :> IEquatable< ^t > and ^t: equality>
         Dictionary()
 
 
-    let getDerivativeCacheComparer(): IEqualityComparer<struct (uint64 * RegexNode<uint64>)> =
-        { new IEqualityComparer<struct (uint64 * RegexNode< uint64 >)> with
+    let getDerivativeCacheComparer() : IEqualityComparer<struct (uint64 * RegexNode<uint64>)> =
+        { new IEqualityComparer<struct (uint64 * RegexNode<uint64>)> with
             [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-            member this.Equals(struct (x1, x2), struct (y1, y2)) =
-                x1 = y1 && refEq x2 y2
+            member this.Equals(struct (x1, x2), struct (y1, y2)) = x1 = y1 && refEq x2 y2
 
             [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
             member this.GetHashCode(struct (x, y)) =
                 HashCode.Combine(x.GetHashCode(), LanguagePrimitives.PhysicalHash y)
         }
 
-    let _derivativeCache: Dictionary<struct (uint64 * RegexNode< uint64 >), RegexNode< uint64 >> =
-        Dictionary(getDerivativeCacheComparer())
+    let _derivativeCache: Dictionary<struct (uint64 * RegexNode<uint64>), RegexNode<uint64>> =
+        Dictionary(getDerivativeCacheComparer ())
 
 
     let _orCacheComparer =
         { new IEqualityComparer<RegexNode< ^t >[]> with
             member this.Equals(xs, ys) =
                 xs.Length = ys.Length && Array.forall2 refEq xs ys
+
             member this.GetHashCode(x) =
                 x
                 |> Seq.map LanguagePrimitives.PhysicalHash
@@ -86,7 +175,9 @@ type RegexBuilder< 't when ^t :> IEquatable< ^t > and ^t: equality>
 
                 hashes
         }
-    let _andCache: Dictionary<RegexNode< ^t >[], RegexNode< ^t >> = Dictionary(_andCacheComparer)
+
+    let _andCache: Dictionary<RegexNode< ^t >[], RegexNode< ^t >> =
+        Dictionary(_andCacheComparer)
 
     // singleton instances
     let _uniques = {|
@@ -205,29 +296,29 @@ type RegexBuilder< 't when ^t :> IEquatable< ^t > and ^t: equality>
                     Or(
                         ofSeq [
                             b.mkConcat [
-                                           RegexNode.LookAround(
-                                               _uniques._wordChar.Value,
-                                               lookBack = true,
-                                               negate = false
-                                           ) // (?<=ψ\w)
-                                           RegexNode.LookAround(
-                                               _uniques._wordChar.Value,
-                                               lookBack = false,
-                                               negate = true
-                                           )
-                                       ]
+                                RegexNode.LookAround(
+                                    _uniques._wordChar.Value,
+                                    lookBack = true,
+                                    negate = false
+                                ) // (?<=ψ\w)
+                                RegexNode.LookAround(
+                                    _uniques._wordChar.Value,
+                                    lookBack = false,
+                                    negate = true
+                                )
+                            ]
                             b.mkConcat [
-                                           RegexNode.LookAround(
-                                               _uniques._wordChar.Value,
-                                               lookBack = true,
-                                               negate = true
-                                           ) // (?<!ψ\w)
-                                           RegexNode.LookAround(
-                                               _uniques._wordChar.Value,
-                                               lookBack = false,
-                                               negate = false
-                                           )
-                                       ]
+                                RegexNode.LookAround(
+                                    _uniques._wordChar.Value,
+                                    lookBack = true,
+                                    negate = true
+                                ) // (?<!ψ\w)
+                                RegexNode.LookAround(
+                                    _uniques._wordChar.Value,
+                                    lookBack = false,
+                                    negate = false
+                                )
+                            ]
                         ],
                         info
                     )
@@ -418,7 +509,8 @@ type RegexBuilder< 't when ^t :> IEquatable< ^t > and ^t: equality>
                         | twoormore ->
                             let flags = Flags.inferAnd twoormore
 
-                            let startset = twoormore |> Startset.inferMergeStartset solver
+                            let startset =
+                                twoormore |> Startset.inferMergeStartset solver
 
                             let mergedInfo = { Flags = flags; Startset = startset }
 
@@ -618,15 +710,15 @@ type RegexBuilder< 't when ^t :> IEquatable< ^t > and ^t: equality>
                 |> Seq.rev
                 |> Seq.fold
                     (fun acc v ->
-                       match acc with
-                       | Epsilon -> v
-                       | _ ->
-                           let flags' = Flags.inferConcat v acc
+                        match acc with
+                        | Epsilon -> v
+                        | _ ->
+                            let flags' = Flags.inferConcat v acc
 
-                           let startset' = Startset.inferConcatStartset solver v acc
+                            let startset' = Startset.inferConcatStartset solver v acc
 
-                           Concat(v, acc, ofFlagsAndStartset (flags', startset'))
-                   )
+                            Concat(v, acc, ofFlagsAndStartset (flags', startset'))
+                    )
                     Epsilon
 
             combined

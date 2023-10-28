@@ -98,6 +98,18 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
         | Epsilon -> "FULL"
 #endif
 
+
+    member inline this.Startset =
+        match this with
+        | Or(info = info) -> info.Startset
+        | Singleton pred -> pred
+        | Loop(info = info) -> info.Startset
+        | And(info = info) -> info.Startset
+        | Not(info = info) -> info.Startset
+        | LookAround _ -> Unchecked.defaultof<_>
+        | Concat(info = info) -> info.Startset
+        | Epsilon -> Unchecked.defaultof<_>
+
     member inline this.ContainsLookaround =
         match this with
         | Or(info = info) -> info.ContainsLookaround
@@ -276,7 +288,7 @@ type StartsetFlags =
     | Inverted = 4uy
 
 // [<Struct>]
-type StartsetChars = {
+type PredStartset = {
     Flags: StartsetFlags
     Chars: char[]
 } with
@@ -289,6 +301,13 @@ type ToplevelORCollection() =
     let nodeArray: ResizeArray<RegexNode<uint64>> = ResizeArray()
 
     member this.Add(node: RegexNode<uint64>, nullableState: int) =
+
+        // let existingIndex = nodeArray.IndexOf(node)
+        // if existingIndex <> -1 then
+        //     if nullableState = -1 then ()
+        //     else lastNullableArray[existingIndex] <- nullableState
+        // else
+
         nodeArray.Add(node)
         lastNullableArray.Add(nullableState)
 
@@ -299,6 +318,17 @@ type ToplevelORCollection() =
             nullableState: int
         ) =
         let oldIndex = nodeArray.IndexOf(oldNode)
+
+        // todo: bugged!
+        // let existingIndex = nodeArray.IndexOf(node)
+        // if existingIndex <> -1 then
+        //     if nullableState = -1 then ()
+        //     else lastNullableArray[existingIndex] <- nullableState
+        //     nodeArray.RemoveAt(oldIndex)
+        //     lastNullableArray.RemoveAt(oldIndex)
+        // else
+        //     let dbg = 1
+
         nodeArray[oldIndex] <- node
         lastNullableArray[oldIndex] <- nullableState
 
@@ -306,6 +336,13 @@ type ToplevelORCollection() =
         let oldIndex = nodeArray.IndexOf(oldNode)
         lastNullableArray[oldIndex] <- nullableState
 
+    member this.MergeIndexes(idx1: int, idx2:int) =
+        let maxNullable =
+            max lastNullableArray[idx1] lastNullableArray[idx2]
+
+        lastNullableArray[idx1] <- maxNullable
+        nodeArray.RemoveAt(idx2)
+        lastNullableArray.RemoveAt(idx2)
 
     member this.Remove(oldNode: RegexNode<uint64>) =
         let oldIndex = nodeArray.IndexOf(oldNode)
@@ -318,7 +355,7 @@ type ToplevelORCollection() =
 
     member this.Count = nodeArray.Count
 
-    member this.Items() = nodeArray
+    member this.Items = nodeArray
 
 
 
@@ -329,29 +366,7 @@ module Common =
     let inline head coll = Seq.head coll
     let inline tail coll = List.tail coll
     let inline iter f coll = Seq.iter f coll
-    // let setequals set1 set2 = set1 = set2
-    // let inline remove f (coll: Set<'t>) = coll.Remove(f)
-    // let inline add f (coll: Set<'t>) = coll.Add(f)
-    // let inline exists f (coll: Set<'t>) =
-    //     coll
-    //     |> Set.exists f
-    // let inline forall f (coll: Set<'t>) = Set.forall f coll
-    // let inline flatten (coll: Set<'t>) = Seq.collect id coll
     let inline seqforall f coll = Seq.forall f coll
-    // let inline singleton item = Set.singleton item
-
-    // let inline of2(x, y) =
-    //     Set.ofSeq (
-    //         seq {
-    //             yield x
-    //             yield y
-    //         }
-    //     )
-
-    // let inline ofSeq coll = Set.ofSeq coll
-    // let inline filter f coll = Set.filter f coll
-    // let inline map f coll = Set.map f coll
-
 
     [<return: Struct>]
     let inline (|Empty|_|)(node: Set<'tset>) =

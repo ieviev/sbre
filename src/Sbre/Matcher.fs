@@ -9,7 +9,7 @@ open Sbre.Regex
 open Sbre.Types
 open Sbre.Pat
 
-
+[<Struct>]
 type MatchResult = {
     Success : bool
     Value : string
@@ -17,7 +17,15 @@ type MatchResult = {
     Length : int
 }
 
+[<Struct>]
+type MatchPositionResult = {
+    Success : bool
+    StartIndex : int
+    Length : int
+}
+
 [<CLIMutable>]
+[<Struct>]
 type MatchPosition = { startIndex: int; endIndex: int }
 
 [<Sealed>]
@@ -80,9 +88,6 @@ type Matcher(pattern: string) =
     let solver = UInt64Solver(minterms, charsetSolver)
 
     let uintbuilder = RegexBuilder(converter,solver,charsetSolver)
-
-    // let singletonCache =
-    //     SingletonCache(charsetSolver, solver)
 
 #if DEBUG
     do debuggerSolver <- Some solver
@@ -187,6 +192,46 @@ type Matcher(pattern: string) =
                         Length = endPos - start
                     }
 
+
+    member this.MatchPosition(input: string) : MatchPositionResult =
+        let mutable startPos = 0
+
+        let success =
+            optimizations.TryFindNextStartingPositionLeftToRight(input.AsSpan(), &startPos, 0)
+
+        if not success then
+            {
+                Success = false
+                StartIndex = 0
+                Length = 0
+            }
+        else
+
+            let startLocation = Location.create input startPos
+            match RegexNode.matchEnd (cache, startLocation, ValueNone, dotStarredUint64Node) with
+            | ValueNone ->
+                {
+                    Success = false
+                    StartIndex = 0
+                    Length = 0
+                }
+            | ValueSome endPos ->
+                let reverseLocation =
+                    (Location.rev { startLocation with Position = endPos })
+
+                let startPos =
+                    RegexNode.matchEnd (cache, reverseLocation, ValueNone, reverseUint64Node)
+
+                match startPos with
+                | ValueNone ->
+                    failwith
+                        $"match succeeded left to right but not right to left:\nmatch end: {endPos}\nreverse pattern: {reverseUint64Node}"
+                | ValueSome start ->
+                    {
+                        Success = true
+                        StartIndex = start
+                        Length = endPos - start
+                    }
 
     member this.Matches(input: string) =
 

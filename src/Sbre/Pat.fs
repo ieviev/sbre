@@ -106,7 +106,7 @@ let inline (|Single|_|) (node: NodeSet<'tset>) =
 let inline (|ToplevelOrNullable|_|) (isNullable:RegexNode<_> -> bool) (hashset: ToplevelORCollection) =
     match hashset.Count with
     | 0 -> ValueNone
-    | _ -> if hashset.Items() |> Seq.exists isNullable  then ValueSome() else ValueNone
+    | _ -> if hashset.Items |> Seq.exists isNullable  then ValueSome() else ValueNone
 
 
 [<return: Struct>]
@@ -127,10 +127,20 @@ module Solver =
 
     let inline and' (s:ISolver< ^t>) (v: ^t) (mt: ^t): ^t = s.And(v,mt)
 
-    let inline mapOr (s:ISolver<^t>) ([<InlineIfLambda>]f: 'a -> ^t) (coll: seq<'a>): ^t =
+    let inline mapOr (s:ISolver<^t>) ([<InlineIfLambda>]f: 'a -> ^t) (coll): ^t =
         let mutable ss = s.Empty
         for x in coll do
             ss <- s.Or(ss,f x)
+        ss
+
+    let inline mergeOrWithEnumerator
+        (s:ISolver<^t>)
+        ([<InlineIfLambda>]f: RegexNode<'t> -> ^t)
+        (coll:byref<Collections.Immutable.ImmutableHashSet<RegexNode<'t>>.Enumerator>): ^t =
+        let mutable ss = s.Empty
+        // for x in coll do
+        while coll.MoveNext() = true do
+            ss <- s.Or(ss,f coll.Current)
         ss
 
     [<return: Struct>]
@@ -172,6 +182,11 @@ module Location =
         match loc.Reversed with
         | true -> loc.Position = 1
         | _ -> loc.Position = (loc.Input.Length - 1)
+
+    let inline posIsPreFinal (pos:int, loc: Location) =
+        match loc.Reversed with
+        | true -> pos = 1
+        | _ -> pos = (loc.Input.Length - 1)
     let inline currentChar (loc: Location) =
         match loc.Reversed with
         | false -> loc.Input[loc.Position]

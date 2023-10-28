@@ -26,7 +26,7 @@ module Helpers =
         )
         : bool
         =
-        let mutable e = nodes.Items().GetEnumerator()
+        let mutable e = nodes.Items.GetEnumerator()
         let mutable isNullable = false
 
         while e.MoveNext() && not isNullable do
@@ -269,7 +269,7 @@ module RegexNode =
                     // current active branches
                     if toplevelOr.Count > 0 then
                         tempArray.Clear()
-                        tempArray.AddRange(toplevelOr.Items())
+                        tempArray.AddRange(toplevelOr.Items)
 
                         // for curr in toplevelOr.Items() do
                         for curr in tempArray do

@@ -19,10 +19,7 @@ type impl = MethodImplAttribute
 type implOpts = MethodImplOptions
 
 [<Sealed>]
-type RegexCache< ^t
-    when ^t: struct
-    and ^t :> IEquatable< ^t >
-    and ^t: equality>
+type RegexCache< ^t when ^t: struct and ^t :> IEquatable< ^t > and ^t: equality>
     (
         _solver: ISolver< ^t >,
         _charsetSolver: CharSetSolver,
@@ -54,8 +51,15 @@ type RegexCache< ^t
 
     let minterms: ^t[] = _solver.GetMinterms()
 
-    let mutable _cachedBDDRanges: Dictionary< ^t, StartsetChars > =
-        Dictionary()
+    let mintermBdds =
+        lazy (minterms |> Array.map (fun v -> _solver.ConvertToBDD(v, _charsetSolver)))
+
+    let predStartsets = lazy StartsetHelpers.startsetsFromMintermArray (mintermBdds.Value)
+
+    let initialSs2 =
+        Startset.inferStartset2 (_solver) _rawPattern
+
+    let mutable _cachedBDDRanges: Dictionary< ^t, PredStartset > = Dictionary()
 
 #if DEBUG
     let mintermsPretty =
@@ -65,110 +69,119 @@ type RegexCache< ^t
     // member this.MintermsPretty = mintermsPretty
 #endif
 
+    member this.InitialSs2() = initialSs2
+    member this.Minterms() = minterms
+    member this.MintermBdds() = mintermBdds.Value
+    member this.MintermStartsets() = predStartsets.Value
 
+    member this.MintermIndexOfSpan(startset: 't) =
+        StartsetHelpers.getMergedIndexOfSpan (predStartsets.Value, unbox minterms, unbox _solver, startset)
+    member this.TryNextStartsetLocation(loc: Location, set: 't) =
 
-    member this.tryCommonStartset(loc: Location, set: ^t) =
-        let mutable setTooBig = false
+        let setChars = this.MintermIndexOfSpan(set)
+        let isInverted = this.IsValidPredicate(set,minterms[0])
+        let currpos = loc.Position
 
-        let ranges =
-            match _cachedBDDRanges.TryGetValue(set) with
-            | true, ranges -> ranges
-            | _ ->
+        match loc.Reversed with
+        | false ->
+            let slice = loc.Input.AsSpan().Slice(currpos)
+            let sharedIndex =
+                if isInverted then
+                    slice.IndexOfAnyExcept(setChars)
+                else
+                    slice.IndexOfAny(setChars)
 
+            if sharedIndex = -1 then
+                ValueNone
+            else
+                ValueSome(currpos + sharedIndex)
+        | true ->
+            let slice = loc.Input.AsSpan().Slice(0, currpos)
+            let sharedIndex =
+                if isInverted then
+                    slice.LastIndexOfAnyExcept(setChars)
+                else
+                    slice.LastIndexOfAny(setChars)
 
-                let bdd = _solver.ConvertToBDD(set, _charsetSolver)
-                let rcc = RegexCharClass()
+            if sharedIndex = -1 then
+                ValueNone
+            else
+                let _ = Location.create loc.Input (sharedIndex + 1)
 
-                let mutable i = 0u
+                ValueSome(sharedIndex + 1)
 
-                let charArray = Array.zeroCreate<char> 20
+    member this.TryNextStartsetLocation2(loc: Location, set: 't, set2: 't) =
 
-                let mutable e =
-                    BDDRangeConverter.ToRanges(bdd).GetEnumerator()
+        let setChars = this.MintermIndexOfSpan(set)
+        let mutable currpos = loc.Position
+        let mutable skipping = true
+        let mutable result = ValueNone
 
-                while e.MoveNext()
-                      && not setTooBig do
-                    let struct (rs, re) =
-                        e.Current :?> struct (uint32 * uint32)
+        let inline nextLocMinterm(pos: int) : 't =
+            if loc.Reversed then
+                this.MintermForStringIndex(loc.Input, pos - 2)
+            else
+                this.MintermForStringIndex(loc.Input, pos + 1)
 
-                    if
-                        (i
-                         + (re - rs)) > 20u
-                    then
-                        setTooBig <- true
-                    else
-                        rcc.AddRange(char rs, char re)
-
-                    for j = int rs to int re do
-                        if i >= 20u then
-                            setTooBig <- true
-                        else
-                            charArray[int i] <- char j
-                            i <- i + 1u
-
-                let trimmed =
-                    charArray.AsSpan().Slice(0, int i).ToArray()
-
-                let startsetchars =
-                    StartsetChars.Of(StartsetFlags.None, trimmed)
-
-                _cachedBDDRanges.TryAdd(set, startsetchars)
-                |> ignore
-
-                startsetchars
-
-        if setTooBig then
-            ValueNone
-        else
-
-            let currpos = loc.Position
-
-            match loc.Reversed with
-            | false ->
+        match loc.Reversed with
+        | false ->
+            while skipping do
                 let slice = loc.Input.AsSpan().Slice(currpos)
-                let setChars = ranges.Chars.AsSpan() //.Slice(0, int i)
                 let sharedIndex = slice.IndexOfAny(setChars)
 
                 if sharedIndex = -1 then
-                    ValueNone
+                    skipping <- false
                 else
-                    ValueSome(
-                        currpos
-                        + sharedIndex
-                    )
-            | true ->
+                    let potential = currpos + sharedIndex
+
+                    if Location.posIsPreFinal (potential, loc) then
+                        skipping <- false
+                        result <- ValueSome(potential)
+                    else
+
+                    match this.IsValidPredicate(set2, nextLocMinterm (potential)) with
+                    | false -> currpos <- potential + 1
+
+                    | true ->
+                        skipping <- false
+                        result <- ValueSome(potential)
+
+            result
+        | true ->
+            // if true then ValueNone else
+            while skipping do
                 let slice = loc.Input.AsSpan().Slice(0, currpos)
-                let setChars = ranges.Chars.AsSpan() //.Slice(0, int i)
                 let sharedIndex = slice.LastIndexOfAny(setChars)
 
                 if sharedIndex = -1 then
-                    ValueNone
+                    skipping <- false
+                    result <- ValueNone
                 else
-                    let _ =
-                        Location.create
-                            loc.Input
-                            (sharedIndex
-                             + 1)
+                    let potential = sharedIndex + 1
 
-                    ValueSome(
-                        sharedIndex
-                        + 1
-                    )
+                    if Location.posIsPreFinal (potential, loc) then
+                        skipping <- false
+                        result <- ValueNone
+                    else
+
+                    match this.IsValidPredicate(set2, nextLocMinterm (potential + 1)) with
+                    | false -> currpos <- potential - 1
+                    | true ->
+                        skipping <- false
+                        result <- ValueSome(potential)
+
+            result
+
 
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.MintermForLocation(loc: Location) : ^t =
         match loc.Reversed with
         | false -> minterms[classifier.GetMintermID(int loc.Input[loc.Position])]
-        | true ->
-            minterms[classifier.GetMintermID(
-                         int
-                             loc.Input[loc.Position
-                                       - 1]
-                     )]
+        | true -> minterms[classifier.GetMintermID(int loc.Input[loc.Position - 1])]
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    member this.MintermForStringIndex(str: string, pos: int) : ^t =
+    member this.MintermForStringIndex(str: string, pos: int) =
         minterms[classifier.GetMintermID(int str[pos])]
 
     member this.CharToMinterm(c: inref<char>) : ^t = minterms[classifier.GetMintermID(int c)]
@@ -180,16 +193,13 @@ type RegexCache< ^t
     member val Builder = _builder
 
     // cached instantiation members
-    member val True: RegexNode< ^t > =
-        _builder.uniques._true
+    member val True: RegexNode< ^t > = _builder.uniques._true
     //
     //
-    member val False: RegexNode< ^t > =
-        _builder.uniques._false
+    member val False: RegexNode< ^t > = _builder.uniques._false
 
     //
-    member val TrueStar: RegexNode< ^t > =
-        _builder.uniques._trueStar
+    member val TrueStar: RegexNode< ^t > = _builder.uniques._trueStar
 
 
     member val FullMinterm: ^t = _solver.Full
@@ -207,7 +217,7 @@ type RegexCache< ^t
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.CreateInfo(flags, startset) : RegexNodeInfo<_> =
-        Info.ofFlagsAndStartset(flags, startset)
+        Info.ofFlagsAndStartset (flags, startset)
 
 
 
@@ -217,7 +227,8 @@ type RegexCache< ^t
 
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    member this.IsImplicitDotStarred(node: RegexNode<'t>) : bool = obj.ReferenceEquals(node, _implicitDotstarPattern)
+    member this.IsImplicitDotStarred(node: RegexNode<'t>) : bool =
+        obj.ReferenceEquals(node, _implicitDotstarPattern)
 
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
@@ -226,8 +237,12 @@ type RegexCache< ^t
         cache.Solver.isElemOfSet (pred, mterm)
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    member cache.IsValidPredicate(pred: ^t, locationPredicate: ^t) =
+    member cache.IsValidPredicate(pred: ^t, locationPredicate: ^t) : bool =
         cache.Solver.isElemOfSet (pred, locationPredicate)
+
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    member cache.IsValidPredicateUint64(pred: uint64, locationPredicate: uint64) : bool =
+        (pred &&& locationPredicate) > 0uL
 
 
 
@@ -239,7 +254,7 @@ type RegexCache< ^t
         else
             xs.ToStringHelper()
 
-    member cache.PrettyPrintMinterm(xs: ^t) = cache.Solver.PrettyPrint(xs, _charsetSolver)
+    member cache.PrettyPrintMinterm(xs: ^t) : string = cache.Solver.PrettyPrint(xs, _charsetSolver)
 #endif
 
     member this.Optimizations = _optimizations
