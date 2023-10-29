@@ -3,6 +3,7 @@ namespace rec Sbre.Types
 open System
 open System.Collections.Generic
 open System.Collections.Immutable
+open System.Runtime.CompilerServices
 open System.Text.RuntimeRegexCopy
 open System.Text.RuntimeRegexCopy.Symbolic
 open FSharp.Data.Adaptive
@@ -295,19 +296,13 @@ type PredStartset = {
 
     static member Of(inverted, startset) = { Flags = inverted; Chars = startset }
 
-
+// todo: this could be optimized
+[<Sealed>]
 type ToplevelORCollection() =
     let lastNullableArray: ResizeArray<int> = ResizeArray()
     let nodeArray: ResizeArray<RegexNode<uint64>> = ResizeArray()
 
     member this.Add(node: RegexNode<uint64>, nullableState: int) =
-
-        // let existingIndex = nodeArray.IndexOf(node)
-        // if existingIndex <> -1 then
-        //     if nullableState = -1 then ()
-        //     else lastNullableArray[existingIndex] <- nullableState
-        // else
-
         nodeArray.Add(node)
         lastNullableArray.Add(nullableState)
 
@@ -317,34 +312,41 @@ type ToplevelORCollection() =
             node: RegexNode<uint64>,
             nullableState: int
         ) =
-        let oldIndex = nodeArray.IndexOf(oldNode)
-
-        // todo: bugged!
-        // let existingIndex = nodeArray.IndexOf(node)
-        // if existingIndex <> -1 then
-        //     if nullableState = -1 then ()
-        //     else lastNullableArray[existingIndex] <- nullableState
-        //     nodeArray.RemoveAt(oldIndex)
-        //     lastNullableArray.RemoveAt(oldIndex)
-        // else
-        //     let dbg = 1
-
-        nodeArray[oldIndex] <- node
-        lastNullableArray[oldIndex] <- nullableState
+        match nodeArray.Count with
+        | 1 ->
+            nodeArray[0] <- node
+            lastNullableArray[0] <- nullableState
+        | _ ->
+            let oldIndex = nodeArray.IndexOf(oldNode)
+            // todo: cannot do this: (top level duplicate test)
+            // let existingIndex = nodeArray.IndexOf(node)
+            // if existingIndex <> -1 then
+            //     if nullableState = -1 then ()
+            //     else lastNullableArray[existingIndex] <- nullableState
+            //     nodeArray.RemoveAt(oldIndex)
+            //     lastNullableArray.RemoveAt(oldIndex)
+            // else
+            nodeArray[oldIndex] <- node
+            lastNullableArray[oldIndex] <- nullableState
 
     member this.BumpIsAlwaysNullable(oldNode: RegexNode<uint64>, nullableState: int) =
         let oldIndex = nodeArray.IndexOf(oldNode)
         lastNullableArray[oldIndex] <- nullableState
 
+    // todo: generalize to clear duplicates
     member this.MergeIndexes(idx1: int, idx2:int) =
         let maxNullable =
             max lastNullableArray[idx1] lastNullableArray[idx2]
-
         lastNullableArray[idx1] <- maxNullable
         nodeArray.RemoveAt(idx2)
         lastNullableArray.RemoveAt(idx2)
 
     member this.Remove(oldNode: RegexNode<uint64>) =
+        // match nodeArray.Count with
+        // | 1 ->
+        //     nodeArray.Clear()
+        //     lastNullableArray.Clear()
+        // | _ ->
         let oldIndex = nodeArray.IndexOf(oldNode)
         nodeArray.RemoveAt(oldIndex)
         lastNullableArray.RemoveAt(oldIndex)

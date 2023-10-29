@@ -21,12 +21,6 @@ let rec transform
         fun nodes ->
         nodes |> List.map (transform builder charsetSolver newSolver)
 
-    // match builder.uniques node with
-    // | ValueSome node -> node
-    // | _ ->
-
-    // TODO:
-
     match node with
     | Singleton tset -> builder.one(newSolver.ConvertFromBDD(tset, charsetSolver))
     | Not(xs,info) -> builder.mkNot(transformInner xs)

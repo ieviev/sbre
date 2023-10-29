@@ -117,19 +117,15 @@ let (|ContainsLookaround|_|) (x: RegexNodeInfo<'t>) =
 module rec Startset =
 
     let inline inferMergeStartset (_solver: ISolver<'t>) (nodes: seq<RegexNode<'t>>) =
-        // todo! optimize
+        // todo: small optimization here
         nodes
         |> Solver.mapOr _solver (inferStartset _solver)
 
 
     let rec inferConcatStartset (_solver: ISolver<'t>) (head: RegexNode<'t>) (tail: RegexNode<'t>) =
 
-
         match head with
         | Loop(node = Singleton pred; low = 0; up = Int32.MaxValue) ->
-            // if head.IsAlwaysNullable then
-            //     inferStartset _solver tail
-            // else
             let tailStartset = inferStartset _solver tail
             let invertedPred = _solver.Not(pred)
             _solver.Or(invertedPred, tailStartset)
@@ -161,14 +157,11 @@ module rec Startset =
         | Concat(chead, ctail, info) ->
             inferConcatStartset _solver chead ctail
 
-
-
-    let rec inferLoopStartset (_solver: ISolver<'t>) (R, low, up) =
+    let inline inferLoopStartset (_solver: ISolver<'t>) (R, low, up) =
         match (R, low, up) with
         | Concat _, 0, Int32.MaxValue -> _solver.Full
         | _ ->
             let bodyStartset = inferStartset _solver R
-
             match low, up with
             | 0, Int32.MaxValue -> _solver.Not(bodyStartset)
             | _ -> bodyStartset
@@ -181,7 +174,6 @@ module rec Startset =
         | Loop(Concat _, low, up, info) -> _solver.Full
         | Loop(loopBody, low, up, info) ->
             let bodyStartset = inferStartset _solver loopBody
-
             match low, up with
             | 0, Int32.MaxValue -> _solver.Not(bodyStartset)
             | _ -> bodyStartset
@@ -241,6 +233,7 @@ module rec Flags =
         | _ -> inferNode R
 
     let inferAnd (xs: seq<RegexNode<'t>>) : RegexNodeFlags =
+        // todo: can be optimized
         let inner =
             xs
             |> Seq.map inferNodeOptimized
@@ -269,7 +262,7 @@ module rec Flags =
         newFlags
 
     let inferConcat (head: RegexNode<'t>) (tail: RegexNode<'t>) =
-
+        // todo: can be optimized
         let infos =
             [|
                 inferNodeOptimized head
@@ -318,37 +311,6 @@ module rec Flags =
             Flag.CanBeNullable
             ||| Flag.ContainsLookaround
 
-    let inferConcatOptimized (nodes: RegexNode<'t> list) =
-        match nodes with
-        | head :: tail ->
-            let infos =
-                nodes
-                |> Seq.map inferNodeOptimized
-                |> Seq.toArray
-
-            let allCanBeNull =
-                infos
-                |> Array.forall (fun v -> v.HasFlag(Flag.CanBeNullable))
-
-            let allAlwaysNull =
-                infos
-                |> Array.forall (Flag.hasFlag Flag.IsAlwaysNullable)
-
-            let canSkipHead =
-                infos[0]
-                |> Flag.hasFlag Flag.CanSkip
-
-            let newFlags =
-                infos
-                |> Seq.map Flag.getContainsFlags
-                |> Flag.mergeFlags
-                |> Flag.withFlagIf allCanBeNull Flag.CanBeNullable
-                |> Flag.withFlagIf allAlwaysNull Flag.IsAlwaysNullable
-                |> Flag.withFlagIf canSkipHead Flag.CanSkip
-
-            newFlags
-
-        | _ -> failwith "bug ??"
 
     let inferNot (inner: RegexNode<'t>) =
         let innerInfo = inferNodeOptimized inner

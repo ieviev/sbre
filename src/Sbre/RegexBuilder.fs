@@ -11,8 +11,9 @@ open Sbre.Info
 open Sbre.Pat
 open Sbre.Types
 
+
 // TODO: proper startset optimization
-module StartsetHelpers =
+module internal StartsetHelpers =
     let bddToStartsetChars(bdd: BDD) : PredStartset =
         let rcc = RegexCharClass()
         let mutable ranges = BDDRangeConverter.ToRanges(bdd)
@@ -70,7 +71,6 @@ module StartsetHelpers =
         let mergedCharSpan = CollectionsMarshal.AsSpan(static_merged_chars)
         let mutable totalLen = 0
 
-        // anchors test 2
         let shouldInvert =
             solver.isElemOfSet (startset, uintMinterms[0])
 
@@ -92,8 +92,10 @@ module StartsetHelpers =
                 let pureMt = uintMinterms[i]
                 match solver.isElemOfSet (startset, pureMt) with
                 | true ->
+#if DEBUG
                     if predStartsetArray[i].Flags.HasFlag(StartsetFlags.Inverted) then
                         failwith "TODO: optimizations"
+#endif
                     let targetSpan = mergedCharSpan.Slice(totalLen)
                     let pspan = predStartsetArray[i].Chars.AsSpan()
                     pspan.CopyTo(targetSpan)
@@ -109,19 +111,6 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
     (converter: RegexNodeConverter, solver: ISolver< ^t >, bcss: CharSetSolver) as b =
     let runtimeBuilder = SymbolicRegexBuilder< ^t>(solver, bcss)
 
-    let _singletonLoopCache = Dictionary< ^t, RegexNode< ^t >>()
-
-
-    let _singletonCache: Dictionary< ^t, RegexNode< ^t > > = Dictionary()
-
-    let _loopCache: Dictionary<struct (RegexNode< ^t > * int * int), RegexNode< ^t >> =
-        Dictionary()
-
-    let _concatCache: Dictionary<struct (RegexNode< ^t > * RegexNode< ^t >), RegexNode< ^t >> =
-        Dictionary()
-
-    let _or2Cache: Dictionary<struct (RegexNode< ^t > * RegexNode< ^t >), RegexNode< ^t >> =
-        Dictionary()
 
 
     let getDerivativeCacheComparer() : IEqualityComparer<struct (uint64 * RegexNode<uint64>)> =
@@ -133,32 +122,6 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
             member this.GetHashCode(struct (x, y)) =
                 HashCode.Combine(x.GetHashCode(), LanguagePrimitives.PhysicalHash y)
         }
-
-    let _derivativeCache: Dictionary<struct (uint64 * RegexNode<uint64>), RegexNode<uint64>> =
-        Dictionary(getDerivativeCacheComparer ())
-
-
-    let _orCacheComparer =
-        { new IEqualityComparer<RegexNode< ^t >[]> with
-            member this.Equals(xs, ys) =
-                xs.Length = ys.Length && Array.forall2 refEq xs ys
-
-            member this.GetHashCode(x) =
-                x
-                |> Seq.map LanguagePrimitives.PhysicalHash
-                |> Seq.reduce (fun a b -> HashCode.Combine(a, b))
-        }
-
-    let _orCache: Dictionary<RegexNode< ^t >[], RegexNode< ^t >> =
-        Dictionary(_orCacheComparer)
-
-    let _refComparer =
-        { new IEqualityComparer<RegexNode< ^t >> with
-            member this.Equals(xs, ys) = refEq xs ys
-            member this.GetHashCode(x) = LanguagePrimitives.PhysicalHash x
-        }
-
-    let _notCache: Dictionary<RegexNode< ^t >, RegexNode< ^t >> = Dictionary(_refComparer)
 
     let _andCacheComparer =
         { new IEqualityComparer<RegexNode< ^t >[]> with
@@ -175,6 +138,52 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
 
                 hashes
         }
+    let _orCacheComparer =
+        { new IEqualityComparer<RegexNode< ^t >[]> with
+            member this.Equals(xs, ys) =
+                xs.Length = ys.Length && Array.forall2 refEq xs ys
+
+            member this.GetHashCode(x) =
+                x
+                |> Seq.map LanguagePrimitives.PhysicalHash
+                |> Seq.reduce (fun a b -> HashCode.Combine(a, b))
+        }
+
+
+    let _refComparer =
+        { new IEqualityComparer<RegexNode< ^t >> with
+            member this.Equals(xs, ys) = refEq xs ys
+            member this.GetHashCode(x) = LanguagePrimitives.PhysicalHash x
+        }
+    let _u64refComparer =
+        { new IEqualityComparer<RegexNode<uint64>> with
+            member this.Equals(xs, ys) = refEq xs ys
+            member this.GetHashCode(x) = LanguagePrimitives.PhysicalHash x
+        }
+
+    let _singletonCache: Dictionary< ^t , RegexNode< ^t >>  = Dictionary()
+    let _loopCache: Dictionary<struct (RegexNode< ^t > * int * int), RegexNode< ^t >> =
+        Dictionary()
+    let _concatCache: Dictionary<struct (RegexNode< ^t > * RegexNode< ^t >), RegexNode< ^t >> =
+        Dictionary()
+    let _derivativeCache: Dictionary<struct (uint64 * RegexNode<uint64>), RegexNode<uint64>> =
+        // Dictionary(getDerivativeCacheComparer ())
+        Dictionary(getDerivativeCacheComparer ())
+
+    let _startset2Cache: Dictionary<RegexNode<uint64>, uint64> =
+        // Dictionary()
+        Dictionary(_u64refComparer)
+
+
+
+    let _orCache: Dictionary<RegexNode< ^t >[], RegexNode< ^t >> =
+        Dictionary(_orCacheComparer)
+
+
+
+    let _notCache: Dictionary<RegexNode< ^t >, RegexNode< ^t >> = Dictionary(_refComparer)
+
+
 
     let _andCache: Dictionary<RegexNode< ^t >[], RegexNode< ^t >> =
         Dictionary(_andCacheComparer)
@@ -355,8 +364,17 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
     member this.anchors = _anchors
 
     member this.DerivativeCache = _derivativeCache
+    member this.Startset2Cache = _startset2Cache
 
-    member this.tryTransformCache(node: RegexNode<BDD>) = _anchors
+    // [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    member this.GetSs2Cached(node:RegexNode<uint64>) =
+        match this.Startset2Cache.TryGetValue(node) with
+        | true, v -> v
+        | _ ->
+            let ss2 = Startset.inferStartset2(solver :?> ISolver<uint64>)(node)
+            this.Startset2Cache.Add(node,ss2)
+            ss2
+
 
     member this.one(char: char) : RegexNode< ^t > =
         let a1: BDD = bcss.CreateBDDFromChar char
@@ -473,8 +491,10 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
                 | n -> [| n |]
             )
             |> Seq.distinctBy LanguagePrimitives.PhysicalHash
-            |> Seq.sortBy LanguagePrimitives.PhysicalHash
+            // |> Seq.sortBy LanguagePrimitives.PhysicalHash
             |> Seq.toArray
+
+        Array.sortInPlaceBy LanguagePrimitives.PhysicalHash nodeSet
 
         if nodeSet.Length = 0 then
             _uniques._trueStar
@@ -540,8 +560,9 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
                 | n -> [| n |]
             )
             |> Seq.distinctBy LanguagePrimitives.PhysicalHash
-            |> Seq.sortBy LanguagePrimitives.PhysicalHash
             |> Seq.toArray
+
+        Array.sortInPlaceBy LanguagePrimitives.PhysicalHash nodeSet
 
         if nodeSet.Length = 0 then
             _uniques._false
@@ -735,18 +756,15 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
                     _uniques._trueStar
                 else
                     // .*, etc is very common, cache it
-                    match _singletonLoopCache.TryGetValue(minterm) with
-                    | true, v -> v
-                    | _ ->
-                        let flags = Flags.inferLoop (body, lower, upper)
 
-                        let startset = Startset.inferLoopStartset solver (body, lower, upper)
+                    let flags = Flags.inferLoop (body, lower, upper)
 
-                        let loop =
-                            RegexNode.Loop(body, lower, upper, info = b.CreateInfo(flags, startset))
+                    let startset = Startset.inferLoopStartset solver (body, lower, upper)
 
-                        _singletonLoopCache[minterm] <- loop
-                        loop
+                    let loop =
+                        RegexNode.Loop(body, lower, upper, info = b.CreateInfo(flags, startset))
+
+                    loop
             | _, (x, y) when x > 0 ->
                 let flags = Flags.inferLoop (body, lower, upper)
 

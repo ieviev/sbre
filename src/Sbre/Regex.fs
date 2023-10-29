@@ -208,7 +208,7 @@ module RegexNode =
         createDerivative (cache, loc, loc_pred, currNode)
 
 
-    //     /// 3.3 Derivatives and MatchEnd: if Final(x) then Nullx (R) else max(Nullx (R), MatchEnd(x+1, Derx (R)))
+    // 3.3 Derivatives and MatchEnd: if Final(x) then Nullx (R) else max(Nullx (R), MatchEnd(x+1, Derx (R)))
     let matchEnd
         (
             cache: RegexCache<uint64>,
@@ -288,7 +288,7 @@ module RegexNode =
                                     foundmatch <- true
                                 else
                                     toplevelOr.Remove(curr)
-                            // pendingRemoval.Add(curr)
+
                             | deriv ->
 
                                 if obj.ReferenceEquals(curr, deriv) then
@@ -331,14 +331,6 @@ module RegexNode =
                                             lastNullPos
 
                                     toplevelOr.UpdateTransition(curr, deriv, newNullablePos)
-                    // let inst = ToplevelOR.Of(deriv, newNullablePos)
-
-                    // if toplevelOr.Contains(inst) then
-                    // pendingRemoval.Add(curr)
-                    // pendingAddition.Add(inst)
-                    // else
-                    //     curr.Node <- deriv // mutate directly if non-duplicate
-
 
                     // create implicit dotstar derivative only if startset matches
                     if
@@ -444,58 +436,14 @@ let rec createDerivative
 
 
     match c.Builder.DerivativeCache.TryGetValue(struct (loc_pred, node)) with
-    | true, v ->
-
-#if DIAGNOSTIC
-        // // diagnose reference equality
-        // let re = refEq node v
-        // let eq = node = v
-        // logDebug $"cache: {node.ToStringHelper()}-{loc_pred} -> {v.ToStringHelper()}"
-        // logDebug $"cache-eq: ref:{re} eq:{eq}"
-        // // if re <> eq then
-        // //     logDebug $"not eq!: {node.ToStringHelper()}-{loc_pred} -> {v.ToStringHelper()}"
-        // //     failwith "debug:"
-#endif
-#if DEBUG
-        // // check for cached duplicates
-        if not (refEq node v) && (node = v) then
-            let phy1 = LanguagePrimitives.PhysicalHash node
-            let phy2 = LanguagePrimitives.PhysicalHash v
-            c.Builder.DerivativeCache[(struct (loc_pred, node))] <- node
-            failwith $"dupl cache: {node.ToStringHelper()}, {c.PrettyPrintMinterm(loc_pred)}"
-            node
-        else
-#endif
-        v
+    | true, v -> v
     | _ ->
 
-        // DEBUG duplicates
-        // let cachedItems = c.Builder.DerivativeCache
-        // cachedItems |> Seq.iter (fun v -> set1.Add(v.Key) |> ignore )
-        // cachedItems |> Seq.iter (fun v -> set2.Add(v.Key) |> ignore )
-        // if set1.Count <> set2.Count then
-        //     let set1Array = set1 |> Seq.toArray
-        //     let removedSet =
-        //         set2
-        //         |> Seq.iter (fun v ->
-        //             set1.Remove(v) |> ignore
-        //         )
-        //     let struct (_,e1) = set1Array[72]
-        //     let struct (_,e2) = set1Array[74]
-        //     let eq1 = obj.Equals(e1,e2)
-        //     let eq2 = obj.ReferenceEquals(e1,e2)
         //
-        //     let e2 = set1 |> Seq.skip 1 |> Seq.head
-        //
-        //     failwith "debug"
-        // let asdasd = 1
-
-
-
         let result =
             match node with
             // major optimization
-            | Cache.ReturnsInitialDerivative c loc loc_pred -> node
+            // | Cache.ReturnsInitialDerivative c loc loc_pred -> node
 
             // 3.3: Derx (R) = ⊥ if R ∈ ANC or R = ()
             | LookAround _
@@ -509,7 +457,7 @@ let rec createDerivative
             // if m=0 or Null ∀(R)=true or Nullx (R)=false
             // then Derx (R)·R{m −1, n −1}
             // else Derx (R·R{m −1, n −1})
-            | Loop(R, low, up, info) as head ->
+            | Loop(R, low, up, info) ->
 
                 let inline decr x =
                     if x = Int32.MaxValue || x = 0 then x else x - 1
@@ -531,13 +479,12 @@ let rec createDerivative
                     // Derx (R·R{m −1, n −1, l})
                     c.Builder.mkConcat2 (
                         R,
-                        // Cache.mkLoop (c, R, decr low, decr up)
                         c.Builder.mkLoop (R, decr low, decr up)
                     )
                     |> Der
 
             // 3.3: Derx (R | S) = Derx (R) | Derx (S)
-            | Or(xs, info) as head ->
+            | Or(xs, info) ->
                 let ders =
                     xs |> Seq.sortBy LanguagePrimitives.PhysicalHash |> Seq.map Der |> Seq.toArray
 
@@ -554,11 +501,11 @@ let rec createDerivative
 
 #if DEBUG
                 // TODO: force reference equals
-                if not (obj.ReferenceEquals(newOr, node)) && isSameDerivative () then
-                    let h1 = LanguagePrimitives.PhysicalHash newOr
-                    let h2 = LanguagePrimitives.PhysicalHash head
-                    failwith $"TODO: {head.ToStringHelper()}"
-                else
+                // if not (obj.ReferenceEquals(newOr, node)) && isSameDerivative () then
+                //     let h1 = LanguagePrimitives.PhysicalHash newOr
+                //     let h2 = LanguagePrimitives.PhysicalHash head
+                //     failwith $"TODO: {head.ToStringHelper()}"
+                // else
 #endif
 
                 newOr
@@ -624,102 +571,19 @@ let rec createDerivative
                     | _ when obj.ReferenceEquals(R', head) -> node
                     | _ ->
                         let newConcat = c.Builder.mkConcat2 (R', tail)
-
-                        let isSameDerivative() =
-                            match newConcat with
-                            | Concat(newHead, newTail, _) ->
-                                let v = newHead = head
-                                let v2 = newTail = tail
-                                v && v2
-                            | _ -> false
-
-#if DEBUG
-                        // TODO: force reference equals
-                        if not (obj.ReferenceEquals(newConcat, node)) && isSameDerivative () then
-                            failwith $"DEBUG: duplicate derivative in: {node}"
-#endif
-
-
-
                         newConcat
 
 
                 if RegexNode.isNullable (c, loc, head) then
                     let S' = Der(tail)
-
                     let newConcat = c.Builder.mkOr [| R'S; S' |]
-
-                    let isSameDerivative() =
-                        match newConcat with
-                        | Concat(newHead, newTail, _) -> newHead = head && newTail = tail
-                        | _ -> false
-
-#if DEBUG
-                    // TODO: force reference equals
-                    if not (obj.ReferenceEquals(newConcat, node)) && isSameDerivative () then
-                        failwith $"duplicate concat node: {node.ToStringHelper()}"
-#endif
-
                     newConcat
                 else
                     // Derx (R)·S
                     R'S
 
 
-#if DIAGNOSTIC
-        // diagnose reference equality
-        // let re = refEq node result
-        // let eq = node = result
-        // logDebug $"der: {node.ToStringHelper()}-{loc_pred} -> {result.ToStringHelper()}"
-        // logDebug $"der-eq: ref:{re} eq:{eq}"
-        // if re <> eq then
-        //     logDebug $"not eq! {loc.DebugDisplay()}: {node.ToStringHelper()}-{loc_pred} -> {result.ToStringHelper()}"
-        //     failwith "debug:"
-#endif
-
-        // TODO: duplication here
-#if DEBUG
-        // if refEq node result then
-        //     logDebug $"cache ID: {node.ToStringHelper()}-{loc_pred}"
-        // else
-        //     logDebug $"cache: {node.ToStringHelper()}-{loc_pred} -> {result.ToStringHelper()}"
-        //
-        // let resstr = node.ToStringHelper()
-        // let req = refEq node result
-        // let eq2 = node = result
-        // let phy1 = LanguagePrimitives.PhysicalHash result
-        // let phy2 = LanguagePrimitives.PhysicalHash node
-        // if resstr = "(⊤*April⊤*&⊤*Thursday⊤*&⊤*Went⊤*)" && loc_pred = 16uL then
-        //     ()
-#endif
-
         if not (node.ContainsLookaround) then
-            // if req then
-            //     c.Builder.DerivativeCache.TryAdd(struct (loc_pred , node), node)
-            //     |> ignore
-            // else
-
-            //  uint64
-            // 64 01
-            //
-            // let test =
-            //
-            //     let nodeHash = LanguagePrimitives.PhysicalHash node
-            //     let resultHash = LanguagePrimitives.PhysicalHash result
-            //
-            //     match node with
-            //     | And(items,info) when items.Count = 3 && info.Startset = 14uL ->
-            //         let hashes =
-            //             items
-            //             |> Seq.map LanguagePrimitives.PhysicalHash
-            //             |> Seq.toArray
-            //         ()
-            //     | _ -> ()
-
-            //
-            // if loc_pred = 1uL || loc_pred = 16uL then
-            //     ()
-
-            c.Builder.DerivativeCache.TryAdd(struct (loc_pred, node), result) |> ignore
+            c.Builder.DerivativeCache.Add(struct (loc_pred, node), result)
 
         result

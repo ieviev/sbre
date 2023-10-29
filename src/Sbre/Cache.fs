@@ -56,10 +56,10 @@ type RegexCache< ^t when ^t: struct and ^t :> IEquatable< ^t > and ^t: equality>
 
     let predStartsets = lazy StartsetHelpers.startsetsFromMintermArray (mintermBdds.Value)
 
-    let initialSs2 =
-        Startset.inferStartset2 (_solver) _rawPattern
+    let initialSs2 = Startset.inferStartset2 (_solver) _rawPattern
 
     let mutable _cachedBDDRanges: Dictionary< ^t, PredStartset > = Dictionary()
+    let mutable _cachedStartsets: Dictionary< ^t, char[] > = Dictionary()
 
 #if DEBUG
     let mintermsPretty =
@@ -74,9 +74,15 @@ type RegexCache< ^t when ^t: struct and ^t :> IEquatable< ^t > and ^t: equality>
     member this.MintermBdds() = mintermBdds.Value
     member this.MintermStartsets() = predStartsets.Value
 
-    member this.MintermIndexOfSpan(startset: 't) =
-        StartsetHelpers.getMergedIndexOfSpan (predStartsets.Value, unbox minterms, unbox _solver, startset)
-    member this.TryNextStartsetLocation(loc: Location, set: 't) =
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    member this.MintermIndexOfSpan(startset: ^t) =
+        match _cachedStartsets.TryGetValue(startset) with
+        | true, v -> v.AsSpan()
+        | _ ->
+            let newSpan = StartsetHelpers.getMergedIndexOfSpan (predStartsets.Value, minterms, _solver, startset)
+            _cachedStartsets.Add(startset,newSpan.ToArray())
+            newSpan
+    member this.TryNextStartsetLocation(loc: Location, set: ^t) =
 
         let setChars = this.MintermIndexOfSpan(set)
         let isInverted = this.IsValidPredicate(set,minterms[0])
@@ -110,7 +116,7 @@ type RegexCache< ^t when ^t: struct and ^t :> IEquatable< ^t > and ^t: equality>
 
                 ValueSome(sharedIndex + 1)
 
-    member this.TryNextStartsetLocation2(loc: Location, set: 't, set2: 't) =
+    member this.TryNextStartsetLocation2(loc: Location, set: ^t, set2: ^t) =
 
         let setChars = this.MintermIndexOfSpan(set)
         let mutable currpos = loc.Position
@@ -184,6 +190,7 @@ type RegexCache< ^t when ^t: struct and ^t :> IEquatable< ^t > and ^t: equality>
     member this.MintermForStringIndex(str: string, pos: int) =
         minterms[classifier.GetMintermID(int str[pos])]
 
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.CharToMinterm(c: inref<char>) : ^t = minterms[classifier.GetMintermID(int c)]
 
     member val InitialPatternWithoutDotstar = _rawPattern
@@ -207,7 +214,6 @@ type RegexCache< ^t when ^t: struct and ^t :> IEquatable< ^t > and ^t: equality>
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.IsTrueStar(node: RegexNode< ^t >) : bool =
-        let a = 1
         obj.ReferenceEquals(node, _builder.uniques._trueStar)
 
 
@@ -243,7 +249,6 @@ type RegexCache< ^t when ^t: struct and ^t :> IEquatable< ^t > and ^t: equality>
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member cache.IsValidPredicateUint64(pred: uint64, locationPredicate: uint64) : bool =
         (pred &&& locationPredicate) > 0uL
-
 
 
 #if DEBUG

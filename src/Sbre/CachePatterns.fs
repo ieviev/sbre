@@ -8,8 +8,6 @@ open Sbre.Info
 
 module Cache =
 
-
-
     // --> cache patterns
     [<return: Struct>]
     let inline (|IsImplicitDotStarred|_|) (c: RegexCache< ^t >) (node: RegexNode< ^t >) =
@@ -54,32 +52,6 @@ module Cache =
         | _ -> ValueNone
 
 
-    // let mkConcat2 (this: RegexCache<'t>, head: RegexNode<'t>, tail: RegexNode<'t>) =
-    //     match head with
-    //     | Epsilon -> tail // ()R -> R
-    //     | IsFalse this -> this.False // ⊥R -> ⊥
-    //     | _ ->
-    //     let startset = Info.Startset.inferConcatStartset this.Solver head tail
-    //     let flags = Info.Flags.inferConcat head (tail)
-    //     let info = this.CreateInfo(flags, startset)
-    //     // Info.ofFlagsAndStartset (flags', startset)
-    //     Concat(head, tail,info )
-
-    // let mkLoop (this: RegexCache<'t>, R, lower, upper) =
-    //     match lower, upper with
-    //     | 1, 1 -> R
-    //     | 0, 0 -> Epsilon
-    //     | 0, Int32.MaxValue when this.IsTrue R -> this.TrueStar
-    //     | _ ->
-    //         let flags' = Info.Flags.inferLoop (R, lower, upper)
-    //
-    //         let startset' = Info.Startset.inferLoopStartset (this.Solver) (R, lower, upper)
-    //         // let info' = Info.ofFlagsAndStartset (flags', this.Solver.Full)
-    //         // TODO: Optimize
-    //         let info = this.CreateInfo(flags', this.Solver.Full)
-    //         let newNode = Loop(R, lower, upper, info)
-    //         newNode
-
     let mkNot (cache: RegexCache<'t>, derivative: RegexNode<'t>) : RegexNode<'t> =
 
 
@@ -103,7 +75,7 @@ module Cache =
         //             singletonInfo ()
         //         )
         //     [ ornode ]
-        // TODO:
+
         | IsFalse cache -> cache.TrueStar // ~(⊥) -> ⊤*
         | IsTrueStar cache -> cache.False // ~(⊤*) -> ⊥
         | Epsilon ->
@@ -131,7 +103,7 @@ module Cache =
             Not(derivative, info)
 
     [<return: Struct>]
-    let rec (|ReturnsInitialDerivative|_|)
+    let inline (|ReturnsInitialDerivative|_|)
         (c: RegexCache<uint64>)
         (loc: Location)
         (loc_pred: uint64)
@@ -139,7 +111,7 @@ module Cache =
         : unit voption =
 
         // inline
-        let  notMatchInfo
+        let inline notMatchInfo
             (
                 info: RegexNodeInfo<uint64>,
                 loc_pred: uint64
