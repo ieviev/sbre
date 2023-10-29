@@ -3,7 +3,9 @@ namespace rec Sbre.Types
 open System
 open System.Collections.Generic
 open System.Collections.Immutable
+open System.Collections.Specialized
 open System.Runtime.CompilerServices
+open System.Runtime.InteropServices
 open System.Text.RuntimeRegexCopy
 open System.Text.RuntimeRegexCopy.Symbolic
 open FSharp.Data.Adaptive
@@ -14,7 +16,7 @@ open System.Diagnostics
 /// 2. Preliminaries
 /// A location in s is a pair ⟨s, i⟩, where −1 ≤ i ≤ |s |
 [<DebuggerDisplay("{DebugDisplay()}")>]
-[<Struct>]
+[<Struct>] // todo: try shallow copy instead
 type Location = {
     Input: string
     mutable Position: int32
@@ -142,6 +144,17 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
         | Not(info = info) -> not (info.CanBeNullable)
         | LookAround _ -> false
         | Concat(info = info) -> not (info.CanBeNullable)
+        | Epsilon -> false
+
+    member inline this.CanSkip =
+        match this with
+        | Or(info = info) -> info.Flags.HasFlag(RegexNodeFlags.CanSkip)
+        | Singleton _ -> false
+        | Loop(info = info) -> info.Flags.HasFlag(RegexNodeFlags.CanSkip)
+        | And(info = info) -> info.Flags.HasFlag(RegexNodeFlags.CanSkip)
+        | Not(info = info) -> info.Flags.HasFlag(RegexNodeFlags.CanSkip)
+        | LookAround _ -> false
+        | Concat(info = info) -> info.Flags.HasFlag(RegexNodeFlags.CanSkip)
         | Epsilon -> false
 
 
@@ -296,11 +309,14 @@ type PredStartset = {
 
     static member Of(inverted, startset) = { Flags = inverted; Chars = startset }
 
-// todo: this could be optimized
+// todo: this could be optimized with a flat array instead of resizearray
 [<Sealed>]
 type ToplevelORCollection() =
     let lastNullableArray: ResizeArray<int> = ResizeArray()
     let nodeArray: ResizeArray<RegexNode<uint64>> = ResizeArray()
+
+
+
 
     member this.Add(node: RegexNode<uint64>, nullableState: int) =
         nodeArray.Add(node)
@@ -318,16 +334,20 @@ type ToplevelORCollection() =
             lastNullableArray[0] <- nullableState
         | _ ->
             let oldIndex = nodeArray.IndexOf(oldNode)
-            // todo: cannot do this: (top level duplicate test)
-            // let existingIndex = nodeArray.IndexOf(node)
-            // if existingIndex <> -1 then
-            //     if nullableState = -1 then ()
-            //     else lastNullableArray[existingIndex] <- nullableState
-            //     nodeArray.RemoveAt(oldIndex)
-            //     lastNullableArray.RemoveAt(oldIndex)
-            // else
             nodeArray[oldIndex] <- node
             lastNullableArray[oldIndex] <- nullableState
+
+    member this.UpdateTransitionNode
+        (
+            oldNode: RegexNode<uint64>,
+            node: RegexNode<uint64>
+        ) =
+        match nodeArray.Count with
+        | 1 ->
+            nodeArray[0] <- node
+        | _ ->
+            let oldIndex = nodeArray.IndexOf(oldNode)
+            nodeArray[oldIndex] <- node
 
     member this.BumpIsAlwaysNullable(oldNode: RegexNode<uint64>, nullableState: int) =
         let oldIndex = nodeArray.IndexOf(oldNode)
@@ -347,6 +367,9 @@ type ToplevelORCollection() =
         //     nodeArray.Clear()
         //     lastNullableArray.Clear()
         // | _ ->
+        // CollectionsMarshal.GetValueRefOrAddDefault
+        // let spn = CollectionsMarshal.AsSpan(nodeArray)
+
         let oldIndex = nodeArray.IndexOf(oldNode)
         nodeArray.RemoveAt(oldIndex)
         lastNullableArray.RemoveAt(oldIndex)
@@ -358,6 +381,17 @@ type ToplevelORCollection() =
     member this.Count = nodeArray.Count
 
     member this.Items = nodeArray
+    member this.CanSkipAll() =
+
+
+        let mutable canskip = true
+        use mutable e = nodeArray.GetEnumerator()
+        while e.MoveNext() = true && canskip do
+            canskip <- e.Current.CanSkip
+        canskip
+
+        // allocates 5 MB
+        // nodeArray |> Seq.forall (fun v -> v.CanSkip)
 
 
 

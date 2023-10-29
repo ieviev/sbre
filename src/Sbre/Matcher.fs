@@ -80,7 +80,7 @@ type Matcher(pattern: string) =
         | Epsilon -> implicitAnyStar
         | Not(xs, info) as node ->
             let negflags = Info.Flags.inferNode xs
-            Concat(implicitAnyStar, node,  Info.ofFlagsAndStartset(negflags, charsetSolver.Full) )
+            Concat(implicitAnyStar, node, bddBuilder2.CreateInfo(negflags, charsetSolver.Full) )
 
     let minterms =
         dotStarredPattern |> Minterms.compute bddBuilder
@@ -235,13 +235,20 @@ type Matcher(pattern: string) =
 
     member this.Matches(input: string) =
 
+
+        let mutable startPos = 0
         let mutable location = Location.create input 0
 
         let rec loop location =
             seq {
+
+                let success =
+                    optimizations.TryFindNextStartingPositionLeftToRight(input.AsSpan(), &startPos, 0)
                 let initialpos = location.Position //
 
-                match this.MatchFromLocation(location) with
+                let startLocation = Location.create input startPos
+                let fg  = 1
+                match RegexNode.matchEnd (cache, location, ValueNone, dotStarredUint64Node) with
                 | ValueNone ->
                     ()
                 | ValueSome (endPos:int) ->
@@ -298,12 +305,6 @@ type Matcher(pattern: string) =
                     failwith
                         $"match succeeded left to right but not right to left:\nmatch end: {endPos}\nreverse pattern: {reverseUint64Node}"
                 | ValueSome start -> Some(input[start .. endPos - 1])
-
-
-
-
-
-
 
 
     member this.MatchWithoutOptimizations(input: string) =

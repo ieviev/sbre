@@ -223,7 +223,7 @@ type RegexCache< ^t when ^t: struct and ^t :> IEquatable< ^t > and ^t: equality>
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.CreateInfo(flags, startset) : RegexNodeInfo<_> =
-        Info.ofFlagsAndStartset (flags, startset)
+        _builder.CreateInfo(flags,startset)
 
 
 
@@ -244,6 +244,7 @@ type RegexCache< ^t when ^t: struct and ^t :> IEquatable< ^t > and ^t: equality>
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member cache.IsValidPredicate(pred: ^t, locationPredicate: ^t) : bool =
+        // (Solver.isElemOfSetU64 pred locationPredicate)
         cache.Solver.isElemOfSet (pred, locationPredicate)
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]

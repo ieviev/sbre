@@ -450,6 +450,25 @@ let ``implication 2 ``() =
 
 
 
+// indicates problem with second startset
+[<Fact>]
+let ``script test 1``() =
+    let pattern =
+        [ "THE.*LIFE"; @".*FIVE.*" ]
+        |> String.concat "&"
+
+    let input = @"
+      EDWARD MILLS AND GEORGE BENTON:  A TALE
+      THE FIVE BOONS OF LIFE
+      THE FIRST WRITING-MACHINES
+"
+
+    let matcher = Matcher(pattern)
+    let result = matcher.Match(input)
+    Assert.Equal(result.Value, "THE FIVE BOONS OF LIFE")
+
+
+
 
 
 

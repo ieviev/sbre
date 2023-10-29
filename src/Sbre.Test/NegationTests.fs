@@ -107,7 +107,7 @@ let loremIpsum = """ Lorem Ipsum."""
 let ``negation lorem ipsum test``() =
     let matcher = Matcher(@"~(Lorem⊤*) ")
     let result = matcher.MatchText(loremIpsum)
-    Assert.Equal(result, Some "orem ")
+    Assert.Equal(Some "orem ", result)
 
 
 

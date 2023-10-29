@@ -192,7 +192,8 @@ module rec Startset =
 
 
     let rec inferStartset2 (_solver: ISolver<'t>) (node: RegexNode<'t>) =
-        // if true then _solver.Full else
+        // if not node.CanSkip then _solver.Full else // todo: optimize
+
         match node with
         | Epsilon -> _solver.Full
         | Singleton pred -> _solver.Full
@@ -204,14 +205,17 @@ module rec Startset =
         | Not(inner, info) -> inferStartset2 _solver inner
         | LookAround(node = body; lookBack = false) -> _solver.Full // TODO: optimize
         | LookAround(lookBack = true) -> _solver.Full
-        | Concat(Loop(node=Singleton pred;low=0;up=Int32.MaxValue), Concat(head,concatTail2,_), info) ->
-            concatTail2.Startset
+        | Concat(Loop(node=Singleton pred;low=0;up=Int32.MaxValue), Concat(Singleton chead,concatTail2,_), info) ->
+            if _solver.IsFull(pred) then concatTail2.Startset
+            else _solver.Full // .* not optimized
+
         | Concat(Not(node=inner;info=notInfo), tailNode, info) ->
             let ss2 = tailNode.Startset
             let ss1 = inferStartset2 _solver inner
             _solver.Or(ss1,ss2)
         | Concat(Singleton hpred, t, info) -> _solver.Full // todo: (.*dogs.*&and.*), (a.*&~(.*b.*)b)
-        | Concat(h, t, info) -> t.Startset
+        | Concat(Concat(h1,h2,_) as c1, t, info) -> c1.Startset // todo: script test 1
+        | Concat(h, t, info) -> _solver.Full // TODO:
         | And(xs, info) ->
             // avoid allocations
             use mutable e = xs.GetEnumerator()
@@ -391,8 +395,8 @@ module rec Flags =
 
         | Concat(head, tail, info) -> inferConcat head tail
 
-let ofFlagsAndStartset (flags, ss) = { Flags = flags; Startset = ss; }
-let createInfo (flags, ss, nodeId) = { Flags = flags; Startset = ss; }
+// let ofFlagsAndStartset (flags, ss) = { Flags = flags; Startset = ss; }
+// let createInfo (flags, ss, nodeId) = { Flags = flags; Startset = ss; }
 
 let defaultInfo (solver: ISolver<'t>) : RegexNodeInfo<'t> =
     {

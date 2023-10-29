@@ -111,8 +111,6 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
     (converter: RegexNodeConverter, solver: ISolver< ^t >, bcss: CharSetSolver) as b =
     let runtimeBuilder = SymbolicRegexBuilder< ^t>(solver, bcss)
 
-
-
     let getDerivativeCacheComparer() : IEqualityComparer<struct (uint64 * RegexNode<uint64>)> =
         { new IEqualityComparer<struct (uint64 * RegexNode<uint64>)> with
             [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
@@ -124,7 +122,7 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
         }
 
     let _andCacheComparer =
-        { new IEqualityComparer<RegexNode< ^t >[]> with
+        { new IEqualityComparer<RegexNode< 't>[]> with
             member this.Equals(xs, ys) =
                 let inline eq2() = Array.forall2 refEq xs ys
                 xs.Length = ys.Length && eq2 ()
@@ -167,12 +165,11 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
     let _concatCache: Dictionary<struct (RegexNode< ^t > * RegexNode< ^t >), RegexNode< ^t >> =
         Dictionary()
     let _derivativeCache: Dictionary<struct (uint64 * RegexNode<uint64>), RegexNode<uint64>> =
-        // Dictionary(getDerivativeCacheComparer ())
         Dictionary(getDerivativeCacheComparer ())
 
-    let _startset2Cache: Dictionary<RegexNode<uint64>, uint64> =
-        // Dictionary()
-        Dictionary(_u64refComparer)
+    let _startset2Cache: Dictionary<RegexNode<uint64>, uint64> = Dictionary(_u64refComparer)
+
+    let _regexInfoCache: Dictionary<struct(RegexNodeFlags * ^t),RegexNodeInfo< ^t>> = Dictionary()
 
 
 
@@ -185,7 +182,7 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
 
 
 
-    let _andCache: Dictionary<RegexNode< ^t >[], RegexNode< ^t >> =
+    let _andCache: Dictionary<RegexNode< 't >[], RegexNode< 't >> =
         Dictionary(_andCacheComparer)
 
     // singleton instances
@@ -376,6 +373,10 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
             ss2
 
 
+
+
+
+
     member this.one(char: char) : RegexNode< ^t > =
         let a1: BDD = bcss.CreateBDDFromChar char
         let a2 = solver.ConvertFromBDD(a1, bcss)
@@ -452,7 +453,7 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
             nodes |> Seq.where (loopSubsumesBranch solver largestStarLoop >> not) |> Seq.toArray
 
 
-    member this.trySubsumeAnd(nodes: RegexNode< ^t >[]) : RegexNode< ^t >[] =
+    member this.trySubsumeAnd(nodes: RegexNode<^t >[]) : RegexNode<^t >[] =
         nodes
         |> Seq.indexed
         |> Seq.tryPick (fun (idx, v) ->
@@ -464,21 +465,6 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
         )
         |> Option.defaultValue nodes
 
-
-    member this.filterAndNodes(nodeSet: NodeSet< ^t >, der) =
-        let nodes = ResizeArray(nodeSet.Count)
-        let mutable looping = true
-        let mutable enumerator = (nodeSet :> seq<_>).GetEnumerator()
-
-        while enumerator.MoveNext() = true && looping do
-            match der enumerator.Current with
-            | x when refEq x _uniques._false ->
-                looping <- false
-                nodes.Clear()
-                nodes.Add(_uniques._false)
-            | x -> nodes.Add(x)
-
-        nodes |> Seq.toArray
 
     member this.mkAnd(nodeSet: RegexNode< ^t >[]) : RegexNode< ^t > =
         let nodeSet =
@@ -548,6 +534,68 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
                 _andCache.Add(key, v)
                 v
 
+    // TODO: optimized variant
+    // [<InlineIfLambda>]
+    member this.mkAndEnumerator(
+        e: byref<Collections.Immutable.ImmutableHashSet<RegexNode<uint64>>.Enumerator>,
+        mkDer: (RegexNode<uint64> -> RegexNode<uint64>)) : RegexNode<uint64>  =
+
+        let mutable enumerating = true
+        let mutable status = 0
+        let derivatives = ResizeArray()
+
+        while e.MoveNext() = true && enumerating do
+            let curr = e.Current
+            let deriv = mkDer curr
+
+            match deriv with
+            | _ when obj.ReferenceEquals(deriv, _uniques._trueStar) -> ()
+            | _ when obj.ReferenceEquals(deriv, _uniques._false) ->
+                enumerating <- false
+                status <- 1
+            | And(nodes, _) -> derivatives.AddRange(nodes)
+            | Epsilon ->
+                // epsilon requires others to be nullable loops
+                if derivatives.Exists(fun v -> v.CanNotBeNullable) then
+                    enumerating <- false
+                    status <- 1
+                else
+                    status <- 2
+                    derivatives.Add(deriv)
+                    // failwith "todo"
+            | _ -> derivatives.Add(deriv)
+
+            ()
+
+        match status with
+        | 1 -> unbox _uniques._false
+        | 2 when derivatives.Exists(fun v -> v.CanNotBeNullable) -> unbox _uniques._false
+        | _ ->
+
+        let createNode(nodeSet: RegexNode<uint64>[]) =
+            let nodes = nodeSet
+            let nodes = (unbox nodes) |> this.trySubsumeAnd
+            match nodes with
+            | _ when nodes.Length = 0 -> unbox _uniques._trueStar
+            | _ when nodes.Length = 1 -> (unbox nodes[0])
+            | twoormore ->
+                let flags = Flags.inferAnd twoormore
+                let startset =
+                    twoormore |> Startset.inferMergeStartset (solver)
+                let mergedInfo = { Flags = flags; Startset = startset }
+                let newAnd = RegexNode.And(ofSeq twoormore, mergedInfo)
+                newAnd
+
+
+        //
+        let asArray = derivatives.ToArray()
+        Array.sortInPlaceBy LanguagePrimitives.PhysicalHash asArray
+        match _andCache.TryGetValue(unbox asArray) with
+        | true, v -> unbox v
+        | _ ->
+            let v = createNode (asArray)
+            _andCache.Add(unbox asArray, unbox v)
+            unbox v
 
     member this.mkOr(nodeSet: RegexNode< ^t >[]) : RegexNode< ^t > =
         let nodeSet =
@@ -619,6 +667,8 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
                 let v = createNode key
                 _orCache.Add(key, v)
                 v
+
+
 
 
     member this.mkNot(inner: RegexNode< ^t >) =
@@ -735,10 +785,8 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
                         | Epsilon -> v
                         | _ ->
                             let flags' = Flags.inferConcat v acc
-
                             let startset' = Startset.inferConcatStartset solver v acc
-
-                            Concat(v, acc, ofFlagsAndStartset (flags', startset'))
+                            Concat(v, acc, this.CreateInfo(flags', startset'))
                     )
                     Epsilon
 
@@ -791,8 +839,14 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
             _loopCache.Add(key, v)
             v
 
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.CreateInfo(flags, startset) : RegexNodeInfo<_> =
-        ofFlagsAndStartset (flags, startset)
+        match _regexInfoCache.TryGetValue(struct(flags,startset)) with
+        | true, v -> v
+        | _ ->
+            let v = { Flags = flags; Startset = startset; }
+            _regexInfoCache.Add(struct(flags,startset),v)
+            v
 
 
 // trivia:

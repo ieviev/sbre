@@ -3,6 +3,11 @@
 open System
 open System.IO
 open BenchmarkDotNet.Attributes
+open BenchmarkDotNet.Columns
+open BenchmarkDotNet.Configs
+open BenchmarkDotNet.Diagnosers
+open BenchmarkDotNet.Jobs
+open BenchmarkDotNet.Loggers
 open BenchmarkDotNet.Running
 open Sbre
 open Sbre.Benchmarks
@@ -44,7 +49,9 @@ type Allocations() =
     [<Benchmark>]
     member x.FullMatchTwain() = matcher.FindMatchEnd(input) |> ignore
 
-
+let config =
+    DefaultConfig.Instance
+        .WithSummaryStyle(DefaultConfig.Instance.SummaryStyle.WithMaxParameterColumnWidth(60))
 
 
 [<EntryPoint>]
@@ -53,31 +60,35 @@ let main argv =
     // let t = LongParagraph9000_3()
     // t.SBRE() |> ignore
 
-
     // for i = 0 to 9 do
     //     t.SBRE() |> ignore
 
-
-
-    let t = FullMtwain_3()
-    t.SBRE() |> ignore
-
-    let v =
-        for i = 0 to 10 do t.SBRE() |> ignore
+    // let t = FullMtwain_3()
+    // t.SBRE() |> ignore
+    //
+    // let v =
+    //     for i = 0 to 10 do t.SBRE() |> ignore
 
 
     if Environment.GetCommandLineArgs() |> Seq.last = "test" then
         let t = FullMtwain_3()
         t.SBRE() |> ignore
 
-
     if Environment.GetCommandLineArgs() |> Seq.last = "pg" then
         // let r = BenchmarkRunner.Run(typeof<LongParagraph9000_3>)
         let r = BenchmarkRunner.Run(typeof<LongParagraph9000_3>)
         ()
 
+    if Environment.GetCommandLineArgs() |> Seq.last = "mtwain3" then
+        let _ = BenchmarkRunner.Run(typeof<FullMtwain_3>,config)
+        ()
+
     if Environment.GetCommandLineArgs() |> Seq.last = "full" then
-        let r = BenchmarkRunner.Run(typeof<FullMtwain_3>)
+
+        // let r = BenchmarkRunner.Run(typeof<ParagraphOuter.None1>,config)
+        let r = BenchmarkRunner.Run(typeof<ParagraphOuter.Sbre1>,config)
+
+        // let r = BenchmarkRunner.Run(typeof<FullMtwain_3>)
         // let r = BenchmarkRunner.Run(typeof<FullMtwain_5>)
         // let r = BenchmarkRunner.Run(typeof<FullMtwain_6>)
         ()
@@ -152,6 +163,13 @@ let main argv =
     // let results = BenchmarkRunner.Run<ConjunctionFull2>(fastRunConfig)
     // let results = BenchmarkRunner.Run<Allocations>(fastRunConfig)
 
+    // let fastRunConfig =
+    //     BenchmarkDotNet.Configs.ManualConfig()
+    //         .AddDiagnoser(MemoryDiagnoser.Default)
+    //         .AddColumnProvider(DefaultColumnProviders.Instance)
+    //         .AddJob(quickConf)
+    //         .AddLogger(ConsoleLogger())
+    //         .WithOptions(ConfigOptions.DisableOptimizationsValidator)
 
     //config
     // let results = BenchmarkRunner.Run(typeof<Benches>)
@@ -159,5 +177,4 @@ let main argv =
     // twain
     // let results = BenchmarkRunner.Run(typeof<Twain>)
 
-    let d = 1
     0

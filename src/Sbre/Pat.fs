@@ -18,6 +18,10 @@ module Extensions =
         member inline this.isElemOfSet(predicate: 't, locationMinterm: 't) =
             not (this.IsEmpty(this.And(locationMinterm, predicate)))
 
+        /// faster variant that skips the middleman
+        member inline this.isElemOfSetu64(predicate: uint64, locationMinterm: uint64) =
+            predicate &&& locationMinterm <> 0uL
+
 
 [<Flags>]
 type LoopKind =
@@ -119,6 +123,9 @@ let (|ValueRefEquals|_|) (y:'t list) (x:'t list voption) =
         | _ -> ValueNone
 
 module Solver =
+
+    let inline isElemOfSetU64 predicate locationMinterm = predicate &&& locationMinterm <> 0uL
+
     let inline mapAnd (s:ISolver<^t>) ([<InlineIfLambda>]f: 'a -> ^t) (coll: seq<'a>): ^t =
         let mutable ss = s.Full
         for x in coll do
@@ -127,18 +134,17 @@ module Solver =
 
     let inline and' (s:ISolver< ^t>) (v: ^t) (mt: ^t): ^t = s.And(v,mt)
 
-    let inline mapOr (s:ISolver<^t>) ([<InlineIfLambda>]f: 'a -> ^t) (coll): ^t =
-        let mutable ss = s.Empty
-        for x in coll do
-            ss <- s.Or(ss,f x)
-        ss
+    let inline mapOr (s:ISolver<^t>) ([<InlineIfLambda>]f: 'a -> ^t) (xs): ^t =
+        let mutable startset = s.Empty
+        for x in xs do
+            startset <- s.Or(startset,f x)
+        startset
 
     let inline mergeOrWithEnumerator
         (s:ISolver<^t>)
         ([<InlineIfLambda>]f: RegexNode<'t> -> ^t)
         (coll:byref<Collections.Immutable.ImmutableHashSet<RegexNode<'t>>.Enumerator>): ^t =
         let mutable ss = s.Empty
-        // for x in coll do
         while coll.MoveNext() = true do
             ss <- s.Or(ss,f coll.Current)
         ss

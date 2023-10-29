@@ -74,7 +74,7 @@ let permuteConj (words: string list) =
 let words = ["King";"Paris";"English";"would";"rise";"struck"; "council"; "march"; "war"; "May"; "Orleans"; "work"]
 
 
-[<BenchmarkDotNet.Attributes.MemoryDiagnoser>]
+[<BenchmarkDotNet.Attributes.MemoryDiagnoser(true)>]
 [<ShortRunJob>]
 type FullMtwain_1() =
     do AppContext.SetData("REGEX_NONBACKTRACKING_MAX_AUTOMATA_SIZE", 1_000_000)
@@ -155,9 +155,9 @@ type FullMtwain_3() =
         matchTimeout=TimeSpan.FromMilliseconds(10_000.))
     let r_SBRE = Matcher(pat_conj_neg)
 
-    [<Benchmark>] member x.backtracking_loop() = r_back_loop.Match(paragraph)
-    [<Benchmark>] member x.backtracking_lookahead() = r_back_lookahead.Match(paragraph)
-    [<Benchmark>] member x.nonbacktracking_loop() = r_nonback_loop.Match(paragraph)
+    // [<Benchmark>] member x.backtracking_loop() = r_back_loop.Match(paragraph)
+    // [<Benchmark>] member x.backtracking_lookahead() = r_back_lookahead.Match(paragraph)
+    // [<Benchmark>] member x.nonbacktracking_loop() = r_nonback_loop.Match(paragraph)
     [<Benchmark>] member x.SBRE() = r_SBRE.MatchText(paragraph)
 
 

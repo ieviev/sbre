@@ -102,6 +102,8 @@ module Cache =
             // let info = Info.ofFlagsAndStartset (flags, startset)
             Not(derivative, info)
 
+
+    // todo : not needed
     [<return: Struct>]
     let inline (|ReturnsInitialDerivative|_|)
         (c: RegexCache<uint64>)

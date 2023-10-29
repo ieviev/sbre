@@ -85,6 +85,17 @@ let ``startset generation 6``() =
     Assert.Equal("[FH]", ss1pretty)
 
 
+[<Fact>]
+let ``startset generation 7``() =
+
+    let matcher = Matcher(@"(.+\n)+\n")
+    let c = matcher.Cache
+    let ss1 = Info.Startset.inferStartset (c.Solver) (matcher.DotStarredPattern)
+    let ss1pretty = c.PrettyPrintMinterm(ss1)
+    let ss2 = Info.Startset.inferStartset2 (c.Solver) (matcher.DotStarredPattern)
+    let ss2pretty = c.PrettyPrintMinterm(ss2)
+    Assert.Equal(@"[^\n]", ss1pretty)
+    Assert.Equal(@".", ss2pretty) // FULL SET
 
 
 
@@ -165,6 +176,30 @@ let ``startsetChars of bdd 2 - merged span``() =
         String(mergedIndexOf.ToArray())
 
     Assert.Equal("FH",mergedStr)
+
+
+
+[<Fact>]
+let ``startset concat reversed``() =
+    let matcher = Matcher(@".*EHT&.*EVIF.*")
+    let c = matcher.Cache
+
+    let ss2 = Info.Startset.inferStartset2 (c.Solver) (matcher.RawPattern)
+    let ss2pretty = c.PrettyPrintMinterm(ss2)
+    Assert.Equal(ss2pretty, @".") // important that .* is not optimized away
+    // [HV]
+
+
+
+[<Fact>]
+let ``startset concat reversed 2``() =
+    let matcher = Matcher(@"(.*EHT&.*EVIF.*)")
+    let c = matcher.Cache
+
+    let ss2 = Info.Startset.inferStartset2 (c.Solver) (matcher.RawPattern)
+    let ss2pretty = c.PrettyPrintMinterm(ss2)
+    Assert.Equal(ss2pretty, @".") // important that .* is not optimized away
+    // [HV]
 
 
 

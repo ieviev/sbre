@@ -20,6 +20,10 @@
     <DefineConstants>$(DefineConstants);OPTIMIZE;</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
+    <InternalsVisibleTo Include="Sbre.Test"/>
+    <InternalsVisibleTo Include="Sbre.Benchmarks"/>
+  </ItemGroup>
+  <ItemGroup>
     <Compile Include="Common.fs" />
     <Compile Include="Types.fs" />
     <Compile Include="Pat.fs" />
