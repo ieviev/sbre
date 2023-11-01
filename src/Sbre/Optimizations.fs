@@ -21,10 +21,17 @@ module Ptr =
 [<MethodImpl(MethodImplOptions.AggressiveOptimization)>]
 let tryJumpToStartset (c:RegexCache<_>,loc:byref<Location>, nodes:inref<ToplevelORCollection>)  =
 
-    if nodes.Count > 1 then
-        // temporary optimization
-        let re = obj.ReferenceEquals(nodes.Items[0],nodes.Items[1])
-        if re then nodes.MergeIndexes(0,1)
+    // temporary optimization for top-level-or
+    let mutable optimized = false
+    while not optimized do
+        let nc = nodes.Count
+        if nc > 1 then
+            let re = obj.ReferenceEquals(nodes.Items[nc - 2],nodes.Items[nc - 1])
+            if re then nodes.MergeIndexes(nc - 2,nc - 1)
+            else optimized <- true
+        else
+            optimized <- true
+
 
     match nodes.Count with
     | 0 ->
@@ -36,15 +43,12 @@ let tryJumpToStartset (c:RegexCache<_>,loc:byref<Location>, nodes:inref<Toplevel
         | ValueSome pos ->
             loc.Position <- pos
     | 1 ->
-        // TODO: reversed startset
-        // if loc.Reversed then () else
         match nodes.Items[0] with
         | And(xs,info) as headnode ->
-            if not (info.Flags.HasFlag(RegexNodeFlags.CanSkip)) then () else
             let mutable ss = info.Startset
 
             // 20% worse performance for now
-            let commonStartsetLocation = c.TryNextStartsetLocation(loc,ss)
+            // let commonStartsetLocation = c.TryNextStartsetLocation(loc,ss)
 
             // if loc.Position = 71 then
             //     ()
@@ -52,8 +56,8 @@ let tryJumpToStartset (c:RegexCache<_>,loc:byref<Location>, nodes:inref<Toplevel
             // let commonStartsetLocation = c.TryNextStartsetLocation2(loc,ss,ss2)
 
             // with caching about 125% better performance (NEEDS TESTING)
-            // let ss2 = c.Builder.GetSs2Cached(headnode)
-            // let commonStartsetLocation = c.TryNextStartsetLocation2(loc,ss,ss2)
+            let ss2 = c.Builder.GetSs2Cached(headnode)
+            let commonStartsetLocation = c.TryNextStartsetLocation2(loc,ss,ss2)
 
             //
             // let pretty1 = c.PrettyPrintMinterm(ss)
@@ -62,30 +66,44 @@ let tryJumpToStartset (c:RegexCache<_>,loc:byref<Location>, nodes:inref<Toplevel
             // if pretty2 = @"[\nT]" then failwith "TODO!"
 
             match commonStartsetLocation with
+            | ValueNone -> Location.setFinal &loc
             | ValueSome newLoc ->
                 loc.Position <- newLoc
-            | _ -> ()
 
 
-        | node when canSkip node ->
+
+
+        | node ->
 #if DEBUG
             // failwith $"TODO!: {node.ToStringHelper()}"
 #endif
             let commonStartsetLocation = c.TryNextStartsetLocation(loc,node.Startset)
+
+            // not properly implemented
+            // let ss2 = c.Builder.GetSs2Cached(node)
+            // let pretty = c.PrettyPrintMinterm(ss2)
+            // let isf = c.Solver.IsFull(ss2)
+            // let commonStartsetLocation = c.TryNextStartsetLocation2(loc,node.Startset,ss2)
+
             match commonStartsetLocation with
-            | ValueNone -> ()
+            | ValueNone -> Location.setFinal &loc
             | ValueSome pos ->
                 loc.Position <- pos
 
 
-        | _ ->
-            // TBD: more optimizations
-            // failwith "TODO!"
-            // sample pattern: (and.*&.*dogs.*)
-            ()
-
-    | _ ->
+    | count ->
         // TBD: more optimizations
         // this branch is rarely reached
-        // failwith "TODO!"
+
+        // jump with multiple heads
+        let mutable ss = c.Solver.Empty
+        let startsets =
+            for n in nodes.Items do
+                ss <- c.Solver.Or(ss,n.Startset)
+        let commonStartsetLocation = c.TryNextStartsetLocation(loc,ss)
+        match commonStartsetLocation with
+        | ValueNone -> ()
+        | ValueSome pos ->
+            loc.Position <- pos
+
         ()

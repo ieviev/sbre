@@ -13,12 +13,12 @@ open Sbre
 open Sbre.Benchmarks
 open Sbre.Benchmarks.FullMtwain
 open Sbre.Benchmarks.LongParagraph
-open Sbre.Benchmarks.PasswordMatching
 open Sbre.Regex
 
 module private Helpers =
-    let sample_mariomka = __SOURCE_DIRECTORY__ + "/data/mariomka-benchmark.txt" |> File.ReadAllText
-    let sample_mtwain = __SOURCE_DIRECTORY__ + "/data/mtent12.txt" |> File.ReadAllText
+    // let sample_mariomka = __SOURCE_DIRECTORY__ + "/data/mariomka-benchmark.txt" |> File.ReadAllText
+    // let sample_mtwain = __SOURCE_DIRECTORY__ + "/data/mtent12.txt" |> File.ReadAllText
+    let sample_inputText = __SOURCE_DIRECTORY__ + "/data/input-text.txt" |> File.ReadAllText
     let pattern_mariomkauri = """[\w]+://[^/\s?#]+[^\s?#]+(?:\?[^\s#]*)?(?:#[^\s]*)?"""
     let pattern_mariomkaemail = """[\w\.+-]+@[\w\.-]+\.[\w\.-]+"""
     let pattern_mtwain1 = """Twain"""
@@ -30,7 +30,7 @@ module private Helpers =
     // let pattern = "[a-z]shing"
     let pattern = pattern_mtwain1
 
-    let input = sample_mtwain
+    // let input = sample_mtwain
 
 open Helpers
 
@@ -53,18 +53,45 @@ let config =
     DefaultConfig.Instance
         .WithSummaryStyle(DefaultConfig.Instance.SummaryStyle.WithMaxParameterColumnWidth(60))
 
+let dbgSample() =
+
+    let shortSample = Helpers.sample_inputText
+
+    let t2 =
+        // Matcher(permuteConj [ "compilation"; "smaller" ]).Match(shortSample)
+        Matcher(permuteConj [ "compilation"; "smaller" ]).MatchPositions(shortSample)
+        |> Seq.toArray
+    ()
+
+
 
 [<EntryPoint>]
 let main argv =
 
+    // dbgSample()
     // let t = LongParagraph9000_3()
     // t.SBRE() |> ignore
 
-    // for i = 0 to 9 do
-    //     t.SBRE() |> ignore
+
 
     // let t = FullMtwain_3()
-    // t.SBRE() |> ignore
+
+    // let m =  Matcher(@"~(⊤*\n\n⊤*)\n&⊤*Huck⊤*&⊤*from⊤*&⊤*you⊤*")
+
+    let t = ParagraphFull.Sbre_Debug()
+    t.Pattern <-
+        t.Patterns
+        |> Seq.head
+    t.Setup()
+    for i = 0 to 9 do
+        t.MatchWithConj() |> ignore
+
+
+    //
+    // let ds =
+    //     m.MatchPositions(Helpers.sample_inputText)
+    //     |> Seq.toArray
+    // let vasd = 1
     //
     // let v =
     //     for i = 0 to 10 do t.SBRE() |> ignore
@@ -83,15 +110,39 @@ let main argv =
         let _ = BenchmarkRunner.Run(typeof<FullMtwain_3>,config)
         ()
 
-    if Environment.GetCommandLineArgs() |> Seq.last = "full" then
 
+    if Environment.GetCommandLineArgs() |> Seq.last = "full" then
         // let r = BenchmarkRunner.Run(typeof<ParagraphOuter.None1>,config)
         let r = BenchmarkRunner.Run(typeof<ParagraphOuter.Sbre1>,config)
-
         // let r = BenchmarkRunner.Run(typeof<FullMtwain_3>)
         // let r = BenchmarkRunner.Run(typeof<FullMtwain_5>)
         // let r = BenchmarkRunner.Run(typeof<FullMtwain_6>)
         ()
+
+    match Environment.GetCommandLineArgs() |> Seq.last with
+    | "outer-none" -> BenchmarkRunner.Run(typeof<ParagraphOuter.None1>,config) |> ignore
+    | "outer-nonb" -> BenchmarkRunner.Run(typeof<ParagraphOuter.NonBack1>,config) |> ignore
+    | "outer-sbre" -> BenchmarkRunner.Run(typeof<ParagraphOuter.Sbre1>,config) |> ignore
+    // ----
+    | "inner-none-2" -> BenchmarkRunner.Run(typeof<ParagraphInner.None_2Words>,config) |> ignore
+    | "inner-none" -> BenchmarkRunner.Run(typeof<ParagraphInner.None_All>,config) |> ignore
+    | "inner-nonb-3" -> BenchmarkRunner.Run(typeof<ParagraphInner.NonBacktracking_3>,config) |> ignore
+    | "inner-sbre-2" -> BenchmarkRunner.Run(typeof<ParagraphInner.Sbre_2>,config) |> ignore
+    | "inner-sbre" -> BenchmarkRunner.Run(typeof<ParagraphInner.Sbre_All>,config) |> ignore
+
+    // --
+
+    | "full-nonb-3" -> BenchmarkRunner.Run(typeof<ParagraphFull.NonBacktracking_3>,config) |> ignore
+    | "full-none-3" -> BenchmarkRunner.Run(typeof<ParagraphFull.None_3>,config) |> ignore
+    | "full-comp-4" -> BenchmarkRunner.Run(typeof<ParagraphFull.Compiled_4>,config) |> ignore
+    | "full-sbre-3" -> BenchmarkRunner.Run(typeof<ParagraphFull.Sbre_Combined_3>,config) |> ignore
+    | "full-1" -> BenchmarkRunner.Run(typeof<ParagraphFull.Sbre_Debug>,config) |> ignore
+    | "debug-sbre" -> BenchmarkRunner.Run(typeof<ParagraphFull.Sbre_Debug>,config) |> ignore
+
+
+    | _ ->
+        ()
+        // failwith "todo: invalid benchmark"
 
     // let r = BenchmarkRunner.Run(typeof<PasswordMatching_1>)
 

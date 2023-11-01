@@ -331,7 +331,14 @@ module RegexNode =
                     match tryMakeTransition (cache, loc, initialWithoutDotstar, locationPredicate) with
                     | IsFalse cache -> ()
                     | deriv ->
-                        toplevelOr.Add(deriv, if isNullable (cache, loc, deriv) then loc.Position else -1)
+                        // major optimization potential
+                        if toplevelOr.Count > 0 then
+                            if refEq toplevelOr.Items[toplevelOr.Items.Count - 1] deriv then
+                                ()
+                            else
+                                toplevelOr.Add(deriv, if isNullable (cache, loc, deriv) then loc.Position else -1)
+                        else
+                            toplevelOr.Add(deriv, if isNullable (cache, loc, deriv) then loc.Position else -1)
 
 
                 // found successful match - exit early
@@ -364,7 +371,8 @@ module RegexNode =
                             not (Solver.isElemOfSetU64 startsetPredicate nextLocationPredicate)
                         then
                             // jump mid-regex
-                            tryJumpToStartset (cache, &loc, &toplevelOr)
+                            if toplevelOr.CanSkipAll() then
+                                tryJumpToStartset (cache, &loc, &toplevelOr)
 
 
         currentMax

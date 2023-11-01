@@ -24,10 +24,8 @@ let paragraphRegexes = [
 let inputText =
     __SOURCE_DIRECTORY__ + "/data/input-text.txt" |> System.IO.File.ReadAllText
 
+type None1() = inherit Jobs.OnlyC_None(paragraphRegexes,inputText)
+type NonBack1() = inherit Jobs.OnlyC_NonBacktracking(paragraphRegexes,inputText)
+// no use benchmarking these on sbre because they're unoptimized
+type Sbre1() = inherit Jobs.OnlySbre([ @"~(⊤*\n\n⊤*)" ], inputText)
 
-// type None1() =
-//     inherit TestOnlyC_None(paragraphRegexes)
-// type NonBack1() = inherit TestOnlyC_NonBacktracking(paragraphRegexes)
-
-type Sbre1() =
-    inherit Jobs.OnlySbre([ @"(?:.+\n)+\n"; @"~(⊤*\n\n⊤*)" ], inputText)

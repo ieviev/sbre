@@ -184,6 +184,11 @@ module Location =
         | true -> loc.Position = 0
         | _ -> loc.Position = loc.Input.Length
 
+    let inline setFinal (loc: byref<Location>) =
+        match loc.Reversed with
+        | true -> loc.Position <- 0
+        | _ -> loc.Position <- loc.Input.Length
+
     let inline isPreFinal (loc: Location) =
         match loc.Reversed with
         | true -> loc.Position = 1

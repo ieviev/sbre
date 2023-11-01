@@ -7,14 +7,12 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <Compile Include="Twain.fs" />
         <Compile Include="LongParagraph.fs" />
         <Compile Include="Jobs.fs" />
         <Compile Include="FullMtwain.fs" />
         <Compile Include="ParagraphOuter.fs" />
         <Compile Include="ParagraphInner.fs" />
-        <Compile Include="FullMatch.fs" />
-        <Compile Include="PasswordMatching.fs" />
+        <Compile Include="ParagraphFull.fs" />
         <Compile Include="Program.fs" />
         <Content Include="data\**\*.*" CopyToOutputDirectory="PreserveNewest"/>
     </ItemGroup>

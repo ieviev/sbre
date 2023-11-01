@@ -71,7 +71,6 @@ let mat = Matcher(paragraphRegexes[0]).MatchPositions(sample) |> Seq.toArray
 
 // let r1 = mat.MatchPositions(shortSample) |> Seq.toArray
 
-r1.Length
 let r2 = 
     Matcher(@"~(⊤*\n\n⊤*)").MatchPositions(shortSample) |> Seq.where (fun v -> v.startIndex <> v.endIndex) |> Seq.length
 
@@ -108,17 +107,17 @@ let linesplit1 =
 
 // (?:[\s\S])*?\n\n+
 
-let a1 =
-    // System.Text.RegularExpressions.Regex(@"\n\n([\s\S](?!\n\n))*")
-    System.Text.RegularExpressions.Regex(@"\n\n(.+\n)+?*")
-    // System.Text.RegularExpressions.Regex(@"\n\n[^\n]*\n")
-        .Match(input)
+// let a1 =
+//     // System.Text.RegularExpressions.Regex(@"\n\n([\s\S](?!\n\n))*")
+//     System.Text.RegularExpressions.Regex(@"\n\n(.+\n)+?*")
+//     // System.Text.RegularExpressions.Regex(@"\n\n[^\n]*\n")
+//         .Match(input)
     
-let enumerator =
-    let regex = System.Text.RegularExpressions.Regex(@"\n\n([\s\S])*?\n\n")
-    let mutable e = regex.EnumerateMatches(input)
-    while e.MoveNext() do
+// let enumerator =
+//     let regex = System.Text.RegularExpressions.Regex(@"\n\n([\s\S])*?\n\n")
+//     let mutable e = regex.EnumerateMatches(input)
+//     while e.MoveNext() do
         
-        ()
+//         ()
     
 

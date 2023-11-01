@@ -386,7 +386,7 @@ let ``line loop test`` () =
     let input = "\naaa\n\nbbb\n\nccc\n\n"
     let matcher = Matcher(@"(?:.+\n)+\n")
     // let result = matcher.MatchPositions(input) |> Seq.toArray
-    let result = matcher.Matches(input) |> Seq.toArray
+    let result = matcher.MatchPositions(input) |> Seq.toArray
     // Assert.Equal(Some "a------b", result)
     Assert.Equal(3, result.Length)
 

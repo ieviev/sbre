@@ -382,8 +382,6 @@ type ToplevelORCollection() =
 
     member this.Items = nodeArray
     member this.CanSkipAll() =
-
-
         let mutable canskip = true
         use mutable e = nodeArray.GetEnumerator()
         while e.MoveNext() = true && canskip do

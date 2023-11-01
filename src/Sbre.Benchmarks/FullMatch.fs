@@ -1,2 +1,0 @@
-module Sbre.Benchmarks.FullMatch
-

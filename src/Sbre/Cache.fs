@@ -167,7 +167,7 @@ type RegexCache< ^t when ^t: struct and ^t :> IEquatable< ^t > and ^t: equality>
 
                     if Location.posIsPreFinal (potential, loc) then
                         skipping <- false
-                        result <- ValueNone
+                        result <- ValueSome(potential)
                     else
 
                     match this.IsValidPredicate(set2, nextLocMinterm (potential + 1)) with
