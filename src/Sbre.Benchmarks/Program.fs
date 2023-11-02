@@ -12,6 +12,7 @@ open BenchmarkDotNet.Running
 open Sbre
 open Sbre.Benchmarks
 open Sbre.Benchmarks.FullMtwain
+open Sbre.Benchmarks.Jobs
 open Sbre.Benchmarks.LongParagraph
 open Sbre.Regex
 
@@ -57,10 +58,15 @@ let dbgSample() =
 
     let shortSample = Helpers.sample_inputText
 
-    let t2 =
+    let matcher =
         // Matcher(permuteConj [ "compilation"; "smaller" ]).Match(shortSample)
-        Matcher(permuteConj [ "compilation"; "smaller" ]).MatchPositions(shortSample)
-        |> Seq.toArray
+        // Matcher(Permutations.permuteConjInParagraph [ "Huck";]).MatchPositions(shortSample)
+        Matcher(Permutations.permuteConjInParagraph [ "Huck";])
+
+    for i = 0 to 1500 do
+        matcher.CountMatches(sample_inputText) |> ignore
+
+    // t2 |> stdout.WriteLine
     ()
 
 
@@ -69,32 +75,15 @@ let dbgSample() =
 let main argv =
 
     // dbgSample()
-    // let t = LongParagraph9000_3()
-    // t.SBRE() |> ignore
 
-
-
-    // let t = FullMtwain_3()
-
-    // let m =  Matcher(@"~(⊤*\n\n⊤*)\n&⊤*Huck⊤*&⊤*from⊤*&⊤*you⊤*")
-
-    let t = ParagraphFull.Sbre_Debug()
-    t.Pattern <-
-        t.Patterns
-        |> Seq.head
-    t.Setup()
-    for i = 0 to 9 do
-        t.MatchWithConj() |> ignore
-
-
-    //
-    // let ds =
-    //     m.MatchPositions(Helpers.sample_inputText)
-    //     |> Seq.toArray
-    // let vasd = 1
-    //
-    // let v =
-    //     for i = 0 to 10 do t.SBRE() |> ignore
+    // let t = ParagraphFull.Sbre_Debug()
+    // t.Pattern <-
+    //     t.Patterns
+    //     |> Seq.head
+    // t.Setup()
+    // // for i = 0 to 29 do
+    // for i = 0 to 130 do
+    //     t.MatchWithConj() |> ignore
 
 
     if Environment.GetCommandLineArgs() |> Seq.last = "test" then
@@ -112,11 +101,7 @@ let main argv =
 
 
     if Environment.GetCommandLineArgs() |> Seq.last = "full" then
-        // let r = BenchmarkRunner.Run(typeof<ParagraphOuter.None1>,config)
-        let r = BenchmarkRunner.Run(typeof<ParagraphOuter.Sbre1>,config)
-        // let r = BenchmarkRunner.Run(typeof<FullMtwain_3>)
-        // let r = BenchmarkRunner.Run(typeof<FullMtwain_5>)
-        // let r = BenchmarkRunner.Run(typeof<FullMtwain_6>)
+        let r = BenchmarkRunner.Run(typeof<FullMtwain_3>)
         ()
 
     match Environment.GetCommandLineArgs() |> Seq.last with
@@ -138,6 +123,8 @@ let main argv =
     | "full-sbre-3" -> BenchmarkRunner.Run(typeof<ParagraphFull.Sbre_Combined_3>,config) |> ignore
     | "full-1" -> BenchmarkRunner.Run(typeof<ParagraphFull.Sbre_Debug>,config) |> ignore
     | "debug-sbre" -> BenchmarkRunner.Run(typeof<ParagraphFull.Sbre_Debug>,config) |> ignore
+    // --
+    | "all" -> BenchmarkRunner.Run(typeof<ParagraphFull.All_1>,config) |> ignore
 
 
     | _ ->
@@ -145,86 +132,6 @@ let main argv =
         // failwith "todo: invalid benchmark"
 
     // let r = BenchmarkRunner.Run(typeof<PasswordMatching_1>)
-
-    // let r = BenchmarkRunner.Run(typeof<FullMtwain_1>)
-    // let r = BenchmarkRunner.Run(typeof<FullMtwain_2>)
-    // let r = BenchmarkRunner.Run(typeof<FullMtwain_3>)
-    // let r = BenchmarkRunner.Run(typeof<FullMtwain_4>)
-    // let r = BenchmarkRunner.Run(typeof<FullMtwain_5>)
-    // let r = BenchmarkRunner.Run(typeof<FullMtwain_6>)
-    // let r = BenchmarkRunner.Run(typeof<FullMtwain_7>)
-    // let r = BenchmarkRunner.Run(typeof<FullMtwain_8>)
-    // let r = BenchmarkRunner.Run(typeof<FullMtwain_9>)
-    // let r = BenchmarkRunner.Run(typeof<FullMtwain_10>)
-    // let r = BenchmarkRunner.Run(typeof<FullMtwain_11>)
-    // let r = BenchmarkRunner.Run(typeof<FullMtwain_12>)
-
-
-    // let r = BenchmarkRunner.Run(typeof<LongParagraph9000_1>)
-    // let r = BenchmarkRunner.Run(typeof<LongParagraph9000_2>)
-    // let r = BenchmarkRunner.Run(typeof<LongParagraph9000_3>)
-    // let r = BenchmarkRunner.Run(typeof<LongParagraph9000_4>)
-    // let r = BenchmarkRunner.Run(typeof<LongParagraph9000_5>)
-    // let r = BenchmarkRunner.Run(typeof<LongParagraph9000_6>)
-    // let r = BenchmarkRunner.Run(typeof<LongParagraph9000_7>)
-    // let r = BenchmarkRunner.Run(typeof<LongParagraph9000_8>)
-    // let r = BenchmarkRunner.Run(typeof<LongParagraph9000_9>)
-    // let r = BenchmarkRunner.Run(typeof<LongParagraph9000_10>)
-    // let r = BenchmarkRunner.Run(typeof<LongParagraph9000_11>)
-    // let r = BenchmarkRunner.Run(typeof<LongParagraph9000_12>)
-
-
-    // let conj_vs_alt_2 = BenchmarkRunner.Run(typeof<ConjVsAlt2>)
-    // let conj_vs_alt_3 = BenchmarkRunner.Run(typeof<ConjVsAlt3>)
-    // let conj_vs_alt_4 = BenchmarkRunner.Run(typeof<ConjVsAlt4>)
-    // let conj_vs_alt_5 = BenchmarkRunner.Run(typeof<ConjVsAlt5>)
-    // let r = BenchmarkRunner.Run(typeof<ConjVsAlt6>)
-    // let r = BenchmarkRunner.Run(typeof<ConjVsAlt7>)
-
-    // let paragraph2 = BenchmarkRunner.Run(typeof<ConjunctionParagraph2>)
-    // let paragraph3 = BenchmarkRunner.Run(typeof<ConjunctionParagraph3>)
-    // let paragraph4 = BenchmarkRunner.Run(typeof<ConjunctionParagraph4>)
-    // let paragraph6 = BenchmarkRunner.Run(typeof<ConjunctionParagraph6>)
-
-
-    // let conjunctionResults = BenchmarkRunner.Run(typeof<ConjunctionFull2>)
-    // let conjunctionResults = BenchmarkRunner.Run(typeof<ConjunctionFull3>)
-    // let conjunctionResults = BenchmarkRunner.Run(typeof<ConjunctionFull4>)
-    // let conjunctionResults = BenchmarkRunner.Run(typeof<ConjunctionFull6>)
-    // let conjunctionResults = BenchmarkRunner.Run(typeof<ConjunctionFull7>)
-
-    // let debug = 1
-    // let switcher = BenchmarkSwitcher.FromAssembly(typeof<Benches>.Assembly)
-    // let config = BenchmarkDotNet.Configs.DefaultConfig.Instance
-
-    // let quickConf =
-    //     Job("Allocations")
-    //         .WithWarmupCount(1)
-    //         .WithIterationCount(1)
-    //         .WithLaunchCount(1)
-    //         // .WithStrategy(RunStrategy.Monitoring)
-    // let fastRunConfig =
-    //     ManualConfig()
-    //         .AddDiagnoser(MemoryDiagnoser.Default)
-    //         .AddColumnProvider(DefaultColumnProviders.Instance)
-    //         .AddJob(quickConf)
-    //         .AddLogger(ConsoleLogger())
-    //         .WithOptions(ConfigOptions.DisableOptimizationsValidator)
-    //
-    // let results = BenchmarkRunner.Run<ConjunctionFull2>(fastRunConfig)
-    // let results = BenchmarkRunner.Run<Allocations>(fastRunConfig)
-
-    // let fastRunConfig =
-    //     BenchmarkDotNet.Configs.ManualConfig()
-    //         .AddDiagnoser(MemoryDiagnoser.Default)
-    //         .AddColumnProvider(DefaultColumnProviders.Instance)
-    //         .AddJob(quickConf)
-    //         .AddLogger(ConsoleLogger())
-    //         .WithOptions(ConfigOptions.DisableOptimizationsValidator)
-
-    //config
-    // let results = BenchmarkRunner.Run(typeof<Benches>)
-
     // twain
     // let results = BenchmarkRunner.Run(typeof<Twain>)
 

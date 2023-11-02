@@ -106,12 +106,6 @@ let inline (|Single|_|) (node: NodeSet<'tset>) =
     | 1 -> ValueSome(head node)
     | _ -> ValueNone
 
-[<return: Struct>]
-let inline (|ToplevelOrNullable|_|) (isNullable:RegexNode<_> -> bool) (hashset: ToplevelORCollection) =
-    match hashset.Count with
-    | 0 -> ValueNone
-    | _ -> if hashset.Items |> Seq.exists isNullable  then ValueSome() else ValueNone
-
 
 [<return: Struct>]
 let (|ValueRefEquals|_|) (y:'t list) (x:'t list voption) =
@@ -184,10 +178,10 @@ module Location =
         | true -> loc.Position = 0
         | _ -> loc.Position = loc.Input.Length
 
-    let inline setFinal (loc: byref<Location>) =
+    let inline setFinal (loc: Location) =
         match loc.Reversed with
-        | true -> loc.Position <- 0
-        | _ -> loc.Position <- loc.Input.Length
+        | true -> { loc with Position = 0} // loc.Position <- 0
+        | _ -> { loc with Position = loc.Input.Length } //loc.Position <- loc.Input.Length
 
     let inline isPreFinal (loc: Location) =
         match loc.Reversed with
@@ -203,6 +197,7 @@ module Location =
         | false -> loc.Input[loc.Position]
         | true -> loc.Input[loc.Position - 1]
     let inline currentPos (loc: Location) = loc.Position
+    let inline withPos (pos:int32) (loc: Location) =  { loc with Position = pos}
     let inline str (loc: Location) = loc.Input
     let inline remainingString (loc: Location) = loc.Input[loc.Position ..]
     let inline endPos (loc: Location) =

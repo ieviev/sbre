@@ -192,13 +192,9 @@ module rec Startset =
 
 
     let rec inferStartset2 (_solver: ISolver<'t>) (node: RegexNode<'t>) =
+        // if true then _solver.Full else // todo: optimize
         // if not node.CanSkip then _solver.Full else // todo: optimize
-
         match node with
-        | Epsilon -> _solver.Full
-        | Singleton pred -> _solver.Full
-        // TODO: how to optimize (a|ab)*
-        | Loop(_) -> _solver.Full // todo: how to optimize
         | Or(xs, info) ->
             use mutable e = xs.GetEnumerator()
             Solver.mergeOrWithEnumerator _solver (inferStartset2 _solver) &e
@@ -209,17 +205,28 @@ module rec Startset =
             if _solver.IsFull(pred) then concatTail2.Startset
             else _solver.Full // .* not optimized
 
+        | Concat(Not(node=inner;info=notInfo), Singleton pred, info) ->
+            let ss1 = inferStartset2 _solver inner
+            _solver.Or(ss1,pred) // 4x performance win
         | Concat(Not(node=inner;info=notInfo), tailNode, info) ->
             let ss2 = tailNode.Startset
+            let ss22 = inferStartset2 _solver tailNode
             let ss1 = inferStartset2 _solver inner
-            _solver.Or(ss1,ss2)
+            _solver.Or(_solver.Or(ss1,ss2),ss22) // negation test 8
+
         | Concat(Singleton hpred, t, info) -> _solver.Full // todo: (.*dogs.*&and.*), (a.*&~(.*b.*)b)
-        | Concat(Concat(h1,h2,_) as c1, t, info) -> c1.Startset // todo: script test 1
+        | Concat(Concat(h1,h2,_) as c1, t, info) ->
+            _solver.Or(h1.Startset, t.Startset) // todo: deduplication test
+            // c1.Startset // todo: script test 1
         | Concat(h, t, info) -> _solver.Full // TODO:
         | And(xs, info) ->
             // avoid allocations
             use mutable e = xs.GetEnumerator()
             Solver.mergeOrWithEnumerator _solver (inferStartset2 _solver) &e
+
+        // TODO: how to optimize (a|ab)*
+        | Loop(_) | Epsilon | Singleton _ -> _solver.Full
+
 
 
 

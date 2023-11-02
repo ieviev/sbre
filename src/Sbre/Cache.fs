@@ -59,7 +59,9 @@ type RegexCache< ^t when ^t: struct and ^t :> IEquatable< ^t > and ^t: equality>
     let initialSs2 = Startset.inferStartset2 (_solver) _rawPattern
 
     let mutable _cachedBDDRanges: Dictionary< ^t, PredStartset > = Dictionary()
-    let mutable _cachedStartsets: Dictionary< ^t, char[] > = Dictionary()
+    let mutable _cachedStartsets: Dictionary< uint64, char[] > = Dictionary()
+    let mutable _toplevelOr: ToplevelORCollection = new ToplevelORCollection()
+    let mutable _startsetPredicate = Startset.inferStartset _solver _rawPattern
 
 #if DEBUG
     let mintermsPretty =
@@ -71,26 +73,38 @@ type RegexCache< ^t when ^t: struct and ^t :> IEquatable< ^t > and ^t: equality>
 
     member this.InitialSs2() = initialSs2
     member this.Minterms() = minterms
+    member this.GetInitialStartsetPredicate() = _startsetPredicate
+    member this.GetTopLevelOr() =
+        _toplevelOr.Reset()
+        _toplevelOr
     member this.MintermBdds() = mintermBdds.Value
     member this.MintermStartsets() = predStartsets.Value
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.MintermIndexOfSpan(startset: ^t) =
-        match _cachedStartsets.TryGetValue(startset) with
+        match _cachedStartsets.TryGetValue(unbox startset) with
         | true, v -> v.AsSpan()
         | _ ->
-            let newSpan = StartsetHelpers.getMergedIndexOfSpan (predStartsets.Value, minterms, _solver, startset)
-            _cachedStartsets.Add(startset,newSpan.ToArray())
+            let newSpan =
+                StartsetHelpers.getMergedIndexOfSpan (
+                    predStartsets.Value,
+                    unbox minterms,
+                    unbox startset
+                )
+
+            _cachedStartsets.Add(unbox startset, newSpan.ToArray())
             newSpan
+
     member this.TryNextStartsetLocation(loc: Location, set: ^t) =
 
         let setChars = this.MintermIndexOfSpan(set)
-        let isInverted = this.IsValidPredicate(set,minterms[0])
+        let isInverted = this.IsValidPredicate(set, minterms[0])
         let currpos = loc.Position
 
         match loc.Reversed with
         | false ->
             let slice = loc.Input.AsSpan().Slice(currpos)
+
             let sharedIndex =
                 if isInverted then
                     slice.IndexOfAnyExcept(setChars)
@@ -103,6 +117,7 @@ type RegexCache< ^t when ^t: struct and ^t :> IEquatable< ^t > and ^t: equality>
                 ValueSome(currpos + sharedIndex)
         | true ->
             let slice = loc.Input.AsSpan().Slice(0, currpos)
+
             let sharedIndex =
                 if isInverted then
                     slice.LastIndexOfAnyExcept(setChars)
@@ -119,9 +134,13 @@ type RegexCache< ^t when ^t: struct and ^t :> IEquatable< ^t > and ^t: equality>
     member this.TryNextStartsetLocation2(loc: Location, set: ^t, set2: ^t) =
 
         let setChars = this.MintermIndexOfSpan(set)
+        let isInverted = this.IsValidPredicate(set, minterms[0])
         let mutable currpos = loc.Position
         let mutable skipping = true
         let mutable result = ValueNone
+        let inputSpan = loc.Input.AsSpan()
+        let mutable slice = inputSpan.Slice(currpos)
+        let mutable sharedIndex = 0
 
         let inline nextLocMinterm(pos: int) : 't =
             if loc.Reversed then
@@ -129,11 +148,12 @@ type RegexCache< ^t when ^t: struct and ^t :> IEquatable< ^t > and ^t: equality>
             else
                 this.MintermForStringIndex(loc.Input, pos + 1)
 
-        match loc.Reversed with
-        | false ->
+        match loc.Reversed, isInverted with
+        | false, false ->
+
             while skipping do
-                let slice = loc.Input.AsSpan().Slice(currpos)
-                let sharedIndex = slice.IndexOfAny(setChars)
+                slice <- inputSpan.Slice(currpos)
+                sharedIndex <- slice.IndexOfAny(setChars)
 
                 if sharedIndex = -1 then
                     skipping <- false
@@ -145,19 +165,52 @@ type RegexCache< ^t when ^t: struct and ^t :> IEquatable< ^t > and ^t: equality>
                         result <- ValueSome(potential)
                     else
 
-                    match this.IsValidPredicate(set2, nextLocMinterm (potential)) with
+                    match
+                        Solver.isElemOfSetU64 (unbox set2) (unbox (nextLocMinterm (potential)))
+                    with
                     | false -> currpos <- potential + 1
-
                     | true ->
                         skipping <- false
                         result <- ValueSome(potential)
 
             result
-        | true ->
-            // if true then ValueNone else
+        | false, true ->
+
+
+
+            while skipping do
+                slice <- loc.Input.AsSpan().Slice(currpos)
+
+                sharedIndex <- slice.IndexOfAnyExcept(setChars)
+
+                if sharedIndex = -1 then
+                    skipping <- false
+                else
+                    let potential = currpos + sharedIndex
+
+                    if Location.posIsPreFinal (potential, loc) then
+                        skipping <- false
+                        result <- ValueSome(potential)
+                    else
+
+                    // match this.IsValidPredicate(set2, nextLocMinterm (potential)) with
+                    match Solver.isElemOfSetU64 (unbox set2) (unbox (nextLocMinterm (potential))) with
+                    | false -> currpos <- potential + 1
+                    | true ->
+                        skipping <- false
+                        result <- ValueSome(potential)
+
+            result
+        | true, _ ->
             while skipping do
                 let slice = loc.Input.AsSpan().Slice(0, currpos)
-                let sharedIndex = slice.LastIndexOfAny(setChars)
+
+                let sharedIndex =
+                    if not isInverted then
+                        slice.LastIndexOfAny(setChars)
+                    else
+                        slice.LastIndexOfAnyExcept(setChars)
+
 
                 if sharedIndex = -1 then
                     skipping <- false
@@ -177,6 +230,38 @@ type RegexCache< ^t when ^t: struct and ^t :> IEquatable< ^t > and ^t: equality>
                         result <- ValueSome(potential)
 
             result
+
+
+    member this.TryNextStartsetLocation2Alternate(loc: Location, set: uint64, set2: uint64) =
+
+        let mutable currpos = loc.Position
+        let mutable skipping = true
+        let mutable result = ValueNone
+        let inputSpan = loc.Input.AsSpan(currpos)
+
+        let mutable e = inputSpan.GetEnumerator()
+        let mutable counter = 0u
+
+        while e.MoveNext() && skipping do
+            counter <- counter + 1u
+            let loc_pred = minterms[
+                classifier.GetMintermID2(uint32 e.Current)
+            ]
+
+            if not (Solver.isElemOfSetU64 (unbox loc_pred) set) || not (e.MoveNext()) then () else
+
+            counter <- counter + 1u
+
+            let loc_pred_2 = minterms[
+                classifier.GetMintermID2(uint32 e.Current)
+            ]
+
+            if not (Solver.isElemOfSetU64 (unbox loc_pred_2) set2) then () else
+
+            skipping <- false
+            result <- ValueSome(loc.Position + int counter)
+
+        result
 
 
 
@@ -223,7 +308,7 @@ type RegexCache< ^t when ^t: struct and ^t :> IEquatable< ^t > and ^t: equality>
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.CreateInfo(flags, startset) : RegexNodeInfo<_> =
-        _builder.CreateInfo(flags,startset)
+        _builder.CreateInfo(flags, startset)
 
 
 

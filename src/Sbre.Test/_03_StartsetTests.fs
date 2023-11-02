@@ -170,7 +170,7 @@ let ``startsetChars of bdd 2 - merged span``() =
     let ss1pretty = c.PrettyPrintMinterm(ss1)
 
     let mergedIndexOf =
-        StartsetHelpers.getMergedIndexOfSpan(startsetsArray, c.Minterms(), c.Solver, ss1)
+        StartsetHelpers.getMergedIndexOfSpan(startsetsArray, c.Minterms(),  ss1)
 
     let mergedStr =
         String(mergedIndexOf.ToArray())

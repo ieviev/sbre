@@ -127,13 +127,13 @@ type Matcher(pattern: string) =
         if not foundStartPos then
             false
         else
-            let startLocation = Location.create input currPos
-            match RegexNode.matchEnd (cache, startLocation, ValueNone, dotStarredUint64Node) with
+            let mutable startLocation = Location.create input currPos
+            match RegexNode.matchEnd (cache, &startLocation, ValueNone, dotStarredUint64Node) with
             | ValueNone -> false
             | ValueSome _ -> true
 
-    member this.MatchFromLocation(location: Location) =
-        RegexNode.matchEnd (cache, location, ValueNone, dotStarredUint64Node)
+    member this.MatchFromLocation(location: byref<Location>) =
+        RegexNode.matchEnd (cache, &location, ValueNone, dotStarredUint64Node)
 
     member this.FindMatchEnd(input: string) =
         let mutable currPos = 0
@@ -148,8 +148,8 @@ type Matcher(pattern: string) =
             | _ -> ValueNone
         else
 
-        let startLocation = Location.create input currPos
-        RegexNode.matchEnd (cache, startLocation, ValueNone, dotStarredUint64Node)
+        let mutable startLocation = Location.create input currPos
+        RegexNode.matchEnd (cache, &startLocation, ValueNone, dotStarredUint64Node)
 
 
     member this.Match(input: string) : MatchResult =
@@ -167,9 +167,9 @@ type Matcher(pattern: string) =
             }
         else
 
-            let startLocation = Location.create input startPos
+            let mutable startLocation = Location.create input startPos
 
-            match RegexNode.matchEnd (cache, startLocation, ValueNone, dotStarredUint64Node) with
+            match RegexNode.matchEnd (cache, &startLocation, ValueNone, dotStarredUint64Node) with
             | ValueNone -> {
                 Success = false
                 Value = ""
@@ -177,10 +177,10 @@ type Matcher(pattern: string) =
                 Length = 0
               }
             | ValueSome endPos ->
-                let reverseLocation = (Location.rev { startLocation with Position = endPos })
+                let mutable reverseLocation = (Location.rev { startLocation with Position = endPos })
 
                 let startPos =
-                    RegexNode.matchEnd (cache, reverseLocation, ValueNone, reverseUint64Node)
+                    RegexNode.matchEnd (cache, &reverseLocation, ValueNone, reverseUint64Node)
 
                 match startPos with
                 | ValueNone ->
@@ -209,19 +209,19 @@ type Matcher(pattern: string) =
             }
         else
 
-            let startLocation = Location.create input startPos
+            let mutable startLocation = Location.create input startPos
 
-            match RegexNode.matchEnd (cache, startLocation, ValueNone, dotStarredUint64Node) with
+            match RegexNode.matchEnd (cache, &startLocation, ValueNone, dotStarredUint64Node) with
             | ValueNone -> {
                 Success = false
                 StartIndex = 0
                 Length = 0
               }
             | ValueSome endPos ->
-                let reverseLocation = (Location.rev { startLocation with Position = endPos })
+                let mutable reverseLocation = (Location.rev { startLocation with Position = endPos })
 
                 let startPos =
-                    RegexNode.matchEnd (cache, reverseLocation, ValueNone, reverseUint64Node)
+                    RegexNode.matchEnd (cache, &reverseLocation, ValueNone, reverseUint64Node)
 
                 match startPos with
                 | ValueNone ->
@@ -252,16 +252,16 @@ type Matcher(pattern: string) =
 
                 let initialpos = location.Position //
 
-                let startLocation = Location.create input startPos
+                let mutable startLocation = Location.create input startPos
                 let fg = 1
 
-                match RegexNode.matchEnd (cache, location, ValueNone, dotStarredUint64Node) with
+                match RegexNode.matchEnd (cache, &startLocation, ValueNone, dotStarredUint64Node) with
                 | ValueNone -> ()
                 | ValueSome(endPos: int) ->
-                    let reverseLocation = (Location.rev { location with Position = endPos })
+                    let mutable reverseLocation = (Location.rev { location with Position = endPos })
 
                     let startPos =
-                        RegexNode.matchEnd (cache, reverseLocation, ValueNone, reverseUint64Node)
+                        RegexNode.matchEnd (cache, &reverseLocation, ValueNone, reverseUint64Node)
 
                     match startPos with
                     | ValueNone ->
@@ -297,15 +297,15 @@ type Matcher(pattern: string) =
             None
         else
 
-            let startLocation = Location.create input startPos
+            let mutable startLocation = Location.create input startPos
 
-            match RegexNode.matchEnd (cache, startLocation, ValueNone, dotStarredUint64Node) with
+            match RegexNode.matchEnd (cache, &startLocation, ValueNone, dotStarredUint64Node) with
             | ValueNone -> None
             | ValueSome endPos ->
-                let reverseLocation = (Location.rev { startLocation with Position = endPos })
+                let mutable reverseLocation = (Location.rev { startLocation with Position = endPos })
 
                 let startPos =
-                    RegexNode.matchEnd (cache, reverseLocation, ValueNone, reverseUint64Node)
+                    RegexNode.matchEnd (cache, &reverseLocation, ValueNone, reverseUint64Node)
 
                 match startPos with
                 | ValueNone ->
@@ -317,14 +317,14 @@ type Matcher(pattern: string) =
     member this.MatchWithoutOptimizations(input: string) =
         let mutable startPos = 0
 
-        let startLocation = Location.create input startPos
+        let mutable startLocation = Location.create input startPos
 
-        match RegexNode.matchEnd (cache, startLocation, ValueNone, dotStarredUint64Node) with
+        match RegexNode.matchEnd (cache, &startLocation, ValueNone, dotStarredUint64Node) with
         | ValueNone -> None
         | ValueSome endPos ->
-            let reverseLocation = (Location.rev { startLocation with Position = endPos })
+            let mutable reverseLocation = (Location.rev { startLocation with Position = endPos })
 
-            let startPos = RegexNode.matchEnd (cache, reverseLocation, ValueNone, reverseUint64Node) //(RegexNode.rev dotStarredUint64Node)
+            let startPos = RegexNode.matchEnd (cache, &reverseLocation, ValueNone, reverseUint64Node) //(RegexNode.rev dotStarredUint64Node)
 
             match startPos with
             | ValueNone ->
@@ -352,7 +352,7 @@ type Matcher(pattern: string) =
                 looping <- false
             else
                 location.Position <- currPos
-                match RegexNode.matchEnd (cache, location, ValueNone, dotStarredUint64Node) with
+                match RegexNode.matchEnd (cache, &location, ValueNone, dotStarredUint64Node) with
                 | ValueNone -> looping <- false
                 | ValueSome(endPos: int) ->
                     counter <- counter + 1
@@ -390,7 +390,7 @@ type Matcher(pattern: string) =
                 else
                     location.Position <- currPos
 
-                    match RegexNode.matchEnd (cache, location, ValueNone, dotStarredUint64Node) with
+                    match RegexNode.matchEnd (cache, &location, ValueNone, dotStarredUint64Node) with
                     | ValueNone -> looping <- false
                     | ValueSome(endPos: int) ->
                         reverseLocation.Position <- endPos
@@ -398,7 +398,7 @@ type Matcher(pattern: string) =
                         let startPos =
                             RegexNode.matchEnd (
                                 cache,
-                                reverseLocation,
+                                &reverseLocation,
                                 ValueNone,
                                 reverseUint64Node
                             )

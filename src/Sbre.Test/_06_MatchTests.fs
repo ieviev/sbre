@@ -96,9 +96,9 @@ let ``top level or remove in correct order`` () =
 [<Fact>]
 let ``lookarounds test 1`` () =
     let matcher = Matcher(""" Sep""")
-
+    let mutable loc = Pat.Location.create "1 Sep" 1
     let ism =
-        matcher.MatchFromLocation(Pat.Location.create "1 Sep" 1)
+        matcher.MatchFromLocation(&loc)
 
     Assert.True(ism.IsSome)
 
@@ -327,12 +327,12 @@ let ``reverse pattern 1`` () =
 
 [<Fact>]
 let ``reverse pattern 2`` () =
-    let startLocation = Pat.Location.create "1aA" 0
+    let mutable startLocation = Pat.Location.create "1aA" 0
 
     let m = Matcher(@"(?=.*A)(?=.*a)(?=.*1).{3,3}")
     let m_rev = Matcher(@".{3,3}(?<=1.*)(?<=a.*)(?<=A.*)")
 
-    let res = RegexNode.matchEnd (m.Cache,startLocation , ValueNone, m.ReversePattern)
+    let res = RegexNode.matchEnd (m.Cache,&startLocation , ValueNone, m.ReversePattern)
     stdout.WriteLine "AAAAAAAAAAAAA"
     // let res_rev = RegexNode.matchEnd (m_rev.Cache,startLocation , ValueNone, m_rev.RawPattern)
     // Assert.Equal(res_rev,res)

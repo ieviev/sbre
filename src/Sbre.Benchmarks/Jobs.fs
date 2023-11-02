@@ -54,23 +54,27 @@ module Permutations =
 
 
     // combines line loop and alternations to a single regex
-    let permuteAltInParagraph (words: string list) =
-        let rec distribute e = function
-          | [] -> [[e]]
-          | x::xs' as xs -> (e::xs)::[for xs in distribute e xs' -> x::xs]
-        let rec permute = function
-          | [] -> [[]]
-          | e::xs -> List.collect (distribute e) (permute xs)
+    let permuteAltInParagraph(words: string list) =
+        let rec distribute e =
+            function
+            | [] -> [ [ e ] ]
+            | x :: xs' as xs -> (e :: xs) :: [ for xs in distribute e xs' -> x :: xs ]
+
+        let rec permute =
+            function
+            | [] -> [ [] ]
+            | e :: xs -> List.collect (distribute e) (permute xs)
+
         let prefix = @"(?:.+\n)*?" // standard line loop
         let suffix = @"(?:.+\n)*?\n" // wrong
+
         let altpermutations =
             String.concat "|" [
                 for permutation in permute words do
                     yield
-                        permutation
-                        |> List.map (fun v -> $".*{v}.*")
-                        |> String.concat @"(?:.+\n)*?"
+                        permutation |> List.map (fun v -> $".*{v}.*") |> String.concat @"(?:.+\n)*?"
             ]
+
         $"{prefix}(?:{altpermutations}){suffix}"
 
 
@@ -361,7 +365,7 @@ type RuntimeFullSearch
         while e.MoveNext() do
             entireParagraphIsMatch <- true
 
-            let paragraphSpan = inputSpan.Slice(e.Current.Index,e.Current.Length)
+            let paragraphSpan = inputSpan.Slice(e.Current.Index, e.Current.Length)
             // run multiple ismatch regexes on each paragraph
             for reg in this.MultipleIsMatchRegexes do
                 if not (reg.IsMatch(paragraphSpan)) then
@@ -479,7 +483,92 @@ type SbreDebugSearch(patterns: string list, input: string) =
 
     [<Benchmark>]
     member this.MatchWithConj() =
-        this.CombinedRegex.MatchPositions(inputText) |> Seq.toArray
-        // this.CombinedRegex.CountMatches(inputText)
+        // this.CombinedRegex.MatchPositions(inputText) |> Seq.toArray
+        this.CombinedRegex.CountMatches(inputText)
 
 
+
+
+
+[<MemoryDiagnoser(false)>]
+[<ShortRunJob>]
+[<AbstractClass>]
+[<HideColumns([| "" |])>]
+type AllRegexesInParagraph(regexes: string list, input: string) =
+    do AppContext.SetData("REGEX_NONBACKTRACKING_MAX_AUTOMATA_SIZE", 1_000_000)
+    let inputText = input
+    let paragraphRegex = @"(?:.+\n)+\n" // absolute fastest paragraph search but skips last one
+    // let paragraphRegex = @"(?:.+(?:\n|\z))+(?:\n|\z)" // fastest correct paragraph search
+    let singleStepRegex = Permutations.permuteAltInParagraph regexes
+    let conjunctionRegex = Permutations.permuteConjInParagraph regexes
+    let opts_None = Text.RegularExpressions.RegexOptions.None
+    let opts_NonBacktracking = Text.RegularExpressions.RegexOptions.NonBacktracking
+    let opts_Compiled = Text.RegularExpressions.RegexOptions.Compiled
+
+    member val ConjunctionRegex: Matcher = Unchecked.defaultof<_> with get, set
+    member val None_Paragraph: System.Text.RegularExpressions.Regex =
+        System.Text.RegularExpressions.Regex(paragraphRegex, opts_None) with get, set
+
+    member val None_MultipleIsMatchRegexes: System.Text.RegularExpressions.Regex[] =
+        null with get, set
+
+    member val None_SingleStepRegex: System.Text.RegularExpressions.Regex = null with get, set
+
+    [<GlobalSetup>]
+    member this.Setup() =
+        this.None_MultipleIsMatchRegexes <- [|
+            for word in regexes do
+                yield
+                    System.Text.RegularExpressions.Regex(
+                        word,
+                        options = opts_None,
+                        matchTimeout = TimeSpan.FromMilliseconds(10_000.)
+                    )
+        |]
+
+        this.None_SingleStepRegex <-
+            System.Text.RegularExpressions.Regex(
+                singleStepRegex,
+                options = opts_None,
+                matchTimeout = TimeSpan.FromMilliseconds(10_000.)
+            )
+        this.ConjunctionRegex <- Matcher(conjunctionRegex)
+
+        stdout.WriteLine "REGEXES:"
+        stdout.WriteLine $"{conjunctionRegex}"
+        stdout.WriteLine $"{singleStepRegex}"
+
+
+
+    [<Benchmark>]
+    member this.None_TwoStep() =
+        let results = ResizeArray()
+        let inputSpan = inputText.AsSpan()
+
+        let mutable entireParagraphIsMatch = true
+        let mutable e = this.None_Paragraph.EnumerateMatches(inputText)
+
+        // enumerate paragraphs during match
+        while e.MoveNext() do
+            entireParagraphIsMatch <- true
+            let paragraphSpan = inputSpan.Slice(e.Current.Index, e.Current.Length)
+            // run multiple ismatch regexes on each paragraph
+            for reg in this.None_MultipleIsMatchRegexes do
+                if not (reg.IsMatch(paragraphSpan)) then
+                    entireParagraphIsMatch <- false
+
+            if entireParagraphIsMatch then
+                results.Add(struct (e.Current.Index, e.Current.Length))
+
+
+        results
+
+    [<Benchmark>] // single regex with line loop and alternations
+    member this.None_SingleRegex() =
+        let result = this.None_SingleStepRegex.Matches(inputText)
+        result.Count
+
+    [<Benchmark>]
+    member this.Sbre_Conjunction() =
+        // this.ConjunctionRegex.MatchPositions(inputText) |> Seq.toArray
+        this.ConjunctionRegex.CountMatches(inputText)

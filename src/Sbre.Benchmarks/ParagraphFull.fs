@@ -10,6 +10,7 @@ let shortInput = fullInput[..9999] // 10k chars limit
 
 
 let words = [ "Huck"; "from"; "you" ]
+// let words = [ "the"; "and"; "that" ]
 
 type NonBacktracking_3() =
     inherit
@@ -46,8 +47,17 @@ type Sbre_3_SingleRegex() =
 let patterns = [
     // @"\n\n~(⊤*\n\n⊤*)\n&⊤*Huck⊤*&⊤*from⊤*&⊤*you⊤*"; // 51.4ms
     // @"\n\n~(⊤*\n\n⊤*)\n&⊤*Huck⊤*&⊤*from⊤*"; // 34ms
-    @"~(⊤*\n\n⊤*)\n&⊤*Huck⊤*&⊤*from⊤*&⊤*you⊤*"; // 31.45 ms
-    // @"~(⊤*\n\n⊤*)\n&⊤*Huck⊤*&⊤*from⊤*"; // 31.45 ms
+
+    // @"~(⊤*\n\n⊤*)\n&⊤*Huck⊤*&⊤*from⊤*&⊤*you⊤*"; 58 ms
+    // @"~(⊤*\n\n⊤*)\n&⊤*Huck⊤*&⊤*from⊤*"; // 30 ms
+    @"~(⊤*\n\n⊤*)\n&⊤*Huck⊤*"; // 16 ms
+    // @"~(⊤*\n\n⊤*)\n"; // 20 ms
+    // @"~(⊤*\n\n⊤*)"; // 20 ms (alloc 20mb)
+
+    // @"~(⊤*\n\n⊤*)\n&⊤*chuc\w+⊤*&⊤*from⊤*"; // 49 ms
+    // @"~(⊤*\n\n⊤*)\n&⊤*the⊤*&⊤*and⊤*&⊤*that⊤*"; // 49 ms
+
+    // @"~(⊤*\n\n⊤*)\n&⊤*chuc\w+⊤*&⊤*from⊤*"; // 49 ms
 ]
 
 type Sbre_Debug() =
@@ -67,6 +77,9 @@ type Compiled_4() =
 
 
 
+type All_1() =
+    inherit
+        Jobs.AllRegexesInParagraph( ["Huck"], fullInput )
 
 
 

@@ -82,7 +82,7 @@ let ``negation test 7: range does not contain``() =
 let ``negation test 8: range does not contain - pos example``() =
     let matcher = Matcher(@"French~(⊤*SomethingElse⊤*)Arabs")
     let result = matcher.MatchWithoutOptimizations(twainExample2)
-    Assert.Equal(result, Some("French, English, Chinese, Arabs"))
+    Assert.Equal(Some("French, English, Chinese, Arabs"), result)
 
 
 [<Fact>]

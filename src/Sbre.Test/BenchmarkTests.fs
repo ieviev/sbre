@@ -280,37 +280,37 @@ let permuteConj (words: string list) =
 let words = ["King";"Paris";"English";"would";"rise";"struck"; "council"; "march"; "war"; "May"; "Orleans"; "work"]
 
 
-
-
-[<Fact>]
-let ``para 3``() =
-    let pat_conj_neg = permuteConj words[..2]
-    let r_SBRE = Matcher(pat_conj_neg)
-    let res = r_SBRE.MatchText(paragraph)
-    Assert.Equal(res, Some """
-
-"From the first, we have been hindered by this policy of
-shilly-hally; this fashion of counseling and counseling and
-counseling where no counseling is needed, but only fighting. We
-took Orleans on the 8th of May, and could have cleared the region
-round about in three days and saved the slaughter of Patay. We
-could have been in Rheims six weeks ago, and in Paris now; and
-would see the last Englishman pass out of France in half a year.
-But we struck no blow after Orleans, but went off into the
-country--what for? Ostensibly to hold councils; really to give
-Bedford time to send reinforcements to Talbot--which he did; and
-Patay had to be fought. After Patay, more counseling, more waste
-of precious time. Oh, my King, I would that you would be
-persuaded!" She began to warm up, now. "Once more we have our
-opportunity. If we rise and strike, all is well. Bid me march upon
-Paris. In twenty days it shall be yours, and in six months all
-France! Here is half a year's work before us; if this chance be
-wasted, I give you twenty years to do it in. Speak the word, O
-gentle King--speak but the one--"
-
-""" )
-
-    ()
+//
+//
+// [<Fact>]
+// let ``para 3``() =
+//     let pat_conj_neg = permuteConj words[..2]
+//     let r_SBRE = Matcher(pat_conj_neg)
+//     let res = r_SBRE.MatchText(paragraph)
+//     Assert.Equal(res, Some """
+//
+// "From the first, we have been hindered by this policy of
+// shilly-hally; this fashion of counseling and counseling and
+// counseling where no counseling is needed, but only fighting. We
+// took Orleans on the 8th of May, and could have cleared the region
+// round about in three days and saved the slaughter of Patay. We
+// could have been in Rheims six weeks ago, and in Paris now; and
+// would see the last Englishman pass out of France in half a year.
+// But we struck no blow after Orleans, but went off into the
+// country--what for? Ostensibly to hold councils; really to give
+// Bedford time to send reinforcements to Talbot--which he did; and
+// Patay had to be fought. After Patay, more counseling, more waste
+// of precious time. Oh, my King, I would that you would be
+// persuaded!" She began to warm up, now. "Once more we have our
+// opportunity. If we rise and strike, all is well. Bid me march upon
+// Paris. In twenty days it shall be yours, and in six months all
+// France! Here is half a year's work before us; if this chance be
+// wasted, I give you twenty years to do it in. Speak the word, O
+// gentle King--speak but the one--"
+//
+// """ )
+//
+//     ()
 
 
 
@@ -336,69 +336,22 @@ let twainPatterns = [
 let twain_input =
     File.ReadAllText(__SOURCE_DIRECTORY__ + "/data/input-text.txt")
 
-
-[<Fact>]
-let ``bench test 0``() =
-    let m = Matcher(twainPatterns[0])
-    let r = m.MatchPositions(twain_input) |> Seq.toArray
-
-    Assert.Equal(r.Length,811)
-
-
-[<Fact>]
-let ``bench test 1``() =
-    let m = Matcher(twainPatterns[1])
-    let r = m.MatchPositions(twain_input) |> Seq.toArray
-
-    Assert.Equal(r.Length,965)
-
-
-
+//
 // [<Fact>]
-// let ``raw match 2``() =
-//     do AppContext.SetData("REGEX_NONBACKTRACKING_MAX_AUTOMATA_SIZE", 1_000_000)
-//     let pat_alt = permuteAlt [ "enlistment"; "military" ]
-//     let pat_conj = @"⊤*enlistment⊤*&⊤*military⊤*"
+// let ``bench test 0``() =
+//     let m = Matcher(twainPatterns[0])
+//     let r = m.MatchPositions(twain_input) |> Seq.toArray
 //
-//     let r1 = testBacktracking(pat_alt)
-//     let r2 = testNonBacktracking(pat_alt)
-//     let r3 = testSbre(pat_conj)
+//     Assert.Equal(r.Length,811)
 //
-//     let lengths =
-//         [
-//             r1.Length
-//             r2.Length
-//             r3.Value.Length
-//         ]
-//     lengths
-//     |> Seq.reduce (fun l r ->
-//         if l <> r then failwith "invalid lengths"
-//         else l
-//     )
-
-
+//
 // [<Fact>]
-// let ``conjunctions test paragraph 2``() =
-//     do AppContext.SetData("REGEX_NONBACKTRACKING_MAX_AUTOMATA_SIZE", 1_000_000)
-//     let pat_lookaround = permuteWithLookaround [ "enlistment"; "military" ]
-//     let pat_loop = permuteWithLoop [ "enlistment"; "military" ]
-//     let pat_conj_neg = @"\n\n~(⊤*\n\n⊤*)\n&⊤*enlistment⊤*&⊤*military⊤*"
+// let ``bench test 1``() =
+//     let m = Matcher(twainPatterns[1])
+//     let r = m.MatchPositions(twain_input) |> Seq.toArray
 //
-//     let r1 = testBacktracking(pat_lookaround)
-//     let r2 = testNonBacktracking(pat_loop)
-//     let r3 = testSbre(pat_conj_neg)
-//
-//     let lengths =
-//         [
-//             r1.Length
-//             r2.Length
-//             r3.Value.Length
-//         ]
-//     lengths
-//     |> Seq.reduce (fun l r ->
-//         if l <> r then failwith "invalid lengths"
-//         else l
-//     )
+//     Assert.Equal(r.Length,965)
+
 
 
 

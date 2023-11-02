@@ -18,10 +18,30 @@ let longSample = __SOURCE_DIRECTORY__ + "/input-text.txt" |> System.IO.File.Read
 let shortSample = longSample[..10000]
 
 
+let view (results: MatchPosition array) (idx) =
+    let lens = results[idx]
+    longSample[lens.Index .. lens.Index + lens.Length]
+
+let viewn n (results: MatchPosition array) = 
+    for i = 0 to n do
+        let lens = results[i]
+        stdout.WriteLine longSample[lens.Index .. lens.Index + lens.Length]
+
+
 let r1s = 
     Sbre.Benchmarks.Jobs.Permutations.permuteConjInParagraph [ "Huck"; "from"; "you"; ]
 
 
+
+let m1 = 
+    let pat = Sbre.Benchmarks.Jobs.Permutations.permuteConjInParagraph [ "Huck"; "from"; "you"; ]
+    Matcher(pat)
+
+let r1 = 
+    m1.MatchPositions(longSample)
+    |> Seq.toArray
+
+viewn 4 r1
 // "\n\n~(⊤*\n\n⊤*)\n&⊤*Huck⊤*&⊤*from⊤*&⊤*you⊤*"
 
 let inputText = shortSample
@@ -39,10 +59,6 @@ let inputText = shortSample
 // let res =
 //     r.MultipleIsMatches() // [|struct (834, 353)|]
 
-
-let view (results: MatchPosition array) (idx) =
-    let lens = results[idx]
-    longSample[lens.Index .. lens.Index + lens.Length]
 
 
 // type FullSbre() =

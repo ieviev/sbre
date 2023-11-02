@@ -1,6 +1,7 @@
 namespace rec Sbre.Types
 
 open System
+open System.Buffers
 open System.Collections.Generic
 open System.Collections.Immutable
 open System.Collections.Specialized
@@ -309,87 +310,115 @@ type PredStartset = {
 
     static member Of(inverted, startset) = { Flags = inverted; Chars = startset }
 
-// todo: this could be optimized with a flat array instead of resizearray
 [<Sealed>]
 type ToplevelORCollection() =
-    let lastNullableArray: ResizeArray<int> = ResizeArray()
-    let nodeArray: ResizeArray<RegexNode<uint64>> = ResizeArray()
 
+    [<Literal>]
+    let startSize = 4
+    let mutable lastNullableArray: int[] = ArrayPool.Shared.Rent(startSize)
+    let mutable nodeArray: RegexNode<uint64>[] = ArrayPool.Shared.Rent(startSize)
+    let mutable _count = 0
+    let mutable _capacity = startSize
 
+    member this.IncreaseArraySize() =
+        ArrayPool.Shared.Return(lastNullableArray)
+        ArrayPool.Shared.Return(nodeArray)
+        let newSize = _capacity * 2
+        let newNodeArray = ArrayPool.Shared.Rent(newSize)
+        nodeArray.CopyTo(newNodeArray,0)
+        nodeArray <- newNodeArray
+        let newLastNullableArray = ArrayPool.Shared.Rent(newSize)
+        lastNullableArray.CopyTo(newLastNullableArray,0)
+        lastNullableArray <- newLastNullableArray
+        _capacity <- newSize
 
-
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.Add(node: RegexNode<uint64>, nullableState: int) =
-        nodeArray.Add(node)
-        lastNullableArray.Add(nullableState)
 
+        let createNode() =
+            nodeArray[_count] <- node
+            lastNullableArray[_count] <- nullableState
+            _count <- _count + 1
+
+        match _count with
+        | 0 -> createNode()
+        | _ ->
+            if _count = _capacity then
+                // does not happen in 99% cases
+                this.IncreaseArraySize()
+
+            match nodeArray[0], node with
+            // important optimization
+            | And(nodes1, _), And(nodes2, _) when nodes2.IsSupersetOf(nodes1) -> ()
+
+                // if nodes2.IsSupersetOf(nodes1) then
+                //     ()
+                // else createNode()
+
+            // TODO: equivalent for Or
+            | _ ->
+                createNode()
+
+
+
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.UpdateTransition
         (
-            oldNode: RegexNode<uint64>,
+            i: int,
             node: RegexNode<uint64>,
             nullableState: int
         ) =
-        match nodeArray.Count with
-        | 1 ->
-            nodeArray[0] <- node
-            lastNullableArray[0] <- nullableState
-        | _ ->
-            let oldIndex = nodeArray.IndexOf(oldNode)
-            nodeArray[oldIndex] <- node
-            lastNullableArray[oldIndex] <- nullableState
+        nodeArray[i] <- node
+        lastNullableArray[i] <- nullableState
 
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.UpdateTransitionNode
         (
-            oldNode: RegexNode<uint64>,
+            i: int,
             node: RegexNode<uint64>
         ) =
-        match nodeArray.Count with
-        | 1 ->
-            nodeArray[0] <- node
-        | _ ->
-            let oldIndex = nodeArray.IndexOf(oldNode)
-            nodeArray[oldIndex] <- node
+        nodeArray[i] <- node
 
-    member this.BumpIsAlwaysNullable(oldNode: RegexNode<uint64>, nullableState: int) =
-        let oldIndex = nodeArray.IndexOf(oldNode)
-        lastNullableArray[oldIndex] <- nullableState
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    member this.UpdateNullability(i:int, nullableState: int) =
+        lastNullableArray[i] <- nullableState
 
-    // todo: generalize to clear duplicates
-    member this.MergeIndexes(idx1: int, idx2:int) =
-        let maxNullable =
-            max lastNullableArray[idx1] lastNullableArray[idx2]
-        lastNullableArray[idx1] <- maxNullable
-        nodeArray.RemoveAt(idx2)
-        lastNullableArray.RemoveAt(idx2)
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    member this.Remove(idx:int) =
+        match idx = _count - 1 with
+        | true ->
+            _count <- _count - 1 // is last element
+        | false ->
+            // swap last element into current slot
+            nodeArray[idx] <- nodeArray[_count - 1]
+            lastNullableArray[idx] <- lastNullableArray[_count - 1]
+            _count <- _count - 1
 
-    member this.Remove(oldNode: RegexNode<uint64>) =
-        // match nodeArray.Count with
-        // | 1 ->
-        //     nodeArray.Clear()
-        //     lastNullableArray.Clear()
-        // | _ ->
-        // CollectionsMarshal.GetValueRefOrAddDefault
-        // let spn = CollectionsMarshal.AsSpan(nodeArray)
-
-        let oldIndex = nodeArray.IndexOf(oldNode)
-        nodeArray.RemoveAt(oldIndex)
-        lastNullableArray.RemoveAt(oldIndex)
-
-    member this.GetLastNullPos(node: RegexNode<uint64>) =
-        let idx = nodeArray.IndexOf(node)
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    member this.GetLastNullPos(idx:int) =
         lastNullableArray[idx]
 
-    member this.Count = nodeArray.Count
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    member this.Reset() = _count <- 0
 
-    member this.Items = nodeArray
+    member this.Count = _count
+    member this.Items = nodeArray.AsSpan().Slice(0,_count)
+
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.CanSkipAll() =
         let mutable canskip = true
-        use mutable e = nodeArray.GetEnumerator()
+        let mutable e = nodeArray.AsSpan().Slice(0,_count).GetEnumerator()
         while e.MoveNext() = true && canskip do
             canskip <- e.Current.CanSkip
         canskip
 
         // allocates 5 MB
         // nodeArray |> Seq.forall (fun v -> v.CanSkip)
+
+    interface IDisposable with
+        member this.Dispose() =
+            ArrayPool.Shared.Return(lastNullableArray)
+            ArrayPool.Shared.Return(nodeArray)
 
 
 
@@ -443,3 +472,37 @@ module Common =
 
     let inline exists f (coll: ImmutableHashSet<'t>) = coll |> Seq.exists f
     let inline forall f (coll: ImmutableHashSet<'t>) = coll |> Seq.forall f
+
+
+// todo:
+module Enumerator =
+    // let inline exists f (span: byref<Span<RegexNode<uint64>>>) =
+    let inline exists ([<InlineIfLambda>] f) (e: byref<Span.Enumerator<RegexNode<uint64>>>) =
+        // let mutable e = span.GetEnumerator()
+        let mutable found = false
+        while e.MoveNext() && not found do
+            found <- f e.Current
+        found
+
+    let inline reduce ([<InlineIfLambda>] f) (e: byref<Span.Enumerator<RegexNode<uint64>>>) =
+        let mutable found = false
+        e.MoveNext() |> ignore
+        let mutable tmp = e.Current
+        while e.MoveNext() && not found do
+            tmp <- f tmp e.Current
+        tmp
+
+    let inline sharedHash (e: byref<Span.Enumerator<RegexNode<_>>>) =
+        let mutable found = false
+        e.MoveNext() |> ignore
+        let mutable tmp = LanguagePrimitives.PhysicalHash e.Current
+        while e.MoveNext() && not found do
+            tmp <- tmp ^^^ (LanguagePrimitives.PhysicalHash e.Current)
+        tmp
+
+    let inline sharedHashArray (e: RegexNode<_>[]) =
+        let mutable found = false
+        let mutable hash = 0
+        for n in e do
+            hash <- hash ^^^ LanguagePrimitives.PhysicalHash n
+        hash
