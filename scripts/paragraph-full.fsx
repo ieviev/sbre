@@ -22,29 +22,74 @@ let view (results: MatchPosition array) (idx) =
     let lens = results[idx]
     longSample[lens.Index .. lens.Index + lens.Length]
 
-let viewn n (results: MatchPosition array) = 
+let viewn n (results: MatchPosition array) =
     for i = 0 to n do
         let lens = results[i]
         stdout.WriteLine longSample[lens.Index .. lens.Index + lens.Length]
 
 
-let r1s = 
-    Sbre.Benchmarks.Jobs.Permutations.permuteConjInParagraph [ "Huck"; "from"; "you"; ]
-
-
-
-let m1 = 
-    let pat = Sbre.Benchmarks.Jobs.Permutations.permuteConjInParagraph [ "Huck"; "from"; "you"; ]
-    Matcher(pat)
-
-let r1 = 
-    m1.MatchPositions(longSample)
-    |> Seq.toArray
-
-viewn 4 r1
-// "\n\n~(⊤*\n\n⊤*)\n&⊤*Huck⊤*&⊤*from⊤*&⊤*you⊤*"
 
 let inputText = shortSample
+
+// Length:1812
+let res =
+    // ["Huck"; "Finn"; "from"; "Saw[a-z]+"; "[a-q][^u-z]{13}x" ]
+    // ["(?:Tom|Sawyer|Huckleberry|Finn)"; "Twain" ]
+    // [ "Huck"; ] // c: 411
+    // [ @"H[a-z]*berry\s+F[a-z]*\s+(was)"; ] // c: 64
+    // 12 ok
+
+    // [ "(?:Tom|Sawyer|Huckleberry|Finn)" ] // c: 1812
+    // [ "(?:Tom|Sawyer)"; "(?:Huckleberry|Finn)" ] // c: 32
+    // [ "(?:Tom|Sawyer)"; "(?:Huckleberry|Finn)"; "from" ] // c: 14
+    // [ "(?:Tom|Sawyer|before)"; "(?:Huckleberry|Finn|legs)"; @"old[\s\S]*thing" ] // c: 13
+    // [  @"(?i)[a-z]{0,12}ing to the (?:d[a-z]+)" ] // c: 19
+    // [  @"Jim[\s\S]*had[\s\S]*been[\s\S]*[a-z]*ing" ] // c: 11
+    [  @"[a-z]*a[a-z]*" ] // c: 11
+    |> Sbre.Benchmarks.Jobs.Permutations.permuteConjInParagraph
+    |> Matcher
+    |> (fun v -> v.MatchPositions(longSample))
+    |> Seq.toArray
+    |> (fun v -> 
+        stdout.WriteLine $"Length:{v.Length}"
+        viewn 3 v
+    )
+    
+
+
+type DebugRuntime() =
+    inherit
+        Sbre.Benchmarks.Jobs.RuntimeFullSearch(
+            // [  @"(?i)[a-z]{2,12}ing (?:d[a-z]+)\s" ], // 1s
+            // [  @"(?i)[a-z]{2,12}ing to the (?:d[a-z]+)\s" ], // 1s
+            // [  @"(?i)[a-z]{2,12}ing to the (?:d[a-z]+)\s" ], // 1s
+            // [  @"Jim[\s\S]*had[\s\S]*been" ], // 1s
+            // [  @"Jim[\s\S]*had[\s\S]*been[\s\S]*[a-z]*ing"  ], // 1s
+            // [  @"(?:(?i)[a-z]{0,12}ing to the (?:d[a-z]{0,12})\s)" ],
+            [  @"(a\S*)" ],
+            // [  @"(?:(?i)[a-z]{0,12}ing to the (?:d[a-z]{0,12})\s)"; "Huck" ],
+            longSample,
+            // RegexOptions.None
+            RegexOptions.Multiline
+        )
+
+let v = DebugRuntime()
+v.Setup()
+let rs = v.TwoStepSearch() |> Seq.length
+
+
+
+let r2 =
+    let pat =
+        Sbre.Benchmarks.Jobs.Permutations.permuteConjInParagraph [ "[a-z]shing"; "from"; "you" ]
+
+    let m = Matcher(pat)
+    m.MatchPositions(longSample) |> Seq.toArray
+
+
+r2 |> viewn 3
+
+r2.Length
 
 // type Combined1() =
 //     inherit
@@ -68,7 +113,8 @@ let pat1 = @"\n\n~(⊤*\n\n⊤*)\n&⊤*Twain⊤*"
 
 
 let res_1 =
-    Matcher(@"~(⊤*\n\n⊤*)\n&⊤*Huck⊤*&⊤*from⊤*&⊤*you⊤*";).MatchPositions(longSample) |> Seq.toArray
+    Matcher(@"~(⊤*\n\n⊤*)\n&⊤*Huck⊤*&⊤*from⊤*&⊤*you⊤*").MatchPositions(longSample)
+    |> Seq.toArray
 
 
 
@@ -77,7 +123,9 @@ let res_1 =
 // let pat2=  permuteWithLoop [ "you"; "Huck"; "from"]
 
 let results =
-    let pat = Sbre.Benchmarks.Jobs.Permutations.permuteConjInParagraph [ "you"; "Huck"; "from" ]
+    let pat =
+        Sbre.Benchmarks.Jobs.Permutations.permuteConjInParagraph [ "you"; "Huck"; "from" ]
+
     Matcher(pat).MatchPositions(longSample) |> Seq.toArray
 
 results.Length
@@ -93,7 +141,7 @@ let _ =
 let twainPgs = Matcher(pat1).MatchPositions(shortSample) |> Seq.toArray
 
 let t2 =
-    Matcher(@"~(⊤*\n\n⊤*)\n&⊤*Huck⊤*&⊤*from⊤*&⊤*you⊤*";).MatchPositions(shortSample)
+    Matcher(@"~(⊤*\n\n⊤*)\n&⊤*Huck⊤*&⊤*from⊤*&⊤*you⊤*").MatchPositions(shortSample)
     |> Seq.toArray
 
 
@@ -134,7 +182,7 @@ let t2 =
 // rt.Setup()
 
 
-// let results2 = 
+// let results2 =
 //     rt.MultipleIsMatches()
 //     |> Seq.toArray
 
@@ -169,33 +217,36 @@ open Fs.Scripting
 
 let str12 =
     let i = 4059049
-    longSample[i - 200.. i + 500]
+    longSample[i - 200 .. i + 500]
 
 
 
 
-let permuteWithLoop (words: string list) =
-    let rec distribute e = function
-      | [] -> [[e]]
-      | x::xs' as xs -> (e::xs)::[for xs in distribute e xs' -> x::xs]
-    let rec permute = function
-      | [] -> [[]]
-      | e::xs -> List.collect (distribute e) (permute xs)
+let permuteWithLoop(words: string list) =
+    let rec distribute e =
+        function
+        | [] -> [ [ e ] ]
+        | x :: xs' as xs -> (e :: xs) :: [ for xs in distribute e xs' -> x :: xs ]
+
+    let rec permute =
+        function
+        | [] -> [ [] ]
+        | e :: xs -> List.collect (distribute e) (permute xs)
+
     let prefix = @"(?:.+\n)*?" // standard line loop
     let suffix = @"(?:.+\n)*?\n" // wrong
+
     let altpermutations =
         String.concat "|" [
             for permutation in permute words do
-                yield
-                    permutation
-                    |> List.map (fun v -> $".*{v}.*")
-                    |> String.concat @"(?:.+\n)*?"
+                yield permutation |> List.map (fun v -> $".*{v}.*") |> String.concat @"(?:.+\n)*?"
         ]
+
     $"{prefix}(?:{altpermutations}){suffix}"
 
 // let single =  permuteWithLoop [ "and"; ]
 // let single =  permuteWithLoop [ "and"; "may" ]
-let single =  permuteWithLoop [ "you"; "Huck"; "from"]
+let single = permuteWithLoop [ "you"; "Huck"; "from" ]
 // let single =  Permutations. [ "Huck"; "from"; "you"; ]
 // let single =  permuteWithLoop [ "you"; "Huck"; ]
 
@@ -203,13 +254,12 @@ let single =  permuteWithLoop [ "you"; "Huck"; "from"]
 Os.copyToClipboard single
 
 
-let results3 = 
-    System.Text.RegularExpressions.Regex(single, RegexOptions.NonBacktracking)
+let results3 =
+    System.Text.RegularExpressions
+        .Regex(single, RegexOptions.NonBacktracking)
         .Matches(longSample)
-        |> Seq.map (fun v -> 
-            (v.Index,v.Length)
-        )
-        |> Seq.toArray
-        
+    |> Seq.map (fun v -> (v.Index, v.Length))
+    |> Seq.toArray
+
 
 results3.Length

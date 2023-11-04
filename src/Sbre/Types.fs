@@ -51,9 +51,11 @@ type RegexNodeInfo<'tset> = {
     Flags: RegexNodeFlags
     Startset: 'tset
 } with
-    member this.IsAlwaysNullable = this.Flags.HasFlag(RegexNodeFlags.IsAlwaysNullable)
-    member this.CanBeNullable = this.Flags.HasFlag(RegexNodeFlags.CanBeNullable)
-    member this.ContainsLookaround = this.Flags.HasFlag(RegexNodeFlags.ContainsLookaround)
+    member inline this.IsAlwaysNullable = this.Flags.HasFlag(RegexNodeFlags.IsAlwaysNullable)
+    member inline this.CanBeNullable = this.Flags.HasFlag(RegexNodeFlags.CanBeNullable)
+    member inline this.CanNotBeNullable = not(this.Flags.HasFlag(RegexNodeFlags.CanBeNullable))
+    member inline this.ContainsLookaround = this.Flags.HasFlag(RegexNodeFlags.ContainsLookaround)
+    member inline this.ContainsEpsilon = this.Flags.HasFlag(RegexNodeFlags.ContainsEpsilon)
 
 
 // TBD: experimenting with various other sets
@@ -335,7 +337,7 @@ type ToplevelORCollection() =
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.Add(node: RegexNode<uint64>, nullableState: int) =
 
-        let createNode() =
+        let inline createNode() =
             nodeArray[_count] <- node
             lastNullableArray[_count] <- nullableState
             _count <- _count + 1
@@ -350,10 +352,7 @@ type ToplevelORCollection() =
             match nodeArray[0], node with
             // important optimization
             | And(nodes1, _), And(nodes2, _) when nodes2.IsSupersetOf(nodes1) -> ()
-
-                // if nodes2.IsSupersetOf(nodes1) then
-                //     ()
-                // else createNode()
+            // | Or(nodes1, _), Or(nodes2, _) when nodes2.IsSupersetOf(nodes1) || nodes1.IsSupersetOf(nodes2) -> failwith "fdsf"
 
             // TODO: equivalent for Or
             | _ ->

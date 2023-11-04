@@ -119,6 +119,7 @@ let (|ValueRefEquals|_|) (y:'t list) (x:'t list voption) =
 module Solver =
 
     let inline isElemOfSetU64 predicate locationMinterm = predicate &&& locationMinterm <> 0uL
+    let inline notElemOfSetU64 predicate locationMinterm = predicate &&& locationMinterm = 0uL
 
     let inline mapAnd (s:ISolver<^t>) ([<InlineIfLambda>]f: 'a -> ^t) (coll: seq<'a>): ^t =
         let mutable ss = s.Full

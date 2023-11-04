@@ -29,7 +29,7 @@ type MatchPositionResult = {
 type MatchPosition = { Index: int; Length: int }
 
 [<Sealed>]
-type Matcher(pattern: string) =
+type Matcher(pattern: string, ?warnUnoptimized:bool) =
 
     // experimental parser!
     let pattern = pattern.Replace("⊤", @"[\s\S]")
@@ -117,6 +117,13 @@ type Matcher(pattern: string) =
             _optimizations = optimizations
         )
 
+    do
+        match warnUnoptimized with
+        | Some true ->
+            if cache.Solver.IsFull(cache.GetInitialStartsetPredicate()) then
+                failwith "the pattern has a startset of ⊤, which may result in extremely long match time. specify the beginning of the pattern more"
+        | _ -> ()
+
     let reverseUint64Node = RegexNode.rev cache rawUint64Node
 
     member this.IsMatch(input: string) =
@@ -195,97 +202,16 @@ type Matcher(pattern: string) =
                     }
 
 
-    member this.MatchPosition(input: string) : MatchPositionResult =
-        let mutable startPos = 0
-
-        let success =
-            optimizations.TryFindNextStartingPositionLeftToRight(input.AsSpan(), &startPos, 0)
-
-        if not success then
-            {
-                Success = false
-                StartIndex = 0
-                Length = 0
-            }
-        else
-
-            let mutable startLocation = Location.create input startPos
-
-            match RegexNode.matchEnd (cache, &startLocation, ValueNone, dotStarredUint64Node) with
-            | ValueNone -> {
-                Success = false
-                StartIndex = 0
-                Length = 0
-              }
-            | ValueSome endPos ->
-                let mutable reverseLocation = (Location.rev { startLocation with Position = endPos })
-
-                let startPos =
-                    RegexNode.matchEnd (cache, &reverseLocation, ValueNone, reverseUint64Node)
-
-                match startPos with
-                | ValueNone ->
-                    failwith
-                        $"match succeeded left to right but not right to left:\nmatch end: {endPos}\nreverse pattern: {reverseUint64Node}"
-                | ValueSome start ->
-                    {
-                        Success = true
-                        StartIndex = start
-                        Length = endPos - start
-                    }
-
     member this.Matches(input: string) =
-
-
-        let mutable startPos = 0
-        let mutable location = Location.create input 0
-
-        let rec loop location =
-            seq {
-
-                let success =
-                    optimizations.TryFindNextStartingPositionLeftToRight(
-                        input.AsSpan(),
-                        &startPos,
-                        0
-                    )
-
-                let initialpos = location.Position //
-
-                let mutable startLocation = Location.create input startPos
-                let fg = 1
-
-                match RegexNode.matchEnd (cache, &startLocation, ValueNone, dotStarredUint64Node) with
-                | ValueNone -> ()
-                | ValueSome(endPos: int) ->
-                    let mutable reverseLocation = (Location.rev { location with Position = endPos })
-
-                    let startPos =
-                        RegexNode.matchEnd (cache, &reverseLocation, ValueNone, reverseUint64Node)
-
-                    match startPos with
-                    | ValueNone ->
-                        failwith
-                            "match succeeded left to right but not right to left\nthis may occur because of an unimplemented feature"
-                    | ValueSome start ->
-                        // initialpos -1 is the end of the previous match, cancel the overlap
-                        // let response : MatchPosition = { endIndex = endPos - 1; startIndex =  max (initialpos) start }
-                        yield {
-                            Success = true
-                            Value = input[start .. endPos - 1]
-                            StartIndex = max (initialpos) start
-                            Length = endPos - (max (initialpos) start)
-                        }
-                    // continue
-                    if endPos <> input.Length then
-                        if endPos = initialpos then
-                            yield! (loop (Location.create input (endPos + 1)))
-                        else
-                            yield! (loop (Location.create input (endPos)))
-
+        this.MatchPositions(input)
+        |> Seq.map (fun result ->
+            {
+                Success = true
+                Value = input[result.Index .. result.Index + result.Length]
+                StartIndex = result.Index
+                Length = result.Length
             }
-
-        loop location
+        )
 
     member this.MatchText(input: string) =
         let mutable startPos = 0
@@ -406,7 +332,7 @@ type Matcher(pattern: string) =
                         match startPos with
                         | ValueNone ->
                             failwith
-                                "match succeeded left to right but not right to left\nthis may occur because of an unimplemented feature"
+                                $"match succeeded left to right but not right to left\nthis may occur because of an unimplemented feature\nend-pos:{endPos}, pattern:{reverseUint64Node}"
                         | ValueSome start ->
                             let startIdx = max (currPos) start
                             // initialpos -1 is the end of the previous match, cancel the overlap

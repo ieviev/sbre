@@ -16,41 +16,10 @@ open Sbre.Cache
 module P = Sbre.Pat
 module C = Sbre.Cache
 
-
-module Helpers =
-    let inline isNullablePosition
-        (
-            c: RegexCache<uint64>,
-            loc: inref<Location>,
-            nodes: ToplevelORCollection
-        )
-        : bool
-        =
-        let mutable e = nodes.Items.GetEnumerator()
-        let mutable isNullable = false
-
-        while e.MoveNext() && not isNullable do
-            let curr = e.Current
-
-            if curr.CanNotBeNullable then () else
-
-            match Regex.RegexNode.isNullable (c, loc, curr) with
-            | true -> isNullable <- true
-            | _ -> ()
-
-        isNullable
-
-
 module RegexNode =
 
 #if DEBUG
     let display(node: RegexNode<'tset>) = node.ToStringHelper()
-
-    let displayIndividual(node: RegexNode<'tset> list) =
-        node |> Seq.map (fun v -> v.ToStringHelper()) |> String.concat "\n"
-
-
-
 #endif
 
     // 3.6 Reversal
@@ -104,21 +73,18 @@ module RegexNode =
                 let der = rev cache head
                 if der = head then head else der
 
-            // if
-            //     head = rev_head
-            //     && tail = rev_tail
-            // then
-            //     node
-            // else
-
-            cache.Builder.mkConcat2 (rev_tail, rev_head)
+            match rev_tail with
+            | Concat(thead, ttail, tinfo) ->
+                let inner = cache.Builder.mkConcat2 (ttail, rev_head)
+                cache.Builder.mkConcat2 (thead, inner)
+            | _ -> cache.Builder.mkConcat2 (rev_tail, rev_head)
         | Epsilon -> Epsilon
 
 
     let rec isNullable(cache: RegexCache<uint64>, loc: Location, node: RegexNode<uint64>) : bool =
         let inline Null node = isNullable (cache, loc, node)
 
-        let isMatch' (loc:Location) body =
+        let recursiveIsMatch (loc:Location) body =
             let mutable loc1 = (loc)
             match matchEnd (cache, &loc1, ValueNone, body) with
             | ValueNone -> false
@@ -129,7 +95,6 @@ module RegexNode =
         //logDiagnostic $"{RegexNode.display node}"
 #endif
         // 3.2 Nullability and anchor-contexts
-        // epsilon is considered an empty list of nodes
         match node with
         // Nullx () = true
         | Epsilon -> true
@@ -158,21 +123,21 @@ module RegexNode =
         // 3.7 Lookarounds
         | LookAround(body, lookBack, negate) ->
             match lookBack, negate with
-            | false, false -> isMatch' loc body // Nullx ((?=R)) = IsMatch(x, R)
+            | false, false -> recursiveIsMatch loc body // Nullx ((?=R)) = IsMatch(x, R)
             // Nullx ((?!R)) = not IsMatch(x, R)
             | false, true ->
-                let ism = isMatch' loc body
+                let ism = recursiveIsMatch loc body
                 not ism
 
             | true, false -> // Nullx ((?<=R)) = IsMatch(xr, Rr)
                 let revnode = (RegexNode.rev cache body)
                 let revloc = (Location.rev loc)
-                let ism = isMatch' revloc revnode
+                let ism = recursiveIsMatch revloc revnode
                 ism
             | true, true -> // Nullx ((?<!R)) = not IsMatch(x r, Rr)
                 let loc_rev = Location.rev loc
                 let R_rev = RegexNode.rev cache body
-                not (isMatch' loc_rev R_rev)
+                not (recursiveIsMatch loc_rev R_rev)
 
 
     // max(x,⊥) = max(⊥,x) = x
@@ -189,7 +154,7 @@ module RegexNode =
 
 
     /// uses .NET FindMatchOptimizations to find the next startset
-    let inline jumpNextDotnetLocation(cache: RegexCache<'t>, loc: inref<Location>) : struct(bool*int) =
+    let inline jumpNextDotnetLocation(cache: RegexCache<'t>, loc: byref<Location>) : bool =
         let mutable newPos = loc.Position
 
         let success =
@@ -200,10 +165,10 @@ module RegexNode =
             )
 
         if success then
-            // loc.Position <- newPos
-            true,newPos
+            loc.Position <- newPos
+            true
         else
-            false,0
+            false
 
 
     // 3.3 Derivatives and MatchEnd: if Final(x) then Nullx (R) else max(Nullx (R), MatchEnd(x+1, Derx (R)))
@@ -218,9 +183,7 @@ module RegexNode =
         : int voption
         =
 
-        // let mutable loc = initialLocation
         let mutable currentMax = initialMax
-
         let mutable looping = true
         let mutable foundmatch = false
 
@@ -234,7 +197,6 @@ module RegexNode =
             if initialIsDotStarred then cache.GetTopLevelOr()
             else new ToplevelORCollection()
 
-
         let initialWithoutDotstar =
             if initialIsDotStarred then
                 cache.InitialPatternWithoutDotstar
@@ -242,7 +204,6 @@ module RegexNode =
                 initialNode
 
         let startsetPredicate = cache.GetInitialStartsetPredicate()
-            // Startset.inferStartset cache.Solver initialWithoutDotstar
 
         if not initialIsDotStarred then
             let branchNullPos = if isNullable (cache, loc, initialNode) then loc.Position else -1
@@ -267,23 +228,15 @@ module RegexNode =
 
                 // current active branches
                 if toplevelOr.Count > 0 then
-                    // let span_Top = CollectionsMarshal.AsSpan(toplevelOr.Items)
-                    // if not (span_Top.TryCopyTo(tempArray)) then
-                    //     tempArray <- Array.zeroCreate (tempArray.Length * 2)
-                    //     span_Top.TryCopyTo(tempArray) |> ignore
+                    let toplevelOrSpan = toplevelOr.Items
 
-                    let mutable toplevelOrSpan = toplevelOr.Items
-
-                    // let mutable tmpE = tempArray.AsSpan().Slice(0,span_Top.Length).GetEnumerator()
-
-                    // while tmpE.MoveNext() = true do
                     for i = (toplevelOrSpan.Length - 1) downto 0 do
                         let curr = toplevelOrSpan[i]
-                        let derivative = createDerivative (cache, loc, locationPredicate, curr)
-                            // tryMakeTransition (cache, loc, curr, locationPredicate)
+                        let deriv = createDerivative (cache, loc, locationPredicate, curr)
 
-                        match derivative with
-                        | IsFalse cache as derivative ->
+                        match deriv with
+                        | IsFalse cache ->
+                        // if refEq deriv cache.Builder.uniques._false then
                             if
                                 currentMax.IsSome
                                 && toplevelOr.GetLastNullPos(i) > -1
@@ -294,7 +247,8 @@ module RegexNode =
                             else
                                 toplevelOr.Remove(i)
 
-                        | deriv ->
+                        // else
+                        | _ ->
                             if obj.ReferenceEquals(curr, deriv) then
                                 if curr.CanNotBeNullable then
                                     ()
@@ -306,7 +260,6 @@ module RegexNode =
                                     else
                                         // in the case of a negation, we can return match
                                         match deriv with
-                                        // | Not(_) when curr.LastNullablePos > -1 ->
                                         | Not _ when toplevelOr.GetLastNullPos(i) > -1 -> foundmatch <- true
                                         | _ -> ()
                                         toplevelOr.UpdateTransitionNode(i, deriv)
@@ -323,11 +276,11 @@ module RegexNode =
 
                 // create implicit dotstar derivative only if startset matches
                 if
-                    // cache.Solver.isElemOfSetu64 (startsetPredicate, locationPredicate) && initialIsDotStarred
-                    Solver.isElemOfSetU64 startsetPredicate locationPredicate && initialIsDotStarred
+                    initialIsDotStarred && Solver.isElemOfSetU64 startsetPredicate locationPredicate
                 then
                     match createDerivative (cache, loc, locationPredicate, initialWithoutDotstar) with
-                    | IsFalse cache -> ()
+                    // | IsFalse cache -> ()
+                    | deriv when refEq deriv cache.Builder.uniques._false -> ()
                     | deriv ->
                         // major optimization potential
                         if toplevelOr.Count > 0 then
@@ -355,19 +308,29 @@ module RegexNode =
                         else
                             // jump from initial pattern
                             // use .net startset lookup, have to be careful about negation here
-                            // if not (jumpNextDotnetLocation(cache, &loc)) then
-                            //     if not initialIsNegated then looping <- false
+                            if not (jumpNextDotnetLocation(cache, &loc)) then
+                                match initialWithoutDotstar with
+                                | Not(_) | Concat(head=Not(_)) -> ()
+                                | _ -> looping <- false
+                                // if not initialIsNegated then looping <- false
 
                             // use our own startset lookup (not optimized for long strings)
-                            if not (Solver.isElemOfSetU64 startsetPredicate nextLocationPredicate) then
-                                loc.Position <- tryJumpToStartset (cache, &loc, &toplevelOr)
-
-                            ()
+                            // if not (Solver.isElemOfSetU64 startsetPredicate nextLocationPredicate) then
+                            //     loc.Position <- tryJumpToStartset (cache, &loc, &toplevelOr)
                     else
-                        if Helpers.isNullablePosition (cache, &loc, toplevelOr) then
-                            currentMax <- ValueSome(loc.Position)
+                        // check if current position is nullable or skippable
+                        let mutable e = toplevelOr.Items.GetEnumerator()
+                        let mutable found = false
+                        let mutable canSkipAll = true
+                        while e.MoveNext() && not found do
+                            found <- isNullable(cache,loc,e.Current)
+                            canSkipAll <- canSkipAll && e.Current.CanSkip
+                        if found then
+                            currentMax <- (ValueSome loc.Position)
+
                         if
-                            toplevelOr.CanSkipAll() &&
+                            // toplevelOr.CanSkipAll() &&
+                            canSkipAll &&
                             not (Solver.isElemOfSetU64 startsetPredicate nextLocationPredicate)
                         then
                             // jump mid-regex

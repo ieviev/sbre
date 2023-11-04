@@ -97,8 +97,32 @@ let ``startset generation 7``() =
     Assert.Equal(@"[^\n]", ss1pretty)
     Assert.Equal(@".", ss2pretty) // FULL SET
 
+[<Fact>]
+let ``startset generation 8``() =
 
+    let matcher = Matcher(@"([a-ci]*|⊤*i[a-ci]*)c")
+    let c = matcher.Cache
+    let ss1 = Info.Startset.inferStartset (c.Solver) (matcher.RawPattern)
+    let ss1pretty = c.PrettyPrintMinterm(ss1)
+    Assert.Equal(@"[^ab]", ss1pretty)
 
+[<Fact>]
+let ``startset generation 9``() =
+
+    let matcher = Matcher(@"⊤*[a-z]*a[a-z]*⊤*")
+    let c = matcher.Cache
+    let ss1 = Info.Startset.inferStartset (c.Solver) (matcher.RawPattern)
+    let ss1pretty = c.PrettyPrintMinterm(ss1)
+    Assert.Equal(@"[^b-z]", ss1pretty)
+
+[<Fact>]
+let ``startset generation 10``() =
+
+    let matcher = Matcher(@"⊤*[a-z]*a[a-z]*⊤*")
+    let c = matcher.Cache
+    let ss1 = Info.Startset.inferStartset (c.Solver) (matcher.ReversePattern)
+    let ss1pretty = c.PrettyPrintMinterm(ss1)
+    Assert.Equal(@"[^b-z]", ss1pretty)
 
 [<Fact>]
 let ``reverse startset generation 1``() =
@@ -117,6 +141,19 @@ let ``startset2 generation 1``() =
     let ss1 = Info.Startset.inferStartset2 (c.Solver) (c.InitialPatternWithoutDotstar)
     let ss1pretty = c.PrettyPrintMinterm(ss1)
     Assert.Equal("[in]", ss1pretty)
+
+
+
+
+[<Fact>]
+let ``startset2 generation 2``() =
+
+    let matcher = Matcher(@"(~(⊤*\n\n⊤*)\n&⊤*c[a-ci]*i⊤*)")
+    let c = matcher.Cache
+    let ss = c.InitialSs2()
+    let sspretty = c.PrettyPrintMinterm(ss)
+    // should not skip over chars after c
+    Assert.Equal(".", sspretty)
 
 
 // [<Fact>]

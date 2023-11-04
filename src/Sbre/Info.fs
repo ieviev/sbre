@@ -126,6 +126,7 @@ module rec Startset =
 
         match head with
         | Loop(node = Singleton pred; low = 0; up = Int32.MaxValue) ->
+            // bug here
             let tailStartset = inferStartset _solver tail
             let invertedPred = _solver.Not(pred)
             _solver.Or(invertedPred, tailStartset)
@@ -140,7 +141,16 @@ module rec Startset =
         | Singleton pred -> pred
         | Or(xs, info) ->
             use mutable e = xs.GetEnumerator()
-            Solver.mergeOrWithEnumerator _solver (inferStartset _solver) &e
+            if info.CanNotBeNullable then
+                Solver.mergeOrWithEnumerator _solver (inferStartset _solver) &e
+            else
+                let headss = Solver.mergeOrWithEnumerator _solver (inferStartset _solver) &e
+                _solver.Or(headss,tail.Startset)
+
+
+
+
+
 
         | Not(node, info) ->
             // let tailConcat = Concat(tail, info)
@@ -150,9 +160,14 @@ module rec Startset =
             merged
         | LookAround _ -> _solver.Full
         | Epsilon -> inferStartset _solver tail
-        | And(nodes, info) ->
-            use mutable e = nodes.GetEnumerator()
-            Solver.mergeOrWithEnumerator _solver (inferStartset _solver) &e
+        | And(xs, info) ->
+            use mutable e = xs.GetEnumerator()
+            if info.CanNotBeNullable then
+                Solver.mergeOrWithEnumerator _solver (inferStartset _solver) &e
+            else
+                let headss = Solver.mergeOrWithEnumerator _solver (inferStartset _solver) &e
+                _solver.Or(headss,tail.Startset)
+
 
         | Concat(chead, ctail, info) ->
             inferConcatStartset _solver chead ctail
@@ -202,7 +217,10 @@ module rec Startset =
         | LookAround(node = body; lookBack = false) -> _solver.Full // TODO: optimize
         | LookAround(lookBack = true) -> _solver.Full
         | Concat(Loop(node=Singleton pred;low=0;up=Int32.MaxValue), Concat(Singleton chead,concatTail2,_), info) ->
-            if _solver.IsFull(pred) then concatTail2.Startset
+            if _solver.IsFull(pred) then
+                match concatTail2 with
+                | Concat(Loop(_),_,_) -> _solver.Full
+                | _ -> concatTail2.Startset
             else _solver.Full // .* not optimized
 
         | Concat(Not(node=inner;info=notInfo), Singleton pred, info) ->

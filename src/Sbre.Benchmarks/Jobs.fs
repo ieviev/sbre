@@ -377,10 +377,10 @@ type RuntimeFullSearch
 
         results
 
-    [<Benchmark>] // single regex with line loop and alternations
-    member this.SingleRegexSearch() =
-        let result = this.SingleStepRegex.Matches(inputText)
-        result.Count
+    // [<Benchmark>] // single regex with line loop and alternations
+    // member this.SingleRegexSearch() =
+    //     let result = this.SingleStepRegex.Matches(inputText)
+    //     result.Count
 
 
 
@@ -497,8 +497,8 @@ type SbreDebugSearch(patterns: string list, input: string) =
 type AllRegexesInParagraph(regexes: string list, input: string) =
     do AppContext.SetData("REGEX_NONBACKTRACKING_MAX_AUTOMATA_SIZE", 1_000_000)
     let inputText = input
-    let paragraphRegex = @"(?:.+\n)+\n" // absolute fastest paragraph search but skips last one
-    // let paragraphRegex = @"(?:.+(?:\n|\z))+(?:\n|\z)" // fastest correct paragraph search
+    // let paragraphRegex = @"(?:.+\n)+\n" // absolute fastest paragraph search but skips last one
+    let paragraphRegex = @"(?:.+(?:\n|\z))+(?:\n|\z)" // fastest correct paragraph search
     let singleStepRegex = Permutations.permuteAltInParagraph regexes
     let conjunctionRegex = Permutations.permuteConjInParagraph regexes
     let opts_None = Text.RegularExpressions.RegexOptions.None
@@ -563,10 +563,10 @@ type AllRegexesInParagraph(regexes: string list, input: string) =
 
         results
 
-    [<Benchmark>] // single regex with line loop and alternations
-    member this.None_SingleRegex() =
-        let result = this.None_SingleStepRegex.Matches(inputText)
-        result.Count
+    // [<Benchmark>] // single regex with line loop and alternations
+    // member this.None_SingleRegex() =
+    //     let result = this.None_SingleStepRegex.Matches(inputText)
+    //     result.Count
 
     [<Benchmark>]
     member this.Sbre_Conjunction() =

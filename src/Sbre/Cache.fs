@@ -127,8 +127,7 @@ type RegexCache< ^t when ^t: struct and ^t :> IEquatable< ^t > and ^t: equality>
             if sharedIndex = -1 then
                 ValueNone
             else
-                let _ = Location.create loc.Input (sharedIndex + 1)
-
+                // let _ = Location.create loc.Input (sharedIndex + 1)
                 ValueSome(sharedIndex + 1)
 
     member this.TryNextStartsetLocation2(loc: Location, set: ^t, set2: ^t) =
@@ -164,14 +163,13 @@ type RegexCache< ^t when ^t: struct and ^t :> IEquatable< ^t > and ^t: equality>
                         skipping <- false
                         result <- ValueSome(potential)
                     else
-
-                    match
-                        Solver.isElemOfSetU64 (unbox set2) (unbox (nextLocMinterm (potential)))
-                    with
-                    | false -> currpos <- potential + 1
-                    | true ->
-                        skipping <- false
-                        result <- ValueSome(potential)
+                        match
+                            Solver.isElemOfSetU64 (unbox set2) (unbox (nextLocMinterm (potential)))
+                        with
+                        | false -> currpos <- potential + 1
+                        | true ->
+                            skipping <- false
+                            result <- ValueSome(potential)
 
             result
         | false, true ->

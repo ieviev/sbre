@@ -4,6 +4,7 @@ module Sbre.Test._08_ConjunctionTests
 open System
 open System.IO
 open Sbre
+open Sbre.Benchmarks.Jobs
 open Xunit
 
 
@@ -411,6 +412,37 @@ let ``twain paragraph test 8 ordering does not matter``() =
 
     Assert.Equal(result1, result2)
 
+
+
+[<Fact>]
+let ``reverse startset test 1``() =
+
+    let m = Matcher(Permutations.permuteConjInParagraph [ "c[abci]*i";])
+    // let rp1 = m.RawPattern
+    // let rp2 = m.ReversePattern
+    //
+    // let ss1 = m.Cache.PrettyPrintMinterm(rp2.Startset)
+    // let d = 1
+
+    let r = m.MatchPositions("aaa caaiaa bbb\n\n") |> Seq.toArray
+
+    Assert.Equal(1,r.Length)
+
+
+[<Fact>]
+let ``reverse startset test 2``() =
+
+    let m = Matcher(Permutations.permuteConjInParagraph [ @"[a-z]*a[a-z]*";])
+    // let rp1 = m.RawPattern
+    // let rp2 = m.ReversePattern
+    //
+    // let ss1 = m.Cache.PrettyPrintMinterm(rp2.Startset)
+    // let d = 1
+
+    // let r = m.MatchPositions("aaa caaiaa bbb\n\nfsdf a asdasd \nn dasf") |> Seq.toArray
+    let r = m.MatchPositions(marktwainsample) |> Seq.toArray
+
+    Assert.Equal(2,r.Length)
 
 
 let shortPg = """

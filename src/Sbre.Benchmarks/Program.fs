@@ -61,10 +61,14 @@ let dbgSample() =
     let matcher =
         // Matcher(permuteConj [ "compilation"; "smaller" ]).Match(shortSample)
         // Matcher(Permutations.permuteConjInParagraph [ "Huck";]).MatchPositions(shortSample)
-        Matcher(Permutations.permuteConjInParagraph [ "Huck";])
+        // Matcher(Permutations.permuteConjInParagraph [ "Huck";])
+        Matcher(Permutations.permuteConjInParagraph [ "c([a-z]*)ion";])
 
-    for i = 0 to 1500 do
-        matcher.CountMatches(sample_inputText) |> ignore
+    for i = 0 to 0 do
+        // matcher.CountMatches(sample_inputText) |> ignore
+        matcher.MatchPositions(sample_inputText)
+        |> Seq.toArray
+        |> ignore
 
     // t2 |> stdout.WriteLine
     ()
@@ -74,7 +78,7 @@ let dbgSample() =
 [<EntryPoint>]
 let main argv =
 
-    // dbgSample()
+    dbgSample()
 
     // let t = ParagraphFull.Sbre_Debug()
     // t.Pattern <-
@@ -82,7 +86,8 @@ let main argv =
     //     |> Seq.head
     // t.Setup()
     // // for i = 0 to 29 do
-    // for i = 0 to 130 do
+    // // for i = 0 to 130 do
+    // for i = 0 to 0 do
     //     t.MatchWithConj() |> ignore
 
 
@@ -121,10 +126,15 @@ let main argv =
     | "full-none-3" -> BenchmarkRunner.Run(typeof<ParagraphFull.None_3>,config) |> ignore
     | "full-comp-4" -> BenchmarkRunner.Run(typeof<ParagraphFull.Compiled_4>,config) |> ignore
     | "full-sbre-3" -> BenchmarkRunner.Run(typeof<ParagraphFull.Sbre_Combined_3>,config) |> ignore
-    | "full-1" -> BenchmarkRunner.Run(typeof<ParagraphFull.Sbre_Debug>,config) |> ignore
-    | "debug-sbre" -> BenchmarkRunner.Run(typeof<ParagraphFull.Sbre_Debug>,config) |> ignore
+    | "full-1" -> BenchmarkRunner.Run(typeof<ParagraphFull.DebugSbre>,config) |> ignore
     // --
-    | "all" -> BenchmarkRunner.Run(typeof<ParagraphFull.All_1>,config) |> ignore
+    | "debug-sbre" -> BenchmarkRunner.Run(typeof<ParagraphFull.DebugSbre>,config) |> ignore
+    | "debug-runtime" -> BenchmarkRunner.Run(typeof<ParagraphFull.DebugRuntime>,config) |> ignore
+    | "debug-all" -> BenchmarkRunner.Run(typeof<ParagraphFull.DebugAll>,config) |> ignore
+    // --
+
+    | "all-1" -> BenchmarkRunner.Run(typeof<ParagraphFull.All_1>,config) |> ignore
+    | "all-2" -> BenchmarkRunner.Run(typeof<ParagraphFull.All_2>,config) |> ignore
 
 
     | _ ->

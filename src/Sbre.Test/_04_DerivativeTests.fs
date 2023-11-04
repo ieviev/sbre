@@ -267,6 +267,13 @@ let ``subsumption or loop `` () = testPartDerivative (@"(a*|.*)", "aaa", @".*")
 let ``subsumption and loop `` () = testPartDerivative (@"(.*&.*s)", "aaa", @".*s")
 
 
+[<Fact>]
+let ``subsumption or loop limited 1`` () = test2ndDerivatives ("[a-z]{0,10}y", "ccccc", [
+    @"(⊤*[a-z]{0,10}y|[a-z]{0,9}y)"
+    @"([a-z]{0,9}y|⊤*[a-z]{0,10}y)"
+])
+
+
 // [<Fact>]
 // let ``derivative or subsumption`` () = testPartDerivative (@"(aaa|[\s\S]*)", "aaa", @"⊤*")
 
