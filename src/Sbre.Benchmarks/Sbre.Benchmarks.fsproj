@@ -13,6 +13,7 @@
         <Compile Include="ParagraphOuter.fs" />
         <Compile Include="ParagraphInner.fs" />
         <Compile Include="ParagraphFull.fs" />
+        <Compile Include="Paper.fs" />
         <Compile Include="Program.fs" />
         <Content Include="data\**\*.*" CopyToOutputDirectory="PreserveNewest"/>
     </ItemGroup>

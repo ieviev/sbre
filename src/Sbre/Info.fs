@@ -214,14 +214,21 @@ module rec Startset =
             use mutable e = xs.GetEnumerator()
             Solver.mergeOrWithEnumerator _solver (inferStartset2 _solver) &e
         | Not(inner, info) -> inferStartset2 _solver inner
-        | LookAround(node = body; lookBack = false) -> _solver.Full // TODO: optimize
-        | LookAround(lookBack = true) -> _solver.Full
+        | LookAround(node = body; lookBack = false) -> _solver.Empty // TODO: optimize
+        | LookAround(lookBack = true) -> _solver.Empty
         | Concat(Loop(node=Singleton pred;low=0;up=Int32.MaxValue), Concat(Singleton chead,concatTail2,_), info) ->
             if _solver.IsFull(pred) then
                 match concatTail2 with
-                | Concat(Loop(_),_,_) -> _solver.Full
+                | Concat(Loop(node=loopBody;low=0;up=up) as loop,tail,_) ->
+                    _solver.Or(_solver.Not(loop.Startset), tail.Startset)
                 | _ -> concatTail2.Startset
-            else _solver.Full // .* not optimized
+            else
+                if concatTail2.CanNotBeNullable then concatTail2.Startset else
+                if concatTail2.IsAlwaysNullable then // negation startset inference test
+                    _solver.Or(inferStartset2 _solver concatTail2, concatTail2.Startset)
+                else
+                // failwith "todo1"
+                _solver.Full // .* not optimized
 
         | Concat(Not(node=inner;info=notInfo), Singleton pred, info) ->
             let ss1 = inferStartset2 _solver inner
@@ -231,12 +238,32 @@ module rec Startset =
             let ss22 = inferStartset2 _solver tailNode
             let ss1 = inferStartset2 _solver inner
             _solver.Or(_solver.Or(ss1,ss2),ss22) // negation test 8
+            // _solver.Full
 
-        | Concat(Singleton hpred, t, info) -> _solver.Full // todo: (.*dogs.*&and.*), (a.*&~(.*b.*)b)
-        | Concat(Concat(h1,h2,_) as c1, t, info) ->
-            _solver.Or(h1.Startset, t.Startset) // todo: deduplication test
-            // c1.Startset // todo: script test 1
-        | Concat(h, t, info) -> _solver.Full // TODO:
+        | Concat(Singleton hpred, t, info) ->
+
+            match t with
+            | Not(_) -> _solver.Full
+            | _ ->
+                // inferStartset2 _solver
+                t.Startset
+            // _solver.Full // todo: (.*dogs.*&and.*), (a.*&~(.*b.*)b)
+        | Concat(Concat(h1,h2,_) as c1, tailNode, info) when h1.CanNotBeNullable ->
+            let ss1 = inferStartset2 _solver h1
+            let ss22 = h2.Startset
+            let ss2 = tailNode.Startset
+            _solver.Or(_solver.Or(ss1,ss2),ss22) // negation test 8
+        // ⊤*
+        | Concat(head=Loop(node=Singleton pred);tail=tail) when _solver.IsFull(pred) ->
+            inferStartset2 _solver tail
+
+        | Concat(h, t, info) ->
+            if h.CanNotBeNullable then // regexlib 20-30
+                _solver.Or(h.Startset, t.Startset)
+            else
+                // failwith "todo2" // TODO: optimize further
+                _solver.Full
+
         | And(xs, info) ->
             // avoid allocations
             use mutable e = xs.GetEnumerator()

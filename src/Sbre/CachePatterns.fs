@@ -10,14 +10,14 @@ module Cache =
 
     // --> cache patterns
     [<return: Struct>]
-    let inline (|IsImplicitDotStarred|_|) (c: RegexCache< ^t >) (node: RegexNode< ^t >) =
+    let inline (|IsImplicitDotStarred|_|) (c: RegexCache< uint64 >) (node: RegexNode< _ >) =
         if c.IsImplicitDotStarred(node) then
             ValueSome()
         else
             ValueNone
 
     [<return: Struct>]
-    let inline (|IsTrueStar|_|) (c: RegexCache< ^t >) (node: RegexNode< ^t >) =
+    let inline (|IsTrueStar|_|) (c: RegexCache< uint64 >) (node: RegexNode< _ >) =
         if c.IsTrueStar node then
             ValueSome()
         else
@@ -25,16 +25,16 @@ module Cache =
 
 
     [<return: Struct>]
-    let inline (|IsFalse|_|) (c: RegexCache< ^t >) (node: RegexNode< ^t >) =
+    let inline (|IsFalse|_|) (c: RegexCache< uint64 >) (node: RegexNode< uint64 >) =
         if c.IsFalse node then ValueSome() else ValueNone
 
 
     [<return: Struct>]
-    let inline (|IsTrue|_|) (c: RegexCache< ^t >) (node: RegexNode< ^t >) =
+    let inline (|IsTrue|_|) (c: RegexCache< uint64 >) (node: RegexNode< uint64 >) =
         if c.IsTrue node then ValueSome() else ValueNone
 
     [<return: Struct>]
-    let inline (|IsAnchor|_|) (_: RegexCache< ^t >) (node: RegexNode< ^t > list) =
+    let inline (|IsAnchor|_|) (_: RegexCache< uint64 >) (node: RegexNode< uint64 > list) =
         match node with
         | [ LookAround _ ] -> ValueSome()
         | _ -> ValueNone
@@ -42,8 +42,8 @@ module Cache =
 
     [<return: Struct>]
     let inline (|IsValidPredicate|_|)
-        (cache: RegexCache< ^t >, location: Location)
-        (node: RegexNode< ^t >)
+        (cache: RegexCache< uint64 >, location: Location)
+        (node: RegexNode< uint64 >)
         =
         let mterm = cache.MintermForLocation(location)
 
@@ -52,7 +52,7 @@ module Cache =
         | _ -> ValueNone
 
 
-    let mkNot (cache: RegexCache<'t>, derivative: RegexNode<'t>) : RegexNode<'t> =
+    let mkNot (cache: RegexCache<uint64>, derivative: RegexNode<uint64>) : RegexNode<uint64> =
 
 
         let singletonInfo () =

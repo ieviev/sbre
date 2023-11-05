@@ -219,7 +219,7 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
                 | :? BDD as v ->
                     if v = debugcharSetSolver.Full then
                         "⊤"
-                    elif debugcharSetSolver.IsEmpty(unbox v) then
+                    elif debugcharSetSolver.IsEmpty(v) then
                         "⊥"
                     else
                         match debugcharSetSolver.PrettyPrint(v) with
@@ -350,10 +350,12 @@ type ToplevelORCollection() =
                 this.IncreaseArraySize()
 
             match nodeArray[0], node with
+            | x,y when refEq x y -> () // identical
+                // failwith "identical"
             // important optimization
             | And(nodes1, _), And(nodes2, _) when nodes2.IsSupersetOf(nodes1) -> ()
-            // | Or(nodes1, _), Or(nodes2, _) when nodes2.IsSupersetOf(nodes1) || nodes1.IsSupersetOf(nodes2) -> failwith "fdsf"
-
+            // | Or(nodes1, _), Or(nodes2, _) when nodes2.IsSupersetOf(nodes1) || nodes1.IsSupersetOf(nodes2) ->
+            //     failwith "fdsf"
             // TODO: equivalent for Or
             | _ ->
                 createNode()
@@ -402,7 +404,7 @@ type ToplevelORCollection() =
 
     member this.Count = _count
     member this.Items = nodeArray.AsSpan().Slice(0,_count)
-    member this.Nullabilities = lastNullableArray.AsSpan().Slice(0,_count)
+    // member this.Nullabilities = lastNullableArray.AsSpan().Slice(0,_count)
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.CanSkipAll() =
@@ -425,22 +427,12 @@ type ToplevelORCollection() =
 [<AutoOpen>]
 module Common =
 
-    //
     let inline head coll = Seq.head coll
-    let inline tail coll = List.tail coll
-    let inline iter f coll = Seq.iter f coll
-    let inline seqforall f coll = Seq.forall f coll
-
-    [<return: Struct>]
-    let inline (|Empty|_|)(node: Set<'tset>) =
-        match node.IsEmpty with
-        | true -> ValueSome()
-        | _ -> ValueNone
-
-
     let equalityComparer =
         { new IEqualityComparer<RegexNode<_>> with
+            [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
             member this.Equals(x, y) = obj.ReferenceEquals(x, y)
+            [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
             member this.GetHashCode(x) = LanguagePrimitives.PhysicalHash x
         }
 
@@ -461,17 +453,30 @@ module Common =
     let inline ofSeq coll =
         ImmutableHashSet.CreateRange(equalityComparer, coll)
 
-    let inline filter f (coll: ImmutableHashSet<RegexNode<'t>>) =
+    let inline filter ([<InlineIfLambda>] f) (coll: ImmutableHashSet<RegexNode<'t>>) =
         ImmutableHashSet.CreateRange(equalityComparer, Seq.filter f coll)
 
-    let inline map f (coll: ImmutableHashSet<RegexNode<'t>>) =
+    let inline map ([<InlineIfLambda>] f) (coll: ImmutableHashSet<RegexNode<'t>>) =
         ImmutableHashSet.CreateRange(equalityComparer, Seq.map f coll)
     // todo inline
-    let setequals(coll1: ImmutableHashSet<RegexNode<_>>, coll2: ImmutableHashSet<RegexNode<_>>) =
+    let inline setequals(coll1: ImmutableHashSet<RegexNode<_>>, coll2: ImmutableHashSet<RegexNode<_>>) =
         coll1.SetEquals(coll2)
 
-    let inline exists f (coll: ImmutableHashSet<'t>) = coll |> Seq.exists f
-    let inline forall f (coll: ImmutableHashSet<'t>) = coll |> Seq.forall f
+    let inline exists ([<InlineIfLambda>] f) (coll: ImmutableHashSet<'t>) =
+        // let mutable e = coll.GetEnumerator()
+        // let mutable found = false
+        // while e.MoveNext() && not found do
+        //     found <- f e.Current
+        // found
+        coll |> Seq.exists f
+
+    let inline forall ([<InlineIfLambda>] f) (coll: ImmutableHashSet<'t>) =
+        // let mutable e = coll.GetEnumerator()
+        // let mutable forall = true
+        // while e.MoveNext() && forall do
+        //     forall <- f e.Current
+        // forall
+        coll |> Seq.forall f
 
 
 // todo:

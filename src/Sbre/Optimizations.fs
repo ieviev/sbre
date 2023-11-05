@@ -19,7 +19,7 @@ module Ptr =
 
 
 // [<MethodImpl(MethodImplOptions.AggressiveOptimization)>]
-let tryJumpToStartset (c:RegexCache<_>,loc:inref<Location>, nodes:inref<ToplevelORCollection>) : int32 =
+let rec tryJumpToStartset (c:RegexCache<_>,loc:inref<Location>, nodes:inref<ToplevelORCollection>) : int32 =
     match nodes.Count with
     // | 1 when loc.Reversed ->
     //     if true then loc.Position else
@@ -74,14 +74,23 @@ let tryJumpToStartset (c:RegexCache<_>,loc:inref<Location>, nodes:inref<Toplevel
         // TBD: more optimizations
         // this branch is rarely reached
         // jump with multiple heads
-        let mutable ss = c.Solver.Empty
-        let startsets =
-            for n in nodes.Items do
-                ss <- c.Solver.Or(ss,n.Startset)
-        let commonStartsetLocation = c.TryNextStartsetLocation(loc,ss)
-        match commonStartsetLocation with
-        | ValueNone -> loc.Position
-        | ValueSome newPos -> newPos
+
+        let nodeSpan = nodes.Items
+
+        // first try to eliminate any duplicates
+        if refEq nodeSpan[0] nodeSpan[1] then
+            nodes.Remove(1)
+            tryJumpToStartset(c,&loc,&nodes)
+        else
+
+            let mutable ss = c.Solver.Empty
+            let startsets =
+                for n in nodes.Items do
+                    ss <- c.Solver.Or(ss,n.Startset)
+            let commonStartsetLocation = c.TryNextStartsetLocation(loc,ss)
+            match commonStartsetLocation with
+            | ValueNone -> loc.Position
+            | ValueSome newPos -> newPos
 
 
 

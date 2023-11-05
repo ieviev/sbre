@@ -24,31 +24,11 @@ module private Helpers =
     let pattern_mariomkaemail = """[\w\.+-]+@[\w\.-]+\.[\w\.-]+"""
     let pattern_mtwain1 = """Twain"""
     let pattern_mtwain2 = """.{2,4}(Tom|Sawyer|Huckleberry|Finn)"""
-
     // ------
-    // let pattern = """["'][^"']{0,30}[?!\.]["']"""
-    // let pattern = pattern_mtwain1
-    // let pattern = "[a-z]shing"
     let pattern = pattern_mtwain1
 
-    // let input = sample_mtwain
 
 open Helpers
-
-type Allocations() =
-
-    let mutable matcher = Matcher(pattern)
-    let input = "Twain"
-    let mutable startLocation = Sbre.Pat.Location.create input 0
-    let mutable location1 = Sbre.Pat.Location.create input 1
-    let mutable location2 = Sbre.Pat.Location.create input 2
-    let cache = matcher.Cache
-    let dotstarNode = matcher.DotStarredPattern
-    // let der1 = Regex.createDerivative(cache,startLocation,cache.MintermForLocation(startLocation) , dotstarNode)
-    // let der2 = Regex.createDerivative(cache,location1,cache.MintermForLocation(location1), der1)
-
-    [<Benchmark>]
-    member x.FullMatchTwain() = matcher.FindMatchEnd(input) |> ignore
 
 let config =
     DefaultConfig.Instance
@@ -59,9 +39,6 @@ let dbgSample() =
     let shortSample = Helpers.sample_inputText
 
     let matcher =
-        // Matcher(permuteConj [ "compilation"; "smaller" ]).Match(shortSample)
-        // Matcher(Permutations.permuteConjInParagraph [ "Huck";]).MatchPositions(shortSample)
-        // Matcher(Permutations.permuteConjInParagraph [ "Huck";])
         Matcher(Permutations.permuteConjInParagraph [ "c([a-z]*)ion";])
 
     for i = 0 to 0 do
@@ -73,22 +50,26 @@ let dbgSample() =
     // t2 |> stdout.WriteLine
     ()
 
+let dbgSbre() =
 
+    let t = ParagraphFull.DebugSbre()
+    t.Pattern <-
+        t.Patterns
+        |> Seq.head
+    t.Setup()
+    // for i = 0 to 29 do
+    for i = 0 to 130 do
+    // for i = 0 to 0 do
+        t.MatchWithConj() |> ignore
+    ()
 
 [<EntryPoint>]
 let main argv =
 
-    dbgSample()
-
-    // let t = ParagraphFull.Sbre_Debug()
-    // t.Pattern <-
-    //     t.Patterns
-    //     |> Seq.head
-    // t.Setup()
-    // // for i = 0 to 29 do
-    // // for i = 0 to 130 do
-    // for i = 0 to 0 do
-    //     t.MatchWithConj() |> ignore
+    // dbgSample()
+#if DEBUG
+    dbgSbre()
+#endif
 
 
     if Environment.GetCommandLineArgs() |> Seq.last = "test" then
@@ -99,11 +80,6 @@ let main argv =
         // let r = BenchmarkRunner.Run(typeof<LongParagraph9000_3>)
         let r = BenchmarkRunner.Run(typeof<LongParagraph9000_3>)
         ()
-
-    if Environment.GetCommandLineArgs() |> Seq.last = "mtwain3" then
-        let _ = BenchmarkRunner.Run(typeof<FullMtwain_3>,config)
-        ()
-
 
     if Environment.GetCommandLineArgs() |> Seq.last = "full" then
         let r = BenchmarkRunner.Run(typeof<FullMtwain_3>)
@@ -136,6 +112,17 @@ let main argv =
     | "all-1" -> BenchmarkRunner.Run(typeof<ParagraphFull.All_1>,config) |> ignore
     | "all-2" -> BenchmarkRunner.Run(typeof<ParagraphFull.All_2>,config) |> ignore
 
+    // ----
+    | "paper-short-1" -> BenchmarkRunner.Run(typeof<Paper.ParagraphShort1Word>,config) |> ignore
+    | "paper-long-1" -> BenchmarkRunner.Run(typeof<Paper.ParagraphLong1Word>,config) |> ignore
+    | "paper-long-2" -> BenchmarkRunner.Run(typeof<Paper.ParagraphLong2Word>,config) |> ignore
+    | "paper-long-3" -> BenchmarkRunner.Run(typeof<Paper.ParagraphLong3Word>,config) |> ignore
+    | "paper-long-4" -> BenchmarkRunner.Run(typeof<Paper.ParagraphLong4Word>,config) |> ignore
+    | "paper-conj-1" -> BenchmarkRunner.Run(typeof<Paper.ParagraphConjunction1>,config) |> ignore
+    | "paper-complex-1" -> BenchmarkRunner.Run(typeof<Paper.ParagraphComplexRegex1>,config) |> ignore
+    | "paper-inner-1" -> BenchmarkRunner.Run(typeof<Paper.ParagraphInnerMatch1>,config) |> ignore
+    | "paper-basic-1" -> BenchmarkRunner.Run(typeof<Paper.Basic1>,config) |> ignore
+    | "paper-basic-2" -> BenchmarkRunner.Run(typeof<Paper.Basic2>,config) |> ignore
 
     | _ ->
         ()

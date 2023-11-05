@@ -41,9 +41,9 @@ let (|LoopKind|) struct(x:int,y:int) =
     | _,_ -> LoopKind.Normal
 
 
-let isSubsumedFromAnd pred (nodes:RegexNode<_>[]) =
+let isSubsumedFromAnd pred (nodes:RegexNode<_>seq) =
     nodes
-    |> Array.exists
+    |> Seq.exists
         (fun other ->
         match other with
         | Concat(SingletonStarLoop(cpred),t,_) when cpred = pred -> true
@@ -98,12 +98,6 @@ let inline (|RefNull|_|) (node: obj) =
 let inline (|RefEq|_|) (v) (node: obj) =
     match obj.ReferenceEquals(node, v) with
     | true -> ValueSome()
-    | _ -> ValueNone
-
-[<return: Struct>]
-let inline (|Single|_|) (node: NodeSet<'tset>) =
-    match node.Count with
-    | 1 -> ValueSome(head node)
     | _ -> ValueNone
 
 

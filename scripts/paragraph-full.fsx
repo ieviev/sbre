@@ -29,27 +29,42 @@ let viewn n (results: MatchPosition array) =
         stdout.WriteLine longSample[lens.Index .. lens.Index + lens.Length]
 
 
-
-let inputText = shortSample
-
 // with
+
+// let pats = @"~(⊤*\n\n⊤*)&⊤*ing&occ⊤*" 
+// let pats = @"occ~(⊤*\n\n⊤*)ing" // 844
+
+let ts = "⊤*"
+
+let pats = 
+    String.concat "&" [
+        $@"~({ts}\n\n{ts})\n" 
+        $@"\s{ts}({ts}a{ts}&{ts}b{ts}&{ts}c{ts}&{ts}d{ts}&[a-z]*){ts}"
+    ]
+    
 
 // Length:1812
 let res =
-    // ["Huck"; "Finn"; "from"; "Saw[a-z]+"; "[a-q][^u-z]{13}x" ]
     // ["(?:Tom|Sawyer|Huckleberry|Finn)"; "Twain" ]
     // [ "Huck"; ] // c: 411
     // [ @"H[a-z]*berry\s+F[a-z]*\s+(was)"; ] // c: 64
     // 12 ok
-
+    // ------
     // [ "(?:Tom|Sawyer|Huckleberry|Finn)" ] // c: 1812
     // [ "(?:Tom|Sawyer)"; "(?:Huckleberry|Finn)" ] // c: 32
     // [ "(?:Tom|Sawyer)"; "(?:Huckleberry|Finn)"; "from" ] // c: 14
     // [ "(?:Tom|Sawyer|before)"; "(?:Huckleberry|Finn|legs)"; @"old[\s\S]*thing" ] // c: 13
     // [  @"(?i)[a-z]{0,12}ing to the (?:d[a-z]+)" ] // c: 19
     // [ @"\sthe\s"; @"\sand\s"; @"\sof\s"; @"\sthat\s"; @"\sHuck\s" ] // c: 11
-    [ @"\s([a-zA-Z]{0,12}ing&⊤*b⊤*&⊤*r⊤*&⊤*e⊤*)" ] // c: 11
+    // [ @"\s([a-zA-Z]{0,12}ing&{ts}b⊤*&⊤*r⊤*&⊤*e⊤*)" ] // c: 11
+
+    // ---------------
+    // pats // c: 11
+    // @"~(⊤*\n\n⊤*)\n&\s(⊤*a⊤*&⊤*b⊤*&⊤*c⊤*&⊤*d⊤*&[a-z]*)⊤*" // c: 11
+    // pats
     // [  @"\s([a-z]*a[a-z]*&[a-z]*b[a-z]*&[a-z]*c[a-z]*&[a-z]*d[a-z]*)\s" ] // c: 11
+
+    [ @"(?:(?i)Tom|Sawyer|Huckleberry|Finn)[\s\S]*(and|of|from)\s[a-zA-Z]{0,12}ing\sthe"; ]
     |> Sbre.Benchmarks.Jobs.Permutations.permuteConjInParagraph
     |> Matcher
     |> (fun v -> v.MatchPositions(longSample))
