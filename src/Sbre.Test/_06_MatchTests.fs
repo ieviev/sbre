@@ -397,11 +397,30 @@ let ``line loop test`` () =
 
 
 
+let webAppSample = "Lorem Ipsum is simply dummy tej55zhA25wXu8bvQxFxt of the printing and typesetting industry.
+Lorem Ipsum iHK3khIUTQYxHx9r has been the Aa11aBaAA standard dfgI51d7ZPhOwGwI2vpcdfgr since the 1500s,
+when an unknown versions of Lorem Ipsum.
+"
 
 
 
 
+[<Fact>]
+let ``web app test 1`` () =
+    let input = webAppSample
+    // let matcher = Matcher(@".*[a-z].*&.*[A-Z].*&.*\d.*&[a-zA-Z\d]{8,}")
+    let matcher = Matcher(@".*[a-z].*&[a-zA-Z\d]{8,}")
+    let result = matcher.MatchPositions("y tej55zhA25wXu8bvQxFxt o") |> Seq.toArray
+    Assert.Equal(1, result.Length)
 
+
+
+[<Fact>]
+let ``web app test 2`` () =
+    let input = webAppSample
+    let matcher = Matcher(@".*[a-z].*&.*[A-Z].*&.*\d.*&[a-zA-Z\d]{8,}&~(.*\d\d.*)")
+    let result = matcher.MatchPositions("y tej55zhA25wXu8bvQxFxt o") |> Seq.toArray
+    Assert.Equal(1, result.Length)
 
 
 

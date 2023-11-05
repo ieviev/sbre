@@ -18,14 +18,16 @@ let words = [ "Huck"; "from"; "you" ]
 type DebugRuntime() =
     inherit
         Jobs.RuntimeFullSearch(
-            // [  @"(?i)[a-z]{2,12}ing (?:d[a-z]+)\s" ], // 1s
-            // [  @"(?i)[a-z]{2,12}ing to the (?:d[a-z]+)\s" ], // 1s
-            // [  @"(?i)[a-z]{2,12}ing to the (?:d[a-z]+)\s" ], // 1s
-            // [  @"Jim[\s\S]*had[\s\S]*been" ], // 1s
-            // [  @"Jim[\s\S]*had[\s\S]*been[\s\S]*[a-z]*ing"  ], // 1s
-            [  @"Jim[\s\S]*had[\s\S]*been[\s\S]*[a-z]*ing"  ], // 1s
-            // [  @"(?:(?i)[a-z]{0,12}ing to the (?:d[a-z]{0,12})\s)" ],
-            // [  @"(?:(?i)[a-z]{0,12}ing to the (?:d[a-z]{0,12})\s)"; "Huck" ],
+            // 570ms
+            // [@"\s(?=[a-zA-Z]*a)(?=[a-zA-Z]*b)(?=[a-zA-Z]*c)(?=[a-zA-Z]*d)[a-zA-Z]{0,12}ing"], // 1s
+            // 1s
+            // [  @"(?i)[a-z]{2,12}ing to the (?:d[a-z]+)\s" ],
+            // 2s
+            // [  @"(?=[a-z]*a)(?=[a-z]*b)(?=[a-z]*c)(?=[a-z]*d)[a-z]*"  ], // 1s
+            // 350ms
+            // [  @"(?i)Tom|Sawyer|Huckleberry|Finn" ], // 1s
+
+            [  @"(?:(?i)[a-z]{0,12}ing to the (?:d[a-z]{0,12})\s)"; "Huck" ],
             fullInput,
             // RegexOptions.None
             RegexOptions.Multiline
@@ -70,22 +72,18 @@ let patterns = [
 
 
     // @"~(⊤*\n\n⊤*)\n&⊤*Huck⊤*&⊤*from⊤*&⊤*you⊤*"; // 58 ms
+    // @"~(⊤*\n\n⊤*)\n&⊤*Huck⊤*&⊤*from⊤*&⊤*you⊤*"; // 58 ms
     // @"~(⊤*\n\n⊤*)\n&⊤*Huck⊤*&⊤*from⊤*"; // 30 ms
     // @"~(⊤*\n\n⊤*)\n&⊤*Huck⊤*"; // 16 ms
-    // @"~(⊤*\n\n⊤*)\n"; // 20 ms
-    // @"~(⊤*\n\n⊤*)"; // 20 ms (alloc 20mb)
-
-    // @"~(⊤*\n\n⊤*)\n&⊤*chuc\w+⊤*&⊤*from⊤*"; // 49 ms
-    // @"~(⊤*\n\n⊤*)\n&⊤*the⊤*&⊤*and⊤*&⊤*that⊤*"; // 49 ms
-
-    // @"~(⊤*\n\n⊤*)\n&⊤*chuc\w+⊤*&⊤*from⊤*"; // 49 ms
 
     // Permutations.permuteConjInParagraph ["Huck"] // 13.3
-    // Permutations.permuteConjInParagraph ["Huck"; "c[a-z]*ion"] // 48
-    // Permutations.permuteConjInParagraph [ @"c[a-z]*ion\s+in\s+the"; ] // 102
     // Permutations.permuteConjInParagraph [ @"Tom.{10,25}river|river.{10,25}Tom"; ] // 102
-    Permutations.permuteConjInParagraph [ @"(?i)c[a-zA-Z]{0,12}"; ] // 102
+    // Permutations.permuteConjInParagraph [ @"(?i)c[a-zA-Z]{0,12}"; ] // 102
+    // Permutations.permuteConjInParagraph [ @"\s([a-z]*a[a-z]*&[a-z]*b[a-z]*&[a-z]*c[a-z]*&[a-z]*d[a-z]*)" ] // 102
     // Permutations.permuteConjInParagraph ["Huck"; "Finn"; "from"; "tw[a-z]+"] // 48
+    // Permutations.permuteConjInParagraph [  @"(?i)huck"; @"\sand\s"; @"\sof\s"; @"\sthat\s"; @"\sHuck\s" ] // 48
+    // Permutations.permuteConjInParagraph [  @"(?i)huck"; @"\sand\s"; @"\sof\s"; @"\sthat\s"; @"\sHuck\s" ] // 48
+    Permutations.permuteConjInParagraph [ @"\s([a-zA-Z]{0,12}ing&⊤*b⊤*)" ] // 48
     // Permutations.permuteConjInParagraph ["(?:Tom|Sawyer|Huckleberry|Finn)"; "Twain" ] // 48
 ]
 

@@ -219,24 +219,6 @@ let ``identity of and 4`` () =
     Assert.True(equal2)
 
 
-[<Fact>]
-let ``identity or 1`` () =
-    let m = Matcher(@"a+")
-    let pattern = m.DotStarredPattern
-    let deriv = getNodeDerivative (m,pattern,"a")
-    let deriv2 = getNodeDerivative (m,deriv,"a")
-
-    let hashes (n) =
-        match n with
-        | Or(nodes=nodes) -> nodes |> Seq.map LanguagePrimitives.PhysicalHash |> Seq.toArray
-        | _ -> failwith "debug"
-
-    let h1 = hashes deriv
-    let h2 = hashes deriv2
-
-    let equal1 = obj.Equals(deriv, deriv2)
-    let equal2 = obj.ReferenceEquals(deriv, deriv2)
-    Assert.True(equal2)
 
 
 

@@ -304,16 +304,16 @@ type Matcher(pattern: string, ?warnUnoptimized:bool) =
 
         seq {
             while looping do
-                let success =
-                    optimizations.TryFindNextStartingPositionLeftToRight(
-                        input.AsSpan(),
-                        &currPos,
-                        currPos
-                    )
+                // let success =
+                //     optimizations.TryFindNextStartingPositionLeftToRight(
+                //         input.AsSpan(),
+                //         &currPos,
+                //         currPos
+                //     )
 
-                if not success then
-                    looping <- false
-                else
+                // if not success then
+                //     looping <- false
+                // else
                     location.Position <- currPos
 
                     match RegexNode.matchEnd (cache, &location, ValueNone, dotStarredUint64Node) with

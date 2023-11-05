@@ -323,8 +323,6 @@ type ToplevelORCollection() =
     let mutable _capacity = startSize
 
     member this.IncreaseArraySize() =
-        ArrayPool.Shared.Return(lastNullableArray)
-        ArrayPool.Shared.Return(nodeArray)
         let newSize = _capacity * 2
         let newNodeArray = ArrayPool.Shared.Rent(newSize)
         nodeArray.CopyTo(newNodeArray,0)
@@ -333,6 +331,8 @@ type ToplevelORCollection() =
         lastNullableArray.CopyTo(newLastNullableArray,0)
         lastNullableArray <- newLastNullableArray
         _capacity <- newSize
+        ArrayPool.Shared.Return(lastNullableArray)
+        ArrayPool.Shared.Return(nodeArray)
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.Add(node: RegexNode<uint64>, nullableState: int) =
@@ -402,6 +402,7 @@ type ToplevelORCollection() =
 
     member this.Count = _count
     member this.Items = nodeArray.AsSpan().Slice(0,_count)
+    member this.Nullabilities = lastNullableArray.AsSpan().Slice(0,_count)
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.CanSkipAll() =

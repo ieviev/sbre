@@ -56,7 +56,7 @@ let rec loopSubsumesBranch (solver:ISolver<'t>) (pred: 't) (node:RegexNode<'t>) 
     | Singleton hpred ->
         solver.isElemOfSet(pred,hpred)
     | Loop(node=Singleton pred2) ->
-        if pred = pred2 then false
+        if pred = pred2 then true
         elif solver.isElemOfSet(pred,pred2) then true
         else false
     | Concat (head,tail,info) ->

@@ -234,9 +234,14 @@ module RegexNode =
                         let curr = toplevelOrSpan[i]
                         let deriv = createDerivative (cache, loc, locationPredicate, curr)
 
+                        if loc.Position = 23 then
+                            ()
+
                         match deriv with
                         | IsFalse cache ->
                         // if refEq deriv cache.Builder.uniques._false then
+                            let tmp = toplevelOr.Nullabilities.ToArray()
+                            let sadsad = 1
                             if
                                 currentMax.IsSome
                                 && toplevelOr.GetLastNullPos(i) > -1
@@ -308,12 +313,12 @@ module RegexNode =
                         else
                             // jump from initial pattern
                             // use .net startset lookup, have to be careful about negation here
-                            if not (jumpNextDotnetLocation(cache, &loc)) then
-                                match initialWithoutDotstar with
-                                | Not(_) | Concat(head=Not(_)) -> ()
-                                | _ -> looping <- false
+                            // if not (jumpNextDotnetLocation(cache, &loc)) then
+                            //     match initialWithoutDotstar with
+                            //     | Not(_) | Concat(head=Not(_)) -> ()
+                            //     | _ -> looping <- false
                                 // if not initialIsNegated then looping <- false
-
+                            ()
                             // use our own startset lookup (not optimized for long strings)
                             // if not (Solver.isElemOfSetU64 startsetPredicate nextLocationPredicate) then
                             //     loc.Position <- tryJumpToStartset (cache, &loc, &toplevelOr)
@@ -322,8 +327,9 @@ module RegexNode =
                         let mutable e = toplevelOr.Items.GetEnumerator()
                         let mutable found = false
                         let mutable canSkipAll = true
-                        while e.MoveNext() && not found do
-                            found <- isNullable(cache,loc,e.Current)
+                        // && not found
+                        while e.MoveNext() do
+                            found <- found || isNullable(cache,loc,e.Current)
                             canSkipAll <- canSkipAll && e.Current.CanSkip
                         if found then
                             currentMax <- (ValueSome loc.Position)

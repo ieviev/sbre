@@ -22,7 +22,7 @@ module Ptr =
 let tryJumpToStartset (c:RegexCache<_>,loc:inref<Location>, nodes:inref<ToplevelORCollection>) : int32 =
     match nodes.Count with
     // | 1 when loc.Reversed ->
-    //     // if true then loc.Position else
+    //     if true then loc.Position else
     //     let node = nodes.Items[0]
     //     let nodeStr = node.ToStringHelper()
     //     let ss = node.Startset

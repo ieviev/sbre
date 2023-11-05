@@ -23,6 +23,7 @@ let view (results: MatchPosition array) (idx) =
     longSample[lens.Index .. lens.Index + lens.Length]
 
 let viewn n (results: MatchPosition array) =
+    stdout.WriteLine $"Total: {results.Length}"
     for i = 0 to n do
         let lens = results[i]
         stdout.WriteLine longSample[lens.Index .. lens.Index + lens.Length]
@@ -30,6 +31,8 @@ let viewn n (results: MatchPosition array) =
 
 
 let inputText = shortSample
+
+// with
 
 // Length:1812
 let res =
@@ -44,17 +47,58 @@ let res =
     // [ "(?:Tom|Sawyer)"; "(?:Huckleberry|Finn)"; "from" ] // c: 14
     // [ "(?:Tom|Sawyer|before)"; "(?:Huckleberry|Finn|legs)"; @"old[\s\S]*thing" ] // c: 13
     // [  @"(?i)[a-z]{0,12}ing to the (?:d[a-z]+)" ] // c: 19
-    // [  @"Jim[\s\S]*had[\s\S]*been[\s\S]*[a-z]*ing" ] // c: 11
-    [  @"[a-z]*a[a-z]*" ] // c: 11
+    // [ @"\sthe\s"; @"\sand\s"; @"\sof\s"; @"\sthat\s"; @"\sHuck\s" ] // c: 11
+    [ @"\s([a-zA-Z]{0,12}ing&⊤*b⊤*&⊤*r⊤*&⊤*e⊤*)" ] // c: 11
+    // [  @"\s([a-z]*a[a-z]*&[a-z]*b[a-z]*&[a-z]*c[a-z]*&[a-z]*d[a-z]*)\s" ] // c: 11
     |> Sbre.Benchmarks.Jobs.Permutations.permuteConjInParagraph
     |> Matcher
     |> (fun v -> v.MatchPositions(longSample))
     |> Seq.toArray
-    |> (fun v -> 
-        stdout.WriteLine $"Length:{v.Length}"
-        viewn 3 v
-    )
-    
+    |> viewn 3
+
+
+
+
+let twostepSearch words =
+    let opts  = System.Text.RegularExpressions.RegexOptions.None
+    let regexes = [|
+        for word in words do
+            yield
+                System.Text.RegularExpressions.Regex(
+                    word,
+                    options = opts,
+                    matchTimeout = TimeSpan.FromMilliseconds(10_000.)
+                )
+    |]
+    let results = ResizeArray()
+    let inputSpan = longSample.AsSpan()
+    let paragraphRegex = System.Text.RegularExpressions.Regex(@"(?:.+\n)+\n", opts)
+
+    let mutable entireParagraphIsMatch = true
+    let mutable e = paragraphRegex.EnumerateMatches(longSample)
+
+    // enumerate paragraphs during match
+    while e.MoveNext() do
+        entireParagraphIsMatch <- true
+
+        let paragraphSpan = inputSpan.Slice(e.Current.Index, e.Current.Length)
+        // run multiple ismatch regexes on each paragraph
+        for reg in regexes do
+            if not (reg.IsMatch(paragraphSpan)) then
+                entireParagraphIsMatch <- false
+
+        if entireParagraphIsMatch then
+            results.Add({Index=e.Current.Index; Length= e.Current.Length - 1})
+
+    results
+
+let test2 = 
+    // twostepSearch ["(?i)Tom|Sawyer|Huckleberry|Finn";"[a-z]+shing"; ""] |> Seq.toArray |> viewn 3
+    // twostepSearch [@"\s[a-zA-Z]{0,12}ing\s";] 
+    [@"\s(?=[a-zA-Z]*a)(?=[a-zA-Z]*b)(?=[a-zA-Z]*c)(?=[a-zA-Z]*d)[a-zA-Z]{0,12}ing"]
+    |> twostepSearch
+    |> Seq.toArray |> viewn 3
+
 
 
 type DebugRuntime() =
@@ -66,7 +110,7 @@ type DebugRuntime() =
             // [  @"Jim[\s\S]*had[\s\S]*been" ], // 1s
             // [  @"Jim[\s\S]*had[\s\S]*been[\s\S]*[a-z]*ing"  ], // 1s
             // [  @"(?:(?i)[a-z]{0,12}ing to the (?:d[a-z]{0,12})\s)" ],
-            [  @"(a\S*)" ],
+            [ @"(a\S*)" ],
             // [  @"(?:(?i)[a-z]{0,12}ing to the (?:d[a-z]{0,12})\s)"; "Huck" ],
             longSample,
             // RegexOptions.None

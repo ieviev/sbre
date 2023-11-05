@@ -446,28 +446,32 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
             nodes
             |> Seq.choose (fun v ->
                 match v with
-                | SingletonStarLoop(pred) -> Some pred
+                | SingletonStarLoop(pred) -> Some struct(pred, v)
                 | _ -> None
             )
             |> Seq.toArray
-
 
         match starLoops with
         | [||] -> nodes
         | _ ->
 
-            let largestStarLoop =
+            let struct(largestPred,largestStarLoop) =
                 starLoops
-                |> Seq.reduce (fun e1 e2 ->
+                |> Seq.reduce (fun struct(e1,e1node) struct(e2,e2node) ->
                     let conj = solver.And(e1, e2)
                     let iselem = not (solver.IsEmpty(conj))
 
-                    if conj = e1 then e2
-                    elif conj = e2 then e1
-                    else solver.Empty
+                    if conj = e1 then (struct(e2,e2node))
+                    elif conj = e2 then (struct(e1,e1node))
+                    else (solver.Empty,Unchecked.defaultof<_>)
                 )
 
-            nodes |> Seq.where (loopSubsumesBranch solver largestStarLoop >> not) |> Seq.toArray
+            if solver.IsEmpty(largestPred) then nodes else
+
+            nodes
+            |> Seq.where (loopSubsumesBranch solver largestPred >> not)
+            |> Seq.append (Seq.singleton largestStarLoop)
+            |> Seq.toArray
 
 
     member this.trySubsumeAnd(nodes: RegexNode< ^t >[]) : RegexNode< ^t >[] =
@@ -477,7 +481,10 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
             match v with
             | SingletonStarLoop(pred) ->
                 let canSubsume = isSubsumedFromAnd pred nodes
-                Some(nodes |> Array.removeAt idx)
+                if canSubsume then
+                    Some(nodes |> Array.removeAt idx)
+                else
+                    None
             | _ -> None
         )
         |> Option.defaultValue nodes
@@ -602,6 +609,7 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
         let mutable enumerating = true
         let mutable status = MkOrFlags.None
         let mutable zeroloops = 0
+        let mutable singletonLoops = 0
         let mutable e = nodeSet.AsSpan().GetEnumerator()
 
         let derivatives = HashSet(_refComparer)
@@ -619,6 +627,10 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
                 | Concat(head=Loop(low=0;up=upper)) when upper <> Int32.MaxValue ->
                     zeroloops <- zeroloops + 1
                     derivatives.Add(deriv) |> ignore
+                | Loop(node=Singleton body; low=0; up = Int32.MaxValue) ->
+                    singletonLoops <- singletonLoops + 1
+                    derivatives.Add(deriv) |> ignore
+                    ()
 
                 // todo: eat epsilon
                 // | Epsilon ->
