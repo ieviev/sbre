@@ -8,27 +8,27 @@ open Xunit
 
 
 [<Fact>]
-let ``anchors test 1`` () =
+let ``anchors test 1``() =
     let matcher = Matcher(@"^\d$")
     let ism = matcher.IsMatch("1")
     Assert.True(ism)
 
 
 [<Fact>]
-let ``anchors test 2`` () =
+let ``anchors test 2``() =
     let matcher = Matcher("^\\d$")
     let ism = matcher.IsMatch("324")
     Assert.False(ism)
 
 [<Fact>]
-let ``anchors test 3`` () =
+let ``anchors test 3``() =
     let matcher = Matcher("^\\d$")
     let ism = matcher.IsMatch("a")
     Assert.False(ism)
 
 
 [<Fact>]
-let ``anchors test 4 : nullability of anchors should not be cached`` () =
+let ``anchors test 4 : nullability of anchors should not be cached``() =
     let matcher = Matcher("^\\d*$")
     let ism = matcher.IsMatch("123")
     Assert.True(ism)
@@ -36,13 +36,13 @@ let ``anchors test 4 : nullability of anchors should not be cached`` () =
 
 
 [<Fact>]
-let ``multi-nodes ordering test 1`` () =
+let ``multi-nodes ordering test 1``() =
     let matcher = Matcher(@"q[\d\D]*q")
     let ism = matcher.IsMatch("q my comment q")
     Assert.True(ism)
 
 [<Fact>]
-let ``multi-nodes ordering test 2`` () =
+let ``multi-nodes ordering test 2``() =
     let matcher = Matcher(@"/\*[\d\D]*?\*/")
     let ism = matcher.IsMatch("/* my comment */")
     Assert.True(ism)
@@ -51,9 +51,8 @@ let ``multi-nodes ordering test 2`` () =
 
 
 [<Fact>]
-let ``lots of captures test`` () =
-    let matcher =
-        Matcher("""((\d{2})|(\d))\/((\d{2})|(\d))\/((\d{4})|(\d{2}))""")
+let ``lots of captures test``() =
+    let matcher = Matcher("""((\d{2})|(\d))\/((\d{2})|(\d))\/((\d{4})|(\d{2}))""")
 
     let ism = matcher.IsMatch("4/05/89")
     Assert.True(ism)
@@ -62,7 +61,7 @@ let ``lots of captures test`` () =
 
 [<Fact>]
 // fails if ? is turned to epsilon
-let ``phone number test 1`` () =
+let ``phone number test 1``() =
     let pattern = """^(\(?\+?[0-9]*\)?)?[0-9_\- \(\)]*$"""
     let input = "(+44)(0)20-12341234"
     let matcher = Matcher(pattern)
@@ -71,7 +70,7 @@ let ``phone number test 1`` () =
 
 
 [<Fact>]
-let ``phone number test 2`` () =
+let ``phone number test 2``() =
     let pattern =
         """^([0-9]( |-)?)?(\(?[0-9]{3}\)?|[0-9]{3})( |-)?([0-9]{3}( |-)?[0-9]{4}|[a-zA-Z0-9]{7})$"""
 
@@ -83,7 +82,7 @@ let ``phone number test 2`` () =
 
 [<Fact>]
 // fails if ? is turned to epsilon
-let ``top level or remove in correct order`` () =
+let ``top level or remove in correct order``() =
     let pattern = """\d{1,3}.?\d{0,3}\s[a-zA-Z]{2,30}\s[a-zA-Z]{2,15}"""
     let input = "65 Beechworth/ Rd"
     let matcher = Matcher(pattern)
@@ -94,50 +93,49 @@ let ``top level or remove in correct order`` () =
 
 
 [<Fact>]
-let ``lookarounds test 1`` () =
+let ``lookarounds test 1``() =
     let matcher = Matcher(""" Sep""")
     let mutable loc = Pat.Location.create "1 Sep" 1
-    let ism =
-        matcher.MatchFromLocation(&loc)
+    let ism = matcher.MatchFromLocation(&loc)
 
     Assert.True(ism.IsSome)
 
 [<Fact>]
-let ``lookarounds test 2`` () =
+let ``lookarounds test 2``() =
     let matcher = Matcher("""1(?! Sep)""")
     let ism = matcher.IsMatch("1 Sep")
     Assert.False(ism)
 
 
 [<Fact>]
-let ``lookarounds test 3`` () =
+let ``lookarounds test 3``() =
     let matcher = Matcher("""^(1(?! (Sep))).*$""")
     let ism = matcher.IsMatch("1 Sep")
     Assert.False(ism)
 
 [<Fact>]
-let ``lookarounds test 4`` () =
+let ``lookarounds test 4``() =
     let matcher = Matcher("""^(1(?= (Sep))).*$""")
     let ism = matcher.IsMatch("1 Sep")
     Assert.True(ism)
 
 
 [<Fact>]
-let ``lookarounds test 5`` () =
+let ``lookarounds test 5``() =
     let matcher = Matcher(""".*(?<=aaa)""")
     let result = matcher.MatchText("aa")
     Assert.Equal(None, result)
 
 
 [<Fact>]
-let ``lookarounds test 6`` () =
+let ``lookarounds test 6``() =
     let matcher = Matcher(""".*(?=aaa)""")
     let result = matcher.MatchText("baaa")
     Assert.Equal(Some "b", result)
 
 
 [<Fact>]
-let ``lookarounds test 7`` () =
+let ``lookarounds test 7``() =
     let matcher = Matcher("""(?<=aaa).*""")
     let result = matcher.MatchText("aaabbb")
     Assert.Equal(Some "bbb", result)
@@ -145,28 +143,36 @@ let ``lookarounds test 7`` () =
 
 
 [<Fact>]
-let ``lookarounds test 8`` () =
+let ``lookarounds test 8``() =
     let matcher = Matcher("""(?<=aaa\{).*(?=\})""")
     let result = matcher.MatchText("aaa{bbb {ccc}}")
     Assert.Equal(Some "bbb {ccc}", result)
 
 
 [<Fact>]
-let ``lookarounds test 9`` () =
-    let matcher = Matcher("""^(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])\.(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])\.(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])\.(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])$""")
+let ``lookarounds test 9``() =
+    let matcher =
+        Matcher(
+            """^(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])\.(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])\.(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])\.(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])$"""
+        )
+
     let result = matcher.MatchText("0.0.0.0")
     Assert.Equal(Some "0.0.0.0", result)
 
 
 
 [<Fact>]
-let ``caching lookarounds test`` () =
-    let matcher = Matcher("""(^1300\d{6}$)|(^1800|1900|1902\d{6}$)|(^0[2|3|7|8]{1}[0-9]{8}$)|(^13\d{4}$)|(^04\d{2,3}\d{6}$)""")
+let ``caching lookarounds test``() =
+    let matcher =
+        Matcher(
+            """(^1300\d{6}$)|(^1800|1900|1902\d{6}$)|(^0[2|3|7|8]{1}[0-9]{8}$)|(^13\d{4}$)|(^04\d{2,3}\d{6}$)"""
+        )
+
     let result = matcher.MatchText("1300333444")
     Assert.Equal(Some "1300333444", result)
 
 [<Fact>]
-let ``caching lookarounds test 2 `` () =
+let ``caching lookarounds test 2 ``() =
     let matcher = Matcher("""(^\d{3,5}\,\d{2}$)|(^\d{3,5}$)""")
     let result = matcher.MatchText("1300333444")
     Assert.Equal(None, result)
@@ -175,7 +181,7 @@ let ``caching lookarounds test 2 `` () =
 
 
 [<Fact>]
-let ``boundaries after`` () =
+let ``boundaries after``() =
     //testPartDerivativeFromLocation (@"(?!a)", "a", 1, "")
     let matcher = Matcher("""a\b""")
     let result = matcher.MatchText("a ")
@@ -184,58 +190,58 @@ let ``boundaries after`` () =
 
 
 [<Fact>]
-let ``boundaries test 1`` () =
+let ``boundaries test 1``() =
     let matcher = Matcher("""\b1\b""")
     let ism = matcher.IsMatch("1")
     Assert.True(ism)
 
 [<Fact>]
-let ``boundaries test 1-2`` () =
+let ``boundaries test 1-2``() =
     let matcher = Matcher("""\b1\b""")
     let ism = matcher.IsMatch(" 1")
     Assert.True(ism)
 
 [<Fact>]
-let ``boundaries test 1-3`` () =
+let ``boundaries test 1-3``() =
     let matcher = Matcher("""\b1\b""")
     let ism = matcher.IsMatch("1 ")
     Assert.True(ism)
 
 
 [<Fact>]
-let ``boundaries test 2`` () =
+let ``boundaries test 2``() =
     let matcher = Matcher("""\b1\b""")
     let ism = matcher.IsMatch(" 1 ")
     Assert.True(ism)
 
 
 [<Fact>]
-let ``boundaries test 3`` () =
+let ``boundaries test 3``() =
     let matcher = Matcher("""1\b """)
     let ism = matcher.IsMatch("1 ")
     Assert.True(ism)
 
 [<Fact>]
-let ``boundaries test 4`` () =
+let ``boundaries test 4``() =
     let matcher = Matcher("""1\b-""")
     let ism = matcher.IsMatch("1-")
     Assert.True(ism)
 
 
 [<Fact>]
-let ``boundaries test 5`` () =
+let ``boundaries test 5``() =
     let matcher = Matcher("""\b-""")
     let ism = matcher.IsMatch("1-2")
     Assert.True(ism)
 
 [<Fact>]
-let ``boundaries test 6`` () =
+let ``boundaries test 6``() =
     let matcher = Matcher(@"1\b-")
     let ism = matcher.IsMatch("1-2")
     Assert.True(ism)
 
 [<Fact>]
-let ``boundaries test 7`` () =
+let ``boundaries test 7``() =
     let matcher = Matcher("""1\b-2""")
     let ism = matcher.IsMatch("1-2")
     Assert.True(ism)
@@ -245,13 +251,17 @@ let ``boundaries test 7`` () =
 
 
 [<Fact>]
-let ``lots of alternations test`` () =
-    let matcher = Matcher("""[du]{2}|[gu]{2}|[tu]{2}|[ds]{2}|[gs]{2}|[da]{2}|[ga]{2}|[ta]{2}|[dq]{2}|[gq]{2}|[tq]{2}|[DU]{2}|[GU]{2}|[TU]{2}|[DS]{2}|[GS]{2}|[DA]{2}|[GA]{2}|[TA]{2}|[DQ]{2}|[GQ]{2}|[TQ]{2}""")
+let ``lots of alternations test``() =
+    let matcher =
+        Matcher(
+            """[du]{2}|[gu]{2}|[tu]{2}|[ds]{2}|[gs]{2}|[da]{2}|[ga]{2}|[ta]{2}|[dq]{2}|[gq]{2}|[tq]{2}|[DU]{2}|[GU]{2}|[TU]{2}|[DS]{2}|[GS]{2}|[DA]{2}|[GA]{2}|[TA]{2}|[DQ]{2}|[GQ]{2}|[TQ]{2}"""
+        )
+
     let ism = matcher.IsMatch("DU")
     Assert.True(ism)
 
 [<Fact>]
-let ``lots of alternations test 2`` () =
+let ``lots of alternations test 2``() =
     // let matcher = Matcher("""^(6[0-4]\d\d\d|65[0-4]\d\d|655[0-2]\d|6553[0-5])$""")
     let matcher = Matcher("""^(6[0-4]\d\d\d|65[0-4]\d\d|655[0-2]\d|6553[0-5])$""")
     let ism = matcher.IsMatch("65535")
@@ -260,9 +270,13 @@ let ``lots of alternations test 2`` () =
 
 
 [<Fact>]
-let ``lots of alternations test 3`` () =
+let ``lots of alternations test 3``() =
     // let matcher = Matcher("""^(6[0-4]\d\d\d|65[0-4]\d\d|655[0-2]\d|6553[0-5])$""")
-    let matcher = Matcher("""^((\d{2}(([02468][048])|([13579][26]))[\-\/\s]?((((0?[13578])|(1[02]))[\-\/\s]?((0?[1-9])|([1-2][0-9])|(3[01])))|(((0?[469])|(11))[\-\/\s]?((0?[1-9])|([1-2][0-9])|(30)))|(0?2[\-\/\s]?((0?[1-9])|([1-2][0-9])))))|(\d{2}(([02468][1235679])|([13579][01345789]))[\-\/\s]?((((0?[13578])|(1[02]))[\-\/\s]?((0?[1-9])|([1-2][0-9])|(3[01])))|(((0?[469])|(11))[\-\/\s]?((0?[1-9])|([1-2][0-9])|(30)))|(0?2[\-\/\s]?((0?[1-9])|(1[0-9])|(2[0-8]))))))(\s(((0?[1-9])|(1[0-2]))\:([0-5][0-9])((\s)|(\:([0-5][0-9])\s))([AM|PM|am|pm]{2,2})))?$""")
+    let matcher =
+        Matcher(
+            """^((\d{2}(([02468][048])|([13579][26]))[\-\/\s]?((((0?[13578])|(1[02]))[\-\/\s]?((0?[1-9])|([1-2][0-9])|(3[01])))|(((0?[469])|(11))[\-\/\s]?((0?[1-9])|([1-2][0-9])|(30)))|(0?2[\-\/\s]?((0?[1-9])|([1-2][0-9])))))|(\d{2}(([02468][1235679])|([13579][01345789]))[\-\/\s]?((((0?[13578])|(1[02]))[\-\/\s]?((0?[1-9])|([1-2][0-9])|(3[01])))|(((0?[469])|(11))[\-\/\s]?((0?[1-9])|([1-2][0-9])|(30)))|(0?2[\-\/\s]?((0?[1-9])|(1[0-9])|(2[0-8]))))))(\s(((0?[1-9])|(1[0-2]))\:([0-5][0-9])((\s)|(\:([0-5][0-9])\s))([AM|PM|am|pm]{2,2})))?$"""
+        )
+
     let ism = matcher.IsMatch("2004-2-29")
     Assert.True(ism)
 
@@ -272,35 +286,35 @@ let ``lots of alternations test 3`` () =
 
 
 [<Fact>]
-let ``exit range test 1`` () =
+let ``exit range test 1``() =
     let matcher = Matcher(@".*b|a")
     let ism = matcher.MatchText(" aaab ")
-    Assert.Equal(Some " aaab",ism)
+    Assert.Equal(Some " aaab", ism)
 
 
 
 [<Fact>]
-let ``exit range test 2`` () =
+let ``exit range test 2``() =
     let matcher = Matcher(@"a+")
     let ism = matcher.MatchText(" aaa ")
-    Assert.Equal(Some "aaa",ism)
+    Assert.Equal(Some "aaa", ism)
 
 
 [<Fact>]
-let ``inverted startset test 1`` () =
+let ``inverted startset test 1``() =
     let matcher = Matcher(@"..(?<=A.*)")
     let ism = matcher.MatchText("Aa")
-    Assert.Equal(Some "Aa",ism)
+    Assert.Equal(Some "Aa", ism)
 
 [<Fact>]
-let ``inverted startset test 2`` () =
+let ``inverted startset test 2``() =
     let matcher = Matcher(@"(?=.*A)(?=.*a)(?=.*1)...")
     let ism = matcher.MatchText("Aa1")
-    Assert.Equal(Some "Aa1",ism)
+    Assert.Equal(Some "Aa1", ism)
     ()
 
 [<Fact>]
-let ``inverted startset test 3`` () =
+let ``inverted startset test 3``() =
     let matcher = Matcher(@"^((?=\S*?[A-Z])(?=\S*?[a-z])(?=\S*?[0-9]).{6,})\S$")
     let ism = matcher.MatchText("Aa11aBaAA")
     ()
@@ -308,7 +322,7 @@ let ``inverted startset test 3`` () =
 
 
 [<Fact>]
-let ``reverse pattern 1`` () =
+let ``reverse pattern 1``() =
     let startLocation = Pat.Location.create "1aA" 0
 
 
@@ -326,13 +340,13 @@ let ``reverse pattern 1`` () =
     ()
 
 [<Fact>]
-let ``reverse pattern 2`` () =
+let ``reverse pattern 2``() =
     let mutable startLocation = Pat.Location.create "1aA" 0
 
     let m = Matcher(@"(?=.*A)(?=.*a)(?=.*1).{3,3}")
     let m_rev = Matcher(@".{3,3}(?<=1.*)(?<=a.*)(?<=A.*)")
 
-    let res = RegexNode.matchEnd (m.Cache,&startLocation , ValueNone, m.ReversePattern)
+    let res = RegexNode.matchEnd (m.Cache, &startLocation, ValueNone, m.ReversePattern)
     stdout.WriteLine "AAAAAAAAAAAAA"
     // let res_rev = RegexNode.matchEnd (m_rev.Cache,startLocation , ValueNone, m_rev.RawPattern)
     // Assert.Equal(res_rev,res)
@@ -342,7 +356,7 @@ let ``reverse pattern 2`` () =
 
 
 [<Fact>]
-let ``negation range test 1`` () =
+let ``negation range test 1``() =
     // let matcher = Matcher(@"~(.*\d\d⊤*)")
     let matcher = Matcher(@"~(⊤*\d\d⊤*)")
     let result = matcher.MatchText("Aa11aBaAA")
@@ -351,7 +365,7 @@ let ``negation range test 1`` () =
 
 
 [<Fact>]
-let ``negation range test 2`` () =
+let ``negation range test 2``() =
     let matcher = Matcher(@"~(.*\d\d.*)")
     let result = matcher.MatchText("Aa11aBaAA")
     Assert.Equal(Some "Aa1", result)
@@ -359,7 +373,7 @@ let ``negation range test 2`` () =
 
 
 [<Fact>]
-let ``negation startset inference test`` () =
+let ``negation startset inference test``() =
     let matcher = Matcher(@"a.*&~(.*b.*)b")
     // let matcher = Matcher(@"~(Lorem⊤*)")
     let result = matcher.MatchText("---a------bbb")
@@ -369,7 +383,7 @@ let ``negation startset inference test`` () =
 
 
 [<Fact>]
-let ``end with truestar test`` () =
+let ``end with truestar test``() =
     let matcher = Matcher("class=\"⊤*")
     // let matcher = Matcher(@"~(Lorem⊤*)")
     let input = @"class=""dasdasdsdasd"""
@@ -382,7 +396,7 @@ let ``end with truestar test`` () =
 
 
 [<Fact>]
-let ``line loop test`` () =
+let ``line loop test``() =
     let input = "\naaa\n\nbbb\n\nccc\n\n"
     let matcher = Matcher(@"(?:.+\n)+\n")
     // let result = matcher.MatchPositions(input) |> Seq.toArray
@@ -397,7 +411,8 @@ let ``line loop test`` () =
 
 
 
-let webAppSample = "Lorem Ipsum is simply dummy tej55zhA25wXu8bvQxFxt of the printing and typesetting industry.
+let webAppSample =
+    "Lorem Ipsum is simply dummy tej55zhA25wXu8bvQxFxt of the printing and typesetting industry.
 Lorem Ipsum iHK3khIUTQYxHx9r has been the Aa11aBaAA standard dfgI51d7ZPhOwGwI2vpcdfgr since the 1500s,
 when an unknown versions of Lorem Ipsum.
 "
@@ -406,7 +421,7 @@ when an unknown versions of Lorem Ipsum.
 
 
 [<Fact>]
-let ``web app test 1`` () =
+let ``web app test 1``() =
     let input = webAppSample
     // let matcher = Matcher(@".*[a-z].*&.*[A-Z].*&.*\d.*&[a-zA-Z\d]{8,}")
     let matcher = Matcher(@".*[a-z].*&[a-zA-Z\d]{8,}")
@@ -416,7 +431,7 @@ let ``web app test 1`` () =
 
 
 [<Fact>]
-let ``web app test 2`` () =
+let ``web app test 2``() =
     let input = webAppSample
     let matcher = Matcher(@".*[a-z].*&.*[A-Z].*&.*\d.*&[a-zA-Z\d]{8,}&~(.*\d\d.*)")
     let result = matcher.MatchPositions("y tej55zhA25wXu8bvQxFxt o") |> Seq.toArray
@@ -424,13 +439,17 @@ let ``web app test 2`` () =
 
 
 [<Fact>]
-let ``web app test 3`` () =
+let ``web app test 3``() =
     let input = webAppSample
-    let matcher = Matcher(@"\((⊤*A⊤*B⊤*C⊤*|⊤*A⊤*C⊤*B⊤*|⊤*B⊤*A⊤*C⊤*|⊤*B⊤*C⊤*A⊤*|⊤*C⊤*A⊤*B⊤*|⊤*C⊤*B⊤*A⊤*)\)")
+
+    let matcher =
+        Matcher(@"\((⊤*A⊤*B⊤*C⊤*|⊤*A⊤*C⊤*B⊤*|⊤*B⊤*A⊤*C⊤*|⊤*B⊤*C⊤*A⊤*|⊤*C⊤*A⊤*B⊤*|⊤*C⊤*B⊤*A⊤*)\)")
+
     let result = matcher.MatchPositions("(A----B----C)") |> Seq.toArray
     Assert.Equal(1, result.Length)
 
-let webAppSample2 = @"@article{de2000thyroid,
+let webAppSample2 =
+    @"@article{de2000thyroid,
   title={Thyroid cancer in French Polynesia between 1985 and 1995: influence of atmospheric nuclear bomb tests performed at Mururoa and Fangataufa between 1966 and 1974},
   author={De Vathaire, Florent and Le Vu, B{\'e}atrice and Challeton-de Vathaire, C{\'e}cile},
   journal={Cancer Causes \& Control},
@@ -443,7 +462,7 @@ let webAppSample2 = @"@article{de2000thyroid,
 
 
 [<Fact>]
-let ``web app test 4`` () =
+let ``web app test 4``() =
     let matcher = Matcher(@".*(?=.*E)&~(.*and.*)")
     let result = matcher.Match(@"and__E")
 
@@ -451,21 +470,16 @@ let ``web app test 4`` () =
 
 
 [<Fact>]
-let ``web app test 5`` () =
-    // let matcher = Matcher(@"(?<=or=\{.*).*(?=.*\},)&~(⊤*and⊤*)&(\b.*)")
+let ``web app test 5``() =
     let matcher = Matcher(@"(?<=or=\{.*).*(?=.*\},)&~(⊤*and⊤*)&(\b.*\b)")
-    let result =
-        matcher.Matches(webAppSample2)
-        |> Seq.map (fun v -> v.Value)
+    let result = matcher.Matches(webAppSample2) |> Seq.map (fun v -> v.Value)
 
-    Assert.Equal<string>([|
-        "De Vathaire, Florent "
-        " Le Vu, B{\\'e}atrice "
-        " Challeton-de Vathaire, C{\\'e}cile"
-    |], result)
-
-
-
-
-
+    Assert.Equal<string>(
+        [|
+            "De Vathaire, Florent "
+            " Le Vu, B{\\'e}atrice "
+            " Challeton-de Vathaire, C{\\'e}cile"
+        |],
+        result
+    )
 

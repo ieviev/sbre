@@ -26,14 +26,14 @@ let rec tryJumpToStartset (c:RegexCache<_>,loc:inref<Location>, nodes:inref<Topl
         let ss = node.Startset
 
         // 20% worse performance for now
-        // let commonStartsetLocation = c.TryNextStartsetLocation(loc,ss)
+        let commonStartsetLocation = c.TryNextStartsetLocation(loc,ss)
 
         // let mutable ss2 = Startset.inferStartset2(c.Solver)(headnode) //
         // let commonStartsetLocation = c.TryNextStartsetLocation2(loc,ss,ss2)
 
         // with caching about 125% better performance (NEEDS TESTING)
-        let ss2 = c.Builder.GetSs2Cached(node)
-        let commonStartsetLocation = c.TryNextStartsetLocation2(loc,ss,ss2)
+        // let ss2 = c.Builder.GetSs2Cached(node)
+        // let commonStartsetLocation = c.TryNextStartsetLocation2(loc,ss,ss2)
 
         // let pretty1 = c.PrettyPrintMinterm(ss)
         // let pretty2 = c.PrettyPrintMinterm(ss2)
@@ -46,9 +46,9 @@ let rec tryJumpToStartset (c:RegexCache<_>,loc:inref<Location>, nodes:inref<Topl
 
     | 0 ->
         let ss = c.InitialPatternWithoutDotstar.Startset
-        // let commonStartsetLocation = c.TryNextStartsetLocation(loc,ss)
-        let ss2 = c.InitialSs2()
-        let commonStartsetLocation = c.TryNextStartsetLocation2(loc,ss,ss2)
+        let commonStartsetLocation = c.TryNextStartsetLocation(loc,ss)
+        // let ss2 = c.InitialSs2()
+        // let commonStartsetLocation = c.TryNextStartsetLocation2(loc,ss,ss2)
         match commonStartsetLocation with
         | ValueNone ->
             loc.Position

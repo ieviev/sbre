@@ -316,11 +316,16 @@ type Matcher(pattern: string, ?warnUnoptimized:bool) =
                 else
                     location.Position <- currPos
 
+
                     match RegexNode.matchEnd (cache, &location, ValueNone, dotStarredUint64Node) with
                     | ValueNone -> looping <- false
                     | ValueSome(endPos: int) ->
                         reverseLocation.Position <- endPos
 
+#if DIAGNOSTIC
+                        stdout.WriteLine "REVERSE"
+                        stdout.WriteLine (reverseLocation.DebugDisplay())
+#endif
                         let startPos =
                             RegexNode.matchEnd (
                                 cache,

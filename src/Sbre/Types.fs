@@ -26,7 +26,7 @@ type Location = {
 #if DEBUG
     with
     member this.DebugDisplay() =
-        if this.Position = this.Input.Length then "[END]" else
+        if this.Position = this.Input.Length then this.Input + "|" else
         // display entire input if it is short
         if this.Input.Length < 60 then
             let inserted = this.Input.Insert(this.Position, "|")
@@ -137,6 +137,17 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
         | Not(info = info) -> info.IsAlwaysNullable
         | LookAround _ -> true
         | Concat(info = info) -> info.IsAlwaysNullable
+        | Epsilon -> false
+
+    member inline this.ContainsEpsilon =
+        match this with
+        | Or(info = info) -> info.ContainsEpsilon
+        | Singleton _ -> false
+        | Loop(info = info) -> info.ContainsEpsilon
+        | And(info = info) -> info.ContainsEpsilon
+        | Not(info = info) -> info.ContainsEpsilon
+        | LookAround _ -> true
+        | Concat(info = info) -> info.ContainsEpsilon
         | Epsilon -> false
 
     member inline this.CanNotBeNullable =
@@ -318,12 +329,16 @@ type ToplevelORCollection() =
 
     [<Literal>]
     let startSize = 4
+    let mutable startPositionArray: int[] = ArrayPool.Shared.Rent(startSize)
     let mutable lastNullableArray: int[] = ArrayPool.Shared.Rent(startSize)
     let mutable nodeArray: RegexNode<uint64>[] = ArrayPool.Shared.Rent(startSize)
     let mutable _count = 0
     let mutable _capacity = startSize
 
     member this.IncreaseArraySize() =
+        ArrayPool.Shared.Return(startPositionArray)
+        ArrayPool.Shared.Return(lastNullableArray)
+        ArrayPool.Shared.Return(nodeArray)
         let newSize = _capacity * 2
         let newNodeArray = ArrayPool.Shared.Rent(newSize)
         nodeArray.CopyTo(newNodeArray,0)
@@ -331,16 +346,19 @@ type ToplevelORCollection() =
         let newLastNullableArray = ArrayPool.Shared.Rent(newSize)
         lastNullableArray.CopyTo(newLastNullableArray,0)
         lastNullableArray <- newLastNullableArray
+        let newStartPositionArray = ArrayPool.Shared.Rent(newSize)
+        startPositionArray.CopyTo(newStartPositionArray,0)
+        startPositionArray <- newStartPositionArray
         _capacity <- newSize
-        ArrayPool.Shared.Return(lastNullableArray)
-        ArrayPool.Shared.Return(nodeArray)
+
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    member this.Add(node: RegexNode<uint64>, nullableState: int) =
+    member this.Add(node: RegexNode<uint64>, nullableState: int, startPos: int) =
 
         let inline createNode() =
             nodeArray[_count] <- node
             lastNullableArray[_count] <- nullableState
+            startPositionArray[_count] <- startPos
             _count <- _count + 1
 
         match _count with
@@ -394,11 +412,31 @@ type ToplevelORCollection() =
             // swap last element into current slot
             nodeArray[idx] <- nodeArray[_count - 1]
             lastNullableArray[idx] <- lastNullableArray[_count - 1]
+            startPositionArray[idx] <- startPositionArray[_count - 1]
             _count <- _count - 1
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.GetLastNullPos(idx:int) =
         lastNullableArray[idx]
+
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    member this.IsOldestNullableBranch(idx:int) =
+
+        let span = startPositionArray.AsSpan().Slice(0,_count)
+        let nullspan = lastNullableArray.AsSpan().Slice(0,_count)
+        let mutable minBranch = Int32.MaxValue
+        let currBranch = span[idx]
+        for i = span.Length - 1 downto 0 do
+            let hasBeenNullable = nullspan[i]
+            if hasBeenNullable > -1 then
+                minBranch <- min (span[i]) minBranch
+
+        // let mutable e = startPositionArray.AsSpan().Slice(0,_count)
+        // while e.MoveNext() = true && canskip do
+        //     canskip <- e.Current.CanSkip
+        // canskip
+        currBranch = minBranch
+
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.Reset() = _count <- 0
@@ -478,6 +516,9 @@ module Common =
         //     forall <- f e.Current
         // forall
         coll |> Seq.forall f
+
+
+
 
 
 // todo:

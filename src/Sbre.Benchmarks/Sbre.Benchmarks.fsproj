@@ -3,7 +3,7 @@
     <PropertyGroup>
         <OutputType>Exe</OutputType>
         <TargetFramework>net7.0</TargetFramework>
-        <OtherFlags>$(OtherFlags) --optimize+ --extraoptimizationloops:1</OtherFlags>
+<!--        <OtherFlags>$(OtherFlags) &#45;&#45;optimize+ &#45;&#45;extraoptimizationloops:1</OtherFlags>-->
     </PropertyGroup>
 
     <ItemGroup>

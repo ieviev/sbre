@@ -9,7 +9,7 @@ open Sbre.Pat
 open Sbre.Types
 open Xunit
 
-let getDerivative (matcher: Matcher, input: string) =
+let getDerivative(matcher: Matcher, input: string) =
     let cache = matcher.Cache
     let node = matcher.RawPattern
     let location = (Location.create input 0)
@@ -18,38 +18,42 @@ let getDerivative (matcher: Matcher, input: string) =
 
 
 
-let testFullDerivative (pattern: string, input: string, expectedDerivative: string) =
+let testFullDerivative(pattern: string, input: string, expectedDerivative: string) =
     let matcher = Matcher(pattern)
     let cache = matcher.Cache
     let node = matcher.DotStarredPattern
     let location = (Location.create input 0)
-    let result = createDerivative(cache, location, cache.MintermForLocation(location), node) |> cache.PrintNode
+
+    let result =
+        createDerivative (cache, location, cache.MintermForLocation(location), node)
+        |> cache.PrintNode
 
     Assert.Equal(expectedDerivative, result)
 
 
-let testFullDerivativeMultiple (pattern: string, input: string, expectedDerivatives: string list) =
+let testFullDerivativeMultiple(pattern: string, input: string, expectedDerivatives: string list) =
     let matcher = Matcher(pattern)
     let cache = matcher.Cache
     let node = matcher.DotStarredPattern
     let location = (Location.create input 0)
-    let result = createDerivative(cache, location, cache.MintermForLocation(location), node) |> cache.PrintNode
+
+    let result =
+        createDerivative (cache, location, cache.MintermForLocation(location), node)
+        |> cache.PrintNode
 
     Assert.Contains(result, expectedDerivatives)
 
 
-let test2ndDerivative (pattern: string, input: string, expectedDerivative: string) =
+let test2ndDerivative(pattern: string, input: string, expectedDerivative: string) =
     let matcher = Matcher(pattern)
     let cache = matcher.Cache
     let node = matcher.DotStarredPattern
     let location = (Location.create input 0)
     let location1 = (Location.create input 1)
 
-    let der1 =
-        createDerivative (cache, location, cache.MintermForLocation(location), node)
+    let der1 = createDerivative (cache, location, cache.MintermForLocation(location), node)
 
-    let der2 =
-        createDerivative (cache, location1, cache.MintermForLocation(location1), der1)
+    let der2 = createDerivative (cache, location1, cache.MintermForLocation(location1), der1)
 
     let result = der2 |> cache.PrintNode
     let a = 1
@@ -57,18 +61,16 @@ let test2ndDerivative (pattern: string, input: string, expectedDerivative: strin
     Assert.Equal(expectedDerivative, result)
 
 
-let test2ndDerivatives (pattern: string, input: string, expectedDerivatives: string list) =
+let test2ndDerivatives(pattern: string, input: string, expectedDerivatives: string list) =
     let matcher = Matcher(pattern)
     let cache = matcher.Cache
     let node = matcher.DotStarredPattern
     let location = (Location.create input 0)
     let location1 = (Location.create input 1)
 
-    let der1 =
-        createDerivative (cache, location, cache.MintermForLocation(location), node)
+    let der1 = createDerivative (cache, location, cache.MintermForLocation(location), node)
 
-    let der2 =
-        createDerivative (cache, location1, cache.MintermForLocation(location1), der1)
+    let der2 = createDerivative (cache, location1, cache.MintermForLocation(location1), der1)
 
     let result = der2 |> cache.PrintNode
 
@@ -79,13 +81,14 @@ let test2ndDerivatives (pattern: string, input: string, expectedDerivatives: str
 
 
 
-let testRawDerivative (pattern: string, input: string, expectedDerivative: string) =
+let testRawDerivative(pattern: string, input: string, expectedDerivative: string) =
     let matcher = Matcher(pattern)
     let cache = matcher.Cache
     let node = matcher.RawPattern
     let location = (Location.create input 0)
+
     let result =
-        createDerivative(cache,  location, cache.MintermForLocation(location), node)
+        createDerivative (cache, location, cache.MintermForLocation(location), node)
         |> cache.PrintNode
 
     Assert.Equal(expectedDerivative, result)
@@ -93,61 +96,92 @@ let testRawDerivative (pattern: string, input: string, expectedDerivative: strin
 
 
 
-let testPartDerivative (pattern: string, input: string, expectedDerivative: string) =
+let testPartDerivative(pattern: string, input: string, expectedDerivative: string) =
     let matcher = Matcher(pattern)
     let cache = matcher.Cache
     let node = matcher.RawPattern
     let location = (Location.create input 0)
-    let result =
-        createDerivative(cache, location, cache.MintermForLocation(location), node)
+    let result = createDerivative (cache, location, cache.MintermForLocation(location), node)
 
     let print node = node |> cache.PrintNode
 
     Assert.Equal(expectedDerivative, print result)
 
 
-let testPartDerivatives (pattern: string, input: string, expectedDerivatives: string list) =
+let testPartDerivatives(pattern: string, input: string, expectedDerivatives: string list) =
     let matcher = Matcher(pattern)
     let cache = matcher.Cache
     let node = matcher.RawPattern
     let location = (Location.create input 0)
-    let result =
-        createDerivative(cache, location, cache.MintermForLocation(location), node)
+    let result = createDerivative (cache, location, cache.MintermForLocation(location), node)
 
     let print node = node |> cache.PrintNode
 
-    Assert.Contains(print result,expectedDerivatives)
+    Assert.Contains(print result, expectedDerivatives)
 
 
 
 
-let testPartDerivativeFromLocation (pattern: string, input: string, position:int, expectedDerivative: string) =
+let testPartDerivativeFromLocation
+    (
+        pattern: string,
+        input: string,
+        position: int,
+        expectedDerivative: string
+    )
+    =
     let matcher = Matcher(pattern)
     let cache = matcher.Cache
     let node = matcher.RawPattern
     let location = (Location.create input position)
+
     let result =
-        match createDerivative(cache, location, cache.MintermForLocation(location), node) with
+        match createDerivative (cache, location, cache.MintermForLocation(location), node) with
         | result -> cache.PrintNode result
 
     Assert.Equal(expectedDerivative, result)
 
 
-let testPartDerivativeFromLocationMultiple (pattern: string, input: string, position:int, expectedDerivatives: string list) =
+let testPartDerivativeFromLocationMultiple
+    (
+        pattern: string,
+        input: string,
+        position: int,
+        expectedDerivatives: string list
+    )
+    =
     let matcher = Matcher(pattern)
     let cache = matcher.Cache
     let node = matcher.RawPattern
     let location = (Location.create input position)
+
     let result =
-        match createDerivative(cache, location, cache.MintermForLocation(location), node) with
+        match createDerivative (cache, location, cache.MintermForLocation(location), node) with
+        | result -> cache.PrintNode result
+
+    Assert.Contains(result, expectedDerivatives)
+
+let testPartDerivativesLoc
+    (
+        pattern: string,
+        loc: Location,
+        expectedDerivatives: string list
+    )
+    =
+    let matcher = Matcher(pattern)
+    let cache = matcher.Cache
+    let node = matcher.RawPattern
+    let location = loc
+
+    let result =
+        match createDerivative (cache, location, cache.MintermForLocation(location), node) with
         | result -> cache.PrintNode result
 
     Assert.Contains(result, expectedDerivatives)
 
 
-
 [<Fact>]
-let ``concat derivative nullability``()  =
+let ``concat derivative nullability``() =
     let pattern = @"(?=.*A)(?=.*a)(?=.*1).{2,2}"
     let location = Pat.Location.create "1aA" 0
     let matcher = Matcher(pattern)
@@ -169,57 +203,61 @@ let ``concat derivative nullability``()  =
 
 
 [<Fact>]
-let ``raw derivative of ab`` () = testRawDerivative ("ab", "ab", "b")
+let ``raw derivative of ab``() = testRawDerivative ("ab", "ab", "b")
 
 [<Fact>]
-let ``derivative of ab`` () = testFullDerivativeMultiple ("ab", "ab", ["(b|⊤*ab)"; @"(⊤*ab|b)"])
-
-
-[<Fact>]
-let ``derivative of true`` () = testPartDerivative ("⊤", "324", "ε")
+let ``derivative of ab``() =
+    testFullDerivativeMultiple ("ab", "ab", [ "(b|⊤*ab)"; @"(⊤*ab|b)" ])
 
 
 [<Fact>]
-let ``derivative of true ismatch`` () =
-
-    testPartDerivative ("⊤", "324", "ε")
-
-
-// [<Fact>]
-// let ``derivative of long lookahead`` () =
-//
-//     testPartDerivative (".*(?=.*E)", "and__E", "ε")
-//
-
+let ``derivative of true``() = testPartDerivative ("⊤", "324", "ε")
 
 
 [<Fact>]
-let ``2 derivative of Twain`` () =
-    test2ndDerivatives ("Twain", "Twain", ["(ain|⊤*Twain)"; @"(⊤*Twain|ain)"])
-    // test2ndDerivative ("Twain", "Twain", "(⊤*Twain|ain)")
+let ``derivative of true ismatch``() = testPartDerivative ("⊤", "324", "ε")
+
 
 [<Fact>]
-let ``derivative lookaround 1`` () = testPartDerivatives (@"^\d$", "1", [@"((?=\n)|(?!⊤))"; @"((?!⊤)|(?=\n))"])
+let ``derivative of lookback 1``() =
+    testPartDerivativeFromLocationMultiple (@"(?<=-.*).*", "-aaaa-", 5, [ ".*" ])
 
 [<Fact>]
-let ``derivative lookaround 1.2`` () = testPartDerivative (@"(?<!\w)11", "11", "1")
-
-[<Fact>]
-let ``derivative lookaround 1.3`` () = testPartDerivative (@"(?=1)11", "11", "1")
+let ``derivative of lookback 2``() =
+    testPartDerivativeFromLocationMultiple (@"(?<=-.*).*", "-aaaa-", 4, [ ".*" ])
 
 
 
 [<Fact>]
-let ``derivative lookaround 2`` () = testPartDerivative (@"\b11", "11", "1")
+let ``2 derivative of Twain``() =
+    test2ndDerivatives ("Twain", "Twain", [ "(ain|⊤*Twain)"; @"(⊤*Twain|ain)" ])
+// test2ndDerivative ("Twain", "Twain", "(⊤*Twain|ain)")
+
+[<Fact>]
+let ``derivative lookaround 1``() =
+    testPartDerivatives (@"^\d$", "1", [ @"((?=\n)|(?!⊤))"; @"((?!⊤)|(?=\n))" ])
+
+[<Fact>]
+let ``derivative lookaround 1.2``() = testPartDerivative (@"(?<!\w)11", "11", "1")
+
+[<Fact>]
+let ``derivative lookaround 1.3``() = testPartDerivative (@"(?=1)11", "11", "1")
+
+
+
+[<Fact>]
+let ``derivative lookaround 2``() = testPartDerivative (@"\b11", "11", "1")
 
 //([]1|1)
 
 [<Fact>]
-let ``derivative boundary 1`` () = testPartDerivativeFromLocation (@"(?<=\s)22", "1 2", 2, "2")
+let ``derivative boundary 1``() =
+    testPartDerivativeFromLocation (@"(?<=\s)22", "1 2", 2, "2")
 
 
 [<Fact>]
-let ``derivative boundary 2`` () = testPartDerivativeFromLocation (@"\b22", "1 2", 2, "2")
+let ``derivative boundary 2``() =
+    testPartDerivativeFromLocation (@"\b22", "1 2", 2, "2")
 
 
 // [<Fact>]
@@ -227,24 +265,29 @@ let ``derivative boundary 2`` () = testPartDerivativeFromLocation (@"\b22", "1 2
 
 
 [<Fact>]
-let ``derivative boundary 4`` () = testPartDerivativeFromLocation (@"(?<=\d)a", "1a", 1, "ε")
+let ``derivative boundary 4``() =
+    testPartDerivativeFromLocation (@"(?<=\d)a", "1a", 1, "ε")
 
 
 [<Fact>]
-let ``derivative boundary 5`` () = testPartDerivativeFromLocation (@"(?=\w)a", "1a", 1, "ε")
+let ``derivative boundary 5``() =
+    testPartDerivativeFromLocation (@"(?=\w)a", "1a", 1, "ε")
 
 
 
 [<Fact>]
-let ``derivative or tail`` () = testPartDerivative (@"(310|0[1-9]2|452)", "002", "[1-9]2")
+let ``derivative or tail``() =
+    testPartDerivative (@"(310|0[1-9]2|452)", "002", "[1-9]2")
 
 
 [<Fact>]
-let ``derivative of plus`` () = testPartDerivatives (@"^\d+$", "123", [@"\d*((?=\n)|(?!⊤))";@"\d*((?!⊤)|(?=\n))"])
+let ``derivative of plus``() =
+    testPartDerivatives (@"^\d+$", "123", [ @"\d*((?=\n)|(?!⊤))"; @"\d*((?!⊤)|(?=\n))" ])
 
 
 [<Fact>]
-let ``derivative concat lookaround`` () = testPartDerivatives (@"^\d+$", "123", [@"\d*((?=\n)|(?!⊤))"; @"\d*((?!⊤)|(?=\n))"])
+let ``derivative concat lookaround``() =
+    testPartDerivatives (@"^\d+$", "123", [ @"\d*((?=\n)|(?!⊤))"; @"\d*((?!⊤)|(?=\n))" ])
 
 
 // [<Fact>]
@@ -253,31 +296,64 @@ let ``derivative concat lookaround`` () = testPartDerivatives (@"^\d+$", "123", 
 //
 //
 
-[<Fact>]
-let ``derivative lookback 1`` () =
-    // testPartDerivativeFromLocation (@"..(?<=A.*)", "Aa", 2,  @"\d*((?=\n)|(?!⊤))")
-    // testPartDerivativeFromLocation (@".(?<=A.*)", "Aa", 1,  @"\d*((?=\n)|(?!⊤))")
-    testPartDerivativeFromLocation (@".(?<=A.*)", "Aa", 1,  @"(?<=A.*)")
-
-
 
 [<Fact>]
-let ``subsumption or loop `` () = testPartDerivative (@"(a*|.*)", "aaa", @".*")
+let ``derivative lookback 1``() =
+    let loc =
+        {
+            Input = "-aaaa-"
+            Position = 0
+            Reversed = false
+        }
+    testPartDerivativesLoc (@"(.*(?=.*-)&\S.*\S)", loc,  [@"(.*φ&.*(?=.*-))";"(.*(?=.*-)&.*φ)"])
+
+//
+// [<Fact>]
+// let ``derivative lookback 2``() =
+//     let loc =
+//         {
+//             Input = "-aaaa-"
+//             Position = 5
+//             Reversed = true
+//         }
+//     testPartDerivativesLoc (@"((?<=-.*).*)", loc,  [@"(?<=A.*)"])
+//
+//
+//
+// [<Fact>]
+// let ``derivative lookback 3``() =
+//     let loc =
+//         {
+//             Input = "-aaaa-"
+//             Position = 5
+//             Reversed = true
+//         }
+//     testPartDerivativesLoc (@"((?<=-.*).*&\S.*\S)", loc,  [@"(?<=A.*)"])
+
 
 
 [<Fact>]
-let ``subsumption and loop `` () = testPartDerivative (@"(.*&.*s)", "aaa", @".*s")
+let ``subsumption or loop ``() =
+    testPartDerivative (@"(a*|.*)", "aaa", @".*")
 
 
 [<Fact>]
-let ``subsumption negation nullable `` () = testPartDerivative (@"(.*(?=.*E)&~(d.*))", "dd", @"⊥")
+let ``subsumption and loop ``() =
+    testPartDerivative (@"(.*&.*s)", "aaa", @".*s")
+
+
+// [<Fact>]
+// let ``subsumption negation nullable ``() =
+//     testPartDerivative (@"(.*(?=.*E)&~(d.*))", "dd", @"⊥")
 
 
 [<Fact>]
-let ``subsumption or loop limited 1`` () = test2ndDerivatives ("[a-z]{0,10}y", "ccccc", [
-    @"(⊤*[a-z]{0,10}y|[a-z]{0,9}y)"
-    @"([a-z]{0,9}y|⊤*[a-z]{0,10}y)"
-])
+let ``subsumption or loop limited 1``() =
+    test2ndDerivatives (
+        "[a-z]{0,10}y",
+        "ccccc",
+        [ @"(⊤*[a-z]{0,10}y|[a-z]{0,9}y)"; @"([a-z]{0,9}y|⊤*[a-z]{0,10}y)" ]
+    )
 
 
 // [<Fact>]
@@ -305,12 +381,58 @@ let ``subsumption or loop limited 1`` () = test2ndDerivatives ("[a-z]{0,10}y", "
 
 
 [<Fact>] // implies set eats a node it shouldnt
-let ``derivative eats node from set`` () =
+let ``derivative eats node from set``() =
     testPartDerivativeFromLocationMultiple (
         @"^((0?[13578]a)|(0?[13456789]a))$",
-        "4a", 0,
-        [@"a((?=\n)|(?!⊤))"; @"a((?!⊤)|(?=\n))" ])
+        "4a",
+        0,
+        [ @"a((?=\n)|(?!⊤))"; @"a((?!⊤)|(?=\n))" ]
+    )
 
+
+
+[<Fact>]
+let ``matchend test 1``() =
+    // let matcher = Matcher(@".*(?=.*-)&\S.*\S")
+    let matcher = Matcher(@".*(?=-)")
+    let result2 = matcher.FindMatchEnd(@"aa-")
+    Assert.Equal(ValueSome 2, result2)
+
+[<Fact>]
+let ``matchend test 2``() =
+    let matcher = Matcher(@".*(?=.*-)&\S.*\S")
+    let result2 = matcher.FindMatchEnd(@"-aaaa-")
+    Assert.Equal(ValueSome 5, result2)
+
+
+[<Fact>]
+let ``matchend test 3.1``() =
+    let matcher = Matcher(@".*b")
+    let ism = matcher.FindMatchEnd(" aaab ")
+    Assert.Equal(ValueSome 5, ism)
+
+
+[<Fact>]
+let ``matchend test 3``() =
+    let matcher = Matcher(@".*b|a")
+    let ism = matcher.FindMatchEnd(" aaab ")
+    Assert.Equal(ValueSome 5, ism)
+
+[<Fact>]
+let ``matchend test 4``() =
+    let matcher = Matcher(@"a+")
+    let ism = matcher.FindMatchEnd(" aaa ")
+    Assert.Equal(ValueSome 4, ism)
+
+
+
+
+
+// [<Fact>]
+// let ``matchend test 3``() =
+//     let matcher = Matcher(@"b.*|a")
+//     let ism = matcher.FindMatchEnd("baaa ")
+//     Assert.Equal(ValueSome 4, ism)
 
 
 

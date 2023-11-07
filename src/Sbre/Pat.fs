@@ -155,8 +155,14 @@ module Location =
         {
             Input = loc.Input
             Position = loc.Position
+                // match loc.Position with
+                // | 0 -> loc.Input.Length
+                // | n when n = loc.Input.Length -> 0
+                // | _ -> loc.Position
             Reversed = not loc.Reversed
         }
+
+
 
 
     let inline increment (loc: Location) =

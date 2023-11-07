@@ -255,7 +255,9 @@ type RegexCache<'gh>
     member this.MintermForLocation(loc: Location) : _ =
         match loc.Reversed with
         | false -> minterms[classifier.GetMintermID(int loc.Input[loc.Position])]
-        | true -> minterms[classifier.GetMintermID(int loc.Input[loc.Position - 1])]
+        | true ->
+            // if loc.Position = loc.Input.Length then 0uL
+            minterms[classifier.GetMintermID(int loc.Input[loc.Position - 1])]
 
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]

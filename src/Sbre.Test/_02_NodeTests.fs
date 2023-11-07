@@ -338,6 +338,18 @@ let ``flags 4``() =
         Assert.Equal(Flag.CanBeNullable ||| Flag.IsAlwaysNullable ||| Flag.CanSkip, info.Flags)
     | _ -> Assert.True(false, "wrong node type")
 
+
+
+// [<Fact>]
+// let ``flags 5``() =
+//     let matcher = Matcher(@".*(?=.*-)&\S.*\S")
+//
+//     match matcher.RawPattern with
+//     | Types.And(nodes, info) ->
+//         Assert.Equal(Flag.CanBeNullable ||| Flag.IsAlwaysNullable ||| Flag.CanSkip, info.Flags)
+//     | _ -> Assert.True(false, "wrong node type")
+//
+
 // [<Fact>]
 // let ``flags 5`` () =
 //     let matcher = Matcher(@"(⊤*&~(⊤*Ara⊤*))")

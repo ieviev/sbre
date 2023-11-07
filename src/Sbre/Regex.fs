@@ -182,8 +182,9 @@ module RegexNode =
         // current active branches, without implicit dotstar node
         let toplevelOr =
             // optimize the top matchEnd only for now
-            if initialIsDotStarred then cache.GetTopLevelOr()
-            else new ToplevelORCollection()
+            // if initialIsDotStarred then cache.GetTopLevelOr()
+            // else
+                new ToplevelORCollection()
 
         let initialWithoutDotstar =
             if initialIsDotStarred then
@@ -195,34 +196,74 @@ module RegexNode =
 
         if not initialIsDotStarred then
             let branchNullPos = if isNullable (cache, loc, initialNode) then loc.Position else -1
-            toplevelOr.Add(initialNode, branchNullPos)
+            toplevelOr.Add(initialNode, branchNullPos, loc.Position)
 
         // let inputSpan = loc.Input.AsSpan()
 
         while looping do
 
-
-#if DIAGNOSTIC
-            // stdout.WriteLine $"l:{loc.Position}"
-            for item in toplevelOr.Items do
-                stdout.WriteLine $"LOC:{loc.Position}"
-                stdout.WriteLine (item.ToStringHelper())
-#endif
-
             // 3.3 Derivatives and MatchEnd optimizations
             match Location.isFinal loc || foundmatch with
             | true ->
                 // check if any null
-                let mutable e = toplevelOr.Items.GetEnumerator()
+                let mutable topSpan = toplevelOr.Items
                 let mutable found = false
-                while e.MoveNext() && not found do
-                    found <- isNullable(cache,loc,e.Current)
+                let mutable hadEpsilon = false
+                let mutable lastNullable = -1
+
+                let frameCount = System.Diagnostics.StackTrace().FrameCount
+                if frameCount < 116 then
+                    ()
+
+
+                for i = (topSpan.Length - 1) downto 0 do
+                    let currLastNullable = toplevelOr.GetLastNullPos(i)
+                    lastNullable <- max lastNullable currLastNullable
+                    let curr = topSpan[i]
+                    if not found then
+                        found <- isNullable(cache,loc,curr)
+
+                    // if e.Current.ContainsEpsilon then
+                    //     hadEpsilon <- true
+                    //     match cache.Builder.purgeEpsilons e.Current with
+                    //     | ValueSome n ->
+                    //         found <- isNullable(cache,loc,n)
+                    //     | _ -> ()
+                    // else
+
+
                 if found then
                     currentMax <- (ValueSome loc.Position)
+                elif currentMax.IsNone && lastNullable > -1 then
+                    currentMax <- (ValueSome lastNullable)
+
+
+
+
                 looping <- false
 
             | false ->
                 let locationPredicate = cache.MintermForLocation(loc)
+
+                if initialIsDotStarred then
+                    stdout.WriteLine (loc.DebugDisplay)
+                    for n in toplevelOr.Items do
+                        stdout.WriteLine (n.ToStringHelper())
+#if DIAGNOSTIC
+
+                // match node with
+                // | LookAround(_) -> ()
+                // | _ ->
+                //     let diagMsg =
+                //         [
+                //             loc.DebugDisplay()
+                //             $"{node.ToStringHelper()} -> {result.ToStringHelper()}"
+                //         ]
+                //         |> String.concat "\n"
+                //
+                //     stdout.WriteLine diagMsg
+#endif
+
 
                 // current active branches
                 if toplevelOr.Count > 0 then
@@ -232,6 +273,9 @@ module RegexNode =
                         let curr = toplevelOrSpan[i]
 
                         let deriv = createDerivative (cache, loc, locationPredicate, curr)
+
+
+
                         match deriv with
                         | IsFalse cache ->
                             if
@@ -240,45 +284,54 @@ module RegexNode =
                             then
                                 // a pattern successfully matched and turned to false,
                                 // so we can return match
-                                foundmatch <- true
+                                if toplevelOr.IsOldestNullableBranch(i) then
+                                    foundmatch <- true
                             else
                                 toplevelOr.Remove(i)
 
                         // else
                         | _ ->
-                            if obj.ReferenceEquals(curr, deriv) then
-                                // optimization
-                                if curr.CanNotBeNullable then ()
-                                elif curr.IsAlwaysNullable then
-                                    toplevelOr.UpdateNullability(i, loc.Position + 1)
-                                else
+                            // if obj.ReferenceEquals(curr, deriv) then
+                            //     // optimization
+                            //     if curr.CanNotBeNullable then ()
+                            //     elif curr.IsAlwaysNullable then
+                            //         toplevelOr.UpdateNullability(i, loc.Position + 1)
+                            //     else
+                            //         if isNullable (cache, loc, deriv) then
+                            //             toplevelOr.UpdateTransition(i, deriv, loc.Position + 1)
+                            //         else
+                            //             // in the case of a negation, we can return match
+                            //             match deriv with
+                            //             | Not _ when toplevelOr.GetLastNullPos(i) > -1 -> foundmatch <- true
+                            //             | And(nodes=nodes) when
+                            //                 nodes |> Seq.exists (function | Not (info=info) when info.CanNotBeNullable -> true | _ -> false) ->
+                            //                 foundmatch <- true
+                            //             | _ -> ()
+                            //             toplevelOr.UpdateTransitionNode(i, deriv)
+                            // else
+
+                                // if deriv.IsAlwaysNullable then
+                                //     toplevelOr.UpdateTransition(i, deriv, loc.Position + 1)
+                                // elif deriv.CanNotBeNullable then
+                                //     toplevelOr.UpdateTransitionNode(i, deriv)
+                                //     if toplevelOr.GetLastNullPos(i) > -1 then
+                                //         failwith $"todo: {deriv.ToStringHelper()}"
+                                //         match deriv with
+                                //         | Not _ -> foundmatch <- true
+                                //         | And(nodes=nodes) when
+                                //             nodes |> Seq.exists (function | Not (info=info) when info.CanNotBeNullable -> true | _ -> false) ->
+                                //             foundmatch <- true
+                                //         | _ -> ()
+                                // else
                                     if isNullable (cache, loc, deriv) then
-                                        toplevelOr.UpdateTransition(i, deriv, loc.Position + 1)
-                                    else
-                                        // in the case of a negation, we can return match
-                                        match deriv with
-                                        | Not _ when toplevelOr.GetLastNullPos(i) > -1 -> foundmatch <- true
-                                        | _ -> ()
-                                        toplevelOr.UpdateTransitionNode(i, deriv)
-                            else
-                                if deriv.IsAlwaysNullable then
-                                    toplevelOr.UpdateTransition(i, deriv, loc.Position + 1)
-                                elif deriv.CanNotBeNullable then
-                                    toplevelOr.UpdateTransitionNode(i, deriv)
-                                    if toplevelOr.GetLastNullPos(i) > -1 then
-                                        match deriv with
-                                        | Not _ -> foundmatch <- true
-                                        | And(nodes=nodes) when
-                                            nodes |> Seq.exists (function | Not (info=info) when info.CanNotBeNullable -> true | _ -> false) ->
-                                            foundmatch <- true
-                                        | _ -> ()
-                                else
-                                    if isNullable (cache, loc, deriv) then
-                                        toplevelOr.UpdateTransition(i, deriv, loc.Position + 1)
+                                        if initialIsDotStarred then
+                                            if toplevelOr.Items.Length > 3 && deriv.ToStringHelper() = "(.*-|ε)" then
+                                                failwith (curr.ToStringHelper())
+                                        toplevelOr.UpdateTransition(i, deriv, loc.Position)
                                     else
                                         // in the case of a negation, we can return match
                                         if toplevelOr.GetLastNullPos(i) > -1 then
-                                            match deriv with
+                                            match curr with
                                             | Not _ -> foundmatch <- true
                                             | And(nodes=nodes) when
                                                 nodes |> Seq.exists (function | Not (info=info) when info.CanNotBeNullable -> true | _ -> false) ->
@@ -294,11 +347,30 @@ module RegexNode =
                     match createDerivative (cache, loc, locationPredicate, initialWithoutDotstar) with
                     | IsFalse cache -> ()
                     | deriv ->
-                        toplevelOr.Add(deriv, if isNullable (cache, loc, deriv) then loc.Position else -1)
+                        let nullableState = if isNullable (cache, loc, deriv) then loc.Position else -1
+                        toplevelOr.Add(
+                            deriv,
+                            nullableState,
+                            loc.Position)
 
                 // found successful match - exit early
                 if not foundmatch then
+                    let mutable e = toplevelOr.Items.GetEnumerator()
+                    let mutable found = false
+                    let mutable canSkipAll = true
+
+                    // check nullability
                     loc.Position <- Location.nextPosition loc
+
+                    // let frameCount = System.Diagnostics.StackTrace().FrameCount
+                    // if frameCount < 116 then
+                    //     ()
+
+                    while e.MoveNext() do
+                        found <- found || isNullable(cache,loc,e.Current)
+                        canSkipAll <- canSkipAll && e.Current.CanSkip
+                    if found then
+                        currentMax <- (ValueSome (loc.Position))
 
                     // won't try to jump further if final
                     if Location.isFinal loc then () else
@@ -321,16 +393,10 @@ module RegexNode =
                             // if not (Solver.isElemOfSetU64 startsetPredicate nextLocationPredicate) then
                             //     loc.Position <- tryJumpToStartset (cache, &loc, &toplevelOr)
                     else
+
+
+
                         // check if current position is nullable or skippable
-                        let mutable e = toplevelOr.Items.GetEnumerator()
-                        let mutable found = false
-                        let mutable canSkipAll = true
-                        // && not found
-                        while e.MoveNext() do
-                            found <- found || isNullable(cache,loc,e.Current)
-                            canSkipAll <- canSkipAll && e.Current.CanSkip
-                        if found then
-                            currentMax <- (ValueSome loc.Position)
 
                         if
                             canSkipAll &&
@@ -466,6 +532,7 @@ let rec createDerivative
                     match R' with
                     | Epsilon -> tail
                     | _ when obj.ReferenceEquals(R', head) -> node
+                    | IsFalse c -> c.Builder.uniques._false
                     | _ ->
                         let newConcat = c.Builder.mkConcat2 (R', tail)
                         newConcat
@@ -484,19 +551,56 @@ let rec createDerivative
                     R'S
 
 
-#if DIAGNOSTIC
-        // try
-        //     let diagMsg =
-        //         [
-        //             loc.DebugDisplay()
-        //             $"{node.ToStringHelper()} -> {result.ToStringHelper()}"
-        //         ]
-        //         |> String.concat "\n"
-        //
-        //     stdout.WriteLine diagMsg
-        // with e -> ()
 
-#endif
+        //
+        // let asstr = "(?<=-.*).*"
+        // if result = c.Builder.uniques._false && node.ToStringHelper() = asstr then
+        //     let dbg = 1
+        //
+        //     let l2 = loc |> Location.withPos (loc.Position - 1)
+        //     // let n2 = createDerivative(c,l2,c.MintermForLocation(l2),node)
+        //     let n2 = createDerivative(c,loc,loc_pred,node)
+        //
+        //     let nodeInfo =
+        //         match node with
+        //         | Concat(h,t,info) ->
+        //             [
+        //                 $"{n2.ToStringHelper()}"
+        //                 $"%A{info}"
+        //                 $"%A{h}"
+        //                 $"%A{t}"
+        //             ]
+        //             |> String.concat "\n"
+        //         | _ -> failwith "todo"
+        //     failwith nodeInfo
+
+        match node with
+        | Concat(h, LookAround(_),_) ->
+             // if ["(.*-|ε)"; "(ε|.*-)"] |> List.contains (result.ToStringHelper()) then
+             //    if node.ToStringHelper() <> ".*-" && node.ToStringHelper() <> "(.*-|ε)" then
+             //        failwith $"{node.ToStringHelper()}"
+             //    ()
+            let r = result
+            ()
+        | And(h,_) ->
+            let r = result
+            ()
+        | _ -> ()
+
+// #if DIAGNOSTIC
+//
+//         match node with
+//         | LookAround(_) -> ()
+//         | _ ->
+//             let diagMsg =
+//                 [
+//                     loc.DebugDisplay()
+//                     $"{node.ToStringHelper()} -> {result.ToStringHelper()}"
+//                 ]
+//                 |> String.concat "\n"
+//
+//             stdout.WriteLine diagMsg
+// #endif
 
         if not node.ContainsLookaround then
             c.Builder.DerivativeCache.Add(struct (loc_pred, node), result)
