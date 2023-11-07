@@ -1,25 +1,16 @@
-module rec Sbre.RegexNodeConverter
+module internal rec Sbre.RegexNodeConverter
 
 open System
-open System.Collections.Generic
 open System.Text.RuntimeRegexCopy
 open System.Text.RuntimeRegexCopy.Symbolic
 open Sbre.Types
-open System.Globalization
 open Sbre
-open Sbre.Pat
-// 1. convert to symbolic regex node (BDD) [ <-- ]
-// 2. add markers and compute minterms
-// 3. convert to either BitVector or u64
-
-
 
 let children2Seq(node: System.Text.RuntimeRegexCopy.RegexNode) =
     seq {
         for i = 0 to node.ChildCount() - 1 do
             yield node.Child(i)
     }
-
 
 let convertToSymbolicRegexNode
     (
@@ -61,23 +52,18 @@ let convertToSymbolicRegexNode
             let children2 =
                 node
                 |> children2Seq
-                |> Seq.map (convertSingle)
-                |> Seq.map (n.mkConcat)
+                |> Seq.map convertSingle
+                |> Seq.map n.mkConcat
                 |> Seq.toArray
 
-            // let nodeset = ofSeq children2
-
-            // TODO: mark interesting cases here
-            // if children2.Length <> nodeset.Count then
-            //     ()
-
-            builder.mkOr (children2) :: acc
+            let nodeset = ofSeq children2
+            builder.mkOr children2 :: acc
         | RegexNodeKind.Conjunction ->
 
             let children2 =
-                node |> children2Seq |> Seq.map (convertSingle) |> Seq.map n.mkConcat |> Seq.toArray
+                node |> children2Seq |> Seq.map convertSingle |> Seq.map n.mkConcat |> Seq.toArray
 
-            builder.mkAnd (children2) :: acc
+            builder.mkAnd children2 :: acc
 
         | RegexNodeKind.Concatenate ->
             let inner = convertChildren node
@@ -130,7 +116,7 @@ let convertToSymbolicRegexNode
         | RegexNodeKind.Setloop ->
             let set = node.Str
             let bdd = n.bddFromSetString set
-            n.mkLoop (n.one (bdd), node.M, node.N) :: acc
+            n.mkLoop (n.one bdd, node.M, node.N) :: acc
         | RegexNodeKind.Empty -> acc
         | RegexNodeKind.PositiveLookaround ->
             let inner = n.mkConcat (convertChildren node)

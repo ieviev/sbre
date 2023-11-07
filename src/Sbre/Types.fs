@@ -135,7 +135,7 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
         | Loop(info = info) -> info.IsAlwaysNullable
         | And(info = info) -> info.IsAlwaysNullable
         | Not(info = info) -> info.IsAlwaysNullable
-        | LookAround _ -> true
+        | LookAround _ -> false
         | Concat(info = info) -> info.IsAlwaysNullable
         | Epsilon -> false
 
@@ -150,6 +150,17 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
         | Concat(info = info) -> info.ContainsEpsilon
         | Epsilon -> false
 
+
+    member inline this.CanBeNullable =
+        match this with
+        | Or(info = info) -> (info.CanBeNullable)
+        | Singleton _ -> false
+        | Loop(info = info) -> (info.CanBeNullable)
+        | And(info = info) -> (info.CanBeNullable)
+        | Not(info = info) -> (info.CanBeNullable)
+        | LookAround _ -> true
+        | Concat(info = info) -> (info.CanBeNullable)
+        | Epsilon -> true
     member inline this.CanNotBeNullable =
         match this with
         | Or(info = info) -> not (info.CanBeNullable)
@@ -372,7 +383,10 @@ type ToplevelORCollection() =
             | x,y when refEq x y -> () // identical
                 // failwith "identical"
             // important optimization
-            | And(nodes1, _), And(nodes2, _) when nodes2.IsSupersetOf(nodes1) -> ()
+            | And(nodes1, _), And(nodes2, _)  ->
+                if nodes2.IsSupersetOf(nodes1) then () else
+                    createNode()
+
             // | Or(nodes1, _), Or(nodes2, _) when nodes2.IsSupersetOf(nodes1) || nodes1.IsSupersetOf(nodes2) ->
             //     failwith "fdsf"
             // TODO: equivalent for Or
@@ -431,10 +445,6 @@ type ToplevelORCollection() =
             if hasBeenNullable > -1 then
                 minBranch <- min (span[i]) minBranch
 
-        // let mutable e = startPositionArray.AsSpan().Slice(0,_count)
-        // while e.MoveNext() = true && canskip do
-        //     canskip <- e.Current.CanSkip
-        // canskip
         currBranch = minBranch
 
 
@@ -442,7 +452,9 @@ type ToplevelORCollection() =
     member this.Reset() = _count <- 0
 
     member this.Count = _count
-    member this.Items = nodeArray.AsSpan().Slice(0,_count)
+
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    member this.Items() = nodeArray.AsSpan().Slice(0,_count)
     // member this.Nullabilities = lastNullableArray.AsSpan().Slice(0,_count)
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
@@ -516,6 +528,7 @@ module Common =
         //     forall <- f e.Current
         // forall
         coll |> Seq.forall f
+
 
 
 

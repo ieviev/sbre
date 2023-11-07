@@ -7,6 +7,7 @@ let fullInput =
     __SOURCE_DIRECTORY__ + "/data/input-text.txt" |> System.IO.File.ReadAllText
 
 let shortInput20k = fullInput[..19999]
+let shortInput100k = fullInput[..99_999]
 let shortInput10k = fullInput[..9999]
 
 
@@ -125,15 +126,24 @@ let patterns = [
     //     @"\s(\w*a\w*&\w*b\w*&\w*c\w*&\w*d\w*)\s"
     // ]
 
-    Permutations.permuteConjInParagraph ["Huck"; ] // 13.3
+    // Permutations.permuteConjInParagraph ["Huck"; ] // 13.3
+
     // ---------
     // @"~(⊤*\n\n⊤*)&⊤*ing&occ⊤*"
     // @"occ~(⊤*\n\n⊤*)ing"
 
+    // @"\w* \d" // 22ms
+    // @"lethargy.*air" // 22ms
+    // @"~(⊤*\n\n⊤*)" // 12ms
+
+    // "⊤*have⊤*&⊤*there⊤*&⊤*other⊤*&.*" // 600ms
+    "⊤*have⊤*&⊤*there⊤*&⊤*other⊤*&.*" // 600ms
 ]
 
 type DebugSbre() =
+    // inherit Jobs.SbreDebugSearch(patterns, shortInput100k)
     inherit Jobs.SbreDebugSearch(patterns, fullInput)
+    // inherit Jobs.SbreDebugSearch(patterns, fullInput)
 
 
 let common4 = ["the";"and";"of";"that"]

@@ -6,11 +6,11 @@
 
 open System
 open System.Threading
-open Sbre
 open FSharp.Data
 open System.Text.RuntimeRegexCopy
 open System.Globalization
 open System.Text.RegularExpressions
+open Sbre
 
 Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
 
@@ -26,11 +26,10 @@ let viewn n (results: MatchPosition array) =
     stdout.WriteLine $"Total: {results.Length}"
 
     results
+    |> Seq.truncate n
     |> Seq.iteri (fun idx lens ->
         stdout.WriteLine longSample[lens.Index .. lens.Index + lens.Length]
     )
-
-
 
 
 // with
@@ -39,6 +38,19 @@ let viewn n (results: MatchPosition array) =
 // let pats = @"occ~(⊤*\n\n⊤*)ing" // 844
 
 let ts = "⊤*"
+
+let pat= "⊤*have⊤*&⊤*there⊤*&⊤*other⊤*&.*"
+let fast =
+    
+    pat
+    // Sbre.Regex(@"\w+ \d")
+    |> Sbre.Regex
+    // |> (fun v -> v.MatchPositions(longSample))
+    // |> (fun v -> v.MatchPositions(longSample))
+    |> (fun v -> v.CountMatches(longSample))
+    // |> Seq.toArray
+    // |> viewn 1
+
 
 // let pats =
 //     // String.concat "&" [ @"[a-zA-Z]*"; $@".*b.*b.*"; $@".*i.*i.*"; $@".*e.*e.*"; $@"~({ts}x{ts})" ]
@@ -56,27 +68,39 @@ let ts = "⊤*"
 //         $@"~({ts}\n\n{ts})"
 //     ]
 
-let conj_line(words: string list) =
-    words
-    |> List.map (fun v -> $"{ts}{v}{ts}")
-    |> String.concat "&"
-    |> (fun v -> v + "&.*")
+// let conj_line(words: string list) =
+//     words
+//     |> List.map (fun v -> $"{ts}{v}{ts}")
+//     |> String.concat "&"
+//     |> (fun v -> v + "&.*")
 
 
-let pattern = conj_line [ "have"; "there"; "other" ] // "nature" "referred";
+// let pattern = conj_line [ "have"; "there"; "other" ] // "nature" "referred";
+
+// let pats =
+//     String.concat "&" [
+//         $@"whispered~({ts}\n\n{ts})without~({ts}\n\n{ts})invention" 
+//     ]   
 
 
-let pats =
-    String.concat "&" [
-        $@"whispered~({ts}\n\n{ts})without~({ts}\n\n{ts})invention" 
-    ]   
 
 let res =
-    pats
-    |> Matcher
-    |> (fun v -> v.MatchPositions(longSample))
+    // @"~(⊤\n\n⊤*)"
+    pat
+    // Sbre.Regex(@"\w+ \d")
+    |> Sbre.Regex
+    // |> (fun v -> v.MatchPositions(longSample))
+    |> (fun v -> v.MatchPositions(shortSample))
     |> Seq.toArray
-    |> viewn 0
+    // |> viewn 1
+
+
+// res.Length
+res // 47165
+    |> Seq.where (fun v -> v.Length <> 0 )
+    |> Seq.length
+
+viewn 6 res
 
 // let res =
 //     // |> Sbre.Benchmarks.Jobs.Permutations.permuteConjInParagraph

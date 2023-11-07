@@ -6,7 +6,7 @@ open Sbre.Pat
 open Sbre.Types
 open Sbre.Info
 
-module Cache =
+module internal Cache =
 
     // --> cache patterns
     [<return: Struct>]

@@ -17,8 +17,8 @@ type implOpts = MethodImplOptions
 
 
 [<Sealed>]
-// type RegexCache< ^t when ^t: struct and ^t :> IEquatable< ^t > and ^t: equality>
-type RegexCache<'gh>
+type RegexCache< ^t when ^t: struct and ^t :> IEquatable< ^t > and ^t: equality>
+// type RegexCache<'tset>
     (
         _solver: ISolver<uint64>,
         _charsetSolver: CharSetSolver,
@@ -43,6 +43,7 @@ type RegexCache<'gh>
     let mutable _cachedStartsets: Dictionary<uint64, char[]> = Dictionary()
     let mutable _toplevelOr: ToplevelORCollection = new ToplevelORCollection()
     let mutable _startsetPredicate = Startset.inferStartset _solver _rawPattern
+
 
 #if DEBUG
     let mintermsPretty =
@@ -110,7 +111,6 @@ type RegexCache<'gh>
             if sharedIndex = -1 then
                 ValueNone
             else
-                // let _ = Location.create loc.Input (sharedIndex + 1)
                 ValueSome(sharedIndex + 1)
 
     member this.TryNextStartsetLocation2(loc: Location, set: _, set2: _) =

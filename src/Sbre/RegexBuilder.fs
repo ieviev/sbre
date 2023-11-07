@@ -140,6 +140,7 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
 
     let _andCacheComparer =
         { new IEqualityComparer<RegexNode<'t>[]> with
+            [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
             member this.Equals(xs, ys) =
                 xs.Length = ys.Length && Array.forall2 refEq xs ys
 
@@ -150,22 +151,27 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
 
     let _orCacheComparer =
         { new IEqualityComparer<RegexNode< ^t >[]> with
+            [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
             member this.Equals(xs, ys) =
                 xs.Length = ys.Length && Array.forall2 refEq xs ys
-
+            [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
             member this.GetHashCode(x) = Enumerator.sharedHashArray x
         }
 
 
     let _refComparer =
         { new IEqualityComparer<RegexNode< ^t >> with
+            [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
             member this.Equals(xs, ys) = refEq xs ys
+            [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
             member this.GetHashCode(x) = LanguagePrimitives.PhysicalHash x
         }
 
     let _u64refComparer =
         { new IEqualityComparer<RegexNode<uint64>> with
+            [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
             member this.Equals(xs, ys) = refEq xs ys
+            [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
             member this.GetHashCode(x) = LanguagePrimitives.PhysicalHash x
         }
 
@@ -181,6 +187,23 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
         Dictionary(getDerivativeCacheComparer ())
 
     let _startset2Cache: Dictionary<RegexNode<uint64>, uint64> = Dictionary(_u64refComparer)
+
+
+    let _subsumptionCacheComparer =
+        { new IEqualityComparer<struct(RegexNode<uint64>*RegexNode<uint64>)> with
+            [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+            member this.Equals(struct(x1,y1), struct(x2,y2)) =
+                let r1 = refEq x1 x2
+                let r2  = refEq y1 y2
+                r1 && r2
+            [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+            member this.GetHashCode(struct(x,y)) =
+                LanguagePrimitives.PhysicalHash x ^^^ LanguagePrimitives.PhysicalHash y
+        }
+
+    let _andSubsumptionCache: Dictionary<struct(RegexNode<uint64>*RegexNode<uint64>), bool> =
+        Dictionary(_subsumptionCacheComparer)
+
 
     let _regexInfoCache: Dictionary<struct (RegexNodeFlags * ^t), RegexNodeInfo< ^t >> =
         Dictionary()
@@ -367,6 +390,7 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
 
     member this.DerivativeCache = _derivativeCache
     member this.Startset2Cache = _startset2Cache
+    member this.AndSubsumptionCache = _andSubsumptionCache
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.GetSs2Cached(node: RegexNode<uint64>) =
@@ -710,7 +734,102 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
                 _orCache.Add(key, v)
                 v
 
+    member this.DerivativeSet = HashSet(_refComparer)
 
+    member this.mkOrEnumerator(
+        e: byref<Collections.Immutable.ImmutableHashSet<RegexNode<'t>>.Enumerator>,
+        mkDer: (RegexNode<'t> -> RegexNode<'t>)
+
+        ) : RegexNode< _ > =
+
+        let mutable enumerating = true
+        let mutable status = MkOrFlags.None
+        let mutable zeroloops = 0
+        let mutable singletonLoops = 0
+
+        this.DerivativeSet.Clear()
+        let derivatives = this.DerivativeSet
+
+        while e.MoveNext() && enumerating do
+            // let deriv = e.Current
+            let deriv = mkDer e.Current
+
+            let rec handleNode (deriv:RegexNode<'t>) =
+                match deriv with
+                | _ when obj.ReferenceEquals(deriv, _uniques._false) -> ()
+                | _ when obj.ReferenceEquals(deriv, _uniques._trueStar) ->
+                    enumerating <- false
+                    status <- MkOrFlags.IsTrueStar
+                | Or(nodes, _) -> nodes |> Seq.iter handleNode
+                | Concat(head=Loop(low=0;up=upper)) when upper <> Int32.MaxValue ->
+                    zeroloops <- zeroloops + 1
+                    derivatives.Add(deriv) |> ignore
+                | Loop(node=Singleton body; low=0; up = Int32.MaxValue) ->
+                    singletonLoops <- singletonLoops + 1
+                    derivatives.Add(deriv) |> ignore
+                // todo: eat epsilon
+                | Epsilon ->
+                    status <- status ||| MkOrFlags.ContainsEpsilon
+                | _ -> derivatives.Add(deriv) |> ignore
+
+            handleNode deriv
+
+        match status with
+        | MkOrFlags.IsTrueStar -> _uniques._trueStar
+        // | _ when derivatives.Count = 1 -> derivatives |> Seq.head
+        | _ ->
+
+        if zeroloops > 1 then
+            // remove loop duplicates
+            // C{0,9}D  | C{0,8}D = C{0,9}D
+            derivatives
+            |> Seq.choose (fun v ->
+                match v with
+                | Concat(head=Loop(low=0;up=upper;node=body);tail=tail) when upper < Int32.MaxValue ->
+                    Some(struct(body,tail),upper,v)
+                | _ -> None
+            )
+            |> Seq.groupBy (fun (uniq,upper,v) -> uniq )
+            |> Seq.iter (fun (uniq,nodes) ->
+                nodes
+                |> Seq.sortByDescending (fun (body,upper,v) -> upper )
+                |> Seq.skip 1
+                |> Seq.iter (fun (body,upper,v) -> derivatives.Remove(v) |> ignore )
+            )
+        // add epsilon only if no nullables yet
+        if (status &&& MkOrFlags.ContainsEpsilon) <> MkOrFlags.None then
+            if derivatives.Any(fun v -> v.IsAlwaysNullable) then ()
+            else derivatives.Add(Epsilon) |> ignore
+
+        let nodeSet =
+            derivatives
+            |> this.trySubsumeOr
+            |> Seq.toArray
+        Array.sortInPlaceBy LanguagePrimitives.PhysicalHash nodeSet
+
+        if nodeSet.Length = 0 then
+            _uniques._false
+        else
+            let createNode(nodes: RegexNode< ^t >[]) =
+                match nodes with
+                | _ when nodes.Length = 0 -> _uniques._false
+                | _ when nodes.Length = 1 -> (head nodes)
+                | twoormore ->
+                    let flags = Flags.inferOr twoormore
+
+                    let startset = twoormore |> Startset.inferMergeStartset solver
+
+                    let mergedInfo = { Flags = flags; Startset = startset }
+                    RegexNode.Or(ofSeq twoormore, mergedInfo)
+
+            let key = nodeSet
+
+            match _orCache.TryGetValue(key) with
+            | true, v -> v
+            | _ ->
+                let v = createNode key
+                _orCache.Add(key, v)
+                v
 
     member this.mkNot(inner: RegexNode< ^t >) =
 

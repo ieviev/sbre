@@ -8,7 +8,7 @@ open System.IO
 open System.Text.RuntimeRegexCopy
 open Sbre
 open Sbre.Pat
-open Sbre.Regex
+open Sbre.Algorithm
 open Sbre.Test
 open Sbre.Types
 open Sbre.Test._04_DerivativeTests
@@ -95,7 +95,7 @@ when an unknown versions of Lorem Ipsum."""
 
     let passwordRegex = @".{6,12}&.*[A-Z].*&.*[a-z].*&.*[0-1].*"
     // // let input = "4."
-    let matcher = Matcher(passwordRegex)
+    let matcher = Regex(passwordRegex)
     let result = matcher.FindMatchEnd(inputText)
     let a = 1
 

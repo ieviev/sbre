@@ -1,10 +1,12 @@
-module Sbre.Info
+module internal Sbre.Info
 
 open System
 open System.Runtime.CompilerServices
 open System.Text.RuntimeRegexCopy.Symbolic
 open Sbre.Types
 open Pat
+
+
 
 
 type Flag = RegexNodeFlags
@@ -225,7 +227,11 @@ module rec Startset =
                     _solver.Or(_solver.Not(loop.Startset), tail.Startset)
                 | _ -> concatTail2.Startset
             else
-                if concatTail2.CanNotBeNullable then concatTail2.Startset else
+                if concatTail2.CanNotBeNullable then
+                    // .*air -> .* only has 1 char startset
+                    _solver.Full
+
+                else
                 if concatTail2.IsAlwaysNullable then // negation startset inference test
                     _solver.Or(inferStartset2 _solver concatTail2, concatTail2.Startset)
                 else
@@ -273,9 +279,15 @@ module rec Startset =
         | And(xs, info) ->
             use mutable e = xs.GetEnumerator()
             Solver.mergeOrWithEnumerator _solver (inferStartset2 _solver) &e
+            // Solver.mergeNonFullWithEnumerator _solver (inferStartset2 _solver) &e
 
+        // todo: correct?
+        // | Loop(low=0; up=Int32.MaxValue) -> _solver.Empty
         // TODO: how to optimize (a|ab)*
-        | Loop(_) | Epsilon | Singleton _ -> _solver.Full
+
+        | Loop(_)
+        | Epsilon
+        | Singleton _ -> _solver.Full
 
 
 
@@ -469,3 +481,30 @@ let convertLoop
     ) : RegexNodeInfo<'t> =
     let startset = Startset.inferStartset solver xs
     { Flags = info.Flags; Startset = startset; }
+
+
+[<AutoOpen>]
+module Node =
+    let inline isAlwaysNullable (node:RegexNode<'t>) =
+        match node with
+        | Or(info = info) -> info.IsAlwaysNullable
+        | Singleton _ -> false
+        | Loop(info = info) -> info.IsAlwaysNullable
+        | And(info = info) -> info.IsAlwaysNullable
+        | Not(info = info) -> info.IsAlwaysNullable
+        | LookAround _ -> false
+        | Concat(info = info) -> info.IsAlwaysNullable
+        | Epsilon -> false
+
+    let inline canBeNullable (node:RegexNode<'t>) =
+        match node with
+        | Or(info = info) -> info.CanBeNullable
+        | Singleton _ -> false
+        | Loop(info = info) -> info.CanBeNullable
+        | And(info = info) -> info.CanBeNullable
+        | Not(info = info) -> info.CanBeNullable
+        | LookAround _ -> true
+        | Concat(info = info) -> info.CanBeNullable
+        | Epsilon -> true
+
+

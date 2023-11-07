@@ -109,11 +109,12 @@ type Basic2() =
             // "(?=(.*[Ee]){2})(?=(.*[Ii]){2})(?=.*nn)(?=.*F.*F)(?!.*x).*",
             // ".*&⊤*nn⊤*&⊤*[Ii]⊤*[Ii]⊤*&⊤*[Ee]⊤*[Ee]⊤*&⊤*F⊤*F⊤*&~(⊤*x⊤*)",
             // 2w
-            "(?=.*have)(?=.*[a-z]*ing).*",
-            // ".*have.*there.*other.*|.*there.*have.*other.*|.*there.*other.*have.*|.*have.*other.*there.*|.*other.*have.*there.*|.*other.*there.*have.*",
-            "⊤*have⊤*&⊤*there⊤*&.*",
-            // ".*have.*&.*there.*",
+            // "(?=.*have)(?=.*[a-z]*ing).*",
+            ".*have.*there.*other.*|.*there.*have.*other.*|.*there.*other.*have.*|.*have.*other.*there.*|.*other.*have.*there.*|.*other.*there.*have.*",
             // "⊤*have⊤*&⊤*there⊤*&⊤*other⊤*&.*",
+            // ".*have.*there.*other.*|.*there.*have.*other.*|.*there.*other.*have.*|.*have.*other.*there.*|.*other.*have.*there.*|.*other.*there.*have.*"
+            // ".*have.*&.*there.*",
+            "⊤*have⊤*&⊤*there⊤*&⊤*other⊤*&.*",
             // ".*have.*there.*other.*|.*there.*have.*other.*|.*there.*other.*have.*|.*have.*other.*there.*|.*other.*have.*there.*|.*other.*there.*have.*",
             //
             fullInput
@@ -121,10 +122,12 @@ type Basic2() =
             // (?<=e)b.*asd
         )
 
+let str = @"lethargy.*air"
+
 type Basic3() =
     inherit
         Jobs.TestAllBasic(
-            @"Tom.{10,25}river|river.{10,25}Tom",
-            @"Tom.{10,25}river|river.{10,25}Tom",
+            str,
+            str,
             fullInput
         )

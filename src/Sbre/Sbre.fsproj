@@ -3,6 +3,7 @@
   <PropertyGroup>
     <TargetFramework>net7.0</TargetFramework>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
     <Tailcalls>true</Tailcalls>
     <OutputType>Library</OutputType>
     <NoWarn>9</NoWarn>
@@ -34,19 +35,25 @@
     <Compile Include="RegexNodeConverter.fs" />
     <Compile Include="Minterms.fs" />
     <Compile Include="Optimizations.fs" />
+    <Compile Include="Algorithm.fs" />
     <Compile Include="Regex.fs" />
-    <Compile Include="Matcher.fs" />
   </ItemGroup>
   <ItemGroup>
     <!-- Stdlib -->
     <!--      <DefaultReferenceExclusion Include="System.Text.RegularExpressions" />-->
-    <ProjectReference Include="..\RuntimeRegexCopy\RuntimeRegexCopy.csproj" />
+    <!-- <ProjectReference Include="..\RuntimeRegexCopy\RuntimeRegexCopy.csproj" /> -->
+     <ProjectReference Include="..\RuntimeRegexCopy\RuntimeRegexCopy.csproj" /> 
+  </ItemGroup>
+  <ItemGroup>
+<!--    <Reference Include="RuntimeRegexCopy">-->
+<!--      <HintPath>/home/ian/f/ieviev/sbre/src/RuntimeRegexCopy/bin/Release/net7.0/RuntimeRegexCopy.dll</HintPath>-->
+<!--    </Reference>-->
   </ItemGroup>
   <PropertyGroup>
     <PackageOutputPath>./nupkg</PackageOutputPath>
     <Authors>ieviev</Authors>
     <Title>$(ProjectName)</Title>
-    <Version>0.0.4</Version>
+    <Version>0.0.9</Version>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="FSharp.Data.Adaptive" Version="1.2.14" />

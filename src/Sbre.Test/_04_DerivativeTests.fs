@@ -4,12 +4,12 @@ module Sbre.Test._04_DerivativeTests
 #if DEBUG
 
 open Sbre
-open Sbre.Regex
+open Sbre.Algorithm
 open Sbre.Pat
 open Sbre.Types
 open Xunit
 
-let getDerivative(matcher: Matcher, input: string) =
+let getDerivative(matcher: Regex, input: string) =
     let cache = matcher.Cache
     let node = matcher.RawPattern
     let location = (Location.create input 0)
@@ -19,9 +19,9 @@ let getDerivative(matcher: Matcher, input: string) =
 
 
 let testFullDerivative(pattern: string, input: string, expectedDerivative: string) =
-    let matcher = Matcher(pattern)
+    let matcher = Regex(pattern)
     let cache = matcher.Cache
-    let node = matcher.DotStarredPattern
+    let node = matcher.ImplicitPattern
     let location = (Location.create input 0)
 
     let result =
@@ -32,9 +32,9 @@ let testFullDerivative(pattern: string, input: string, expectedDerivative: strin
 
 
 let testFullDerivativeMultiple(pattern: string, input: string, expectedDerivatives: string list) =
-    let matcher = Matcher(pattern)
+    let matcher = Regex(pattern)
     let cache = matcher.Cache
-    let node = matcher.DotStarredPattern
+    let node = matcher.ImplicitPattern
     let location = (Location.create input 0)
 
     let result =
@@ -45,9 +45,9 @@ let testFullDerivativeMultiple(pattern: string, input: string, expectedDerivativ
 
 
 let test2ndDerivative(pattern: string, input: string, expectedDerivative: string) =
-    let matcher = Matcher(pattern)
+    let matcher = Regex(pattern)
     let cache = matcher.Cache
-    let node = matcher.DotStarredPattern
+    let node = matcher.ImplicitPattern
     let location = (Location.create input 0)
     let location1 = (Location.create input 1)
 
@@ -62,9 +62,9 @@ let test2ndDerivative(pattern: string, input: string, expectedDerivative: string
 
 
 let test2ndDerivatives(pattern: string, input: string, expectedDerivatives: string list) =
-    let matcher = Matcher(pattern)
+    let matcher = Regex(pattern)
     let cache = matcher.Cache
-    let node = matcher.DotStarredPattern
+    let node = matcher.ImplicitPattern
     let location = (Location.create input 0)
     let location1 = (Location.create input 1)
 
@@ -82,7 +82,7 @@ let test2ndDerivatives(pattern: string, input: string, expectedDerivatives: stri
 
 
 let testRawDerivative(pattern: string, input: string, expectedDerivative: string) =
-    let matcher = Matcher(pattern)
+    let matcher = Regex(pattern)
     let cache = matcher.Cache
     let node = matcher.RawPattern
     let location = (Location.create input 0)
@@ -97,7 +97,7 @@ let testRawDerivative(pattern: string, input: string, expectedDerivative: string
 
 
 let testPartDerivative(pattern: string, input: string, expectedDerivative: string) =
-    let matcher = Matcher(pattern)
+    let matcher = Regex(pattern)
     let cache = matcher.Cache
     let node = matcher.RawPattern
     let location = (Location.create input 0)
@@ -109,7 +109,7 @@ let testPartDerivative(pattern: string, input: string, expectedDerivative: strin
 
 
 let testPartDerivatives(pattern: string, input: string, expectedDerivatives: string list) =
-    let matcher = Matcher(pattern)
+    let matcher = Regex(pattern)
     let cache = matcher.Cache
     let node = matcher.RawPattern
     let location = (Location.create input 0)
@@ -130,7 +130,7 @@ let testPartDerivativeFromLocation
         expectedDerivative: string
     )
     =
-    let matcher = Matcher(pattern)
+    let matcher = Regex(pattern)
     let cache = matcher.Cache
     let node = matcher.RawPattern
     let location = (Location.create input position)
@@ -150,7 +150,7 @@ let testPartDerivativeFromLocationMultiple
         expectedDerivatives: string list
     )
     =
-    let matcher = Matcher(pattern)
+    let matcher = Regex(pattern)
     let cache = matcher.Cache
     let node = matcher.RawPattern
     let location = (Location.create input position)
@@ -168,7 +168,7 @@ let testPartDerivativesLoc
         expectedDerivatives: string list
     )
     =
-    let matcher = Matcher(pattern)
+    let matcher = Regex(pattern)
     let cache = matcher.Cache
     let node = matcher.RawPattern
     let location = loc
@@ -184,7 +184,7 @@ let testPartDerivativesLoc
 let ``concat derivative nullability``() =
     let pattern = @"(?=.*A)(?=.*a)(?=.*1).{2,2}"
     let location = Pat.Location.create "1aA" 0
-    let matcher = Matcher(pattern)
+    let matcher = Regex(pattern)
     let cache = matcher.Cache
     let node = matcher.ReversePattern
 
@@ -394,35 +394,42 @@ let ``derivative eats node from set``() =
 [<Fact>]
 let ``matchend test 1``() =
     // let matcher = Matcher(@".*(?=.*-)&\S.*\S")
-    let matcher = Matcher(@".*(?=-)")
+    let matcher = Regex(@".*(?=-)")
     let result2 = matcher.FindMatchEnd(@"aa-")
     Assert.Equal(ValueSome 2, result2)
 
 [<Fact>]
 let ``matchend test 2``() =
-    let matcher = Matcher(@".*(?=.*-)&\S.*\S")
+    let matcher = Regex(@".*(?=.*-)&\S.*\S")
     let result2 = matcher.FindMatchEnd(@"-aaaa-")
     Assert.Equal(ValueSome 5, result2)
 
 
 [<Fact>]
 let ``matchend test 3.1``() =
-    let matcher = Matcher(@".*b")
+    let matcher = Regex(@".*b")
     let ism = matcher.FindMatchEnd(" aaab ")
     Assert.Equal(ValueSome 5, ism)
 
 
 [<Fact>]
 let ``matchend test 3``() =
-    let matcher = Matcher(@".*b|a")
+    let matcher = Regex(@".*b|a")
     let ism = matcher.FindMatchEnd(" aaab ")
     Assert.Equal(ValueSome 5, ism)
 
 [<Fact>]
 let ``matchend test 4``() =
-    let matcher = Matcher(@"a+")
+    let matcher = Regex(@"a+")
     let ism = matcher.FindMatchEnd(" aaa ")
     Assert.Equal(ValueSome 4, ism)
+
+
+[<Fact>]
+let ``matchend test 5``() =
+    let matcher = Regex(@".*(?=.*E)&~(.*and.*)")
+    let ism = matcher.FindMatchEnd(@"and__E")
+    Assert.Equal(ValueSome 2, ism)
 
 
 

@@ -11,10 +11,8 @@ open BenchmarkDotNet.Loggers
 open BenchmarkDotNet.Running
 open Sbre
 open Sbre.Benchmarks
-open Sbre.Benchmarks.FullMtwain
 open Sbre.Benchmarks.Jobs
-open Sbre.Benchmarks.LongParagraph
-open Sbre.Regex
+open Sbre.Algorithm
 
 module private Helpers =
     // let sample_mariomka = __SOURCE_DIRECTORY__ + "/data/mariomka-benchmark.txt" |> File.ReadAllText
@@ -39,7 +37,7 @@ let dbgSample() =
     let shortSample = Helpers.sample_inputText
 
     let matcher =
-        Matcher(Permutations.permuteConjInParagraph [ "c([a-z]*)ion";])
+        Regex(Permutations.permuteConjInParagraph [ "c([a-z]*)ion";])
 
     for i = 0 to 0 do
         // matcher.CountMatches(sample_inputText) |> ignore
@@ -70,20 +68,8 @@ let main argv =
 #if DEBUG
     dbgSbre()
 #endif
+    // dbgSbre()
 
-
-    if Environment.GetCommandLineArgs() |> Seq.last = "test" then
-        let t = FullMtwain_3()
-        t.SBRE() |> ignore
-
-    if Environment.GetCommandLineArgs() |> Seq.last = "pg" then
-        // let r = BenchmarkRunner.Run(typeof<LongParagraph9000_3>)
-        let r = BenchmarkRunner.Run(typeof<LongParagraph9000_3>)
-        ()
-
-    if Environment.GetCommandLineArgs() |> Seq.last = "full" then
-        let r = BenchmarkRunner.Run(typeof<FullMtwain_3>)
-        ()
 
     match Environment.GetCommandLineArgs() |> Seq.last with
     | "outer-none" -> BenchmarkRunner.Run(typeof<ParagraphOuter.None1>,config) |> ignore
@@ -123,6 +109,7 @@ let main argv =
     | "paper-inner-1" -> BenchmarkRunner.Run(typeof<Paper.ParagraphInnerMatch1>,config) |> ignore
     | "paper-basic-1" -> BenchmarkRunner.Run(typeof<Paper.Basic1>,config) |> ignore
     | "paper-basic-2" -> BenchmarkRunner.Run(typeof<Paper.Basic2>,config) |> ignore
+    | "paper-basic-3" -> BenchmarkRunner.Run(typeof<Paper.Basic3>,config) |> ignore
 
     | _ ->
         ()

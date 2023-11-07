@@ -1,608 +1,357 @@
-module rec Sbre.Regex
+namespace Sbre
 
 open System
-open FSharpx.Collections
-open Sbre.Info
-open Sbre.Optimizations
-open Sbre.Pat
+open System.Globalization
+open System.Text.RuntimeRegexCopy.Symbolic
+open System.Text.RuntimeRegexCopy
+open Sbre.Algorithm
 open Sbre.Types
-open Sbre.Cache
+open Sbre.Pat
 
-module P = Sbre.Pat
-module C = Sbre.Cache
+[<Struct>]
+type MatchResult = {
+    Success: bool
+    Value: string
+    StartIndex: int
+    Length: int
+}
 
-module RegexNode =
+[<Struct>]
+type MatchPositionResult = {
+    Success: bool
+    StartIndex: int
+    Length: int
+}
+
+[<CLIMutable>]
+[<Struct>]
+type MatchPosition = { Index: int; Length: int }
+
+[<Sealed>]
+type Regex(pattern: string, ?warnUnoptimized:bool) =
+
+    // experimental parser!
+    let pattern = pattern.Replace("⊤", @"[\s\S]")
+
+    let regexTree =
+        ExtendedRegexParser.Parse(
+            pattern,
+            RegexOptions.ExplicitCapture ||| RegexOptions.NonBacktracking,
+            CultureInfo.InvariantCulture
+        )
+
+    let charsetSolver = System.Text.RuntimeRegexCopy.Symbolic.CharSetSolver()
+
+    // builder from .net runtime
+    let bddBuilder = SymbolicRegexBuilder<BDD>(charsetSolver, charsetSolver)
+
+    let converter = RegexNodeConverter(bddBuilder, null)
+
+    // builder from this library
+    let bddBuilder2 = RegexBuilder(converter, charsetSolver, charsetSolver)
+
+    let symbolicBddnode: RegexNode<BDD> =
+        RegexNodeConverter.convertToSymbolicRegexNode (
+            charsetSolver,
+            bddBuilder,
+            bddBuilder2,
+            regexTree.Root
+        )
+    let implicitTrueStar = bddBuilder2.trueStar
+
+    let trueStarPattern: RegexNode<BDD> =
+        match symbolicBddnode with
+        | Concat(head, tail, info) -> Concat(implicitTrueStar, Concat(head, tail, info), info)
+        | Singleton pred as node ->
+            Concat(implicitTrueStar, node, Info.defaultInfo charsetSolver)
+        | And(xs, info) as node -> Concat(implicitTrueStar, node, info)
+        | Or(xs, info) as node -> Concat(implicitTrueStar, node, info)
+        | Loop(xs, low, up, info) as node -> Concat(implicitTrueStar, node, info)
+        | LookAround(xs, low, up) as node ->
+            Concat(implicitTrueStar, node, Info.defaultInfo charsetSolver)
+        | Epsilon -> implicitTrueStar
+        | Not(xs, info) as node ->
+            let negflags = Info.Flags.inferNode xs
+            Concat(implicitTrueStar, node, bddBuilder2.CreateInfo(negflags, charsetSolver.Full))
+
+    let minterms = trueStarPattern |> Minterms.compute bddBuilder
+
+    let solver = UInt64Solver(minterms, charsetSolver)
+
+    let uintbuilder = RegexBuilder(converter, solver, charsetSolver)
 
 #if DEBUG
-    let display(node: RegexNode<'tset>) = node.ToStringHelper()
+    do debuggerSolver <- Some solver
 #endif
+    let trueStarredUint64Node: RegexNode<uint64> =
+        (Minterms.transform uintbuilder charsetSolver solver) trueStarPattern
 
-    // 3.6 Reversal
-
-    //  (R·S)r = Sr·Rr
-    let rec rev (cache: RegexCache<uint64>) (node: RegexNode<_>) =
-        match node with
-        // ψr = ψ
-        | Singleton _ -> node
-        // // (R|S)r = Rr|Sr
-        | Or(xs, info) ->
-            let xs' = xs |> map (rev cache)
-
-            cache.Builder.mkOr (Seq.toArray xs')
-        // R{m, n, b}r = Rr{m, n, b}
-        | Loop(xs, low, up, info) ->
-            let xs' = (rev cache) xs
-            cache.Builder.mkLoop (xs', low, up)
-        // B: EXTENDED REGEXES
-        // (R & S)r = Rr & S r
-        | And(xs, info) ->
-            let xs' = xs |> map (rev cache)
-
-            cache.Builder.mkAnd (Seq.toArray xs')
-        // (~R)r = ~(Rr)
-        | Not(xs, info) ->
-            let xs' = (rev cache) xs
-            cache.Builder.mkNot xs'
-        // 3.7 Lookarounds
-        // (?=R)r = (?<=Rr)
-        | LookAround(node = node'; lookBack = false; negate = false) ->
-            LookAround((rev cache) node', lookBack = true, negate = false)
-        // (?<=R)r = (?=Rr)
-        | LookAround(node = node'; lookBack = true; negate = false) ->
-            LookAround((rev cache) node', lookBack = false, negate = false)
-        // (?!R)r = (?<!Rr)
-        | LookAround(node = node'; lookBack = false; negate = true) ->
-            LookAround((rev cache) node', lookBack = true, negate = true)
-        // (?<!R)r = (?!Rr)
-        | LookAround(node = node'; lookBack = true; negate = true) ->
-            LookAround((rev cache) node', lookBack = false, negate = true)
-
-        | Concat(head, tail, info) ->
-            let rev_tail =
-                let der = rev cache tail
-                if der = tail then tail else der
-
-            let rev_head =
-                let der = rev cache head
-                if der = head then head else der
-
-            match rev_tail with
-            | Concat(thead, ttail, tinfo) ->
-                let inner = cache.Builder.mkConcat2 (ttail, rev_head)
-                cache.Builder.mkConcat2 (thead, inner)
-            | _ -> cache.Builder.mkConcat2 (rev_tail, rev_head)
-        | Epsilon -> Epsilon
+    let rawUint64Node: RegexNode<uint64> =
+        (Minterms.transform uintbuilder charsetSolver solver) symbolicBddnode
 
 
-    let rec isNullable(cache: RegexCache<uint64>, loc: Location, node: RegexNode<uint64>) : bool =
-        let inline Null node = isNullable (cache, loc, node)
 
-        let recursiveIsMatch (loc:Location) body =
-            let mutable loc1 = (loc)
-            match matchEnd (cache, &loc1, ValueNone, body) with
+    let optimizations = RegexFindOptimizations(regexTree.Root, RegexOptions.NonBacktracking)
+
+    let cache =
+        Sbre.RegexCache(
+            solver,
+            charsetSolver,
+            _implicitDotstarPattern = trueStarredUint64Node,
+            _rawPattern = rawUint64Node,
+            _builder = uintbuilder,
+            _optimizations = optimizations
+        )
+
+    do
+        match warnUnoptimized with
+        | Some true ->
+            if cache.Solver.IsFull(cache.GetInitialStartsetPredicate()) then
+                failwith "the pattern has a startset of ⊤, which may result in extremely long match time. specify the beginning of the pattern more"
+        | _ -> ()
+
+    let reverseUint64Node = RegexNode.rev cache rawUint64Node
+
+    member this.IsMatch(input: string) =
+        let mutable currPos = 0
+
+        let foundStartPos =
+            optimizations.TryFindNextStartingPositionLeftToRight(input, &currPos, currPos)
+        if not foundStartPos then
+            false
+        else
+            let mutable startLocation = Location.create input currPos
+            match RegexNode.matchEnd (cache, &startLocation, ValueNone, trueStarredUint64Node) with
             | ValueNone -> false
             | ValueSome _ -> true
 
-        // 3.2 Nullability and anchor-contexts
-        match node with
-        // Nullx () = true
-        | Epsilon -> true
-        // Nullx (ψ) = false
-        | Singleton _ -> false
-        // Nullx (R) or Nullx (S)
-        | Or(info = CanNotBeNullable) -> false
-        | Or(info = IsAlwaysNullable) -> true
-        | Or(xs, info) -> (if isNull xs then false else exists Null xs)
-        // Nullx (R) and Nullx (S)
-        | And(info = CanNotBeNullable as info) -> false
-        | And(info = IsAlwaysNullable as info) -> true
-        | And(xs, info) -> if isNull xs then true else forall Null xs
-        // Nullx (R{m, n}) = m = 0 or Nullx (R)
-        | Loop(info = CanNotBeNullable as info) -> false
-        | Loop(info = IsAlwaysNullable as info) -> true
-        | Loop(R, low, _, info) -> low = 0 || Null R
-        // not(Nullx (R))
-        | Not(info = CanNotBeNullable as info) -> false
-        | Not(info = IsAlwaysNullable as info) -> true
-        | Not(node, info) -> not (Null node)
-        // Nullx (R) and Nullx (S)
-        | Concat(info = CanNotBeNullable as info) -> false
-        | Concat(info = IsAlwaysNullable as info) -> true
-        | Concat(head, tail, _) -> isNullable (cache, loc, head) && isNullable (cache, loc, tail)
-        // 3.7 Lookarounds
-        | LookAround(body, lookBack, negate) ->
-            match lookBack, negate with
-            | false, false -> recursiveIsMatch loc body // Nullx ((?=R)) = IsMatch(x, R)
-            // Nullx ((?!R)) = not IsMatch(x, R)
-            | false, true ->
-                not (recursiveIsMatch loc body)
+    member internal this.MatchFromLocation(location: byref<Location>) =
+        RegexNode.matchEnd (cache, &location, ValueNone, trueStarredUint64Node)
 
-            | true, false -> // Nullx ((?<=R)) = IsMatch(xr, Rr)
-                let revnode = (RegexNode.rev cache body)
-                let revloc = (Location.rev loc)
-                let ism = recursiveIsMatch revloc revnode
-                ism
-            | true, true -> // Nullx ((?<!R)) = not IsMatch(x r, Rr)
-                let loc_rev = Location.rev loc
-                let R_rev = RegexNode.rev cache body
-                not (recursiveIsMatch loc_rev R_rev)
+    member internal this.FindMatchEnd(input: string) =
+        let mutable currPos = 0
+
+        let foundStartPos =
+            optimizations.TryFindNextStartingPositionLeftToRight(input, &currPos, currPos)
+
+        if not foundStartPos then
+            match rawUint64Node with
+            | Not _ -> // a negation that was not found means its the entire string
+                ValueSome input.Length
+            | _ -> ValueNone
+        else
+
+        let mutable startLocation = Location.create input currPos
+        RegexNode.matchEnd (cache, &startLocation, ValueNone, trueStarredUint64Node)
 
 
-    // max(x,⊥) = max(⊥,x) = x
-    let inline maxPos(x: int voption, y: int voption) =
-        match y with
-        | ValueSome _ -> y
-        | ValueNone -> x
-
-    /// 3.3 Derivatives and MatchEnd: Null(fail)x(R) = if Nullx (R) then x else None
-    let isNullpos(cache: RegexCache<uint64>, loc: Location, node: RegexNode<uint64>) =
-        match isNullable (cache, loc, node) with
-        | true -> ValueSome(loc.Position)
-        | false -> ValueNone
-
-
-    /// uses .NET FindMatchOptimizations to find the next startset
-    let inline jumpNextDotnetLocation(cache: RegexCache<'t>, loc: byref<Location>) : bool =
-        let mutable newPos = loc.Position
+    member this.Match(input: string) : MatchResult =
+        let mutable startPos = 0
 
         let success =
-            cache.Optimizations.TryFindNextStartingPositionLeftToRight(
-                loc.Input.AsSpan(),
-                &newPos,
-                loc.Position
-            )
+            optimizations.TryFindNextStartingPositionLeftToRight(input.AsSpan(), &startPos, 0)
 
-        if success then
-            loc.Position <- newPos
-            true
+        if not success then
+            {
+                Success = false
+                Value = ""
+                StartIndex = 0
+                Length = 0
+            }
         else
-            false
 
-    let enumeratorToSeq (enumerator:System.Collections.IEnumerator) = seq {while enumerator.MoveNext() do enumerator.Current}
+            let mutable startLocation = Location.create input startPos
 
-    // 3.3 Derivatives and MatchEnd: if Final(x) then Nullx (R) else max(Nullx (R), MatchEnd(x+1, Derx (R)))
-    // [<MethodImpl(MethodImplOptions.AggressiveOptimization)>]
-    let matchEnd
-        (
-            cache: RegexCache<uint64>,
-            loc: byref<Location>,
-            initialMax: int voption,
-            initialNode: RegexNode<uint64>
+            match RegexNode.matchEnd (cache, &startLocation, ValueNone, trueStarredUint64Node) with
+            | ValueNone -> {
+                Success = false
+                Value = ""
+                StartIndex = 0
+                Length = 0
+              }
+            | ValueSome endPos ->
+                let mutable reverseLocation = (Location.rev { startLocation with Position = endPos })
+
+                let startPos =
+                    RegexNode.matchEnd (cache, &reverseLocation, ValueNone, reverseUint64Node)
+
+                match startPos with
+                | ValueNone ->
+                    failwith
+                        $"match succeeded left to right but not right to left:\nmatch end: {endPos}\nreverse pattern: {reverseUint64Node}"
+                | ValueSome start ->
+                    {
+                        Success = true
+                        Value = input[start .. endPos - 1]
+                        StartIndex = start
+                        Length = endPos - start
+                    }
+
+
+    member this.Matches(input: string) =
+        this.MatchPositions(input)
+        |> Seq.map (fun result ->
+            {
+                Success = true
+                Value = input[result.Index .. result.Index + result.Length]
+                StartIndex = result.Index
+                Length = result.Length
+            }
         )
-        : int voption
-        =
 
-        let mutable currentMax = initialMax
+    member this.MatchText(input: string) =
+        let mutable startPos = 0
+
+        let success =
+            optimizations.TryFindNextStartingPositionLeftToRight(input.AsSpan(), &startPos, 0)
+
+        if not success then
+            None
+        else
+            let mutable startLocation = Location.create input startPos
+
+            match RegexNode.matchEnd (cache, &startLocation, ValueNone, trueStarredUint64Node) with
+            | ValueNone -> None
+            | ValueSome endPos ->
+                let mutable reverseLocation = (Location.rev { startLocation with Position = endPos })
+
+                let startPos =
+                    RegexNode.matchEnd (cache, &reverseLocation, ValueNone, reverseUint64Node)
+
+                match startPos with
+                | ValueNone ->
+                    failwith
+                        $"match succeeded left to right but not right to left:\nmatch end: {endPos}\nreverse pattern: {reverseUint64Node}"
+                | ValueSome start -> Some(input[start .. endPos - 1])
+
+
+    member this.CountMatches(input: string) =
+        let mutable currPos = 0
+        let mutable location = Location.create input 0
+        let mutable reverseLocation = (Location.rev { location with Position = 0 })
         let mutable looping = true
-        let mutable foundmatch = false
-
-        // initial node
-        let initialIsDotStarred = cache.IsImplicitDotStarred initialNode
-
-        // current active branches, without implicit dotstar node
-        let toplevelOr =
-            // optimize the top matchEnd only for now
-            // if initialIsDotStarred then cache.GetTopLevelOr()
-            // else
-                new ToplevelORCollection()
-
-        let initialWithoutDotstar =
-            if initialIsDotStarred then
-                cache.InitialPatternWithoutDotstar
-            else
-                initialNode
-
-        let startsetPredicate = cache.GetInitialStartsetPredicate()
-
-        if not initialIsDotStarred then
-            let branchNullPos = if isNullable (cache, loc, initialNode) then loc.Position else -1
-            toplevelOr.Add(initialNode, branchNullPos, loc.Position)
-
-        // let inputSpan = loc.Input.AsSpan()
+        let mutable counter = 0
 
         while looping do
-
-            // 3.3 Derivatives and MatchEnd optimizations
-            match Location.isFinal loc || foundmatch with
-            | true ->
-                // check if any null
-                let mutable topSpan = toplevelOr.Items
-                let mutable found = false
-                let mutable hadEpsilon = false
-                let mutable lastNullable = -1
-
-                let frameCount = System.Diagnostics.StackTrace().FrameCount
-                if frameCount < 116 then
-                    ()
-
-
-                for i = (topSpan.Length - 1) downto 0 do
-                    let currLastNullable = toplevelOr.GetLastNullPos(i)
-                    lastNullable <- max lastNullable currLastNullable
-                    let curr = topSpan[i]
-                    if not found then
-                        found <- isNullable(cache,loc,curr)
-
-                    // if e.Current.ContainsEpsilon then
-                    //     hadEpsilon <- true
-                    //     match cache.Builder.purgeEpsilons e.Current with
-                    //     | ValueSome n ->
-                    //         found <- isNullable(cache,loc,n)
-                    //     | _ -> ()
-                    // else
-
-
-                if found then
-                    currentMax <- (ValueSome loc.Position)
-                elif currentMax.IsNone && lastNullable > -1 then
-                    currentMax <- (ValueSome lastNullable)
-
-
-
-
+            let jump =
+                optimizations.TryFindNextStartingPositionLeftToRight(
+                    input.AsSpan(),
+                    &currPos,
+                    currPos
+                )
+            if not jump then
                 looping <- false
-
-            | false ->
-                let locationPredicate = cache.MintermForLocation(loc)
-
-                if initialIsDotStarred then
-                    stdout.WriteLine (loc.DebugDisplay)
-                    for n in toplevelOr.Items do
-                        stdout.WriteLine (n.ToStringHelper())
-#if DIAGNOSTIC
-
-                // match node with
-                // | LookAround(_) -> ()
-                // | _ ->
-                //     let diagMsg =
-                //         [
-                //             loc.DebugDisplay()
-                //             $"{node.ToStringHelper()} -> {result.ToStringHelper()}"
-                //         ]
-                //         |> String.concat "\n"
-                //
-                //     stdout.WriteLine diagMsg
-#endif
-
-
-                // current active branches
-                if toplevelOr.Count > 0 then
-                    let toplevelOrSpan = toplevelOr.Items
-
-                    for i = (toplevelOrSpan.Length - 1) downto 0 do
-                        let curr = toplevelOrSpan[i]
-
-                        let deriv = createDerivative (cache, loc, locationPredicate, curr)
-
-
-
-                        match deriv with
-                        | IsFalse cache ->
-                            if
-                                currentMax.IsSome
-                                && toplevelOr.GetLastNullPos(i) > -1
-                            then
-                                // a pattern successfully matched and turned to false,
-                                // so we can return match
-                                if toplevelOr.IsOldestNullableBranch(i) then
-                                    foundmatch <- true
-                            else
-                                toplevelOr.Remove(i)
-
-                        // else
-                        | _ ->
-                            // if obj.ReferenceEquals(curr, deriv) then
-                            //     // optimization
-                            //     if curr.CanNotBeNullable then ()
-                            //     elif curr.IsAlwaysNullable then
-                            //         toplevelOr.UpdateNullability(i, loc.Position + 1)
-                            //     else
-                            //         if isNullable (cache, loc, deriv) then
-                            //             toplevelOr.UpdateTransition(i, deriv, loc.Position + 1)
-                            //         else
-                            //             // in the case of a negation, we can return match
-                            //             match deriv with
-                            //             | Not _ when toplevelOr.GetLastNullPos(i) > -1 -> foundmatch <- true
-                            //             | And(nodes=nodes) when
-                            //                 nodes |> Seq.exists (function | Not (info=info) when info.CanNotBeNullable -> true | _ -> false) ->
-                            //                 foundmatch <- true
-                            //             | _ -> ()
-                            //             toplevelOr.UpdateTransitionNode(i, deriv)
-                            // else
-
-                                // if deriv.IsAlwaysNullable then
-                                //     toplevelOr.UpdateTransition(i, deriv, loc.Position + 1)
-                                // elif deriv.CanNotBeNullable then
-                                //     toplevelOr.UpdateTransitionNode(i, deriv)
-                                //     if toplevelOr.GetLastNullPos(i) > -1 then
-                                //         failwith $"todo: {deriv.ToStringHelper()}"
-                                //         match deriv with
-                                //         | Not _ -> foundmatch <- true
-                                //         | And(nodes=nodes) when
-                                //             nodes |> Seq.exists (function | Not (info=info) when info.CanNotBeNullable -> true | _ -> false) ->
-                                //             foundmatch <- true
-                                //         | _ -> ()
-                                // else
-                                    if isNullable (cache, loc, deriv) then
-                                        if initialIsDotStarred then
-                                            if toplevelOr.Items.Length > 3 && deriv.ToStringHelper() = "(.*-|ε)" then
-                                                failwith (curr.ToStringHelper())
-                                        toplevelOr.UpdateTransition(i, deriv, loc.Position)
-                                    else
-                                        // in the case of a negation, we can return match
-                                        if toplevelOr.GetLastNullPos(i) > -1 then
-                                            match curr with
-                                            | Not _ -> foundmatch <- true
-                                            | And(nodes=nodes) when
-                                                nodes |> Seq.exists (function | Not (info=info) when info.CanNotBeNullable -> true | _ -> false) ->
-                                                foundmatch <- true
-                                            | _ -> ()
-                                        toplevelOr.UpdateTransitionNode(i, deriv)
-
-
-                // create implicit dotstar derivative only if startset matches
-                if
-                    initialIsDotStarred && Solver.isElemOfSetU64 startsetPredicate locationPredicate
-                then
-                    match createDerivative (cache, loc, locationPredicate, initialWithoutDotstar) with
-                    | IsFalse cache -> ()
-                    | deriv ->
-                        let nullableState = if isNullable (cache, loc, deriv) then loc.Position else -1
-                        toplevelOr.Add(
-                            deriv,
-                            nullableState,
-                            loc.Position)
-
-                // found successful match - exit early
-                if not foundmatch then
-                    let mutable e = toplevelOr.Items.GetEnumerator()
-                    let mutable found = false
-                    let mutable canSkipAll = true
-
-                    // check nullability
-                    loc.Position <- Location.nextPosition loc
-
-                    // let frameCount = System.Diagnostics.StackTrace().FrameCount
-                    // if frameCount < 116 then
-                    //     ()
-
-                    while e.MoveNext() do
-                        found <- found || isNullable(cache,loc,e.Current)
-                        canSkipAll <- canSkipAll && e.Current.CanSkip
-                    if found then
-                        currentMax <- (ValueSome (loc.Position))
-
-                    // won't try to jump further if final
-                    if Location.isFinal loc then () else
-
-                    // try to skip to next valid predicate if not matching
-                    let nextLocationPredicate = cache.MintermForLocation(loc)
-
-                    if toplevelOr.Count = 0 then
-                        if not initialIsDotStarred then
-                            looping <- false
+            else
+                location.Position <- currPos
+                match RegexNode.matchEnd (cache, &location, ValueNone, trueStarredUint64Node) with
+                | ValueNone -> looping <- false
+                | ValueSome(endPos: int) ->
+                    counter <- counter + 1
+                    // continue
+                    if endPos <> input.Length then
+                        if endPos = currPos then
+                            currPos <- currPos + 1
                         else
-                            // jump from initial pattern
-                            // use .net startset lookup, have to be careful about negation here
-                            // if not (jumpNextDotnetLocation(cache, &loc)) then
-                            //     match initialWithoutDotstar with
-                            //     | Not _ | Concat(head=Not _) -> ()
-                            //     | _ -> looping <- false
-                            ()
-                            // use our own startset lookup (not optimized for long strings)
-                            // if not (Solver.isElemOfSetU64 startsetPredicate nextLocationPredicate) then
-                            //     loc.Position <- tryJumpToStartset (cache, &loc, &toplevelOr)
+                            currPos <- endPos
                     else
+                        looping <- false
+
+        counter
 
 
 
-                        // check if current position is nullable or skippable
 
-                        if
-                            canSkipAll &&
-                            not (Solver.isElemOfSetU64 startsetPredicate nextLocationPredicate)
-                        then
-                            // jump mid-regex
-                            loc.Position <- tryJumpToStartset (cache, &loc, &toplevelOr)
+    member this.MatchPositions(input: string) =
+        let mutable currPos = 0
+        let mutable location = Location.create input 0
+        let mutable reverseLocation = (Location.rev { location with Position = 0 })
+        let mutable looping = true
 
-
-        currentMax
-
-
-/// creates derivative without returning initial dot-starred pattern
-let rec createDerivative
-    (
-        c: RegexCache<uint64>,
-        loc: Location,
-        loc_pred: uint64,
-        node: RegexNode<uint64>
-    )
-    : RegexNode<uint64>
-    =
-    let inline Der newNode = createDerivative (c, loc, loc_pred, newNode) //
-
-
-    match c.Builder.DerivativeCache.TryGetValue(struct (loc_pred, node)) with
-    | true, v -> v
-    | _ ->
-
-        //
-        let result =
-            match node with
-            // major optimization
-            // | Cache.ReturnsInitialDerivative c loc loc_pred -> node
-
-            // 3.3: Derx (R) = ⊥ if R ∈ ANC or R = ()
-            | LookAround _
-            | Epsilon -> c.False
-            // ----------------
-
-            // 3.3: Der s⟨i⟩ (ψ) = if si ∈ [[ψ]] then () else ⊥
-            | Singleton pred ->
-                // 16.7.ms
-                // if c.IsValidPredicate(pred, loc_pred) then Epsilon else c.False
-
-                // marginally faster
-                if Solver.isElemOfSetU64 pred loc_pred then Epsilon else c.False
-
-            // 3.3: Derx (R{m, n}) =
-            // if m=0 or Null ∀(R)=true or Nullx (R)=false
-            // then Derx (R)·R{m −1, n −1}
-            // else Derx (R·R{m −1, n −1})
-            | Loop(R, low, up, info) ->
-
-                let inline decr x =
-                    if x = Int32.MaxValue || x = 0 then x else x - 1
-
-
-                let case1 =
-                    low = 0
-                    || info.IsAlwaysNullable = true
-                    || not (RegexNode.isNullable (c, loc, R))
-
-
-                match case1 with
-                | true ->
-                    // Derx (R)·R{m −1, n −1, l}
-                    c.Builder.mkConcat2 (Der R, c.Builder.mkLoop (R, decr low, decr up))
-
-
-                | false ->
-                    // Derx (R·R{m −1, n −1, l})
-                    c.Builder.mkConcat2 (
-                        R,
-                        c.Builder.mkLoop (R, decr low, decr up)
+        seq {
+            while looping do
+                let success =
+                    optimizations.TryFindNextStartingPositionLeftToRight(
+                        input.AsSpan(),
+                        &currPos,
+                        currPos
                     )
-                    |> Der
 
-            // 3.3: Derx (R | S) = Derx (R) | Derx (S)
-            | Or(xs, info) ->
-                let ders =
-                    xs |> Seq.sortBy LanguagePrimitives.PhysicalHash |> Seq.map Der |> Seq.toArray
-                let newOr = c.Builder.mkOr ders
-
-                // use mutable e = xs.GetEnumerator()
-                // let newOr = c.Builder.mkOrEnumerator (&e,Der)
-
-                // let isSameDerivative() =
-                //     match newOr with
-                //     | Or(newxs, _) ->
-                //         xs.Count = newxs.Count && (xs, newxs) ||> Seq.forall2 (fun v1 v2 -> v1 = v2)
-                //     | _ -> false
-
-                newOr
-
-            // B: EXTENDED REGEXES
-            // Derx (R & S) = Derx (R) & Derx (S)
-            | And(xs, info) as head ->
-                // todo: slightly faster but unreliable
-                use mutable e = xs.GetEnumerator()
-                let newAnd = c.Builder.mkAndEnumerator (&e, Der)
-                newAnd
-
-
-            // Derx(~R) = ~Derx (R)
-            | Not(inner, info) ->
-                let innerDerivative = Der inner
-
-                if refEq innerDerivative inner then
-                    node
+                if not success then
+                    looping <- false
                 else
-
-                    let newNot = c.Builder.mkNot innerDerivative
-
-
-// #if DEBUG
-//                     // TODO: force reference equals
-//                     if not (obj.ReferenceEquals(newNot, node)) && isSameDerivative () then
-//                         // node
-//                         failwith $"DEBUG: duplicate derivative in: {node}"
-//                     else
-// #endif
-
-                    newNot
-
-            // 3.3: Derx (R·S) = if Nullx (R) then Derx (R)·S|Derx (S) else Derx (R)·S
-            | Concat(head, tail, info) ->
-                let R' = Der head
-
-                // Derx (R)·S
-                let R'S =
-                    // e.g. head is T*
-                    match R' with
-                    | Epsilon -> tail
-                    | _ when obj.ReferenceEquals(R', head) -> node
-                    | IsFalse c -> c.Builder.uniques._false
-                    | _ ->
-                        let newConcat = c.Builder.mkConcat2 (R', tail)
-                        newConcat
+                    location.Position <- currPos
 
 
-                if RegexNode.isNullable (c, loc, head) then
-                    let S' = Der(tail)
-                    if refEq c.Builder.uniques._false S' then R'S else
-                    // c.Builder.TempArray[0] <- R'S
-                    // c.Builder.TempArray[1] <- S'
-                    // c.Builder.TempArray
-                    let newConcat = c.Builder.mkOr [|R'S; S'|]
-                    newConcat
-                else
-                    // Derx (R)·S
-                    R'S
+                    match RegexNode.matchEnd (cache, &location, ValueNone, trueStarredUint64Node) with
+                    | ValueNone -> looping <- false
+                    | ValueSome(endPos: int) ->
+                        reverseLocation.Position <- endPos
+
+#if DIAGNOSTIC
+                        stdout.WriteLine "REVERSE"
+                        stdout.WriteLine (reverseLocation.DebugDisplay())
+#endif
+                        let startPos =
+                            RegexNode.matchEnd (
+                                cache,
+                                &reverseLocation,
+                                ValueNone,
+                                reverseUint64Node
+                            )
+
+                        match startPos with
+                        | ValueNone ->
+                            failwith
+                                $"match succeeded left to right but not right to left\nthis may occur because of an unimplemented feature\nend-pos:{endPos}, pattern:{reverseUint64Node}"
+                        | ValueSome start ->
+                            let startIdx = max currPos start
+                            // initialpos -1 is the end of the previous match, cancel the overlap
+                            let response: MatchPosition = {
+                                Index = startIdx
+                                Length = (endPos - 1) - startIdx
+                            }
+                            yield response
+
+                        // continue
+                        if endPos <> input.Length then
+                            if endPos = currPos then
+                                currPos <- currPos + 1
+                            else
+                                currPos <- endPos
+                        else
+                            looping <- false
+
+        }
 
 
+    // accessors
+    member this.ImplicitPattern: RegexNode<uint64> = trueStarredUint64Node
 
-        //
-        // let asstr = "(?<=-.*).*"
-        // if result = c.Builder.uniques._false && node.ToStringHelper() = asstr then
-        //     let dbg = 1
-        //
-        //     let l2 = loc |> Location.withPos (loc.Position - 1)
-        //     // let n2 = createDerivative(c,l2,c.MintermForLocation(l2),node)
-        //     let n2 = createDerivative(c,loc,loc_pred,node)
-        //
-        //     let nodeInfo =
-        //         match node with
-        //         | Concat(h,t,info) ->
-        //             [
-        //                 $"{n2.ToStringHelper()}"
-        //                 $"%A{info}"
-        //                 $"%A{h}"
-        //                 $"%A{t}"
-        //             ]
-        //             |> String.concat "\n"
-        //         | _ -> failwith "todo"
-        //     failwith nodeInfo
+    member this.RawPattern: RegexNode<uint64> = rawUint64Node
 
-        match node with
-        | Concat(h, LookAround(_),_) ->
-             // if ["(.*-|ε)"; "(ε|.*-)"] |> List.contains (result.ToStringHelper()) then
-             //    if node.ToStringHelper() <> ".*-" && node.ToStringHelper() <> "(.*-|ε)" then
-             //        failwith $"{node.ToStringHelper()}"
-             //    ()
-            let r = result
-            ()
-        | And(h,_) ->
-            let r = result
-            ()
-        | _ -> ()
+    member this.ReversePattern: RegexNode<uint64> = reverseUint64Node
 
-// #if DIAGNOSTIC
-//
-//         match node with
-//         | LookAround(_) -> ()
-//         | _ ->
-//             let diagMsg =
-//                 [
-//                     loc.DebugDisplay()
-//                     $"{node.ToStringHelper()} -> {result.ToStringHelper()}"
-//                 ]
-//                 |> String.concat "\n"
-//
-//             stdout.WriteLine diagMsg
-// #endif
+    member internal this.Cache = cache
 
-        if not node.ContainsLookaround then
-            c.Builder.DerivativeCache.Add(struct (loc_pred, node), result)
 
-        result
+#if DEBUG
+module Debugging =
+    open System.Diagnostics
+
+    [<DebuggerDisplay("{ToString()}")>]
+
+    type ConcatDebugView(concat: FSharp.Collections.List<RegexNode<uint64>>) =
+        override this.ToString() =
+            match concat with
+            | [] -> "[]"
+            | head :: _ -> $"{head.TagName()}:{head.ToStringHelper()}"
+
+        [<DebuggerBrowsable(DebuggerBrowsableState.RootHidden)>]
+        member val Nodes = concat |> Seq.map (fun v -> v.TagName(), v) |> Seq.toArray
+
+    [<assembly: DebuggerDisplay("{Head}, tail:{Tail.Length}",
+                                Target = typeof<RegexNode<uint64> list>)>]
+
+    do ()
+
+#endif

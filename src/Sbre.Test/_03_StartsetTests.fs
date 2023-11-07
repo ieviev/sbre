@@ -27,7 +27,7 @@ module Helpers =
 
 [<Fact>]
 let ``startset generation 1``() =
-    let matcher = Matcher(@"⊤*Huck⊤*")
+    let matcher = Regex(@"⊤*Huck⊤*")
     let c = matcher.Cache
     let ss1 = Info.Startset.inferStartset (c.Solver) (c.InitialPatternWithoutDotstar)
     let ss1pretty = c.PrettyPrintMinterm(ss1)
@@ -37,7 +37,7 @@ let ``startset generation 1``() =
 [<Fact>]
 let ``startset generation 2``() =
 
-    let matcher = Matcher(@"⊤*(Huck|Finn)⊤*")
+    let matcher = Regex(@"⊤*(Huck|Finn)⊤*")
     let c = matcher.Cache
     let ss1 = Info.Startset.inferStartset (c.Solver) (c.InitialPatternWithoutDotstar)
     let ss1pretty = c.PrettyPrintMinterm(ss1)
@@ -48,7 +48,7 @@ let ``startset generation 2``() =
 [<Fact>]
 let ``startset generation 3``() =
 
-    let matcher = Matcher(@"\n\n~(⊤*\n\n⊤*)\n&⊤*English⊤*&⊤*King⊤*&⊤*Paris⊤*")
+    let matcher = Regex(@"\n\n~(⊤*\n\n⊤*)\n&⊤*English⊤*&⊤*King⊤*&⊤*Paris⊤*")
     let c = matcher.Cache
     let ss1 = Info.Startset.inferStartset (c.Solver) (c.InitialPatternWithoutDotstar)
     let ss1pretty = c.PrettyPrintMinterm(ss1)
@@ -58,7 +58,7 @@ let ``startset generation 3``() =
 
 [<Fact>]
 let ``startset generation 4``() =
-    let matcher = Matcher(@"(b|)*")
+    let matcher = Regex(@"(b|)*")
     let c = matcher.Cache
     let ss1 = Info.Startset.inferStartset (c.Solver) (c.InitialPatternWithoutDotstar)
     let ss1pretty = c.PrettyPrintMinterm(ss1)
@@ -67,7 +67,7 @@ let ``startset generation 4``() =
 
 [<Fact>]
 let ``startset generation 5``() =
-    let matcher = Matcher(@"(a|ab)*")
+    let matcher = Regex(@"(a|ab)*")
     let c = matcher.Cache
     let ss1 = Info.Startset.inferStartset (c.Solver) (c.InitialPatternWithoutDotstar)
     let ss1pretty = c.PrettyPrintMinterm(ss1)
@@ -78,7 +78,7 @@ let ``startset generation 5``() =
 [<Fact>]
 let ``startset generation 6``() =
 
-    let matcher = Matcher(@"⊤*Finn⊤*&⊤*Huck⊤*")
+    let matcher = Regex(@"⊤*Finn⊤*&⊤*Huck⊤*")
     let c = matcher.Cache
     let ss1 = Info.Startset.inferStartset (c.Solver) (c.InitialPatternWithoutDotstar)
     let ss1pretty = c.PrettyPrintMinterm(ss1)
@@ -88,11 +88,11 @@ let ``startset generation 6``() =
 [<Fact>]
 let ``startset generation 7``() =
 
-    let matcher = Matcher(@"(.+\n)+\n")
+    let matcher = Regex(@"(.+\n)+\n")
     let c = matcher.Cache
-    let ss1 = Info.Startset.inferStartset (c.Solver) (matcher.DotStarredPattern)
+    let ss1 = Info.Startset.inferStartset (c.Solver) (matcher.ImplicitPattern)
     let ss1pretty = c.PrettyPrintMinterm(ss1)
-    let ss2 = Info.Startset.inferStartset2 (c.Solver) (matcher.DotStarredPattern)
+    let ss2 = Info.Startset.inferStartset2 (c.Solver) (matcher.ImplicitPattern)
     let ss2pretty = c.PrettyPrintMinterm(ss2)
     Assert.Equal(@"[^\n]", ss1pretty)
     Assert.Equal(@".", ss2pretty) // FULL SET
@@ -100,7 +100,7 @@ let ``startset generation 7``() =
 [<Fact>]
 let ``startset generation 8``() =
 
-    let matcher = Matcher(@"([a-ci]*|⊤*i[a-ci]*)c")
+    let matcher = Regex(@"([a-ci]*|⊤*i[a-ci]*)c")
     let c = matcher.Cache
     let ss1 = Info.Startset.inferStartset (c.Solver) (matcher.RawPattern)
     let ss1pretty = c.PrettyPrintMinterm(ss1)
@@ -109,7 +109,7 @@ let ``startset generation 8``() =
 [<Fact>]
 let ``startset generation 9``() =
 
-    let matcher = Matcher(@"⊤*[a-z]*a[a-z]*⊤*")
+    let matcher = Regex(@"⊤*[a-z]*a[a-z]*⊤*")
     let c = matcher.Cache
     let ss1 = Info.Startset.inferStartset (c.Solver) (matcher.RawPattern)
     let ss1pretty = c.PrettyPrintMinterm(ss1)
@@ -118,15 +118,33 @@ let ``startset generation 9``() =
 [<Fact>]
 let ``startset generation 10``() =
 
-    let matcher = Matcher(@"⊤*[a-z]*a[a-z]*⊤*")
+    let matcher = Regex(@"⊤*[a-z]*a[a-z]*⊤*")
     let c = matcher.Cache
     let ss1 = Info.Startset.inferStartset (c.Solver) (matcher.ReversePattern)
     let ss1pretty = c.PrettyPrintMinterm(ss1)
     Assert.Equal(@"[^b-z]", ss1pretty)
 
+
+
+[<Fact>]
+let ``first startset generation 1``() =
+
+    let matcher = Regex(@"⊤*have⊤*&⊤*there⊤*&⊤*other⊤*&.*")
+    let c = matcher.Cache
+    let ss1 = Info.Startset.inferStartset (c.Solver) (matcher.RawPattern)
+    let ss2 = Info.Startset.inferStartset2 (c.Solver) (matcher.RawPattern)
+    let ss1pretty = c.PrettyPrintMinterm(ss1)
+    // let ss2pretty = c.PrettyPrintMinterm(ss2)
+    // -- [\nhot]
+    Assert.Equal(@"[\nhot]", ss1pretty)
+    // Assert.Equal(@"[aht]", ss2pretty)
+
+
+
+
 [<Fact>]
 let ``reverse startset generation 1``() =
-    let matcher = Matcher(@"\n\n~(⊤*\n\n⊤*)\n&⊤*English⊤*&⊤*King⊤*&⊤*Paris⊤*")
+    let matcher = Regex(@"\n\n~(⊤*\n\n⊤*)\n&⊤*English⊤*&⊤*King⊤*&⊤*Paris⊤*")
     let c = matcher.Cache
     let patstr = matcher.ReversePattern.ToStringHelper()
     let ss1 = Info.Startset.inferStartset (c.Solver) (matcher.ReversePattern)
@@ -136,7 +154,7 @@ let ``reverse startset generation 1``() =
 [<Fact>]
 let ``startset2 generation 1``() =
 
-    let matcher = Matcher(@"⊤*English⊤*&⊤*King⊤*")
+    let matcher = Regex(@"⊤*English⊤*&⊤*King⊤*")
     let c = matcher.Cache
     let ss1 = Info.Startset.inferStartset2 (c.Solver) (c.InitialPatternWithoutDotstar)
     let ss1pretty = c.PrettyPrintMinterm(ss1)
@@ -148,7 +166,7 @@ let ``startset2 generation 1``() =
 [<Fact>]
 let ``startset2 generation 2``() =
 
-    let matcher = Matcher(@"(~(⊤*\n\n⊤*)\n&⊤*c[a-ci]*i⊤*)")
+    let matcher = Regex(@"(~(⊤*\n\n⊤*)\n&⊤*c[a-ci]*i⊤*)")
     let c = matcher.Cache
     let ss = c.InitialSs2()
     let sspretty = c.PrettyPrintMinterm(ss)
@@ -183,7 +201,7 @@ let ``startset2 generation 2``() =
 
 [<Fact>]
 let ``startsetChars of bdd 1``() =
-    let matcher = Matcher(@"⊤*Finn⊤*&⊤*Huck⊤*")
+    let matcher = Regex(@"⊤*Finn⊤*&⊤*Huck⊤*")
     let bdds = matcher.Cache.MintermBdds()
     let startsetChars =
         bdds[1..] |> Array.map (fun v -> StartsetHelpers.bddToStartsetChars (v))
@@ -197,7 +215,7 @@ let ``startsetChars of bdd 1``() =
 
 [<Fact>]
 let ``startsetChars of bdd 2 - merged span``() =
-    let matcher = Matcher(@"⊤*Finn⊤*&⊤*Huck⊤*")
+    let matcher = Regex(@"⊤*Finn⊤*&⊤*Huck⊤*")
     let c = matcher.Cache
     let bdds = c.MintermBdds()
 
@@ -219,25 +237,26 @@ let ``startsetChars of bdd 2 - merged span``() =
 
 [<Fact>]
 let ``startset concat reversed``() =
-    let matcher = Matcher(@".*EHT&.*EVIF.*")
+    let matcher = Regex(@".*EHT&.*EVIF.*")
     let c = matcher.Cache
 
     let ss2 = Info.Startset.inferStartset2 (c.Solver) (matcher.RawPattern)
     let ss2pretty = c.PrettyPrintMinterm(ss2)
-    // Assert.Equal(ss2pretty, @".") // important that .* is not optimized away
-    Assert.Equal(@"[HV]",ss2pretty) // important that .* is not optimized away
+    Assert.Equal(@".",ss2pretty)
+    // Assert.Equal(@"[HV]",ss2pretty)
     // [HV]
 
 
 
 [<Fact>]
 let ``startset concat reversed 2``() =
-    let matcher = Matcher(@"(.*EHT&.*EVIF.*)")
+    let matcher = Regex(@"(.*EHT&.*EVIF.*)")
     let c = matcher.Cache
 
     let ss2 = Info.Startset.inferStartset2 (c.Solver) (matcher.RawPattern)
     let ss2pretty = c.PrettyPrintMinterm(ss2)
-    Assert.Equal("[HV]", ss2pretty) // important that .* is not optimized away
+    Assert.Equal(@".",ss2pretty)
+    // Assert.Equal("[HV]", ss2pretty)
     // [HV]
 
 

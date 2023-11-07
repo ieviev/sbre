@@ -5,7 +5,7 @@ open Sbre
 open Xunit
 
 let testSameAsRuntime pattern input =
-    let mymatcher = Matcher(pattern)
+    let mymatcher = Regex(pattern)
     let runtime = System.Text.RegularExpressions.Regex(pattern)
     let result = mymatcher.IsMatch(input)
     let result2 = runtime.IsMatch(input)
@@ -116,7 +116,7 @@ let ``regex with label 3``() =
 let ``deduplication test``() =
     let pattern = """(\/\*(\s*|.*)*\*\/)|(\/\/.*)""" // multiline comments
     let input = "/* This is a multi-line comment */"
-    let matcher = Matcher(pattern)
+    let matcher = Regex(pattern)
     let result = matcher.IsMatch(input)
     Assert.True(result)
 
@@ -125,7 +125,7 @@ let ``deduplication test``() =
 let ``deduplication test 2 ``() =
     let pattern = """^[a-zA-Z]+(([\'\,\.\- ][a-zA-Z ])?[a-zA-Z]*)*$""" // multiline comments
     let input = "T.F. Johnson"
-    let matcher = Matcher(pattern)
+    let matcher = Regex(pattern)
     let result = matcher.MatchText(input)
     ()
 
@@ -159,20 +159,20 @@ let ``massive or pattern`` () =
 
 [<Fact>]
 let ``semantics test 1`` () =
-    let matcher = Matcher(@"(a|ab)*")
+    let matcher = Regex(@"(a|ab)*")
     let ism = matcher.MatchText("abab")
     Assert.Equal(ism, Some "abab")
 
 
 [<Fact>]
 let ``semantics test 2`` () =
-    let matcher = Matcher(@"(a|ab)*")
+    let matcher = Regex(@"(a|ab)*")
     let ism = matcher.MatchText("bbfbfbababgfgfgfgabababab")
     Assert.Equal(ism, Some "abab")
 
 
 [<Fact>]
 let ``top level duplicate test`` () =
-    let matcher = Matcher(@"((\(\d{3}\)?)|(\d{3}))([\s-./]?)(\d{3})([\s-./]?)(\d{4})")
+    let matcher = Regex(@"((\(\d{3}\)?)|(\d{3}))([\s-./]?)(\d{3})([\s-./]?)(\d{4})")
     let ism = matcher.MatchText("1-(212)-123 4567")
     Assert.Equal(ism, Some "(212)-123 4567")

@@ -140,7 +140,7 @@ let testNonBacktracking (pattern:string) =
     System.Text.RegularExpressions.Regex(pattern,RegexOptions.NonBacktracking).Match(paragraph)
 
 let testSbre (pattern:string) =
-    Matcher(pattern).MatchText(paragraph)
+    Regex(pattern).MatchText(paragraph)
 
 
 let words = ["King";"Paris";"English";"would";"rise";"struck"; "council"; "march"; "war"; "May"; "Orleans"; "work"]

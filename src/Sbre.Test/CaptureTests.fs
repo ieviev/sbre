@@ -30,7 +30,7 @@ let testCapture0InRange fromRange toRange =
         // escape ~ and & in pattern
         let pattern = escapeNegConj pattern
 
-        let matcher = Matcher(pattern)
+        let matcher = Regex(pattern)
         let runtime = System.Text.RegularExpressions.Regex(pattern)
 
         // testing only matches

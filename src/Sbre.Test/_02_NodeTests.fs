@@ -64,8 +64,8 @@ let ``collectSets has same behavior``() =
 
 [<Fact>]
 let ``pretty printer test 1``() =
-    let matcher = Matcher("a")
-    let nodes = matcher.DotStarredPattern
+    let matcher = Regex("a")
+    let nodes = matcher.ImplicitPattern
     let pretty = nodes.ToStringHelper()
     Assert.Equal("⊤*a", pretty)
     ()
@@ -74,13 +74,13 @@ let ``pretty printer test 1``() =
 [<Fact>]
 let ``identity true star``() =
 
-    let matcher = Matcher(@"[\s\S]*")
+    let matcher = Regex(@"[\s\S]*")
     let cache = matcher.Cache
     let nodes = matcher.RawPattern
 
     let identity =
         match nodes with
-        | Cache.IsTrueStar cache -> true
+        | _ when obj.ReferenceEquals(cache.Builder.uniques._trueStar,nodes) -> true
         | _ -> false
 
     Assert.True(identity)
@@ -89,13 +89,13 @@ let ``identity true star``() =
 [<Fact>]
 let ``identity true star reversed``() =
 
-    let matcher = Matcher(@"[\s\S]*")
+    let matcher = Regex(@"[\s\S]*")
     let cache = matcher.Cache
     let nodes = matcher.ReversePattern
 
     let identity =
         match nodes with
-        | Cache.IsTrueStar cache -> true
+        | _ when obj.ReferenceEquals(cache.Builder.uniques._trueStar,nodes) -> true
         | _ -> false
 
     Assert.True(identity)
@@ -127,9 +127,9 @@ let ``identity true star reversed``() =
 
 [<Fact>]
 let ``set equality 2``() =
-    let matcher = Matcher(@"(⊤*Arabs&⊤*French⊤*&⊤*Chinese⊤*)")
+    let matcher = Regex(@"(⊤*Arabs&⊤*French⊤*&⊤*Chinese⊤*)")
 
-    let matcher2 = Matcher(@"(⊤*Arabs&⊤*French⊤*&⊤*Chinese⊤*)")
+    let matcher2 = Regex(@"(⊤*Arabs&⊤*French⊤*&⊤*Chinese⊤*)")
 
     let c = matcher.Cache
 
@@ -142,9 +142,9 @@ let ``set equality 2``() =
 
 [<Fact>]
 let ``nullable not eps``() =
-    let matcher = Matcher(@"(⊤*Arabs&⊤*French⊤*&⊤*Chinese⊤*)")
+    let matcher = Regex(@"(⊤*Arabs&⊤*French⊤*&⊤*Chinese⊤*)")
 
-    let matcher2 = Matcher(@"(⊤*Arabs&⊤*French⊤*&⊤*Chinese⊤*)")
+    let matcher2 = Regex(@"(⊤*Arabs&⊤*French⊤*&⊤*Chinese⊤*)")
 
     let c = matcher.Cache
     Assert.True(true)
@@ -278,7 +278,7 @@ let ``conversion conc ``() = assertConverted "Twain" "Twain"
 [<Fact>]
 let ``conversion of or 2``() =
 
-    let matcher = Matcher("(310|0[1-9]2|452)")
+    let matcher = Regex("(310|0[1-9]2|452)")
 
     match matcher.RawPattern with
     | Types.Or(nodes, _) ->
@@ -293,7 +293,7 @@ let ``conversion of or 2``() =
 
 [<Fact>]
 let ``flags 1``() =
-    let matcher = Matcher("(\d⊤*|⊤*\d{2,2}⊤*)")
+    let matcher = Regex("(\d⊤*|⊤*\d{2,2}⊤*)")
 
     match matcher.RawPattern with
     | Types.Or(nodes, info) ->
@@ -305,7 +305,7 @@ let ``flags 1``() =
 
 [<Fact>]
 let ``flags 2``() =
-    let matcher = Matcher(@"⊤*English⊤*&⊤*King⊤*&⊤*Paris⊤*&~(⊤*\n\n⊤*)\n")
+    let matcher = Regex(@"⊤*English⊤*&⊤*King⊤*&⊤*Paris⊤*&~(⊤*\n\n⊤*)\n")
 
     match matcher.RawPattern with
     | Types.And(nodes, info) ->
@@ -317,7 +317,7 @@ let ``flags 2``() =
 
 [<Fact>]
 let ``flags 3``() =
-    let matcher = Matcher(@"(.*b|)")
+    let matcher = Regex(@"(.*b|)")
 
     match matcher.RawPattern with
     | Types.Or(nodes, info) ->
@@ -331,7 +331,7 @@ let ``flags 3``() =
 
 [<Fact>]
 let ``flags 4``() =
-    let matcher = Matcher(@"~(⊤*Ara⊤*)")
+    let matcher = Regex(@"~(⊤*Ara⊤*)")
 
     match matcher.RawPattern with
     | Types.Not(nodes, info) ->

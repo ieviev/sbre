@@ -4,12 +4,12 @@ module Sbre.Test._05_IdentityTests
 #if DEBUG
 
 open Sbre
-open Sbre.Regex
+open Sbre.Algorithm
 open Sbre.Pat
 open Sbre.Types
 open Xunit
 
-let getDerivative (matcher: Matcher, input: string) =
+let getDerivative (matcher: Regex, input: string) =
     let cache = matcher.Cache
     let node = matcher.RawPattern
     let location = (Location.create input 0)
@@ -18,9 +18,9 @@ let getDerivative (matcher: Matcher, input: string) =
 
 
 let get2ndDerivative (pattern: string, input: string) =
-    let matcher = Matcher(pattern)
+    let matcher = Regex(pattern)
     let cache = matcher.Cache
-    let node = matcher.DotStarredPattern
+    let node = matcher.ImplicitPattern
     let location = (Location.create input 0)
     let location1 = (Location.create input 1)
 
@@ -33,7 +33,7 @@ let get2ndDerivative (pattern: string, input: string) =
     der2
 
 
-let getNodeDerivative (m:Matcher, node: RegexNode<_>, input: string) =
+let getNodeDerivative (m:Regex, node: RegexNode<_>, input: string) =
     let cache = m.Cache
     let location = (Location.create input 0)
     let der1 =
@@ -46,7 +46,7 @@ open Xunit
 
 [<Fact>]
 let ``identity derivative concat 1`` () =
-    let m = Matcher(@"(⊤*t|)neW⊤*")
+    let m = Regex(@"(⊤*t|)neW⊤*")
 
     let deriv = getDerivative (m,"test")
 
@@ -55,7 +55,7 @@ let ``identity derivative concat 1`` () =
 
 [<Fact>]
 let ``identity derivative concat 2`` () =
-    let m = Matcher(@"⊤*Twain")
+    let m = Regex(@"⊤*Twain")
 
     let deriv = getDerivative (m,"wain")
 
@@ -64,7 +64,7 @@ let ``identity derivative concat 2`` () =
 
 [<Fact>]
 let ``identity derivative concat 3`` () =
-    let m = Matcher(@".*1")
+    let m = Regex(@".*1")
 
     let deriv = getDerivative (m,"a")
 
@@ -74,7 +74,7 @@ let ``identity derivative concat 3`` () =
 
 [<Fact>]
 let ``identity derivative 1`` () =
-    let m = Matcher(@"(nglish⊤*|⊤*English⊤*)")
+    let m = Regex(@"(nglish⊤*|⊤*English⊤*)")
     // ⊥|(nglish⊤*|⊤*English⊤*)
     let deriv = getDerivative (m,"Eng")
 
@@ -84,7 +84,7 @@ let ``identity derivative 1`` () =
 
 [<Fact>]
 let ``identity derivative 2`` () =
-    let m = Matcher(@"((⊤*t|)neW⊤*&⊤*erohsa⊤*&⊤*lirpA⊤*&⊤*yadsruhT⊤*)")
+    let m = Regex(@"((⊤*t|)neW⊤*&⊤*erohsa⊤*&⊤*lirpA⊤*&⊤*yadsruhT⊤*)")
 
     let deriv = getDerivative (m,"test")
 
@@ -104,7 +104,7 @@ let ``identity derivative 2`` () =
 
 [<Fact>]
 let ``identity and 1`` () =
-    let m = Matcher(@"((nglish⊤*|⊤*English⊤*)&~(⊤*\n\n⊤*)\n&⊤*King⊤*&⊤*Paris⊤*)")
+    let m = Regex(@"((nglish⊤*|⊤*English⊤*)&~(⊤*\n\n⊤*)\n&⊤*King⊤*&⊤*Paris⊤*)")
 
     let deriv = getDerivative (m,"English")
 
@@ -114,7 +114,7 @@ let ``identity and 1`` () =
 
 [<Fact>]
 let ``identity singleton 1`` () =
-    let m = Matcher(@".*b|a")
+    let m = Regex(@".*b|a")
 
     let deriv = getDerivative (m,"aaab")
 
@@ -150,7 +150,7 @@ let ``identity singleton 1`` () =
 [<Fact>]
 let ``identity of \n 1`` () =
     // let m = Matcher(@"\n\n~(⊤*\n\n⊤*)\n")
-    let m = Matcher(@"\n\na")
+    let m = Regex(@"\n\na")
 
     let pattern = m.RawPattern
 
@@ -171,7 +171,7 @@ let ``identity of \n 1`` () =
 
 [<Fact>]
 let ``identity of and 1`` () =
-    let m = Matcher(@"(~(⊤*\n\n⊤*)\n&⊤*English⊤*&⊤*King⊤*)")
+    let m = Regex(@"(~(⊤*\n\n⊤*)\n&⊤*English⊤*&⊤*King⊤*)")
 
     let derivative = getDerivative (m,"asd")
 
@@ -182,7 +182,7 @@ let ``identity of and 1`` () =
 
 [<Fact>]
 let ``identity of and 2`` () =
-    let m = Matcher(@"(~(⊤*\n\n⊤*)\n&⊤*English⊤*&⊤*King⊤*)")
+    let m = Regex(@"(~(⊤*\n\n⊤*)\n&⊤*English⊤*&⊤*King⊤*)")
 
     let pattern = m.RawPattern
     let deriv = getNodeDerivative (m,m.RawPattern,"\n")
@@ -195,7 +195,7 @@ let ``identity of and 2`` () =
 
 [<Fact>]
 let ``identity of and 3`` () =
-    let m = Matcher(@"(~(⊤*\n\n⊤*)\n&⊤*English⊤*&⊤*King⊤*)")
+    let m = Regex(@"(~(⊤*\n\n⊤*)\n&⊤*English⊤*&⊤*King⊤*)")
 
     let pattern = m.RawPattern
     let deriv = getNodeDerivative (m,m.RawPattern,"\n")
@@ -210,7 +210,7 @@ let ``identity of and 3`` () =
 
 [<Fact>]
 let ``identity of and 4`` () =
-    let m = Matcher(@"((nglish⊤*|⊤*English⊤*)&~(⊤*\n\n⊤*)\n&⊤*King⊤*&⊤*Paris⊤*)")
+    let m = Regex(@"((nglish⊤*|⊤*English⊤*)&~(⊤*\n\n⊤*)\n&⊤*King⊤*&⊤*Paris⊤*)")
 
     let pattern = m.RawPattern
     let deriv = getNodeDerivative (m,m.RawPattern,"E")

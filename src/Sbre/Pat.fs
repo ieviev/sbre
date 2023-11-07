@@ -138,6 +138,19 @@ module Solver =
             ss <- s.Or(ss,f coll.Current)
         ss
 
+    let inline mergeNonFullWithEnumerator
+        (s:ISolver<^t>)
+        ([<InlineIfLambda>]f: RegexNode<'t> -> ^t)
+        (coll:byref<Collections.Immutable.ImmutableHashSet<RegexNode<'t>>.Enumerator>): ^t =
+        let mutable ss = s.Empty
+        while coll.MoveNext() = true do
+            let pot = f coll.Current
+            if s.IsFull(pot) then () else
+            ss <- s.Or(ss,pot)
+
+        if s.IsEmpty(ss) then s.Full else
+        ss
+
     [<return: Struct>]
     let inline (|TrueStar|_|) (_solver:ISolver<'t>) (node: RegexNode<'t>) =
         match node with
