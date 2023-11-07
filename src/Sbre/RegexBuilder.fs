@@ -114,6 +114,12 @@ module private BuilderHelpers =
         | IsTrueStar = 1uy
         | ContainsEpsilon = 2uy
 
+    [<Flags>]
+    type MkAndFlags =
+        | None = 0uy
+        | IsFalse = 1uy
+        | ContainsEpsilon = 2uy
+
     ()
 
 
@@ -535,7 +541,7 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
         ) : RegexNode<'t> =
 
         let mutable enumerating = true
-        let mutable status = 0
+        let mutable status = MkAndFlags.None
         let derivatives = ResizeArray()
 
         while e.MoveNext() = true && enumerating do
@@ -546,26 +552,28 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
             | _ when obj.ReferenceEquals(deriv, _uniques._trueStar) -> ()
             | _ when obj.ReferenceEquals(deriv, _uniques._false) ->
                 enumerating <- false
-                status <- 1
+                status <- MkAndFlags.IsFalse
             | And(nodes, _) -> derivatives.AddRange(nodes)
+
+            // ~(.*) -> always false
+            | Not(node,info) when info.CanNotBeNullable ->
+                enumerating <- false
+                status <- MkAndFlags.IsFalse
             | Epsilon ->
                 // epsilon requires others to be nullable loops
                 if derivatives.Exists(fun v -> v.CanNotBeNullable) then
                     enumerating <- false
-                    status <- 1
+                    status <- MkAndFlags.IsFalse
                 else
-                    status <- 2
+                    status <- MkAndFlags.ContainsEpsilon
                     derivatives.Add(deriv)
-            // failwith "todo"
-            // | Or(nodes, info) when info.ContainsEpsilon && info.CanNotBeNullable ->
-            //     failwith "todo"
+
             | _ -> derivatives.Add(deriv)
 
-            ()
 
         match status with
-        | 1 -> _uniques._false
-        | 2 when derivatives.Exists(fun v -> v.CanNotBeNullable) -> _uniques._false
+        | MkAndFlags.IsFalse -> _uniques._false
+        | MkAndFlags.ContainsEpsilon when derivatives.Exists(fun v -> v.CanNotBeNullable) -> _uniques._false
         | _ ->
 
         let createNode(nodes: RegexNode<_>[]) =
@@ -584,7 +592,7 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
             derivatives
             |> this.trySubsumeAnd
             |> Seq.toArray
-                // .ToArray()
+
         Array.sortInPlaceBy LanguagePrimitives.PhysicalHash asArray
 
         match _andCache.TryGetValue(asArray) with
@@ -620,19 +628,9 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
                 | Loop(node=Singleton body; low=0; up = Int32.MaxValue) ->
                     singletonLoops <- singletonLoops + 1
                     derivatives.Add(deriv) |> ignore
-                    ()
-
                 // todo: eat epsilon
                 | Epsilon ->
                     status <- status ||| MkOrFlags.ContainsEpsilon
-                    // if something is already nullable then Epsilon is irrelevant
-                    // if derivatives.Exists(fun v -> v.CanNotBeNullable) then
-                    //     enumerating <- false
-                    //     status <- 1
-                    // else
-                    // status <- 2
-                    // derivatives.Add(deriv)
-
                 | _ -> derivatives.Add(deriv) |> ignore
 
             handleNode deriv

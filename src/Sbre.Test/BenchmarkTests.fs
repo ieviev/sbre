@@ -175,24 +175,16 @@ let twain_input =
 let twain_20k = twain_input[..19999] // 10k chars limit
 
 //
-[<Fact>]
-let ``loop subsumption test``() =
-    let m = Matcher(Permutations.permuteConjInParagraph [ @"[a-zA-Z]{0,12}ing\s";])
-    let r = m.Matches(paragraph) |> Seq.toArray
-    Assert.Equal(r.Length,9)
-
-
-[<Fact>]
-let ``reversal test``() =
-    let m = Matcher(Permutations.permuteConjInParagraph [  @"[a-z]*a[a-z]*"])
-    let r = m.Matches(paragraph[..50]) |> Seq.toArray
-    Assert.Equal(1, r.Length)
-
-//
 // [<Fact>]
-// let ``bench test 1``() =
-//     let m = Matcher(twainPatterns[1])
-//     let r = m.MatchPositions(twain_input) |> Seq.toArray
-//
-//     Assert.Equal(r.Length,965)
+// let ``loop subsumption test``() =
+//     let m = Matcher(Permutations.permuteConjInParagraph [ @"[a-zA-Z]{0,12}ing\s";])
+//     let r = m.Matches(paragraph) |> Seq.toArray
+//     Assert.Equal(r.Length,9)
+
+
+// [<Fact>]
+// let ``reversal test``() =
+//     let m = Matcher(Permutations.permuteConjInParagraph [  @"[a-z]*a[a-z]*"])
+//     let r = m.Matches(paragraph[..50]) |> Seq.toArray
+//     Assert.Equal(1, r.Length)
 

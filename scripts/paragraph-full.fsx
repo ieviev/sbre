@@ -15,7 +15,7 @@ open System.Text.RegularExpressions
 Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
 
 let longSample = __SOURCE_DIRECTORY__ + "/input-text.txt" |> System.IO.File.ReadAllText
-let shortSample = longSample[..10000]
+let shortSample = longSample[..50000]
 
 
 let view (results: MatchPosition array) (idx) =
@@ -24,58 +24,135 @@ let view (results: MatchPosition array) (idx) =
 
 let viewn n (results: MatchPosition array) =
     stdout.WriteLine $"Total: {results.Length}"
-    for i = 0 to n do
-        let lens = results[i]
+
+    results
+    |> Seq.iteri (fun idx lens ->
         stdout.WriteLine longSample[lens.Index .. lens.Index + lens.Length]
+    )
+
+
 
 
 // with
 
-// let pats = @"~(⊤*\n\n⊤*)&⊤*ing&occ⊤*" 
+// let pats = @"~(⊤*\n\n⊤*)&⊤*ing&occ⊤*"
 // let pats = @"occ~(⊤*\n\n⊤*)ing" // 844
 
 let ts = "⊤*"
 
-let pats = 
+// let pats =
+//     // String.concat "&" [ @"[a-zA-Z]*"; $@".*b.*b.*"; $@".*i.*i.*"; $@".*e.*e.*"; $@"~({ts}x{ts})" ]
+//     // String.concat "&" [ @"[a-zA-Z]*"; $@"{ts}b{ts}b{ts}"; $@"{ts}i{ts}i{ts}"; $@"{ts}e{ts}e{ts}"; $@"~({ts}x{ts})" ]
+//     String.concat "&" [
+//         // @"[a-zA-Z ]{8,20}"
+//         // @"T[a-zA-Z ]{0,20}"
+//         // @"[a-zA-Z ]{0,20}"
+//         @".*"
+//         $@"{ts}nn{ts}"
+//         $@"{ts}[Ii]{ts}[Ii]{ts}"
+//         $@"{ts}[Ee]{ts}[Ee]{ts}"
+//         $@"{ts}ee{ts}"
+//         $@"{ts}F{ts}F{ts}"
+//         $@"~({ts}\n\n{ts})"
+//     ]
+
+let conj_line(words: string list) =
+    words
+    |> List.map (fun v -> $"{ts}{v}{ts}")
+    |> String.concat "&"
+    |> (fun v -> v + "&.*")
+
+
+let pattern = conj_line [ "have"; "there"; "other" ] // "nature" "referred";
+
+
+let pats =
     String.concat "&" [
-        $@"~({ts}\n\n{ts})\n" 
-        $@"\s{ts}({ts}a{ts}&{ts}b{ts}&{ts}c{ts}&{ts}d{ts}&[a-z]*){ts}"
-    ]
-    
+        $@"whispered~({ts}\n\n{ts})without~({ts}\n\n{ts})invention" 
+    ]   
 
-// Length:1812
 let res =
-    // ["(?:Tom|Sawyer|Huckleberry|Finn)"; "Twain" ]
-    // [ "Huck"; ] // c: 411
-    // [ @"H[a-z]*berry\s+F[a-z]*\s+(was)"; ] // c: 64
-    // 12 ok
-    // ------
-    // [ "(?:Tom|Sawyer|Huckleberry|Finn)" ] // c: 1812
-    // [ "(?:Tom|Sawyer)"; "(?:Huckleberry|Finn)" ] // c: 32
-    // [ "(?:Tom|Sawyer)"; "(?:Huckleberry|Finn)"; "from" ] // c: 14
-    // [ "(?:Tom|Sawyer|before)"; "(?:Huckleberry|Finn|legs)"; @"old[\s\S]*thing" ] // c: 13
-    // [  @"(?i)[a-z]{0,12}ing to the (?:d[a-z]+)" ] // c: 19
-    // [ @"\sthe\s"; @"\sand\s"; @"\sof\s"; @"\sthat\s"; @"\sHuck\s" ] // c: 11
-    // [ @"\s([a-zA-Z]{0,12}ing&{ts}b⊤*&⊤*r⊤*&⊤*e⊤*)" ] // c: 11
-
-    // ---------------
-    // pats // c: 11
-    // @"~(⊤*\n\n⊤*)\n&\s(⊤*a⊤*&⊤*b⊤*&⊤*c⊤*&⊤*d⊤*&[a-z]*)⊤*" // c: 11
-    // pats
-    // [  @"\s([a-z]*a[a-z]*&[a-z]*b[a-z]*&[a-z]*c[a-z]*&[a-z]*d[a-z]*)\s" ] // c: 11
-
-    [ @"(?:(?i)Tom|Sawyer|Huckleberry|Finn)[\s\S]*(and|of|from)\s[a-zA-Z]{0,12}ing\sthe"; ]
-    |> Sbre.Benchmarks.Jobs.Permutations.permuteConjInParagraph
+    pats
     |> Matcher
     |> (fun v -> v.MatchPositions(longSample))
     |> Seq.toArray
-    |> viewn 3
+    |> viewn 0
+
+// let res =
+//     // |> Sbre.Benchmarks.Jobs.Permutations.permuteConjInParagraph
+//     // pattern
+//     pats
+//     |> Matcher
+//     |> (fun v -> v.MatchPositions(longSample))
+//     |> Seq.toArray
+//     |> viewn 10
 
 
+
+
+fsi.PrintWidth <- 150
+
+// let test2323 =
+//     // [ "[a-zA-Z]*b[a-zA-Z]*b"; "[a-zA-Z]*i[a-zA-Z]*i"; "[a-zA-Z]*e[a-zA-Z]*e" ]
+//     // [ ".*b.*b"; ".*i.*i"; ".*e.*e"; ".*F.*F" ]
+//     [ ".*b.*b"; ".*i.*i"; ".*e.*e"; ".*F.*F" ]
+//     |> List.map (fun v -> $"(?={v})")
+//     |> String.concat ""
+//     |> (fun v -> v + "(?!.*x)" + $".*")
+
+
+
+let permuteAltInLine(words: string list) =
+    let rec distribute e =
+        function
+        | [] -> [ [ e ] ]
+        | x :: xs' as xs -> (e :: xs) :: [ for xs in distribute e xs' -> x :: xs ]
+
+    let rec permute =
+        function
+        | [] -> [ [] ]
+        | e :: xs -> List.collect (distribute e) (permute xs)
+
+    let altpermutations =
+        String.concat "|" [
+            for permutation in permute words do
+                let inner = (String.concat @".*" permutation)
+                yield $".*{inner}.*"
+        ]
+
+    $"{altpermutations}"
+
+let asdasds =
+    Sbre.Benchmarks.Jobs.Permutations.permuteAltInParagraph [ "a"; "b"; "c"; "d" ]
+
+let test2323 =
+    [ "(.*[Ee]){2}"; "(.*[Ii]){2}"; @".*F.*F" ]
+    |> List.map (fun v -> $"(?={v})")
+    |> String.concat ""
+    |> (fun v -> v + "(?!.*x)" + $".*")
+
+let asdasds2 = permuteAltInLine [ "have"; "there"; "other" ]
+
+File.writeTo "test.txt" asdasds2
+
+
+let matches =
+    let reg =
+        System.Text.RegularExpressions.Regex(
+            asdasds2,
+            System.Text.RegularExpressions.RegexOptions.Compiled
+        )
+
+    reg.Matches(longSample) |> Seq.map (fun v -> v.Value) |> Seq.toArray
+
+
+matches.Length // 16
+// reg.Matches(shortSample) |> Seq.map (fun v -> v.Value) |> Seq.toArray
 
 
 let twostepSearch words =
-    let opts  = System.Text.RegularExpressions.RegexOptions.None
+    let opts = System.Text.RegularExpressions.RegexOptions.None
+
     let regexes = [|
         for word in words do
             yield
@@ -85,6 +162,7 @@ let twostepSearch words =
                     matchTimeout = TimeSpan.FromMilliseconds(10_000.)
                 )
     |]
+
     let results = ResizeArray()
     let inputSpan = longSample.AsSpan()
     let paragraphRegex = System.Text.RegularExpressions.Regex(@"(?:.+\n)+\n", opts)
@@ -103,16 +181,19 @@ let twostepSearch words =
                 entireParagraphIsMatch <- false
 
         if entireParagraphIsMatch then
-            results.Add({Index=e.Current.Index; Length= e.Current.Length - 1})
+            results.Add({ Index = e.Current.Index; Length = e.Current.Length - 1 })
 
     results
 
-let test2 = 
+let test2 =
     // twostepSearch ["(?i)Tom|Sawyer|Huckleberry|Finn";"[a-z]+shing"; ""] |> Seq.toArray |> viewn 3
-    // twostepSearch [@"\s[a-zA-Z]{0,12}ing\s";] 
-    [@"\s(?=[a-zA-Z]*a)(?=[a-zA-Z]*b)(?=[a-zA-Z]*c)(?=[a-zA-Z]*d)[a-zA-Z]{0,12}ing"]
+    // twostepSearch [@"\s[a-zA-Z]{0,12}ing\s";]
+    [
+        @"\s(?=[a-zA-Z]*a)(?=[a-zA-Z]*b)(?=[a-zA-Z]*c)(?=[a-zA-Z]*d)[a-zA-Z]{0,12}ing"
+    ]
     |> twostepSearch
-    |> Seq.toArray |> viewn 3
+    |> Seq.toArray
+    |> viewn 3
 
 
 

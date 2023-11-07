@@ -26,6 +26,7 @@ type Location = {
 #if DEBUG
     with
     member this.DebugDisplay() =
+        if this.Position = this.Input.Length then "[END]" else
         // display entire input if it is short
         if this.Input.Length < 60 then
             let inserted = this.Input.Insert(this.Position, "|")

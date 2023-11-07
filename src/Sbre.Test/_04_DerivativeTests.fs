@@ -185,10 +185,12 @@ let ``derivative of true ismatch`` () =
     testPartDerivative ("⊤", "324", "ε")
 
 
-
 // [<Fact>]
-// let ``derivative of Twain`` () =
-//     testFullDerivative ("Twain", "Twain", "(wain|⊤*Twain)")
+// let ``derivative of long lookahead`` () =
+//
+//     testPartDerivative (".*(?=.*E)", "and__E", "ε")
+//
+
 
 
 [<Fact>]
@@ -265,6 +267,10 @@ let ``subsumption or loop `` () = testPartDerivative (@"(a*|.*)", "aaa", @".*")
 
 [<Fact>]
 let ``subsumption and loop `` () = testPartDerivative (@"(.*&.*s)", "aaa", @".*s")
+
+
+[<Fact>]
+let ``subsumption negation nullable `` () = testPartDerivative (@"(.*(?=.*E)&~(d.*))", "dd", @"⊥")
 
 
 [<Fact>]

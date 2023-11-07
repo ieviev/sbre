@@ -217,9 +217,11 @@ module rec Startset =
         | LookAround(node = body; lookBack = false) -> _solver.Empty // TODO: optimize
         | LookAround(lookBack = true) -> _solver.Empty
         | Concat(Loop(node=Singleton pred;low=0;up=Int32.MaxValue), Concat(Singleton chead,concatTail2,_), info) ->
+
             if _solver.IsFull(pred) then
                 match concatTail2 with
                 | Concat(Loop(node=loopBody;low=0;up=up) as loop,tail,_) ->
+
                     _solver.Or(_solver.Not(loop.Startset), tail.Startset)
                 | _ -> concatTail2.Startset
             else
@@ -234,6 +236,7 @@ module rec Startset =
             let ss1 = inferStartset2 _solver inner
             _solver.Or(ss1,pred) // 4x performance win
         | Concat(Not(node=inner;info=notInfo), tailNode, info) ->
+
             let ss2 = tailNode.Startset
             let ss22 = inferStartset2 _solver tailNode
             let ss1 = inferStartset2 _solver inner
@@ -259,13 +262,15 @@ module rec Startset =
 
         | Concat(h, t, info) ->
             if h.CanNotBeNullable then // regexlib 20-30
-                _solver.Or(h.Startset, t.Startset)
+                let ss1 = inferStartset2 _solver h
+                let ss22 = inferStartset2 _solver t
+                let ss2 = t.Startset
+                _solver.Or(_solver.Or(ss1,ss2),ss22) // negation test 8
             else
                 // failwith "todo2" // TODO: optimize further
                 _solver.Full
 
         | And(xs, info) ->
-            // avoid allocations
             use mutable e = xs.GetEnumerator()
             Solver.mergeOrWithEnumerator _solver (inferStartset2 _solver) &e
 

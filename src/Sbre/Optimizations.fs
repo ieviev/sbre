@@ -21,24 +21,6 @@ module Ptr =
 // [<MethodImpl(MethodImplOptions.AggressiveOptimization)>]
 let rec tryJumpToStartset (c:RegexCache<_>,loc:inref<Location>, nodes:inref<ToplevelORCollection>) : int32 =
     match nodes.Count with
-    // | 1 when loc.Reversed ->
-    //     if true then loc.Position else
-    //     let node = nodes.Items[0]
-    //     let nodeStr = node.ToStringHelper()
-    //     let ss = node.Startset
-    //     let pretty1 = c.PrettyPrintMinterm(ss)
-    //
-    //     let commonStartsetLocation = c.TryNextStartsetLocation(loc,ss)
-    //
-    //     let newloc =
-    //         Location.create loc.Input commonStartsetLocation.Value
-    //
-    //
-    //     match commonStartsetLocation with
-    //     | ValueNone -> loc.Position
-    //     | ValueSome newPos -> newPos
-
-
     | 1 ->
         let node = nodes.Items[0]
         let ss = node.Startset
@@ -64,6 +46,7 @@ let rec tryJumpToStartset (c:RegexCache<_>,loc:inref<Location>, nodes:inref<Topl
 
     | 0 ->
         let ss = c.InitialPatternWithoutDotstar.Startset
+        // let commonStartsetLocation = c.TryNextStartsetLocation(loc,ss)
         let ss2 = c.InitialSs2()
         let commonStartsetLocation = c.TryNextStartsetLocation2(loc,ss,ss2)
         match commonStartsetLocation with
@@ -74,7 +57,6 @@ let rec tryJumpToStartset (c:RegexCache<_>,loc:inref<Location>, nodes:inref<Topl
         // TBD: more optimizations
         // this branch is rarely reached
         // jump with multiple heads
-
         let nodeSpan = nodes.Items
 
         // first try to eliminate any duplicates
@@ -82,12 +64,19 @@ let rec tryJumpToStartset (c:RegexCache<_>,loc:inref<Location>, nodes:inref<Topl
             nodes.Remove(1)
             tryJumpToStartset(c,&loc,&nodes)
         else
-
             let mutable ss = c.Solver.Empty
             let startsets =
                 for n in nodes.Items do
                     ss <- c.Solver.Or(ss,n.Startset)
             let commonStartsetLocation = c.TryNextStartsetLocation(loc,ss)
+
+            // let mutable ss2 = c.Solver.Empty
+            // let startset2s =
+            //     for n in nodes.Items do
+            //         ss2 <- c.Solver.Or(ss2,c.Builder.GetSs2Cached(n))
+            //
+            // let commonStartsetLocation = c.TryNextStartsetLocation2(loc,ss,ss2)
+
             match commonStartsetLocation with
             | ValueNone -> loc.Position
             | ValueSome newPos -> newPos

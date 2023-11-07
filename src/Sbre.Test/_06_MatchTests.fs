@@ -423,7 +423,46 @@ let ``web app test 2`` () =
     Assert.Equal(1, result.Length)
 
 
+[<Fact>]
+let ``web app test 3`` () =
+    let input = webAppSample
+    let matcher = Matcher(@"\((⊤*A⊤*B⊤*C⊤*|⊤*A⊤*C⊤*B⊤*|⊤*B⊤*A⊤*C⊤*|⊤*B⊤*C⊤*A⊤*|⊤*C⊤*A⊤*B⊤*|⊤*C⊤*B⊤*A⊤*)\)")
+    let result = matcher.MatchPositions("(A----B----C)") |> Seq.toArray
+    Assert.Equal(1, result.Length)
 
+let webAppSample2 = @"@article{de2000thyroid,
+  title={Thyroid cancer in French Polynesia between 1985 and 1995: influence of atmospheric nuclear bomb tests performed at Mururoa and Fangataufa between 1966 and 1974},
+  author={De Vathaire, Florent and Le Vu, B{\'e}atrice and Challeton-de Vathaire, C{\'e}cile},
+  journal={Cancer Causes \& Control},
+  volume={11},
+  number={1},
+  pages={59--63},
+  year={2000},
+  publisher={Springer}
+}"
+
+
+[<Fact>]
+let ``web app test 4`` () =
+    let matcher = Matcher(@".*(?=.*E)&~(.*and.*)")
+    let result = matcher.Match(@"and__E")
+
+    Assert.Equal(2, result.Length)
+
+
+[<Fact>]
+let ``web app test 5`` () =
+    // let matcher = Matcher(@"(?<=or=\{.*).*(?=.*\},)&~(⊤*and⊤*)&(\b.*)")
+    let matcher = Matcher(@"(?<=or=\{.*).*(?=.*\},)&~(⊤*and⊤*)&(\b.*\b)")
+    let result =
+        matcher.Matches(webAppSample2)
+        |> Seq.map (fun v -> v.Value)
+
+    Assert.Equal<string>([|
+        "De Vathaire, Florent "
+        " Le Vu, B{\\'e}atrice "
+        " Challeton-de Vathaire, C{\\'e}cile"
+    |], result)
 
 
 

@@ -915,7 +915,7 @@ type TestAllBasic(regexForRuntime: string,regexForSbre:string, input: string) =
     let opts_Compiled = Text.RegularExpressions.RegexOptions.Compiled
 
     member val None_Regex: System.Text.RegularExpressions.Regex = System.Text.RegularExpressions.Regex(regexForRuntime, opts_None) with get, set
-    member val NonBack_Regex: System.Text.RegularExpressions.Regex = System.Text.RegularExpressions.Regex(regexForRuntime, opts_NonBacktracking) with get, set
+    // member val NonBack_Regex: System.Text.RegularExpressions.Regex = System.Text.RegularExpressions.Regex(regexForRuntime, opts_NonBacktracking) with get, set
     member val Compiled_Regex: System.Text.RegularExpressions.Regex = System.Text.RegularExpressions.Regex(regexForRuntime, opts_Compiled) with get, set
     member val Sbre_Regex: Matcher = Matcher(regexForSbre, false) with get, set
 
@@ -924,20 +924,20 @@ type TestAllBasic(regexForRuntime: string,regexForSbre:string, input: string) =
     member this.Setup() = ()
 
 
-    [<Benchmark>]
-    member this.NonBack() =
-        let result = this.NonBack_Regex.Matches(inputText)
-        result.Count
+    // [<Benchmark>]
+    // member this.NonBack() =
+    //     let result = this.NonBack_Regex.Matches(inputText)
+    //     result.Count
 
     [<Benchmark>]
     member this.Compiled() =
         let result = this.Compiled_Regex.Matches(inputText)
         result.Count
 
-    [<Benchmark>]
-    member this.None() =
-        let result = this.None_Regex.Matches(inputText)
-        result.Count
+    // [<Benchmark>]
+    // member this.None() =
+    //     let result = this.None_Regex.Matches(inputText)
+    //     result.Count
 
     [<Benchmark>]
     member this.Sbre() =

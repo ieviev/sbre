@@ -1,0 +1,1 @@
+.*customary.*course.*referred.*|.*course.*customary.*referred.*|.*course.*referred.*customary.*|.*customary.*referred.*course.*|.*referred.*customary.*course.*|.*referred.*course.*customary.*

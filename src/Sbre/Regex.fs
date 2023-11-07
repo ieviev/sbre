@@ -158,6 +158,7 @@ module RegexNode =
         else
             false
 
+    let enumeratorToSeq (enumerator:System.Collections.IEnumerator) = seq {while enumerator.MoveNext() do enumerator.Current}
 
     // 3.3 Derivatives and MatchEnd: if Final(x) then Nullx (R) else max(Nullx (R), MatchEnd(x+1, Derx (R)))
     // [<MethodImpl(MethodImplOptions.AggressiveOptimization)>]
@@ -199,6 +200,15 @@ module RegexNode =
         // let inputSpan = loc.Input.AsSpan()
 
         while looping do
+
+
+#if DIAGNOSTIC
+            // stdout.WriteLine $"l:{loc.Position}"
+            for item in toplevelOr.Items do
+                stdout.WriteLine $"LOC:{loc.Position}"
+                stdout.WriteLine (item.ToStringHelper())
+#endif
+
             // 3.3 Derivatives and MatchEnd optimizations
             match Location.isFinal loc || foundmatch with
             | true ->
@@ -221,14 +231,9 @@ module RegexNode =
                     for i = (toplevelOrSpan.Length - 1) downto 0 do
                         let curr = toplevelOrSpan[i]
 
-                        // if curr.CanSkip && Solver.notElemOfSetU64 locationPredicate curr.Startset
-                        // then () else
-
                         let deriv = createDerivative (cache, loc, locationPredicate, curr)
-
                         match deriv with
                         | IsFalse cache ->
-                        // if refEq deriv cache.Builder.uniques._false then
                             if
                                 currentMax.IsSome
                                 && toplevelOr.GetLastNullPos(i) > -1
@@ -242,6 +247,7 @@ module RegexNode =
                         // else
                         | _ ->
                             if obj.ReferenceEquals(curr, deriv) then
+                                // optimization
                                 if curr.CanNotBeNullable then ()
                                 elif curr.IsAlwaysNullable then
                                     toplevelOr.UpdateNullability(i, loc.Position + 1)
@@ -255,14 +261,30 @@ module RegexNode =
                                         | _ -> ()
                                         toplevelOr.UpdateTransitionNode(i, deriv)
                             else
-                                if isNullable (cache, loc, deriv) then
+                                if deriv.IsAlwaysNullable then
                                     toplevelOr.UpdateTransition(i, deriv, loc.Position + 1)
-                                else
-                                    // in the case of a negation, we can return match
-                                    match deriv with
-                                    | Not _ when toplevelOr.GetLastNullPos(i) > -1 -> foundmatch <- true
-                                    | _ -> ()
+                                elif deriv.CanNotBeNullable then
                                     toplevelOr.UpdateTransitionNode(i, deriv)
+                                    if toplevelOr.GetLastNullPos(i) > -1 then
+                                        match deriv with
+                                        | Not _ -> foundmatch <- true
+                                        | And(nodes=nodes) when
+                                            nodes |> Seq.exists (function | Not (info=info) when info.CanNotBeNullable -> true | _ -> false) ->
+                                            foundmatch <- true
+                                        | _ -> ()
+                                else
+                                    if isNullable (cache, loc, deriv) then
+                                        toplevelOr.UpdateTransition(i, deriv, loc.Position + 1)
+                                    else
+                                        // in the case of a negation, we can return match
+                                        if toplevelOr.GetLastNullPos(i) > -1 then
+                                            match deriv with
+                                            | Not _ -> foundmatch <- true
+                                            | And(nodes=nodes) when
+                                                nodes |> Seq.exists (function | Not (info=info) when info.CanNotBeNullable -> true | _ -> false) ->
+                                                foundmatch <- true
+                                            | _ -> ()
+                                        toplevelOr.UpdateTransitionNode(i, deriv)
 
 
                 // create implicit dotstar derivative only if startset matches
@@ -271,19 +293,8 @@ module RegexNode =
                 then
                     match createDerivative (cache, loc, locationPredicate, initialWithoutDotstar) with
                     | IsFalse cache -> ()
-                    // | deriv when refEq deriv cache.Builder.uniques._false -> ()
                     | deriv ->
                         toplevelOr.Add(deriv, if isNullable (cache, loc, deriv) then loc.Position else -1)
-
-                        // major optimization potential
-                        // if toplevelOr.Count > 0 then
-                        //     // if refEq toplevelOr.Items[toplevelOr.Items.Length - 1] deriv then
-                        //     //     ()
-                        //     // else
-                        //     toplevelOr.Add(deriv, if isNullable (cache, loc, deriv) then loc.Position else -1)
-                        // else
-                        //     toplevelOr.Add(deriv, if isNullable (cache, loc, deriv) then loc.Position else -1)
-
 
                 // found successful match - exit early
                 if not foundmatch then
@@ -301,10 +312,11 @@ module RegexNode =
                         else
                             // jump from initial pattern
                             // use .net startset lookup, have to be careful about negation here
-                            if not (jumpNextDotnetLocation(cache, &loc)) then
-                                match initialWithoutDotstar with
-                                | Not _ | Concat(head=Not _) -> ()
-                                | _ -> looping <- false
+                            // if not (jumpNextDotnetLocation(cache, &loc)) then
+                            //     match initialWithoutDotstar with
+                            //     | Not _ | Concat(head=Not _) -> ()
+                            //     | _ -> looping <- false
+                            ()
                             // use our own startset lookup (not optimized for long strings)
                             // if not (Solver.isElemOfSetU64 startsetPredicate nextLocationPredicate) then
                             //     loc.Position <- tryJumpToStartset (cache, &loc, &toplevelOr)
@@ -470,6 +482,21 @@ let rec createDerivative
                 else
                     // Derx (R)·S
                     R'S
+
+
+#if DIAGNOSTIC
+        // try
+        //     let diagMsg =
+        //         [
+        //             loc.DebugDisplay()
+        //             $"{node.ToStringHelper()} -> {result.ToStringHelper()}"
+        //         ]
+        //         |> String.concat "\n"
+        //
+        //     stdout.WriteLine diagMsg
+        // with e -> ()
+
+#endif
 
         if not node.ContainsLookaround then
             c.Builder.DerivativeCache.Add(struct (loc_pred, node), result)
