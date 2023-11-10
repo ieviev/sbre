@@ -40,16 +40,36 @@ let viewn n (results: MatchPosition array) =
 let ts = "⊤*"
 
 let pat= "⊤*have⊤*&⊤*there⊤*&⊤*other⊤*&.*"
+let pat= ".*city.*&.*town.*" // 15
+let pat= ".*thing.*&.*great.*" // 133
+let pat= ".*thing.*&.*again.*" // 3k, 187
+let pat= ".*ever.*&.*back.*" // 2,5k, 122
+let pat= ".*which.*&.*could.*" // 2,5k, 247
+let pat = @"~(⊤*\n\n⊤*)\n&⊤*Huck⊤*"
+
+let regpat= 
+    ["w[a-z]+h";"c[a-z]+d"] // 1243
+    |> Sbre.Benchmarks.Jobs.Permutations.permuteConjInLine 
+
 let fast =
-    
-    pat
-    // Sbre.Regex(@"\w+ \d")
+    // ["which";"could"] 247
+    // ["which";"could"; "these"] // 4
+    // ["which";"could"; "other"] // 11
+    // ["with";"they"; "that"] // 128
+    // ["with";"they"; "that"; "have"] // 10
+    // ["with";"they"; "that"; "were"] // 23
+    // ["the";"and"] // 61749
+    // ["the";"and";"was"] // 8938
+    // ["the";"and";"was";"that"] // 1420
+    // ["the";"and";"was";"for"] // 1243
+    // ["the";"and";"was";"with"] // 719
+    regpat // 1243
+    // |> Sbre.Benchmarks.Jobs.Permutations.permuteConjInLine 
     |> Sbre.Regex
-    // |> (fun v -> v.MatchPositions(longSample))
-    // |> (fun v -> v.MatchPositions(longSample))
-    |> (fun v -> v.CountMatches(longSample))
-    // |> Seq.toArray
-    // |> viewn 1
+    // |> (fun v -> v.CountMatches(longSample))
+    |> (fun v -> v.MatchPositions(longSample))
+    |> Seq.toArray
+    |> viewn 1
 
 
 
@@ -126,27 +146,14 @@ Regex(pattern).Match(sampleText)
 
 fsi.PrintWidth <- 150
 
-let permuteAltInLine(words: string list) =
-    let rec distribute e =
-        function
-        | [] -> [ [ e ] ]
-        | x :: xs' as xs -> (e :: xs) :: [ for xs in distribute e xs' -> x :: xs ]
+let permuteLookaheadInLine(words: string list) =
+    words 
+    |> List.map (fun v -> $"(?=.*{v})")
+    |> String.concat ""
+    |> (fun v -> v + ".*")
 
-    let rec permute =
-        function
-        | [] -> [ [] ]
-        | e :: xs -> List.collect (distribute e) (permute xs)
-
-    let altpermutations =
-        String.concat "|" [
-            for permutation in permute words do
-                let inner = (String.concat @".*" permutation)
-                yield $".*{inner}.*"
-        ]
-
-    $"{altpermutations}"
-
-permuteAltInLine ["have";"there"]
+    
+permuteLookaheadInLine ["have";"there"]
 
 let asdasds =
     Sbre.Benchmarks.Jobs.Permutations.permuteAltInParagraph [ "a"; "b"; "c"; "d" ]

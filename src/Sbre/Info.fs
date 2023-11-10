@@ -285,6 +285,7 @@ module rec Startset =
     /// can't be used during-match as it would skip newlines in .*
     let rec inferInitialStartset (_solver: ISolver<uint64>) (startNode: RegexNode<uint64>) =
         let acc = ResizeArray()
+        // let acc = Ptr.stackalloc<uint64> 5
         let mutable uninitialized = true
         let mutable cannotOptimizeYet = false
         let mutable curr = startNode
@@ -292,7 +293,11 @@ module rec Startset =
 
         while not (obj.ReferenceEquals(null, curr)) do
             match curr with
-            | Loop(node = node; info = info) when uninitialized -> curr <- Unchecked.defaultof<_>
+            | Loop(node = Singleton pred; info = info) when uninitialized ->
+                if not (_solver.IsFull(pred)) then
+                    loopTerminator <- _solver.Not(pred)
+                    acc.Add(_solver.Not(pred))
+                curr <- Unchecked.defaultof<_>
             | Not(node = node; info = info) when uninitialized && info.HasPrefix ->
                 match inferInitialStartset _solver node with
                 | MintermArrayPrefix(arr, loopEnd) ->
@@ -306,7 +311,6 @@ module rec Startset =
 
                 curr <- Unchecked.defaultof<_>
             | Concat(Loop(node=Singleton pred;low = 0; up = Int32.MaxValue), t, info) ->
-                let dbg = 1
                 if not uninitialized then curr <- Unchecked.defaultof<_>
                 else
                     loopTerminator <- _solver.Or(loopTerminator,_solver.Not(pred))
@@ -317,23 +321,27 @@ module rec Startset =
                 curr <- Unchecked.defaultof<_>
                 // TODO: \n\n~(⊤*\n\n⊤*)\n\n&
             | LookAround(_)
-            | Or(_)
             | Concat(head=Not(_))
             | Not(_) -> curr <- Unchecked.defaultof<_> // ignore
             | Concat(Singleton pred, t, info) ->
                 acc.Add(pred)
                 curr <- t
-            | And(xs, info) ->
+            // top level or optimizations
+            | Or(xs, info) ->
                 use mutable e = xs.GetEnumerator()
 
                 while e.MoveNext() do
                     match e.Current with
                     | Not(_)
                     | Concat(head = Not(_)) -> () // ignore negations
-                    | Loop(node = Singleton _; low = 0; up = Int32.MaxValue) -> () // ignore singleton stars
+                    | Loop(node = Singleton pred; low = 0; up = Int32.MaxValue) ->
+                        // ignore true-stars, add \n terminator for dot-stars
+                        if not (_solver.IsFull(pred)) then
+                            loopTerminator <- _solver.Or(loopTerminator,_solver.Not(pred))
+                        // ()
                     | LookAround(_) -> () // ignore
-                    | Or(_)|Loop(_) -> cannotOptimizeYet <- true
-                    | Concat(_) ->
+                    | Loop(_) -> cannotOptimizeYet <- true
+                    | Concat(_) | Or(_) | And(_) ->
                         match inferInitialStartset _solver e.Current with
                         | MintermArrayPrefix(arr,innerLoopTerminator) ->
                             if not (_solver.IsEmpty(innerLoopTerminator)) then
@@ -358,10 +366,46 @@ module rec Startset =
                         ()
                     // todo: more optimizations
                     | _ -> cannotOptimizeYet <- true
-#if DEBUG
-                    | _ -> failwith $"todo: {e.Current.ToStringHelper()}"
-#endif
-                    | _ -> failwith $"todo: {e.Current}"
+                curr <- Unchecked.defaultof<_>
+            | And(xs, info) ->
+                use mutable e = xs.GetEnumerator()
+
+                while e.MoveNext() do
+                    match e.Current with
+                    | Not(_)
+                    | Concat(head = Not(_)) -> () // ignore negations if there's something to match
+                    | Loop(node = Singleton pred; low = 0; up = Int32.MaxValue) ->
+                        // ignore true-stars, add \n terminator for dot-stars
+                        if not (_solver.IsFull(pred)) then
+                            loopTerminator <- _solver.Or(loopTerminator,_solver.Not(pred))
+                        // ()
+                    | LookAround(_) -> () // ignore
+                    | Loop(_) -> cannotOptimizeYet <- true
+                    | Concat(_) | Or(_) | And(_) ->
+                        match inferInitialStartset _solver e.Current with
+                        | MintermArrayPrefix(arr,innerLoopTerminator) ->
+                            if not (_solver.IsEmpty(innerLoopTerminator)) then
+                                loopTerminator <- _solver.Or(loopTerminator,innerLoopTerminator)
+                            if acc.Count = 0 then
+                                while acc.Count < arr.Length do
+                                    acc.Add(_solver.Empty)
+
+                            // shorten to shared prefix
+                            if acc.Count > arr.Length then
+                                while acc.Count > arr.Length do
+                                    acc.RemoveAt(acc.Count - 1)
+
+                            for i = 0 to acc.Count - 1 do
+                                let ss = arr[i]
+                                acc[i] <- _solver.Or(ss, acc[i])
+                        | InitialStartset.Unoptimized ->
+                            cannotOptimizeYet <- true
+
+
+                        let dbg = 1
+                        ()
+                    // todo: more optimizations
+                    | _ -> cannotOptimizeYet <- true
                 curr <- Unchecked.defaultof<_>
             | x ->
                 match x.TryGetInfo with
@@ -378,8 +422,10 @@ module rec Startset =
 
             uninitialized <- false
 
-        if acc.Count = 0 || cannotOptimizeYet then
-            InitialStartset.Unoptimized
+        if cannotOptimizeYet then InitialStartset.Unoptimized
+        elif acc.Count = 0 then
+            if _solver.IsEmpty(loopTerminator) then InitialStartset.Unoptimized
+            else InitialStartset.MintermArrayPrefix([|loopTerminator|], loopTerminator)
         else
             InitialStartset.MintermArrayPrefix(acc.ToArray(), loopTerminator)
 

@@ -77,6 +77,37 @@ module Permutations =
 
         $"{prefix}(?:{altpermutations}){suffix}"
 
+    let permuteAltInLine(words: string list) =
+        let rec distribute e =
+            function
+            | [] -> [ [ e ] ]
+            | x :: xs' as xs -> (e :: xs) :: [ for xs in distribute e xs' -> x :: xs ]
+
+        let rec permute =
+            function
+            | [] -> [ [] ]
+            | e :: xs -> List.collect (distribute e) (permute xs)
+
+        let altpermutations =
+            String.concat "|" [
+                for permutation in permute words do
+                    let inner = (String.concat @".*" permutation)
+                    yield $".*{inner}.*"
+            ]
+
+        $"{altpermutations}"
+
+    let permuteConjInLine(words: string list) =
+        words
+        |> List.map (fun v -> $".*{v}.*")
+        |> String.concat "&"
+
+    let permuteLookaheadInLine(words: string list) =
+        words
+        |> List.map (fun v -> $"(?=.*{v})")
+        |> String.concat ""
+        |> (fun v -> v + ".*")
+
 
 
 [<MemoryDiagnoser(false)>]
@@ -483,8 +514,8 @@ type SbreDebugSearch(patterns: string list, input: string) =
 
     [<Benchmark>]
     member this.MatchWithConj() =
-        this.CombinedRegex.MatchPositions(inputText) |> Seq.length
-        // this.CombinedRegex.CountMatches(inputText)
+        // this.CombinedRegex.MatchPositions(inputText) |> Seq.length
+        this.CombinedRegex.CountMatches(inputText)
 
 
 
@@ -940,7 +971,62 @@ type TestAllBasic(regexForRuntime: string,regexForSbre:string, input: string) =
         let result = this.None_Regex.Matches(inputText)
         result.Count
 
-    [<Benchmark>]
+    [<Benchmark(Description="asd")>]
+    member this.Sbre() =
+        this.Sbre_Regex.MatchPositions(inputText) |> Seq.length
+
+
+[<MemoryDiagnoser(false)>]
+[<ShortRunJob>]
+[<AbstractClass>]
+type TestAllEngines(words: string list, input: string) as v =
+    do AppContext.SetData("REGEX_NONBACKTRACKING_MAX_AUTOMATA_SIZE", 1_000_000)
+    let inputText = input
+    let opts_None = Text.RegularExpressions.RegexOptions.None
+    let opts_NonBacktracking = Text.RegularExpressions.RegexOptions.NonBacktracking
+    let opts_Compiled = Text.RegularExpressions.RegexOptions.Compiled
+
+    let alt_pattern = Permutations.permuteAltInLine words
+    let conj_pattern = Permutations.permuteConjInLine words
+    let look_pattern = Permutations.permuteLookaheadInLine words
+
+    member val None_Regex: System.Text.RegularExpressions.Regex = System.Text.RegularExpressions.Regex(alt_pattern, opts_None) with get, set
+    member val NonBack_Regex: System.Text.RegularExpressions.Regex = System.Text.RegularExpressions.Regex(alt_pattern, opts_NonBacktracking) with get, set
+    member val Compiled_Regex: System.Text.RegularExpressions.Regex = System.Text.RegularExpressions.Regex(alt_pattern, opts_Compiled) with get, set
+    member val CompiledLookahead_Regex: System.Text.RegularExpressions.Regex = System.Text.RegularExpressions.Regex(look_pattern, opts_Compiled) with get, set
+    member val SbreAlt_Regex: Regex = Regex(alt_pattern, false) with get, set
+    member val Sbre_Regex: Regex = Regex(conj_pattern, false) with get, set
+
+
+    [<GlobalSetup>]
+    member this.Setup() = ()
+
+    [<Benchmark(Description="None: '.*R1.*R2.*|.*R2.*R1.*'")>]
+    member this.Default() =
+        let result = this.None_Regex.Matches(inputText)
+        result.Count
+
+    [<Benchmark(Description="NonBacktrack: .*R1.*R2.*|.*R2.*R1.*")>]
+    member this.Symbolic() =
+        let result = this.NonBack_Regex.Matches(inputText)
+        result.Count
+
+    [<Benchmark(Description="Compiled: .*R1.*R2.*|.*R2.*R1.*")>]
+    member this.Compiled() =
+        let result = this.Compiled_Regex.Matches(inputText)
+        result.Count
+
+    [<Benchmark(Description="Compiled: (?=R1)(?=R2).*")>]
+    member this.CompiledLook() =
+        let result = this.CompiledLookahead_Regex.Matches(inputText)
+        result.Count
+
+
+    [<Benchmark(Description="Sbre: .*R1.*R2.*|.*R2.*R1.*")>]
+    member this.SbreAlt() =
+        this.SbreAlt_Regex.MatchPositions(inputText) |> Seq.length
+
+    [<Benchmark(Description="Sbre: .*R1.*&.*R2.*")>]
     member this.Sbre() =
         this.Sbre_Regex.MatchPositions(inputText) |> Seq.length
 

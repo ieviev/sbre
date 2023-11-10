@@ -73,7 +73,7 @@ let main argv =
 #if DEBUG
     dbgSbre()
 #endif
-    dbgSbre()
+    // dbgSbre()
     // dbgSample()
 
 
@@ -102,8 +102,7 @@ let main argv =
     | "debug-all" -> BenchmarkRunner.Run(typeof<ParagraphFull.DebugAll>,config) |> ignore
     // --
 
-    | "all-1" -> BenchmarkRunner.Run(typeof<ParagraphFull.All_1>,config) |> ignore
-    | "all-2" -> BenchmarkRunner.Run(typeof<ParagraphFull.All_2>,config) |> ignore
+
 
     // ----
     | "paper-short-1" -> BenchmarkRunner.Run(typeof<Paper.ParagraphShort1Word>,config) |> ignore
@@ -117,6 +116,10 @@ let main argv =
     | "paper-basic-1" -> BenchmarkRunner.Run(typeof<Paper.Basic1>,config) |> ignore
     | "paper-basic-2" -> BenchmarkRunner.Run(typeof<Paper.Basic2>,config) |> ignore
     | "paper-basic-3" -> BenchmarkRunner.Run(typeof<Paper.Basic3>,config) |> ignore
+    // ---
+    | "all-w1" -> BenchmarkRunner.Run(typeof<Paper.SingleWord1>,config) |> ignore
+    // | "all-2" -> BenchmarkRunner.Run(typeof<ParagraphFull.All_2>,config) |> ignore
+
 
     | _ ->
         ()

@@ -115,10 +115,12 @@ let patterns = [
     // @"\n\n~(⊤*\n\n⊤*)\n&⊤*Huck⊤*&⊤*from⊤*"; // 34ms
 
 
+
+    // @"~(⊤*\n\n⊤*)\n&⊤*Huck⊤*&⊤*from⊤*"; // 8 ms
+    // @"~(⊤*\n\n⊤*)\n&⊤*Huck⊤*&⊤*from⊤*&⊤*you⊤*"; // 4 ms
     // @"~(⊤*\n\n⊤*)\n&⊤*Huck⊤*&⊤*from⊤*&⊤*you⊤*"; // 58 ms
-    // @"~(⊤*\n\n⊤*)\n&⊤*Huck⊤*&⊤*from⊤*&⊤*you⊤*"; // 58 ms
-    // @"~(⊤*\n\n⊤*)\n&⊤*Huck⊤*&⊤*from⊤*"; // 30 ms
-    @"~(⊤*\n\n⊤*)\n&⊤*Huck⊤*"; // 16 ms
+
+
 
     // Permutations.permuteConjInParagraph [ @"\s([a-z]*a[a-z]*&[a-z]*b[a-z]*&[a-z]*c[a-z]*&[a-z]*d[a-z]*)" ] // 102
 
@@ -136,8 +138,19 @@ let patterns = [
     // @"lethargy.*air" // 22ms
     // @"~(⊤*\n\n⊤*)" // 12ms
 
-    // "⊤*have⊤*&⊤*there⊤*&⊤*other⊤*&.*" // 600ms
-    // "⊤*have⊤*&⊤*there⊤*&⊤*other⊤*&.*" // 600ms
+    // "⊤*have⊤*&⊤*there⊤*&⊤*other⊤*&.*" // 100ms
+
+    // @".*have.*there.*|.*there.*have.*"
+    // ".*thing.*&.*great.*"
+    // ".*thing.*&.*again.*"
+
+    // @"⊤*have⊤*&⊤*there⊤*&⊤*other⊤*&.*" // 144b
+    // @".*have.*&.*there.*&.*other.*" // 278b
+
+    // @"~(⊤*\n\n⊤*)\n&⊤*Huck⊤*"; // 2 ms
+    // Permutations.permuteAltInLine ["which";"could"] // 22ms
+    // Permutations.permuteConjInLine ["which";"could"] // 18ms
+    Permutations.permuteConjInLine ["the";"and";"was";"with"] // 18ms
 ]
 
 type DebugSbre() =
@@ -148,7 +161,9 @@ type DebugSbre() =
     // inherit Jobs.SbreDebugSearch(patterns, fullInput)
 
 type DebugSbre2() =
-    inherit Jobs.SbreDebugSearch(["⊤*have⊤*&⊤*there⊤*&.*"], fullInput)
+    // inherit Jobs.SbreDebugSearch(["⊤*have⊤*&⊤*there⊤*&.*"], fullInput)
+    // inherit Jobs.SbreDebugSearch([".*have.*&.*there.*"], fullInput)
+    inherit Jobs.SbreDebugSearch([".*city.*&.*town.*"], fullInput)
 
 
 let common4 = ["the";"and";"of";"that"]

@@ -58,19 +58,17 @@ module RegexNode =
             LookAround((rev cache) node', lookBack = false, negate = true)
 
         | Concat(head, tail, info) ->
-            let rev_tail =
-                let der = rev cache tail
-                if der = tail then tail else der
 
-            let rev_head =
-                let der = rev cache head
-                if der = head then head else der
+            let rec revConcatNode acc curr =
+                match curr with
+                | Concat(head, (Concat(_) as tail), tinfo) ->
+                    revConcatNode (rev cache head :: acc) tail
+                | Concat(head, tail, tinfo) ->
+                    rev cache tail :: rev cache head :: acc
+                | single -> rev cache single :: acc
 
-            match rev_tail with
-            | Concat(thead, ttail, tinfo) ->
-                let inner = cache.Builder.mkConcat2 (ttail, rev_head)
-                cache.Builder.mkConcat2 (thead, inner)
-            | _ -> cache.Builder.mkConcat2 (rev_tail, rev_head)
+            let reversedList = revConcatNode [] node
+            cache.Builder.mkConcat reversedList
         | Epsilon -> Epsilon
 
 

@@ -137,3 +137,13 @@ type Basic3() =
             str,
             fullInput
         )
+
+
+
+type SingleWord1() =
+    inherit
+        Jobs.TestAllEngines(
+            ["which";"could"],
+            fullInput
+        )
+

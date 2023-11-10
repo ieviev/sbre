@@ -235,6 +235,9 @@ let ``startsetChars of bdd 2 - merged span``() =
 
 
 
+
+
+
 [<Fact>]
 let ``startset concat reversed``() =
     let matcher = Regex(@".*EHT&.*EVIF.*")
@@ -327,6 +330,61 @@ let ``initialstartset prefix 4``() =
         Assert.Equal("[er]",matcher.Cache.PrettyPrintMinterm(arr[3]))
     | _ -> failwith "invalid result"
 
+[<Fact>]
+let ``initialstartset prefix 5``() =
+    let matcher = Regex("⊤*have⊤*&⊤*there⊤*&.*")
+    let initialStart =
+        Info.Startset.inferInitialStartset matcher.Cache.Solver matcher.ReversePattern
+    match initialStart with
+    | InitialStartset.MintermArrayPrefix(arr,_) ->
+        Assert.Equal(arr.Length, 4)
+        Assert.Equal("e",matcher.Cache.PrettyPrintMinterm(arr[0]))
+        Assert.Equal("[rv]",matcher.Cache.PrettyPrintMinterm(arr[1]))
+        Assert.Equal("[ae]",matcher.Cache.PrettyPrintMinterm(arr[2]))
+        Assert.Equal("h",matcher.Cache.PrettyPrintMinterm(arr[3]))
+    | _ -> failwith "invalid result"
+
+[<Fact>]
+let ``initialstartset prefix 6``() =
+    let matcher = Regex(@"lethargy.*air")
+    let initialStart =
+        Info.Startset.inferInitialStartset matcher.Cache.Solver matcher.ReversePattern
+    match initialStart with
+    | InitialStartset.MintermArrayPrefix(arr,_) ->
+        Assert.Equal(arr.Length, 3)
+        Assert.Equal("r",matcher.Cache.PrettyPrintMinterm(arr[0]))
+        Assert.Equal("i",matcher.Cache.PrettyPrintMinterm(arr[1]))
+        Assert.Equal("a",matcher.Cache.PrettyPrintMinterm(arr[2]))
+    | _ -> failwith "invalid result"
+
+
+[<Fact>]
+let ``initialstartset prefix 7``() =
+    let matcher = Regex(@".*have.*there.*|.*there.*have.*")
+    let initialStart =
+        Info.Startset.inferInitialStartset matcher.Cache.Solver matcher.RawPattern
+    match initialStart with
+    | InitialStartset.MintermArrayPrefix(arr,_) ->
+        Assert.Equal(arr.Length, 4)
+        Assert.Equal("[ht]",matcher.Cache.PrettyPrintMinterm(arr[0]))
+        Assert.Equal("[ah]",matcher.Cache.PrettyPrintMinterm(arr[1]))
+        Assert.Equal("[ev]",matcher.Cache.PrettyPrintMinterm(arr[2]))
+    | _ -> failwith "invalid result"
+
+
+
+[<Fact>]
+let ``initialstartset prefix 8``() =
+    let matcher = Regex(@"((.* t[a-z]*e .*|[a-z]*e .*)&.* a[a-z]*d .*)")
+    let initialStart =
+        Info.Startset.inferInitialStartset matcher.Cache.Solver matcher.RawPattern
+    match initialStart with
+    | InitialStartset.MintermArrayPrefix(arr,_) ->
+        Assert.Equal(arr.Length, 2)
+        Assert.Equal("[ e]",matcher.Cache.PrettyPrintMinterm(arr[0]))
+        Assert.Equal("[ at]",matcher.Cache.PrettyPrintMinterm(arr[1]))
+    | _ -> failwith "invalid result"
+
 
 
 [<Fact>]
@@ -343,7 +401,21 @@ let ``skip position test 1``() =
     Assert.Equal(result, ValueSome 7) // aa Twa |Tw
 
 
+[<Fact>]
+let ``skip position test 2``() =
+    let matcher = Regex(@"lethargy.*")
+    let text = ("lethargy, and and the air tainted with\nc")
+    let loc =
+        Location.create text (text.Length - 4)
+        |> Location.rev
 
+    let prefix = matcher.Cache.Builder.GetPrefixCached(matcher.ReversePattern)
+    let result =
+        match prefix with
+        | InitialStartset.MintermArrayPrefix(arr,term) ->
+            matcher.Cache.TryNextStartsetLocationArrayWithLoopTerminator(loc, arr,term)
+        | _ -> failwith "todo"
+    Assert.Equal(ValueSome 8, result)
 
 
 

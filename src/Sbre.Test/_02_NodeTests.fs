@@ -154,6 +154,8 @@ let ``nullable not eps``() =
 // Assert.True(result, "not equal sets: (⊤*Arabs&⊤*French⊤*&⊤*Chinese⊤*)")
 
 
+
+
 let equalSeq (xs1: seq<'t>) (xs2: seq<'t>) : unit = Assert.Equal<'t>(xs1, xs2)
 
 
@@ -360,6 +362,15 @@ let ``flags prefix 3``() =
     let matcher = Regex(@"~(⊤*\n\n⊤*)\n&⊤*have⊤*")
     let info = matcher.RawPattern.TryGetInfo.Value
     Assert.Equal(Flag.Prefix ||| Flag.CanSkip, info.Flags)
+
+
+
+[<Fact>]
+let ``reverse unwrap``() =
+    let matcher = Regex("⊤*have⊤*")
+    match matcher.ReversePattern with
+    | Concat(Loop(_),t,_) -> Assert.True(true)
+    | _ -> failwith "wrong result"
 
 
 

@@ -59,3 +59,49 @@ let ``paragraphs-huck``() =
     Assert.Equal(r[1].Length, 362)
     Assert.Equal(r[2].Length, 1023)
 
+
+
+
+[<Fact>]
+let ``lines-have-there``() =
+    let m = Regex(@".*have.*&.*there.*&.*")
+    let r = m.Matches(twain_input[..120_000]) |> Seq.toArray
+    // 411
+
+    // Assert.Equal(426, r.Length) // full text
+    Assert.Equal(4, r.Length)
+    Assert.Equal(r[0].Index, 63592)
+    Assert.Equal(r[1].Index, 109000)
+    Assert.Equal(r[2].Index, 112959)
+
+    Assert.Equal(r[0].Length, 72)
+    Assert.Equal(r[1].Length, 39)
+    Assert.Equal(r[2].Length, 49)
+
+[<Fact>]
+let ``which could test 1``() =
+    let m = Regex(@".* the .*&.* and .*")
+    let r = m.Matches(twain_input[..15_000]) |> Seq.toArray
+    // 411
+
+    Assert.Equal(2, r.Length)
+    Assert.Equal(r[0].Index, 113)
+    Assert.Equal(r[0].Length, 63)
+    Assert.Equal(r[1].Index, 14710)
+    Assert.Equal(r[1].Length, 70)
+
+[<Fact>]
+let ``which could test 2``() =
+    let m = Regex(@".* t[a-z]*e .*&.* a[a-z]*d .*")
+    let r = m.Matches(twain_input[..15_000]) |> Seq.toArray
+    // 411
+
+    Assert.Equal(2, r.Length)
+    Assert.Equal(r[0].Index, 113)
+    Assert.Equal(r[0].Length, 63)
+    Assert.Equal(r[1].Index, 14710)
+    Assert.Equal(r[1].Length, 70)
+
+
+
+// ["w[a-z]+h";"c[a-z]+d"]

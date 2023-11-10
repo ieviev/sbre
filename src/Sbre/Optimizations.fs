@@ -31,28 +31,31 @@ let rec tryJumpToStartset (c:RegexCache<_>,loc:inref<Location>, nodes:inref<Topl
         // let commonStartsetLocation = c.TryNextStartsetLocation2(loc,ss,ss2)
 
         // experimental array
-        let prefix = Startset.inferInitialStartset c.Solver node
+        // let prefix = Startset.inferInitialStartset c.Solver node
+
+        let prefix = c.Builder.GetPrefixCached(node)
         match prefix with
         | InitialStartset.MintermArrayPrefix(arr,loopEnd) ->
-            // let commonStartsetLocation = c.TryNextStartsetLocationArray(loc,arr)
+            let pretty =
+                arr
+                |> Array.map c.PrettyPrintMinterm
+                |> String.concat ""
             let commonStartsetLocation = c.TryNextStartsetLocationArrayWithLoopTerminator(loc,arr,loopEnd)
-
             match commonStartsetLocation with
-            | ValueNone -> loc.Position // Location.final loc
-                // if loc.Reversed then 0 else loc.Input.Length - 1
-                // loc.Position
+            | ValueNone -> loc.Position
             | ValueSome newPos -> newPos
         | _ ->
-            // failwith "todo"
+            match node with
+            | Cache.IsTrueStar c -> Location.final loc
+            | _ ->
+            // failwith $"todo unoptimized! {node.ToStringHelper()}"
             let commonStartsetLocation = c.TryNextStartsetLocation(loc,ss)
-
-
 
         // let pretty1 = c.PrettyPrintMinterm(ss)
         // let pretty2 = c.PrettyPrintMinterm(ss2)
         // let newloc =
         //     Location.create loc.Input commonStartsetLocation.Value
-        //
+
             match commonStartsetLocation with
             | ValueNone -> loc.Position
             | ValueSome newPos -> newPos

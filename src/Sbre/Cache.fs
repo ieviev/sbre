@@ -46,6 +46,8 @@ type RegexCache< ^t when ^t: struct and ^t :> IEquatable< ^t > and ^t: equality>
     let mutable _initialStartset = Startset.inferInitialStartset _solver _rawPattern
 
 
+
+
 #if DEBUG
     let mintermsPretty =
         _solver.GetMinterms()
@@ -289,10 +291,8 @@ type RegexCache< ^t when ^t: struct and ^t :> IEquatable< ^t > and ^t: equality>
 
                 if couldBe then
                     skipping <- false
-                    if loc.Reversed then
-                        result <- ValueSome(potential)
-                    else
-                        result <- ValueSome(potential)
+                    result <- ValueSome(potential)
+
 
 
         result
@@ -300,16 +300,18 @@ type RegexCache< ^t when ^t: struct and ^t :> IEquatable< ^t > and ^t: equality>
     /// skip till a prefix of minterms matches
     member this.TryNextStartsetLocationArrayWithLoopTerminator(loc: Location, sets: _[], loopTerminator:uint64) =
 
+        let mergedSet = loopTerminator ||| sets[0]
+
         /// vectorize the search for the first character
-        let firstSetChars = this.MintermIndexOfSpan(sets[0] ||| loopTerminator)
+        let firstSetChars = this.MintermIndexOfSpan(mergedSet)
         /// '.' means ^\n -> it's easier to invert large sets
-        let isInverted = this.IsValidPredicate(sets[0], minterms[0])
+        let isInverted = this.IsValidPredicate(mergedSet, minterms[0])
 
         let inputSpan = loc.Input.AsSpan()
         let mutable currpos = loc.Position
         let mutable skipping = true
         let mutable result = ValueNone
-        let mutable slice = inputSpan.Slice(currpos)
+        let mutable slice = inputSpan
         let mutable sharedIndex = -1
         let mutable nextLocMinterm = 0uL
         let mutable setSpan = sets.AsSpan()
@@ -330,6 +332,7 @@ type RegexCache< ^t when ^t: struct and ^t :> IEquatable< ^t > and ^t: equality>
                     sharedIndex <- slice.IndexOfAnyExcept(firstSetChars)
 
 
+
             if sharedIndex = -1 then
                 skipping <- false
                 result <- ValueNone
@@ -340,19 +343,7 @@ type RegexCache< ^t when ^t: struct and ^t :> IEquatable< ^t > and ^t: equality>
                     else
                         currpos + sharedIndex
 
-                // exit if match loop terminator
-                nextLocMinterm <-
-                    if loc.Reversed then
-                        this.MintermForStringIndex(loc.Input, potential + 1)
-                    else
-                        this.MintermForStringIndex(loc.Input, potential)
-
-                if this.IsValidPredicate(loopTerminator, nextLocMinterm) then
-                    skipping <- false
-                    result <- ValueSome(potential)
-                else
-
-
+                // 17 currpos rev
                 let shouldExit =
                     match loc.Reversed with
                     | true -> potential < sets.Length
@@ -362,67 +353,64 @@ type RegexCache< ^t when ^t: struct and ^t :> IEquatable< ^t > and ^t: equality>
                     skipping <- false
                     result <- ValueSome(potential)
                 else
+
+                // exit if match loop terminator
+                nextLocMinterm <-
+                    if loc.Reversed then
+                        // this.MintermForStringIndex(loc.Input, potential + 1)
+                        this.MintermForStringIndex(loc.Input, potential - 1)
+                    else
+                        this.MintermForStringIndex(loc.Input, potential)
+#if DEBUG
+                // let dbgSpan = loc.Input.AsSpan().Slice(potential)
+                // let setPretty =
+                //     setSpan.ToArray()
+                //     |> Array.map this.PrettyPrintMinterm
+                //     |> String.concat ""
+                // let vs =
+                //     [|
+                //       this.PrettyPrintMinterm loopTerminator
+                //       this.PrettyPrintMinterm nextLocMinterm
+                //     |]
+#endif
+
+                if this.IsValidPredicate(loopTerminator, nextLocMinterm) then
+                    skipping <- false
+                    if loc.Reversed then
+                        result <- ValueSome(potential)
+                    else
+                        result <- ValueSome(potential)
+                else
+
+
                 let mutable i = 1
                 let mutable couldBe = true
-#if DEBUG
-                let dbgSpan = loc.Input.AsSpan().Slice(potential)
-                let setPretty =
-                    setSpan.ToArray()
-                    |> Array.map this.PrettyPrintMinterm
-                    |> String.concat ""
-#endif
+
                 while i < sets.Length - 1 && couldBe do
                     nextLocMinterm <-
                         if loc.Reversed then
-                            this.MintermForStringIndex(loc.Input, potential - i + 1)
+                            this.MintermForStringIndex(loc.Input, potential - i - 1 )
                         else
                             this.MintermForStringIndex(loc.Input, potential + i )
 
                     match this.IsValidPredicate(setSpan[i], nextLocMinterm) with
                     | false ->
                         couldBe <- false
-                        if loc.Reversed then
-                            currpos <- potential - 1
-                        else currpos <- potential + 2
-                    | true -> i <- i + 1
+                        if loc.Reversed then currpos <- potential - 1
+                        else currpos <- potential + 1
+                    | true ->
+                        i <- i + 1
 
                 if couldBe then
                     skipping <- false
-                    result <- ValueSome(potential)
+                    if loc.Reversed then
+                        // result <- ValueSome(potential - 1)
+                        result <- ValueSome(potential )
+                    else
+                        result <- ValueSome(potential)
 
 
 
-        result
-
-
-    member this.TryNextStartsetLocation2Alternate(loc: Location, set: uint64, set2: uint64) =
-
-        let mutable currpos = loc.Position
-        let mutable skipping = true
-        let mutable result = ValueNone
-        let inputSpan = loc.Input.AsSpan(currpos)
-
-        let mutable e = inputSpan.GetEnumerator()
-        let mutable counter = 0u
-
-        while e.MoveNext() && skipping do
-            counter <- counter + 1u
-            let loc_pred = minterms[classifier.GetMintermID2(uint32 e.Current)]
-
-            if not (Solver.isElemOfSetU64 (loc_pred) set) || not (e.MoveNext()) then
-                ()
-            else
-
-                counter <- counter + 1u
-
-                let loc_pred_2 = minterms[classifier.GetMintermID2(uint32 e.Current)]
-
-                if not (Solver.isElemOfSetU64 (loc_pred_2) set2) then
-                    ()
-                else
-
-                    skipping <- false
-                    result <- ValueSome(loc.Position + int counter)
 
         result
 

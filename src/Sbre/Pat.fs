@@ -114,6 +114,7 @@ module Solver =
 
     let inline isElemOfSetU64 predicate locationMinterm = predicate &&& locationMinterm <> 0uL
     let inline notElemOfSetU64 predicate locationMinterm = predicate &&& locationMinterm = 0uL
+    let inline not predicate = ~~~predicate
 
     let inline mapAnd (s:ISolver<^t>) ([<InlineIfLambda>]f: 'a -> ^t) (coll: seq<'a>): ^t =
         let mutable ss = s.Full

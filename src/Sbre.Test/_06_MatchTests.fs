@@ -496,8 +496,8 @@ change; when the abused brown grass, newly relieved of snow, seems
 """
 
 let sample3s  = """
-consciousness out of a long, exhausting lethargy; when the first faint
-balmy airs go wandering about, whispering the secret of the coming
+lethargy, and and the air tainted with
+c
 """
 
 
@@ -509,7 +509,7 @@ let ``startset 2 test small``() =
         |> Seq.map (fun v -> v.Value)
         |> Seq.toArray
 
-    Assert.Equal<string>( [| |], result )
+    Assert.Equal<string>( [| "lethargy, and and the air" |], result )
 
 [<Fact>]
 let ``startset 2 test``() =
@@ -527,3 +527,25 @@ let ``startset 2 test``() =
         |],
         result
     )
+
+
+[<Fact>]
+let ``startset 3 test``() =
+    let matcher = Regex(@"⊤*have⊤*&⊤*there⊤*&.*")
+    let result =
+        matcher.Matches("to have sdfgfs there fdsgf \n asddf have\n dfgsdf there have \n fsdgf")
+        |> Seq.map (fun v -> v.Value)
+        |> Seq.toArray
+
+    ()
+
+[<Fact>]
+let ``out of range test``() =
+    let matcher = Regex(@"<!--[\s\S]*--[ \t\n\r]*>")
+    let result =
+        matcher.Matches("<!-- anything -- >")
+        |> Seq.map (fun v -> v.Value)
+        |> Seq.toArray
+
+    ()
+

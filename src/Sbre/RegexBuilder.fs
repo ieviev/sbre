@@ -382,12 +382,14 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
 
         |}
 
+    let mutable _prefixCache: Dictionary<RegexNode<uint64>, InitialStartset> = Dictionary(_u64refComparer)
 
     member this.trueStar = _uniques._trueStar
     member this.epsilon = _uniques._epsilon
     member this.uniques = _uniques
     member this.anchors = _anchors
 
+    member this.PrefixCache = _prefixCache
     member this.DerivativeCache = _derivativeCache
     member this.Startset2Cache = _startset2Cache
     member this.AndSubsumptionCache = _andSubsumptionCache
@@ -402,7 +404,14 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
             ss2
 
 
-
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    member this.GetPrefixCached(node: RegexNode<uint64>) =
+        match this.PrefixCache.TryGetValue(node) with
+        | true, v -> v
+        | _ ->
+            let ss2 = Startset.inferInitialStartset (solver :?> ISolver<uint64>) (node)
+            this.PrefixCache.Add(node, ss2)
+            ss2
 
 
 
