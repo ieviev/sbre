@@ -43,6 +43,7 @@ type RegexCache< ^t when ^t: struct and ^t :> IEquatable< ^t > and ^t: equality>
     let mutable _cachedStartsets: Dictionary<uint64, char[]> = Dictionary()
     let mutable _toplevelOr: ToplevelORCollection = new ToplevelORCollection()
     let mutable _startsetPredicate = Startset.inferStartset _solver _rawPattern
+    let mutable _initialStartset = Startset.inferInitialStartset _solver _rawPattern
 
 
 #if DEBUG
@@ -55,6 +56,7 @@ type RegexCache< ^t when ^t: struct and ^t :> IEquatable< ^t > and ^t: equality>
 
     member this.InitialSs2() = initialSs2
     member this.Minterms() = minterms
+    member this.GetInitialStartsetPrefix() = _initialStartset
     member this.GetInitialStartsetPredicate() = _startsetPredicate
 
     member this.GetTopLevelOr() =
@@ -124,12 +126,6 @@ type RegexCache< ^t when ^t: struct and ^t :> IEquatable< ^t > and ^t: equality>
         let mutable slice = inputSpan.Slice(currpos)
         let mutable sharedIndex = 0
 
-        // let inline nextLocMinterm(pos: int) =
-        //     if loc.Reversed then
-        //         this.MintermForStringIndex(loc.Input, pos - 2)
-        //     else
-        //         this.MintermForStringIndex(loc.Input, pos + 1)
-
         match loc.Reversed, isInverted with
         | false, false ->
             while skipping do
@@ -182,7 +178,6 @@ type RegexCache< ^t when ^t: struct and ^t :> IEquatable< ^t > and ^t: equality>
             result
         | true, _ ->
             while skipping do
-                // let slice = loc.Input.AsSpan().Slice(0, currpos)
                 let slice = loc.Input.AsSpan().Slice(0, currpos)
 
                 let sharedIndex =
@@ -216,6 +211,188 @@ type RegexCache< ^t when ^t: struct and ^t :> IEquatable< ^t > and ^t: equality>
                         result <- ValueSome(potential)
 
             result
+
+    /// skip till a prefix of minterms matches
+    member this.TryNextStartsetLocationArray(loc: Location, sets: _[]) =
+
+        /// vectorize the search for the first character
+        let firstSetChars = this.MintermIndexOfSpan(sets[0])
+        /// '.' means ^\n -> it's easier to invert large sets
+        let isInverted = this.IsValidPredicate(sets[0], minterms[0])
+
+        let inputSpan = loc.Input.AsSpan()
+        let mutable currpos = loc.Position
+        let mutable skipping = true
+        let mutable result = ValueNone
+        let mutable slice = inputSpan.Slice(currpos)
+        let mutable sharedIndex = -1
+        let mutable nextLocMinterm = 0uL
+        let mutable setSpan = sets.AsSpan()
+
+        while skipping do
+            if loc.Reversed then
+                slice <- inputSpan.Slice(0, currpos)
+                if not isInverted then
+                    sharedIndex <- slice.LastIndexOfAny(firstSetChars)
+
+                else
+                    sharedIndex <- slice.LastIndexOfAnyExcept(firstSetChars)
+            else
+                slice <- inputSpan.Slice(currpos)
+                if not isInverted then
+                    sharedIndex <- slice.IndexOfAny(firstSetChars)
+                else
+                    sharedIndex <- slice.IndexOfAnyExcept(firstSetChars)
+
+            if sharedIndex = -1 then
+                skipping <- false
+                result <- ValueNone
+            else
+                let potential =
+                    if loc.Reversed then
+                        sharedIndex + 1
+                    else
+                        currpos + sharedIndex
+
+                let shouldExit =
+                    match loc.Reversed with
+                    | true -> potential < sets.Length
+                    | _ -> potential + sets.Length > (loc.Input.Length - 1)
+
+                if shouldExit then
+                    skipping <- false
+                    result <- ValueSome(potential)
+                else
+                let mutable i = 1
+                let mutable couldBe = true
+#if DEBUG
+                let dbgSpan = loc.Input.AsSpan().Slice(potential)
+                let setPretty =
+                    setSpan.ToArray()
+                    |> Array.map this.PrettyPrintMinterm
+                    |> String.concat ""
+#endif
+                while i < sets.Length - 1 && couldBe do
+                    nextLocMinterm <-
+                        if loc.Reversed then
+                            this.MintermForStringIndex(loc.Input, potential - i + 1)
+                        else
+                            this.MintermForStringIndex(loc.Input, potential + i )
+
+                    match this.IsValidPredicate(setSpan[i], nextLocMinterm) with
+                    | false ->
+                        couldBe <- false
+                        if loc.Reversed then
+                            currpos <- potential - 1
+                        else currpos <- potential + 2
+                    | true -> i <- i + 1
+
+                if couldBe then
+                    skipping <- false
+                    if loc.Reversed then
+                        result <- ValueSome(potential)
+                    else
+                        result <- ValueSome(potential)
+
+
+        result
+
+    /// skip till a prefix of minterms matches
+    member this.TryNextStartsetLocationArrayWithLoopTerminator(loc: Location, sets: _[], loopTerminator:uint64) =
+
+        /// vectorize the search for the first character
+        let firstSetChars = this.MintermIndexOfSpan(sets[0] ||| loopTerminator)
+        /// '.' means ^\n -> it's easier to invert large sets
+        let isInverted = this.IsValidPredicate(sets[0], minterms[0])
+
+        let inputSpan = loc.Input.AsSpan()
+        let mutable currpos = loc.Position
+        let mutable skipping = true
+        let mutable result = ValueNone
+        let mutable slice = inputSpan.Slice(currpos)
+        let mutable sharedIndex = -1
+        let mutable nextLocMinterm = 0uL
+        let mutable setSpan = sets.AsSpan()
+
+        while skipping do
+            if loc.Reversed then
+                slice <- inputSpan.Slice(0, currpos)
+                if not isInverted then
+                    sharedIndex <- slice.LastIndexOfAny(firstSetChars)
+
+                else
+                    sharedIndex <- slice.LastIndexOfAnyExcept(firstSetChars)
+            else
+                slice <- inputSpan.Slice(currpos)
+                if not isInverted then
+                    sharedIndex <- slice.IndexOfAny(firstSetChars)
+                else
+                    sharedIndex <- slice.IndexOfAnyExcept(firstSetChars)
+
+
+            if sharedIndex = -1 then
+                skipping <- false
+                result <- ValueNone
+            else
+                let potential =
+                    if loc.Reversed then
+                        sharedIndex + 1
+                    else
+                        currpos + sharedIndex
+
+                // exit if match loop terminator
+                nextLocMinterm <-
+                    if loc.Reversed then
+                        this.MintermForStringIndex(loc.Input, potential + 1)
+                    else
+                        this.MintermForStringIndex(loc.Input, potential)
+
+                if this.IsValidPredicate(loopTerminator, nextLocMinterm) then
+                    skipping <- false
+                    result <- ValueSome(potential)
+                else
+
+
+                let shouldExit =
+                    match loc.Reversed with
+                    | true -> potential < sets.Length
+                    | _ -> potential + sets.Length > (loc.Input.Length - 1)
+
+                if shouldExit then
+                    skipping <- false
+                    result <- ValueSome(potential)
+                else
+                let mutable i = 1
+                let mutable couldBe = true
+#if DEBUG
+                let dbgSpan = loc.Input.AsSpan().Slice(potential)
+                let setPretty =
+                    setSpan.ToArray()
+                    |> Array.map this.PrettyPrintMinterm
+                    |> String.concat ""
+#endif
+                while i < sets.Length - 1 && couldBe do
+                    nextLocMinterm <-
+                        if loc.Reversed then
+                            this.MintermForStringIndex(loc.Input, potential - i + 1)
+                        else
+                            this.MintermForStringIndex(loc.Input, potential + i )
+
+                    match this.IsValidPredicate(setSpan[i], nextLocMinterm) with
+                    | false ->
+                        couldBe <- false
+                        if loc.Reversed then
+                            currpos <- potential - 1
+                        else currpos <- potential + 2
+                    | true -> i <- i + 1
+
+                if couldBe then
+                    skipping <- false
+                    result <- ValueSome(potential)
+
+
+
+        result
 
 
     member this.TryNextStartsetLocation2Alternate(loc: Location, set: uint64, set2: uint64) =

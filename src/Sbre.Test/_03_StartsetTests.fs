@@ -4,7 +4,6 @@ module Sbre.Test._03_StartsetTests
 
 #if DEBUG
 
-
 open System
 open System.Collections
 open System.Collections.Generic
@@ -18,6 +17,7 @@ open Sbre
 open Sbre.Pat
 open Sbre.Test
 open Sbre.Pat.Extensions
+open Sbre.Types
 open Xunit
 
 module Helpers =
@@ -271,5 +271,87 @@ let ``startset concat reversed 2``() =
 // span2.CopyTo(resultSpan.Slice(from));
 //             from += span2.Length;
 //             span3.CopyTo(resultSpan.Slice(from));
+
+
+
+[<Fact>]
+let ``initialstartset prefix 1``() =
+    let matcher = Regex(@"⊤*have⊤*")
+    let info = matcher.RawPattern.TryGetInfo.Value
+
+    let initialStart =
+        Info.Startset.inferInitialStartset matcher.Cache.Solver matcher.RawPattern
+
+    let r = 1
+    ()
+    // Assert.Equal(Flag.Prefix ||| Flag.CanSkip, info.Flags)
+
+
+
+[<Fact>]
+let ``initialstartset prefix 2``() =
+    let matcher = Regex(@"~(⊤*\n\n⊤*)\n&⊤*have⊤*")
+    let info = matcher.RawPattern.TryGetInfo.Value
+    let acc = ResizeArray()
+    let initialStart =
+        Info.Startset.inferInitialStartset matcher.Cache.Solver matcher.RawPattern
+
+    let r = 1
+    ()
+    // Assert.Equal(Flag.Prefix ||| Flag.CanSkip, info.Flags)
+
+
+[<Fact>]
+let ``initialstartset prefix 3``() =
+    let matcher = Regex("THE.*LIFE")
+    let initialStart =
+        Info.Startset.inferInitialStartset matcher.Cache.Solver matcher.RawPattern
+    match initialStart with
+    | InitialStartset.MintermArrayPrefix(arr,_) ->
+        Assert.Equal(arr.Length, 3)
+        arr.Length
+    | _ -> failwith "invalid result"
+
+
+[<Fact>]
+let ``initialstartset prefix 4``() =
+    let matcher = Regex("⊤*have⊤*&⊤*there⊤*&.*")
+    let initialStart =
+        Info.Startset.inferInitialStartset matcher.Cache.Solver matcher.RawPattern
+    match initialStart with
+    | InitialStartset.MintermArrayPrefix(arr,_) ->
+        Assert.Equal(arr.Length, 4)
+        Assert.Equal("[ht]",matcher.Cache.PrettyPrintMinterm(arr[0]))
+        Assert.Equal("[ah]",matcher.Cache.PrettyPrintMinterm(arr[1]))
+        Assert.Equal("[ev]",matcher.Cache.PrettyPrintMinterm(arr[2]))
+        Assert.Equal("[er]",matcher.Cache.PrettyPrintMinterm(arr[3]))
+    | _ -> failwith "invalid result"
+
+
+
+[<Fact>]
+let ``skip position test 1``() =
+    let matcher = Regex(@"~(⊤*\n\n⊤*)\n&⊤*Twain⊤*")
+    let loc = Location.create "aa Twa Twain asd" 0
+
+    let prefix = matcher.Cache.GetInitialStartsetPrefix()
+    let result =
+        match prefix with
+        | InitialStartset.MintermArrayPrefix(arr,_) ->
+            matcher.Cache.TryNextStartsetLocationArray(loc, arr)
+        | _ -> failwith "todo"
+    Assert.Equal(result, ValueSome 7) // aa Twa |Tw
+
+
+
+
+
+
+
+
+
+
+
+
 
 #endif

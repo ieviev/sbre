@@ -192,6 +192,11 @@ module Location =
         | true -> loc.Position = 0
         | _ -> loc.Position = loc.Input.Length
 
+    let inline final (loc: Location) =
+        match loc.Reversed with
+        | true -> 0
+        | _ -> loc.Input.Length
+
     let inline setFinal (loc: Location) =
         match loc.Reversed with
         | true -> { loc with Position = 0} // loc.Position <- 0

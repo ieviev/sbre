@@ -118,7 +118,7 @@ let patterns = [
     // @"~(⊤*\n\n⊤*)\n&⊤*Huck⊤*&⊤*from⊤*&⊤*you⊤*"; // 58 ms
     // @"~(⊤*\n\n⊤*)\n&⊤*Huck⊤*&⊤*from⊤*&⊤*you⊤*"; // 58 ms
     // @"~(⊤*\n\n⊤*)\n&⊤*Huck⊤*&⊤*from⊤*"; // 30 ms
-    // @"~(⊤*\n\n⊤*)\n&⊤*Huck⊤*"; // 16 ms
+    @"~(⊤*\n\n⊤*)\n&⊤*Huck⊤*"; // 16 ms
 
     // Permutations.permuteConjInParagraph [ @"\s([a-z]*a[a-z]*&[a-z]*b[a-z]*&[a-z]*c[a-z]*&[a-z]*d[a-z]*)" ] // 102
 
@@ -137,13 +137,18 @@ let patterns = [
     // @"~(⊤*\n\n⊤*)" // 12ms
 
     // "⊤*have⊤*&⊤*there⊤*&⊤*other⊤*&.*" // 600ms
-    "⊤*have⊤*&⊤*there⊤*&⊤*other⊤*&.*" // 600ms
+    // "⊤*have⊤*&⊤*there⊤*&⊤*other⊤*&.*" // 600ms
 ]
 
 type DebugSbre() =
     // inherit Jobs.SbreDebugSearch(patterns, shortInput100k)
+    // inherit Jobs.SbreDebugSearch([@"~(⊤*\n\n⊤*)\n&⊤*Twain⊤*"], shortInput100k)
     inherit Jobs.SbreDebugSearch(patterns, fullInput)
     // inherit Jobs.SbreDebugSearch(patterns, fullInput)
+    // inherit Jobs.SbreDebugSearch(patterns, fullInput)
+
+type DebugSbre2() =
+    inherit Jobs.SbreDebugSearch(["⊤*have⊤*&⊤*there⊤*&.*"], fullInput)
 
 
 let common4 = ["the";"and";"of";"that"]

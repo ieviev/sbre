@@ -483,8 +483,8 @@ type SbreDebugSearch(patterns: string list, input: string) =
 
     [<Benchmark>]
     member this.MatchWithConj() =
-        // this.CombinedRegex.MatchPositions(inputText) |> Seq.length
-        this.CombinedRegex.CountMatches(inputText)
+        this.CombinedRegex.MatchPositions(inputText) |> Seq.length
+        // this.CombinedRegex.CountMatches(inputText)
 
 
 
@@ -561,7 +561,7 @@ type AllRegexesInParagraph(regexes: string list, input: string) =
 
 
     [<Benchmark>]
-    member this.None_TwoStep() =
+    member this.Default() =
         let results = ResizeArray()
         let inputSpan = inputText.AsSpan()
 
@@ -582,30 +582,30 @@ type AllRegexesInParagraph(regexes: string list, input: string) =
 
         results
 
+    // [<Benchmark>]
+    // member this.NonBack_TwoStep() =
+    //     let results = ResizeArray()
+    //     let inputSpan = inputText.AsSpan()
+    //
+    //     let mutable entireParagraphIsMatch = true
+    //     let mutable e = this.NonBack_Paragraph.EnumerateMatches(inputText)
+    //
+    //     // enumerate paragraphs during match
+    //     while e.MoveNext() do
+    //         entireParagraphIsMatch <- true
+    //         let paragraphSpan = inputSpan.Slice(e.Current.Index, e.Current.Length)
+    //         // run multiple ismatch regexes on each paragraph
+    //         for reg in this.NonBacktrack_MultipleIsMatchRegexes do
+    //             if not (reg.IsMatch(paragraphSpan)) then
+    //                 entireParagraphIsMatch <- false
+    //
+    //         if entireParagraphIsMatch then
+    //             results.Add({Index =e.Current.Index; Length= e.Current.Length})
+    //
+    //     results
+
     [<Benchmark>]
-    member this.NonBack_TwoStep() =
-        let results = ResizeArray()
-        let inputSpan = inputText.AsSpan()
-
-        let mutable entireParagraphIsMatch = true
-        let mutable e = this.NonBack_Paragraph.EnumerateMatches(inputText)
-
-        // enumerate paragraphs during match
-        while e.MoveNext() do
-            entireParagraphIsMatch <- true
-            let paragraphSpan = inputSpan.Slice(e.Current.Index, e.Current.Length)
-            // run multiple ismatch regexes on each paragraph
-            for reg in this.NonBacktrack_MultipleIsMatchRegexes do
-                if not (reg.IsMatch(paragraphSpan)) then
-                    entireParagraphIsMatch <- false
-
-            if entireParagraphIsMatch then
-                results.Add({Index =e.Current.Index; Length= e.Current.Length})
-
-        results
-
-    [<Benchmark>]
-    member this.Compiled_TwoStep() =
+    member this.Compiled() =
         let results = ResizeArray()
         let inputSpan = inputText.AsSpan()
 
@@ -626,10 +626,10 @@ type AllRegexesInParagraph(regexes: string list, input: string) =
 
         results
 
-    [<Benchmark>] // single regex with line loop and alternations
-    member this.NonBack_OneStep() =
-        let result = this.NonBacktrack_SingleStep.Matches(inputText)
-        result.Count
+    // [<Benchmark>] // single regex with line loop and alternations
+    // member this.NonBack_OneStep() =
+    //     let result = this.NonBacktrack_SingleStep.Matches(inputText)
+    //     result.Count
 
     // [<Benchmark>]
     // member this.Sbre_SingleStep() =
@@ -637,7 +637,8 @@ type AllRegexesInParagraph(regexes: string list, input: string) =
 
     [<Benchmark>]
     member this.Sbre_Neg_Conj() =
-        this.ConjunctionRegex.MatchPositions(inputText) |> Seq.length
+        // this.ConjunctionRegex.MatchPositions(inputText) |> Seq.length
+        this.ConjunctionRegex.CountMatches(inputText)
 
 
 
@@ -925,21 +926,22 @@ type TestAllBasic(regexForRuntime: string,regexForSbre:string, input: string) =
 
 
     [<Benchmark>]
-    member this.NonBack() =
+    member this.Symbolic() =
         let result = this.NonBack_Regex.Matches(inputText)
         result.Count
 
-    // [<Benchmark>]
-    // member this.Compiled() =
-    //     let result = this.Compiled_Regex.Matches(inputText)
-    //     result.Count
+    [<Benchmark>]
+    member this.Compiled() =
+        let result = this.Compiled_Regex.Matches(inputText)
+        result.Count
 
-    // [<Benchmark>]
-    // member this.None() =
-    //     let result = this.None_Regex.Matches(inputText)
-    //     result.Count
+    [<Benchmark>]
+    member this.Default() =
+        let result = this.None_Regex.Matches(inputText)
+        result.Count
 
     [<Benchmark>]
     member this.Sbre() =
-        // this.Sbre_Regex.MatchPositions(inputText) |> Seq.length
         this.Sbre_Regex.MatchPositions(inputText) |> Seq.length
+
+

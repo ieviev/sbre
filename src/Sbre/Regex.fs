@@ -12,14 +12,14 @@ open Sbre.Pat
 type MatchResult = {
     Success: bool
     Value: string
-    StartIndex: int
+    Index: int
     Length: int
 }
 
 [<Struct>]
 type MatchPositionResult = {
     Success: bool
-    StartIndex: int
+    Index: int
     Length: int
 }
 
@@ -155,7 +155,7 @@ type Regex(pattern: string, ?warnUnoptimized:bool) =
             {
                 Success = false
                 Value = ""
-                StartIndex = 0
+                Index = 0
                 Length = 0
             }
         else
@@ -166,7 +166,7 @@ type Regex(pattern: string, ?warnUnoptimized:bool) =
             | ValueNone -> {
                 Success = false
                 Value = ""
-                StartIndex = 0
+                Index = 0
                 Length = 0
               }
             | ValueSome endPos ->
@@ -183,7 +183,7 @@ type Regex(pattern: string, ?warnUnoptimized:bool) =
                     {
                         Success = true
                         Value = input[start .. endPos - 1]
-                        StartIndex = start
+                        Index = start
                         Length = endPos - start
                     }
 
@@ -194,7 +194,7 @@ type Regex(pattern: string, ?warnUnoptimized:bool) =
             {
                 Success = true
                 Value = input[result.Index .. result.Index + result.Length]
-                StartIndex = result.Index
+                Index = result.Index
                 Length = result.Length
             }
         )
@@ -269,17 +269,17 @@ type Regex(pattern: string, ?warnUnoptimized:bool) =
 
         seq {
             while looping do
-                let success =
-                    optimizations.TryFindNextStartingPositionLeftToRight(
-                        input.AsSpan(),
-                        &currPos,
-                        currPos
-                    )
-
-                if not success then
-                    looping <- false
-                else
-                    location.Position <- currPos
+                // let success =
+                //     optimizations.TryFindNextStartingPositionLeftToRight(
+                //         input.AsSpan(),
+                //         &currPos,
+                //         currPos
+                //     )
+                //
+                // if not success then
+                //     looping <- false
+                // else
+                //     location.Position <- currPos
 
 
                     match RegexNode.matchEnd (cache, &location, ValueNone, trueStarredUint64Node) with
@@ -331,7 +331,7 @@ type Regex(pattern: string, ?warnUnoptimized:bool) =
 
     member this.ReversePattern: RegexNode<uint64> = reverseUint64Node
 
-    member internal this.Cache = cache
+    member this.Cache = cache
 
 
 #if DEBUG

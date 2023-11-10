@@ -11,11 +11,6 @@ open Sbre.Pat
 open Sbre.Info
 
 #nowarn "9"
-module Ptr =
-    open FSharp.NativeInterop
-    let inline stackalloc<'a when 'a: unmanaged> (length: int) : Span<'a> =
-        let p = NativePtr.toVoidPtr(NativePtr.stackalloc<'a> length)
-        Span<'a>(p, length)
 
 
 // [<MethodImpl(MethodImplOptions.AggressiveOptimization)>]
@@ -32,28 +27,61 @@ let rec tryJumpToStartset (c:RegexCache<_>,loc:inref<Location>, nodes:inref<Topl
         // let commonStartsetLocation = c.TryNextStartsetLocation2(loc,ss,ss2)
 
         // with caching about 125% better performance (NEEDS TESTING)
-        // bug in @"lethargy.*air"
-        let ss2 = c.Builder.GetSs2Cached(node)
-        let commonStartsetLocation = c.TryNextStartsetLocation2(loc,ss,ss2)
+        // let ss2 = c.Builder.GetSs2Cached(node)
+        // let commonStartsetLocation = c.TryNextStartsetLocation2(loc,ss,ss2)
+
+        // experimental array
+        let prefix = Startset.inferInitialStartset c.Solver node
+        match prefix with
+        | InitialStartset.MintermArrayPrefix(arr,loopEnd) ->
+            // let commonStartsetLocation = c.TryNextStartsetLocationArray(loc,arr)
+            let commonStartsetLocation = c.TryNextStartsetLocationArrayWithLoopTerminator(loc,arr,loopEnd)
+
+            match commonStartsetLocation with
+            | ValueNone -> loc.Position // Location.final loc
+                // if loc.Reversed then 0 else loc.Input.Length - 1
+                // loc.Position
+            | ValueSome newPos -> newPos
+        | _ ->
+            // failwith "todo"
+            let commonStartsetLocation = c.TryNextStartsetLocation(loc,ss)
+
+
 
         // let pretty1 = c.PrettyPrintMinterm(ss)
         // let pretty2 = c.PrettyPrintMinterm(ss2)
         // let newloc =
         //     Location.create loc.Input commonStartsetLocation.Value
-
-        match commonStartsetLocation with
-        | ValueNone -> loc.Position
-        | ValueSome newPos -> newPos
+        //
+            match commonStartsetLocation with
+            | ValueNone -> loc.Position
+            | ValueSome newPos -> newPos
 
     | 0 ->
-        let ss = c.InitialPatternWithoutDotstar.Startset
-        let commonStartsetLocation = c.TryNextStartsetLocation(loc,ss)
-        // let ss2 = c.InitialSs2()
-        // let commonStartsetLocation = c.TryNextStartsetLocation2(loc,ss,ss2)
-        match commonStartsetLocation with
-        | ValueNone ->
-            loc.Position
-        | ValueSome newPos -> newPos
+
+        // attempt prefix search
+        let prefix = c.GetInitialStartsetPrefix()
+        match prefix with
+        | InitialStartset.MintermArrayPrefix(arr, loopEnd) ->
+            let commonStartsetLocation = c.TryNextStartsetLocationArray(loc,arr)
+            match commonStartsetLocation with
+            | ValueNone -> Location.final loc
+                // if loc.Reversed then 0 else loc.Input.Length - 1
+                // loc.Input.Length - 1
+                // loc.Position
+            | ValueSome newPos -> newPos
+
+        | _ -> loc.Position
+
+        // old approach
+        // let ss = c.InitialPatternWithoutDotstar.Startset
+        // let commonStartsetLocation = c.TryNextStartsetLocation(loc,ss)
+        // // let ss2 = c.InitialSs2()
+        // // let commonStartsetLocation = c.TryNextStartsetLocation2(loc,ss,ss2)
+        // match commonStartsetLocation with
+        // | ValueNone ->
+        //     loc.Position
+        // | ValueSome newPos -> newPos
     | _ ->
         // TBD: more optimizations
         // this branch is rarely reached

@@ -52,6 +52,34 @@ let fast =
     // |> viewn 1
 
 
+
+let pattern = // "(?<=\{).*&.*(?=\})&.*(?=[\s\S]* y)&[a-zA-Z ,]*&Capp.*&.*nard&.*Stuart.*&~(.*Berg.*)&~(app.*)&~(.*ar)&.*\p{Ll}"
+    String.Join("&",[
+        @"(?<=\{).*"   // { required before match on same line
+        @".*(?=\})"    // } required after match on same line
+        @".*(?=[\s\S]* y)" // " y" required after match anywhere in the text
+        "[a-zA-Z ,]*"  // only these symbols used in match
+        "Capp.*"       // must start with Capp  
+        ".*nard"       // must end with with nard
+        ".*Stuart.*"   // must contain Stuart
+        "~(.*Berg.*)"  // must not contain Berg
+        "~(app.*)"     // must not start with app
+        "~(.*ar)"      // must not end with ar
+        @".*\p{Ll}"    // must end with a character in the Ll unicode category 
+    ])
+let sampleText = " \n  author={Capp, Bernard Stuart and Capp, Bernard},\n  y";
+
+Regex(pattern).Match(sampleText) 
+// { Success = true
+//  Value = "Capp, Bernard Stuart and Capp, Bernard"
+//  StartIndex = 12
+//  Length = 38 }
+
+
+
+
+
+
 // let pats =
 //     // String.concat "&" [ @"[a-zA-Z]*"; $@".*b.*b.*"; $@".*i.*i.*"; $@".*e.*e.*"; $@"~({ts}x{ts})" ]
 //     // String.concat "&" [ @"[a-zA-Z]*"; $@"{ts}b{ts}b{ts}"; $@"{ts}i{ts}i{ts}"; $@"{ts}e{ts}e{ts}"; $@"~({ts}x{ts})" ]
@@ -84,47 +112,19 @@ let fast =
 
 
 
-let res =
-    // @"~(⊤\n\n⊤*)"
-    pat
-    // Sbre.Regex(@"\w+ \d")
-    |> Sbre.Regex
-    // |> (fun v -> v.MatchPositions(longSample))
-    |> (fun v -> v.MatchPositions(shortSample))
-    |> Seq.toArray
-    // |> viewn 1
-
-
-// res.Length
-res // 47165
-    |> Seq.where (fun v -> v.Length <> 0 )
-    |> Seq.length
-
-viewn 6 res
-
 // let res =
-//     // |> Sbre.Benchmarks.Jobs.Permutations.permuteConjInParagraph
-//     // pattern
-//     pats
-//     |> Matcher
-//     |> (fun v -> v.MatchPositions(longSample))
+//     // @"~(⊤\n\n⊤*)"
+//     pat
+//     // Sbre.Regex(@"\w+ \d")
+//     |> Sbre.Regex
+//     // |> (fun v -> v.MatchPositions(longSample))
+//     |> (fun v -> v.MatchPositions(shortSample))
 //     |> Seq.toArray
-//     |> viewn 10
-
+//     // |> viewn 1
 
 
 
 fsi.PrintWidth <- 150
-
-// let test2323 =
-//     // [ "[a-zA-Z]*b[a-zA-Z]*b"; "[a-zA-Z]*i[a-zA-Z]*i"; "[a-zA-Z]*e[a-zA-Z]*e" ]
-//     // [ ".*b.*b"; ".*i.*i"; ".*e.*e"; ".*F.*F" ]
-//     [ ".*b.*b"; ".*i.*i"; ".*e.*e"; ".*F.*F" ]
-//     |> List.map (fun v -> $"(?={v})")
-//     |> String.concat ""
-//     |> (fun v -> v + "(?!.*x)" + $".*")
-
-
 
 let permuteAltInLine(words: string list) =
     let rec distribute e =
@@ -146,6 +146,8 @@ let permuteAltInLine(words: string list) =
 
     $"{altpermutations}"
 
+permuteAltInLine ["have";"there"]
+
 let asdasds =
     Sbre.Benchmarks.Jobs.Permutations.permuteAltInParagraph [ "a"; "b"; "c"; "d" ]
 
@@ -163,12 +165,13 @@ File.writeTo "test.txt" asdasds2
 let matches =
     let reg =
         System.Text.RegularExpressions.Regex(
-            asdasds2,
+            "[a-e]+ [0-9]",
             System.Text.RegularExpressions.RegexOptions.Compiled
         )
 
     reg.Matches(longSample) |> Seq.map (fun v -> v.Value) |> Seq.toArray
 
+matches.Length
 
 matches.Length // 16
 // reg.Matches(shortSample) |> Seq.map (fun v -> v.Value) |> Seq.toArray

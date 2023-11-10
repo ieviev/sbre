@@ -311,7 +311,7 @@ let ``flags 2``() =
     | Types.And(nodes, info) ->
         // let flags = Flags.inferNode matcher.RawPattern
         let flags = Info.Flags.inferAnd (nodes)
-        Assert.Equal(Flag.CanSkip, flags)
+        Assert.Equal(Flag.CanSkip ||| Flag.Prefix, flags)
     | _ -> Assert.True(false, "wrong node type")
 
 
@@ -335,82 +335,31 @@ let ``flags 4``() =
 
     match matcher.RawPattern with
     | Types.Not(nodes, info) ->
-        Assert.Equal(Flag.CanBeNullable ||| Flag.IsAlwaysNullable ||| Flag.CanSkip, info.Flags)
+        Assert.Equal(Flag.CanBeNullable ||| Flag.IsAlwaysNullable ||| Flag.CanSkip ||| Flag.Prefix, info.Flags)
     | _ -> Assert.True(false, "wrong node type")
 
 
 
-// [<Fact>]
-// let ``flags 5``() =
-//     let matcher = Matcher(@".*(?=.*-)&\S.*\S")
-//
-//     match matcher.RawPattern with
-//     | Types.And(nodes, info) ->
-//         Assert.Equal(Flag.CanBeNullable ||| Flag.IsAlwaysNullable ||| Flag.CanSkip, info.Flags)
-//     | _ -> Assert.True(false, "wrong node type")
-//
 
-// [<Fact>]
-// let ``flags 5`` () =
-//     let matcher = Matcher(@"(⊤*&~(⊤*Ara⊤*))")
-//
-//     match matcher.RawPattern with
-//     | Types.And(nodes, info) ->
-//         // let flags = Flags.inferNode matcher.RawPattern
-//         let flags = Info.Flags.inferAnd (nodes)
-//         Assert.Equal(
-//             Flag.CanBeNullable
-//             ||| Flag.IsAlwaysNullable
-//             ||| Flag.CanSkip,
-//             flags
-//         )
-//     | _ -> Assert.True(false, "wrong node type")
+[<Fact>]
+let ``flags prefix 1``() =
+    let matcher = Regex(@"have⊤*")
+    let info = matcher.RawPattern.TryGetInfo.Value
+    Assert.Equal(Flag.Prefix, info.Flags)
 
 
+[<Fact>]
+let ``flags prefix 2``() =
+    let matcher = Regex(@"⊤*have⊤*")
+    let info = matcher.RawPattern.TryGetInfo.Value
+    Assert.Equal(Flag.Prefix ||| Flag.CanSkip, info.Flags)
 
 
-// [<Fact>]
-// let ``flags 7`` () =
-//     let m = Matcher(@"(?=.*A)(?=.*a)(?=.*1).")
-//
-//     match m.ReversePattern with
-//     // | Types.Concat(head,Concat(info=info2), info) as node ->
-//     | Types.Concat(head,tail, info) as node ->
-//         // let flags = Flags.inferNode matcher.RawPattern
-//         // let info = Cache.mkInfoOfAnd (matcher.Cache, nodes)
-//         let a = 1
-//         Assert.Equal(
-//             Flag.CanSkip,
-//             // info.Flags
-//             info.Flags
-//         )
-//     | _ -> Assert.True(false, "wrong node type")
-//
-
-
-
-
-
-// [<Fact>]
-// let ``flags 7`` () =
-//     let matcher = Matcher(@".*(?=aaa)")
-//
-//     match matcher.RawPattern with
-//     | Types.Concat(h,t, info) ->
-//         let flags = Flags.inferNode matcher.RawPattern
-//         let info1 =
-//             match Cache.mkConcat (matcher.Cache, nodes) with
-//             | Concat(n,i) -> i
-//             | _ -> failwith "debug"
-//
-//         let info = Info.Flags.inferConcatOptimized (nodes)
-//
-//         Assert.Equal(
-//             Flag.CanBeNullable ||| Flag.ContainsLookaround ||| Flag.CanSkip,
-//             // info1.Flags
-//             info
-//         )
-//     | _ -> Assert.True(false, "wrong node type")
+[<Fact>]
+let ``flags prefix 3``() =
+    let matcher = Regex(@"~(⊤*\n\n⊤*)\n&⊤*have⊤*")
+    let info = matcher.RawPattern.TryGetInfo.Value
+    Assert.Equal(Flag.Prefix ||| Flag.CanSkip, info.Flags)
 
 
 

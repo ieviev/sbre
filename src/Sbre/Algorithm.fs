@@ -346,9 +346,18 @@ module RegexNode =
                             //     match initialWithoutDotstar with
                             //     | Not _ | Concat(head=Not _) -> ()
                             //     | _ -> looping <- false
+
                             // use our own startset lookup (not optimized for long strings)
                             if not (Solver.isElemOfSetU64 startsetPredicate nextLocationPredicate) then
                                 loc.Position <- tryJumpToStartset (cache, &loc, &toplevelOr)
+
+                            // hardcoded for testing
+                            // let v = loc.Input.AsSpan(loc.Position).IndexOf("Huck")
+                            // match v with
+                            // | -1 -> loc.Position <- loc.Input.Length - 1
+                            // | _ ->
+                            //     loc.Position <- loc.Position + v
+
                     else
                         // check if some input can be skipped
                         if

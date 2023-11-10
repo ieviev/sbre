@@ -24,6 +24,7 @@ type ParagraphLong1Word() =
     inherit
         Jobs.AllRegexesInParagraph(
             ["Huck"],
+            // @"~(⊤*\n\n⊤*)\n&⊤*Huck⊤*",
             fullInput
         )
 
@@ -96,8 +97,10 @@ type Basic1() =
         Jobs.TestAllBasic(
             // @"(?i)Tom|Sawyer|Huckleberry|Finn",
             // @"(?i)Tom|Sawyer|Huckleberry|Finn",
-            @"[a-q][^u-z]{13}x",
-            @"[a-q][^u-z]{13}x",
+            // "\w+ [0-9]",
+            // "\w+ [0-9]",
+            ".*have.*there.*|.*there.*have.*",
+            ".*have.*there.*|.*there.*have.*",
             fullInput
         )
 
@@ -110,12 +113,15 @@ type Basic2() =
             // ".*&⊤*nn⊤*&⊤*[Ii]⊤*[Ii]⊤*&⊤*[Ee]⊤*[Ee]⊤*&⊤*F⊤*F⊤*&~(⊤*x⊤*)",
             // 2w
             // "(?=.*have)(?=.*[a-z]*ing).*",
-            ".*have.*there.*other.*|.*there.*have.*other.*|.*there.*other.*have.*|.*have.*other.*there.*|.*other.*have.*there.*|.*other.*there.*have.*",
+            // ".*have.*there.*other.*|.*there.*have.*other.*|.*there.*other.*have.*|.*have.*other.*there.*|.*other.*have.*there.*|.*other.*there.*have.*",
             // "⊤*have⊤*&⊤*there⊤*&⊤*other⊤*&.*",
             // ".*have.*there.*other.*|.*there.*have.*other.*|.*there.*other.*have.*|.*have.*other.*there.*|.*other.*have.*there.*|.*other.*there.*have.*"
             // ".*have.*&.*there.*",
-            "⊤*have⊤*&⊤*there⊤*&⊤*other⊤*&.*",
+            // "⊤*have⊤*&⊤*there⊤*&⊤*other⊤*&.*",
+
             // ".*have.*there.*other.*|.*there.*have.*other.*|.*there.*other.*have.*|.*have.*other.*there.*|.*other.*have.*there.*|.*other.*there.*have.*",
+            "Twain",
+            "Twain",
             //
             fullInput
 

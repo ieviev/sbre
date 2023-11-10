@@ -495,6 +495,21 @@ balmy airs go wandering about, whispering the secret of the coming
 change; when the abused brown grass, newly relieved of snow, seems
 """
 
+let sample3s  = """
+consciousness out of a long, exhausting lethargy; when the first faint
+balmy airs go wandering about, whispering the secret of the coming
+"""
+
+
+[<Fact>]
+let ``startset 2 test small``() =
+    let matcher = Regex(@"lethargy.*air")
+    let result =
+        matcher.Matches(sample3s)
+        |> Seq.map (fun v -> v.Value)
+        |> Seq.toArray
+
+    Assert.Equal<string>( [| |], result )
 
 [<Fact>]
 let ``startset 2 test``() =

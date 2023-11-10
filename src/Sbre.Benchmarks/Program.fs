@@ -34,19 +34,22 @@ let config =
 
 let dbgSample() =
 
-    let shortSample = Helpers.sample_inputText
+    // let shortSample = Helpers.sample_inputText
 
-    let matcher =
-        Regex(Permutations.permuteConjInParagraph [ "c([a-z]*)ion";])
+    // let matcher =
+    //     Regex(Permutations.permuteConjInParagraph [ "c([a-z]*)ion";])
 
-    for i = 0 to 0 do
-        // matcher.CountMatches(sample_inputText) |> ignore
-        matcher.MatchPositions(sample_inputText)
-        |> Seq.toArray
-        |> ignore
+    let reg = System.Text.RegularExpressions.Regex("Twain")
+
+    for i = 0 to 1000 do
+        reg.Matches(sample_inputText).Count |> ignore
+        // // matcher.CountMatches(sample_inputText) |> ignore
+        // matcher.MatchPositions(sample_inputText)
+        // |> Seq.toArray
+        // |> ignore
 
     // t2 |> stdout.WriteLine
-    ()
+
 
 let dbgSbre() =
 
@@ -56,19 +59,22 @@ let dbgSbre() =
         |> Seq.head
     t.Setup()
     // for i = 0 to 29 do
-    for i = 0 to 130 do
-    // for i = 0 to 0 do
+    // for i = 0 to 1 do
+    // for i = 0 to 100 do
+    for i = 0 to 1000 do
         t.MatchWithConj() |> ignore
+
+
     ()
 
 [<EntryPoint>]
 let main argv =
 
-    // dbgSample()
 #if DEBUG
     dbgSbre()
 #endif
-    // dbgSbre()
+    dbgSbre()
+    // dbgSample()
 
 
     match Environment.GetCommandLineArgs() |> Seq.last with
@@ -91,6 +97,7 @@ let main argv =
     | "full-1" -> BenchmarkRunner.Run(typeof<ParagraphFull.DebugSbre>,config) |> ignore
     // --
     | "debug-sbre" -> BenchmarkRunner.Run(typeof<ParagraphFull.DebugSbre>,config) |> ignore
+    | "debug-sbre2" -> BenchmarkRunner.Run(typeof<ParagraphFull.DebugSbre2>,config) |> ignore
     | "debug-runtime" -> BenchmarkRunner.Run(typeof<ParagraphFull.DebugRuntime>,config) |> ignore
     | "debug-all" -> BenchmarkRunner.Run(typeof<ParagraphFull.DebugAll>,config) |> ignore
     // --

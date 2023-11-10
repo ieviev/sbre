@@ -44,8 +44,7 @@ type RegexNodeFlags =
     | ContainsLookaround = 4uy
     | ContainsEpsilon = 8uy
     | CanSkip = 16uy
-    | All = 31uy
-
+    | Prefix = 32uy
 
 [<Struct>]
 type RegexNodeInfo<'tset> = {
@@ -57,6 +56,17 @@ type RegexNodeInfo<'tset> = {
     member inline this.CanNotBeNullable = not(this.Flags.HasFlag(RegexNodeFlags.CanBeNullable))
     member inline this.ContainsLookaround = this.Flags.HasFlag(RegexNodeFlags.ContainsLookaround)
     member inline this.ContainsEpsilon = this.Flags.HasFlag(RegexNodeFlags.ContainsEpsilon)
+    member inline this.HasPrefix = this.Flags.HasFlag(RegexNodeFlags.Prefix)
+
+
+[<Struct>]
+type InitialStartset =
+    | Unoptimized
+    | MintermArrayPrefix of prefix:uint64[] * loopTerminator:uint64
+    // | StringPrefix of string
+    // | MultiStringPrefix of string
+    // | TwoMinterms of struct(uint64*uint64)
+
 
 
 // TBD: experimenting with various other sets
@@ -150,6 +160,16 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
         | Concat(info = info) -> info.ContainsEpsilon
         | Epsilon -> false
 
+    member inline this.TryGetInfo =
+        match this with
+        | Or(info = info) -> Some info
+        | Singleton _ -> None
+        | Loop(info = info) -> Some info
+        | And(info = info) -> Some info
+        | Not(info = info) -> Some info
+        | LookAround _ -> None
+        | Concat(info = info) -> Some info
+        | Epsilon -> None
 
     member inline this.CanBeNullable =
         match this with
@@ -380,15 +400,12 @@ type ToplevelORCollection() =
                 this.IncreaseArraySize()
 
             match nodeArray[0], node with
-            | x,y when refEq x y -> () // identical
-                // failwith "identical"
+            | x,y when refEq x y -> () // identical top level node
+
             // important optimization
             | And(nodes1, _), And(nodes2, _)  ->
                 if nodes2.IsSupersetOf(nodes1) then () else
                     createNode()
-
-            // | Or(nodes1, _), Or(nodes2, _) when nodes2.IsSupersetOf(nodes1) || nodes1.IsSupersetOf(nodes2) ->
-            //     failwith "fdsf"
             // TODO: equivalent for Or
             | _ ->
                 createNode()
