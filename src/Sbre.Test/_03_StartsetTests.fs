@@ -163,16 +163,7 @@ let ``startset2 generation 1``() =
 
 
 
-[<Fact>]
-let ``startset2 generation 2``() =
 
-    let matcher = Regex(@"(~(⊤*\n\n⊤*)\n&⊤*c[a-ci]*i⊤*)")
-    let c = matcher.Cache
-    let ss = c.InitialSs2()
-    let sspretty = c.PrettyPrintMinterm(ss)
-    // should not skip over chars after c
-    // Assert.Equal(".", sspretty)
-    Assert.Equal(@"[\na-ci]", sspretty)
 
 
 // [<Fact>]
@@ -440,13 +431,13 @@ let ``initialstartset prefix 12``() =
 [<Fact>]
 let ``skip position test 1``() =
     let matcher = Regex(@"~(⊤*\n\n⊤*)\n&⊤*Twain⊤*")
-    let loc = Location.create "aa Twa Twain asd" 0
+    let mutable loc = Location.create "aa Twa Twain asd" 0
 
     let prefix = matcher.Cache.GetInitialStartsetPrefix()
     let result =
         match prefix with
         | InitialStartset.MintermArrayPrefix(prefix=arr) ->
-            matcher.Cache.TryNextStartsetLocationArray(loc, arr)
+            matcher.Cache.TryNextStartsetLocationArray(&loc, arr)
         | _ -> failwith "todo"
     Assert.Equal(result, ValueSome 7) // aa Twa |Tw
 

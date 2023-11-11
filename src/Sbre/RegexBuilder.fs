@@ -403,6 +403,11 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
             this.Startset2Cache.Add(node, ss2)
             ss2
 
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    member this.TryGetDerivative(struct (locationPredicate, curr)) =
+        _derivativeCache.TryGetValue(struct (locationPredicate, curr))
+
+
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.GetPrefixCached(node: RegexNode<uint64>) =

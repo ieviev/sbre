@@ -46,8 +46,15 @@ let dbgSbre() =
         t.Patterns
         |> Seq.head
     t.Setup()
-    for i = 0 to 1 do
+    // for i = 0 to 1 do
+    for i = 0 to 1000 do
         t.MatchWithConj() |> ignore
+
+
+
+
+
+
 
 [<EntryPoint>]
 let main argv =
@@ -108,6 +115,7 @@ let main argv =
     | "all-r1" -> BenchmarkRunner.Run(typeof<Paper.RegexLine1>,config) |> ignore
     | "all-r3" -> BenchmarkRunner.Run(typeof<Paper.RegexLine3>,config) |> ignore
     | "dbg" -> BenchmarkRunner.Run(typeof<Paper.DebugSbre3>,config) |> ignore
+    | "dbg-mt" -> BenchmarkRunner.Run(typeof<Jobs.Minterms>,config) |> ignore
 
 
     | _ ->

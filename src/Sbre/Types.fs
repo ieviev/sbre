@@ -481,6 +481,7 @@ type ToplevelORCollection() =
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.Items() = nodeArray.AsSpan().Slice(0,_count)
     // member this.Nullabilities = lastNullableArray.AsSpan().Slice(0,_count)
+    member this.First = nodeArray[0]
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.CanSkipAll() =

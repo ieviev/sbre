@@ -30,6 +30,7 @@
     <Compile Include="Pat.fs" />
     <Compile Include="Info.fs" />
     <Compile Include="RegexBuilder.fs" />
+    <Compile Include="Vectorized.fs" />
     <Compile Include="Cache.fs" />
     <Compile Include="CachePatterns.fs" />
     <Compile Include="RegexNodeConverter.fs" />

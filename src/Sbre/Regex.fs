@@ -238,8 +238,8 @@ type Regex(pattern: string, ?warnUnoptimized:bool) =
             location.Position <- currPos
             match initialPrefix with
             | InitialStartset.Unoptimized -> ()
-            | InitialStartset.MintermArrayPrefix(arr, loopEnd) ->
-                let commonStartsetLocation = this.Cache.TryNextStartsetLocationArray(location,arr)
+            | InitialStartset.MintermArrayPrefix(prefix=prefix) ->
+                let commonStartsetLocation = this.Cache.TryNextStartsetLocationArray(&location,prefix)
                 match commonStartsetLocation with
                 | ValueNone ->
                     looping <- false
@@ -291,7 +291,7 @@ type Regex(pattern: string, ?warnUnoptimized:bool) =
                 | InitialStartset.Unoptimized ->
                     ()
                 | InitialStartset.MintermArrayPrefix(arr, loopEnd) ->
-                    let commonStartsetLocation = this.Cache.TryNextStartsetLocationArray(location,arr)
+                    let commonStartsetLocation = this.Cache.TryNextStartsetLocationArray(&location,arr)
                     match commonStartsetLocation with
                     | ValueNone ->
                         looping <- false

@@ -145,7 +145,12 @@ type Basic3() =
 type DebugSbre3() =
     inherit Jobs.SbreDebugSearch([
         // @"~(⊤*\n\n⊤*)&⊤*Huck⊤*"
-        @"~(⊤*\n\n⊤*)&⊤*Huck⊤*&⊤*could⊤*"
+        // @"~(⊤*\n\n⊤*)&⊤*Huck⊤*&⊤*could⊤*"
+
+        Permutations.permuteConjInLine ["which";"could"]
+        // Permutations.permuteConjInLine ["t.*hat"; "a.*nd"; "t.*he";"w.*as"]
+
+        // @"~(⊤*\n\n⊤*)&⊤*Huck⊤*&⊤*could⊤*&⊤*there⊤*"
     ], fullInput)
 
 

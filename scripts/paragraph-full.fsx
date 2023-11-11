@@ -59,12 +59,12 @@ let fast =
 
     // ".*which.*&.*could.*&.*that.*&~(.*the.*)" // 21
     // Sbre.Benchmarks.Jobs.Permutations.permuteConjInLine ["could"; "were"; "have"]
-    Sbre.Benchmarks.Jobs.Permutations.permuteConjInLine ["Huck"; "them"; "were" ]
+    Sbre.Benchmarks.Jobs.Permutations.permuteConjInLine ["Huck"; "could"; "here"  ]
     |> Sbre.Regex
     // |> (fun v -> v.CountMatches(longSample))
     |> (fun v -> v.MatchPositions(longSample))
     |> Seq.toArray
-    |> viewn 7
+    |> viewn 10
 
 
 

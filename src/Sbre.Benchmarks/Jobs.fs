@@ -2,8 +2,10 @@ module Sbre.Benchmarks.Jobs
 
 open System
 // open System.Text.RuntimeRegexCopy
+open System.Text.RuntimeRegexCopy.Symbolic
 open BenchmarkDotNet.Attributes
 open Sbre
+open Sbre.Pat
 
 
 module Permutations =
@@ -554,6 +556,57 @@ type SbreDebugSearch(patterns: string list, input: string) =
         this.CombinedRegex.CountMatches(inputText)
 
 
+[<MemoryDiagnoser(false)>]
+[<ShortRunJob>]
+type Minterms() =
+    let input =
+        __SOURCE_DIRECTORY__ + "/data/input-text.txt" |> System.IO.File.ReadAllText
+
+
+    member val Matcher: Regex = Unchecked.defaultof<_> with get, set
+    member val Cache: RegexCache<uint64> = Unchecked.defaultof<_> with get, set
+    member val Minterms:  uint64 array = Unchecked.defaultof<_> with get, set
+    // member val Classifier: MintermClassifier = Unchecked.defaultof<_> with get, set
+
+    [<GlobalSetup>]
+    member this.Setup() =
+        this.Matcher <- Regex(@"~(⊤*\n\n⊤*)&⊤*Huck⊤*")
+        this.Cache <- this.Matcher.Cache
+        this.Minterms <- this.Matcher.Cache.Minterms()
+
+    // [<Benchmark>]
+    // member this.Minterm1() =
+    //     let spn = input.AsSpan()
+    //     for i = 0 to 100 do
+    //         this.Cache.Classify(spn[i]) |> ignore
+
+    //
+    // [<Benchmark>]
+    // member this.Minterm2() =
+    //     let spn = input.AsSpan()
+    //     for i = 0 to 100 do
+    //         this.Cache.Classify2(spn[i]) |> ignore
+
+    [<Benchmark>]
+    member this.Elem1() =
+        let spn = input.AsSpan()
+        for i = 0 to 100 do
+            let loc = this.Cache.Classify(spn[i])
+            Solver.elemOfSet loc 11uL |> ignore
+
+    [<Benchmark>]
+    member this.Elem2() =
+        let spn = input.AsSpan()
+        for i = 0 to 100 do
+            let loc = this.Cache.Classify(spn[i])
+            this.Cache.IsValidPredicateUint64(11uL, loc) |> ignore
+
+    // [<Benchmark>]
+    // member this.Elem3() =
+    //     let spn = input.AsSpan()
+    //     for i = 0 to 100 do
+    //         let loc = this.Cache.Classify(spn[i])
+    //         this.Cache.IsValidPredicate(11uL, loc) |> ignore
 
 
 

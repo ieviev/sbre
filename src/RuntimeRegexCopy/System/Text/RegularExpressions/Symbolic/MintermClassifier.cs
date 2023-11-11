@@ -92,10 +92,8 @@ namespace System.Text.RuntimeRegexCopy.Symbolic
             return (uint)c < (uint)ascii.Length ? ascii[c] : _nonAscii.Find(c);
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public int GetMintermID2(uint c)
-        {
-            return c < _ascii.Length ? _ascii[c] : _nonAscii.Find((int)c);
-        }
+        
+        public int[] Ascii => _ascii;
+        public BDD NonAscii => _nonAscii;
     }
 }

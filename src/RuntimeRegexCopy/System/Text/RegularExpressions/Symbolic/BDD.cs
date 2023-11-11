@@ -85,11 +85,11 @@ namespace System.Text.RuntimeRegexCopy.Symbolic
         /// <summary>
         /// True iff the BDD is True.
         /// </summary>
-        public bool IsFull => this == True;
+        public bool IsFull => object.ReferenceEquals(this, True);
         /// <summary>
         /// True iff the BDD is False.
         /// </summary>
-        public bool IsEmpty => this == False;
+        public bool IsEmpty => object.ReferenceEquals(this,False);
         /// <summary>
         /// Gets the lexicographically minimum bitvector in this BDD as a ulong.
         /// The BDD must be nonempty.
@@ -151,7 +151,10 @@ namespace System.Text.RuntimeRegexCopy.Symbolic
         /// <summary>A shallow equality check that holds if ordinals are identical and one's are identical and zero's are identical.</summary>
         public override bool Equals(object? obj) => Equals(obj as BDD);
         /// <summary>A shallow equality check that holds if ordinals are identical and one's are identical and zero's are identical.</summary>
-        public bool Equals(BDD? bdd) => bdd is not null && (this == bdd || (Ordinal == bdd.Ordinal && One == bdd.One && Zero == bdd.Zero));
+        public bool Equals(BDD? bdd) => 
+            bdd is not null && 
+            (object.ReferenceEquals(this, bdd) 
+            || (Ordinal == bdd.Ordinal && ReferenceEquals(One, bdd.One) && ReferenceEquals(Zero, bdd.Zero)));
 #region Serialization
 #if DEBUG // currently used only from the debug-only code that regenerates the embedded serialized BDD data
 
@@ -177,7 +180,7 @@ namespace System.Text.RuntimeRegexCopy.Symbolic
 
             BDD[] nodes = TopologicalSort();
 
-            Debug.Assert(nodes[nodes.Length - 1] == this);
+            Debug.Assert(ReferenceEquals(nodes[^1], this));
             Debug.Assert(nodes.Length <= (1 << 24));
 
             // As few bits as possible are used to for ordinals and node identifiers for compact serialization.
@@ -248,7 +251,7 @@ namespace System.Text.RuntimeRegexCopy.Symbolic
                 return Array.Empty<BDD>();
 
             if (IsLeaf)
-                return new BDD[] { this };
+                return new[] { this };
 
             // Order the nodes according to their ordinals into the nonterminals array
             var nonterminals = new List<BDD>[Ordinal + 1];
@@ -274,7 +277,7 @@ namespace System.Text.RuntimeRegexCopy.Symbolic
                 else
                 {
                     // Non-terminals are grouped by their ordinal so that they can be sorted into a topological order.
-                    (nonterminals[node.Ordinal] ??= new List<BDD>()).Add(node);
+                    nonterminals[node.Ordinal].Add(node);
 
                     if (visited.Add(node.Zero))
                         toVisit.Push(node.Zero);
@@ -288,10 +291,7 @@ namespace System.Text.RuntimeRegexCopy.Symbolic
             // ordinal is guaranteed to have only one node, which places the root of the BDD at the end.
             for (int i = 0; i < nonterminals.Length; i++)
             {
-                if (nonterminals[i] != null)
-                {
-                    sorted.AddRange(nonterminals[i]);
-                }
+                sorted.AddRange(nonterminals[i]);
             }
 
             return sorted.ToArray();
@@ -473,7 +473,7 @@ namespace System.Text.RuntimeRegexCopy.Symbolic
                         // remember the first MTBDD leaf seen
                         leaf = node;
                     }
-                    else if (leaf != node)
+                    else if (!ReferenceEquals(leaf, node))
                     {
                         // found two different MTBDD leaves
                         terminalActingAsTrue = null;

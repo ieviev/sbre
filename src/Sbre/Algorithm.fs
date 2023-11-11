@@ -180,19 +180,21 @@ module RegexNode =
             if initialIsDotStarred then cache.GetTopLevelOr()
             else new ToplevelORCollection()
 
-        let initialWithoutDotstar =
+        let _initialWithoutDotstar =
             if initialIsDotStarred then
                 cache.InitialPatternWithoutDotstar
             else
                 initialNode
 
 
-
-        let startsetPredicate = cache.GetInitialStartsetPredicate()
-
         if not initialIsDotStarred then
             let branchNullPos = if isNullable (cache, loc, initialNode) then loc.Position else -1
             toplevelOr.Add(initialNode, branchNullPos, loc.Position)
+
+
+        let _startsetPredicate = cache.GetInitialStartsetPredicate()
+        let _derivativeCache = cache.Builder.DerivativeCache
+
 
         while looping do
             // 3.3 Derivatives and MatchEnd optimizations
@@ -227,7 +229,7 @@ module RegexNode =
 
                         let deriv =
                             // attempt to not even call createDerivative
-                            match cache.Builder.DerivativeCache.TryGetValue(struct (locationPredicate, curr)) with
+                            match _derivativeCache.TryGetValue(struct (locationPredicate, curr)) with
                             | true, v -> v
                             | _ ->
                                 createDerivative (cache, loc, locationPredicate, curr)
@@ -258,15 +260,15 @@ module RegexNode =
                 if
                     initialIsDotStarred
                     && currentMax.IsNone
-                    && Solver.isElemOfSetU64 startsetPredicate locationPredicate
+                    && Solver.isElemOfSetU64 _startsetPredicate locationPredicate
                 then
 
                     let deriv =
                         // attempt to not even call createDerivative
-                        match cache.Builder.DerivativeCache.TryGetValue(struct (locationPredicate, initialWithoutDotstar)) with
+                        match _derivativeCache.TryGetValue(struct (locationPredicate, _initialWithoutDotstar)) with
                         | true, v -> v
                         | _ ->
-                            createDerivative (cache, loc, locationPredicate, initialWithoutDotstar)
+                            createDerivative (cache, loc, locationPredicate, _initialWithoutDotstar)
 
                     match deriv with
                     | IsFalse cache -> ()
@@ -382,13 +384,13 @@ module RegexNode =
                             //     | _ -> looping <- false
 
                             // use our own startset lookup (not optimized for long strings)
-                            if not (Solver.isElemOfSetU64 startsetPredicate nextLocationPredicate) then
+                            if not (Solver.isElemOfSetU64 _startsetPredicate nextLocationPredicate) then
                                 loc.Position <- tryJumpToStartset (cache, &loc, &toplevelOr)
                     else
                         // check if some input can be skipped
                         if
                             canSkipAll &&
-                            not (Solver.isElemOfSetU64 startsetPredicate nextLocationPredicate)
+                            not (Solver.isElemOfSetU64 _startsetPredicate nextLocationPredicate)
                         then
                             // jump mid-regex
                             loc.Position <- tryJumpToStartset (cache, &loc, &toplevelOr)
