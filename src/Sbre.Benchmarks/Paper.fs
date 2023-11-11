@@ -139,6 +139,14 @@ type Basic3() =
         )
 
 
+type DebugSbre3() =
+    inherit Jobs.SbreDebugSearch([
+        // Permutations.permuteConjInLine ["th.*at"; "an.*d"; "th.*e";"wa.*s"]
+        // Permutations.permuteConjInLine ["t.*hat"; "a.*nd"; "t.*he";"w.*as"]
+        @"~(⊤*\n\n⊤*)&⊤*Huck⊤*"
+        // Permutations.permuteConjInLine ["th.*at"; "an.*d"; "th.*e"]
+    ], fullInput)
+
 
 type WordsLine1() =
     inherit
@@ -180,9 +188,45 @@ type LWord1() =
     inherit
         Jobs.TestAllEngines(
             // ["w[a-z]+h";"c[a-z]+d"],
+            // [@"w[a-z]*h"; @"c[a-z]*d"; ],
             [@"w[a-z]*h"; @"c[a-z]*d"; ],
             fullInput
         )
+
+
+
+// let regexes = ["t.*hat"; "a.*nd"; "w.*as"]
+// let regexes = ["could"; "which"; "was"]
+// let regexes = ["co.*uld"; "wh.*ich"; "wa.*s"]
+// let regexes = ["(?:co.+uld|wh.+ich)"; "was"; "there";]
+// let regexes = [ "which [a-z]*ed"; "that (:?all|in|is|the)"; ]
+let regexes = [ "could"; ]
+// let regexes = ["t.*hat"; "a.*nd"; "t.*he"]
+
+type RegexLine1() =
+    inherit
+        Jobs.TestAllEnginesSeparate(
+            // Permutations.permuteAltInLine ["that"; "and"; "the";"was"],
+            // Permutations.permuteAltInLine ["th.*at"; "an.*d"; "th.*e";"wa.*s"],
+            Permutations.permuteAltInLine regexes,
+            // Permutations.permuteAltInLine ["that"; "and"; "the";"was"; "for"; "his"],
+            // Permutations.permuteConjInLine ["th.*at"; "an.*d"; "th.*e";"wa.*s"],
+            Permutations.permuteConjInLine2 regexes,
+            fullInput
+        )
+
+// type RegexLine1() =
+//     inherit
+//         Jobs.TestAllEnginesSeparate(
+//             // Permutations.permuteAltInLine ["that"; "and"; "the";"was"],
+//             // Permutations.permuteAltInLine ["th.*at"; "an.*d"; "th.*e";"wa.*s"],
+//             Permutations.permuteAltInLine ["t.*hat"; "a.*nd"; "t.*he";"w.*as"],
+//             // Permutations.permuteAltInLine ["that"; "and"; "the";"was"; "for"; "his"],
+//             // Permutations.permuteConjInLine ["th.*at"; "an.*d"; "th.*e";"wa.*s"],
+//             Permutations.permuteConjInLine ["t.*hat"; "a.*nd"; "t.*he";"w.*as"],
+//             fullInput
+//         )
+
 
 type RegexLine3() =
     inherit

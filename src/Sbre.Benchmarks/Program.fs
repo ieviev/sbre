@@ -41,12 +41,12 @@ let dbgSample() =
 
 let dbgSbre() =
 
-    let t = ParagraphFull.DebugSbre()
+    let t = Paper.DebugSbre3()
     t.Pattern <-
         t.Patterns
         |> Seq.head
     t.Setup()
-    for i = 0 to 5 do
+    for i = 0 to 1 do
         t.MatchWithConj() |> ignore
 
 [<EntryPoint>]
@@ -105,7 +105,9 @@ let main argv =
     | "all-w4" -> BenchmarkRunner.Run(typeof<Paper.WordsLine4>,config) |> ignore
     | "all-w5" -> BenchmarkRunner.Run(typeof<Paper.WordsLine5>,config) |> ignore
     | "all-l1" -> BenchmarkRunner.Run(typeof<Paper.LWord1>,config) |> ignore
+    | "all-r1" -> BenchmarkRunner.Run(typeof<Paper.RegexLine1>,config) |> ignore
     | "all-r3" -> BenchmarkRunner.Run(typeof<Paper.RegexLine3>,config) |> ignore
+    | "dbg" -> BenchmarkRunner.Run(typeof<Paper.DebugSbre3>,config) |> ignore
 
 
     | _ ->

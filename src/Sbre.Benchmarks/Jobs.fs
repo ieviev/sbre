@@ -98,15 +98,16 @@ module Permutations =
         $"{altpermutations}"
 
     let permuteConjInLine(words: string list) =
+        words |> List.map (fun v -> $".*{v}.*") |> String.concat "&"
+
+    let permuteConjInLine2(words: string list) =
         words
-        |> List.map (fun v -> $".*{v}.*")
+        |> List.map (fun v -> $"⊤*{v}⊤*")
+        |> List.append [".*"]
         |> String.concat "&"
 
     let permuteLookaheadInLine(words: string list) =
-        words
-        |> List.map (fun v -> $"(?=.*{v})")
-        |> String.concat ""
-        |> (fun v -> v + ".*")
+        words |> List.map (fun v -> $"(?=.*{v})") |> String.concat "" |> (fun v -> v + ".*")
 
 
 
@@ -339,6 +340,41 @@ type SbreInnerParagraph(words: string list, input: string) =
 
 
 
+let twoStepSearch (patterns:string list) (input:string) =
+    let results = ResizeArray()
+    let inputText = input
+    let paragraphRegex = @"(?:.+\n)+\n"
+    let inputSpan = inputText.AsSpan()
+    let opts  = System.Text.RegularExpressions.RegexOptions.None
+    let pgregex = System.Text.RegularExpressions.Regex(paragraphRegex, opts)
+    let regexes = [|
+        for word in patterns do
+            yield
+                System.Text.RegularExpressions.Regex(
+                    word,
+                    options = opts,
+                    matchTimeout = TimeSpan.FromMilliseconds(10_000.)
+                )
+    |]
+
+    let mutable entireParagraphIsMatch = true
+    let mutable e = pgregex.EnumerateMatches(inputText)
+
+    // enumerate paragraphs during match
+    while e.MoveNext() do
+        entireParagraphIsMatch <- true
+        let paragraphSpan = inputSpan.Slice(e.Current.Index, e.Current.Length)
+        // run multiple ismatch regexes on each paragraph
+        for reg in regexes do
+            if not (reg.IsMatch(paragraphSpan)) then
+                entireParagraphIsMatch <- false
+
+        if entireParagraphIsMatch then
+            results.Add({ Index = e.Current.Index - 1; Length = e.Current.Length - 1})
+
+    results
+
+
 
 [<MemoryDiagnoser(false)>]
 [<ShortRunJob>]
@@ -408,10 +444,10 @@ type RuntimeFullSearch
 
         results
 
-    // [<Benchmark>] // single regex with line loop and alternations
-    // member this.SingleRegexSearch() =
-    //     let result = this.SingleStepRegex.Matches(inputText)
-    //     result.Count
+// [<Benchmark>] // single regex with line loop and alternations
+// member this.SingleRegexSearch() =
+//     let result = this.SingleStepRegex.Matches(inputText)
+//     result.Count
 
 
 
@@ -537,13 +573,24 @@ type AllRegexesInParagraph(regexes: string list, input: string) =
     let opts_Compiled = Text.RegularExpressions.RegexOptions.Compiled
 
     member val ConjunctionRegex: Regex = Unchecked.defaultof<_> with get, set
-    member val None_Paragraph: System.Text.RegularExpressions.Regex = System.Text.RegularExpressions.Regex(paragraphRegex, opts_None) with get, set
-    member val NonBack_Paragraph: System.Text.RegularExpressions.Regex = System.Text.RegularExpressions.Regex(paragraphRegex, opts_NonBacktracking) with get, set
-    member val Compiled_Paragraph: System.Text.RegularExpressions.Regex = System.Text.RegularExpressions.Regex(paragraphRegex, opts_Compiled) with get, set
 
-    member val None_MultipleIsMatchRegexes: System.Text.RegularExpressions.Regex[] = null with get, set
-    member val NonBacktrack_MultipleIsMatchRegexes: System.Text.RegularExpressions.Regex[] = null with get, set
-    member val Compiled_MultipleIsMatchRegexes: System.Text.RegularExpressions.Regex[] = null with get, set
+    member val None_Paragraph: System.Text.RegularExpressions.Regex =
+        System.Text.RegularExpressions.Regex(paragraphRegex, opts_None) with get, set
+
+    member val NonBack_Paragraph: System.Text.RegularExpressions.Regex =
+        System.Text.RegularExpressions.Regex(paragraphRegex, opts_NonBacktracking) with get, set
+
+    member val Compiled_Paragraph: System.Text.RegularExpressions.Regex =
+        System.Text.RegularExpressions.Regex(paragraphRegex, opts_Compiled) with get, set
+
+    member val None_MultipleIsMatchRegexes: System.Text.RegularExpressions.Regex[] =
+        null with get, set
+
+    member val NonBacktrack_MultipleIsMatchRegexes: System.Text.RegularExpressions.Regex[] =
+        null with get, set
+
+    member val Compiled_MultipleIsMatchRegexes: System.Text.RegularExpressions.Regex[] =
+        null with get, set
 
     member val NonBacktrack_SingleStep: System.Text.RegularExpressions.Regex = null with get, set
     member val Sbre_SingleStepRegex: Regex = Unchecked.defaultof<_> with get, set
@@ -559,6 +606,7 @@ type AllRegexesInParagraph(regexes: string list, input: string) =
                         matchTimeout = TimeSpan.FromMilliseconds(10_000.)
                     )
         |]
+
         this.Compiled_MultipleIsMatchRegexes <- [|
             for word in regexes do
                 yield
@@ -568,6 +616,7 @@ type AllRegexesInParagraph(regexes: string list, input: string) =
                         matchTimeout = TimeSpan.FromMilliseconds(10_000.)
                     )
         |]
+
         try
             this.NonBacktrack_MultipleIsMatchRegexes <- [|
                 for word in regexes do
@@ -578,7 +627,9 @@ type AllRegexesInParagraph(regexes: string list, input: string) =
                             matchTimeout = TimeSpan.FromMilliseconds(10_000.)
                         )
             |]
-        with e -> ()
+        with e ->
+            ()
+
         try
             this.NonBacktrack_SingleStep <-
                 System.Text.RegularExpressions.Regex(
@@ -586,7 +637,8 @@ type AllRegexesInParagraph(regexes: string list, input: string) =
                     options = opts_NonBacktracking,
                     matchTimeout = TimeSpan.FromMilliseconds(10_000.)
                 )
-        with e -> ()
+        with e ->
+            ()
 
         this.ConjunctionRegex <- Regex(conjunctionRegex)
 
@@ -609,7 +661,7 @@ type AllRegexesInParagraph(regexes: string list, input: string) =
                     entireParagraphIsMatch <- false
 
             if entireParagraphIsMatch then
-                results.Add({Index =e.Current.Index; Length= e.Current.Length})
+                results.Add({ Index = e.Current.Index; Length = e.Current.Length })
 
         results
 
@@ -653,7 +705,7 @@ type AllRegexesInParagraph(regexes: string list, input: string) =
                     entireParagraphIsMatch <- false
 
             if entireParagraphIsMatch then
-                results.Add({Index =e.Current.Index; Length= e.Current.Length})
+                results.Add({ Index = e.Current.Index; Length = e.Current.Length })
 
         results
 
@@ -677,7 +729,8 @@ type AllRegexesInParagraph(regexes: string list, input: string) =
 [<ShortRunJob>]
 [<AbstractClass>]
 [<HideColumns([| "" |])>]
-type AllRegexesInParagraphSeparate(regexesForRuntime: string list,regexForSbre:string, input: string) =
+type AllRegexesInParagraphSeparate
+    (regexesForRuntime: string list, regexForSbre: string, input: string) =
     do AppContext.SetData("REGEX_NONBACKTRACKING_MAX_AUTOMATA_SIZE", 1_000_000)
     let inputText = input
     // let paragraphRegex = @"(?:.+\n)+\n" // absolute fastest paragraph search but skips last one
@@ -689,13 +742,24 @@ type AllRegexesInParagraphSeparate(regexesForRuntime: string list,regexForSbre:s
     let opts_Compiled = Text.RegularExpressions.RegexOptions.Compiled
 
     member val ConjunctionRegex: Regex = Unchecked.defaultof<_> with get, set
-    member val None_Paragraph: System.Text.RegularExpressions.Regex = System.Text.RegularExpressions.Regex(paragraphRegex, opts_None) with get, set
-    member val NonBack_Paragraph: System.Text.RegularExpressions.Regex = System.Text.RegularExpressions.Regex(paragraphRegex, opts_NonBacktracking) with get, set
-    member val Compiled_Paragraph: System.Text.RegularExpressions.Regex = System.Text.RegularExpressions.Regex(paragraphRegex, opts_Compiled) with get, set
 
-    member val None_MultipleIsMatchRegexes: System.Text.RegularExpressions.Regex[] = null with get, set
-    member val NonBacktrack_MultipleIsMatchRegexes: System.Text.RegularExpressions.Regex[] = null with get, set
-    member val Compiled_MultipleIsMatchRegexes: System.Text.RegularExpressions.Regex[] = null with get, set
+    member val None_Paragraph: System.Text.RegularExpressions.Regex =
+        System.Text.RegularExpressions.Regex(paragraphRegex, opts_None) with get, set
+
+    member val NonBack_Paragraph: System.Text.RegularExpressions.Regex =
+        System.Text.RegularExpressions.Regex(paragraphRegex, opts_NonBacktracking) with get, set
+
+    member val Compiled_Paragraph: System.Text.RegularExpressions.Regex =
+        System.Text.RegularExpressions.Regex(paragraphRegex, opts_Compiled) with get, set
+
+    member val None_MultipleIsMatchRegexes: System.Text.RegularExpressions.Regex[] =
+        null with get, set
+
+    member val NonBacktrack_MultipleIsMatchRegexes: System.Text.RegularExpressions.Regex[] =
+        null with get, set
+
+    member val Compiled_MultipleIsMatchRegexes: System.Text.RegularExpressions.Regex[] =
+        null with get, set
 
     member val NonBacktrack_SingleStep: System.Text.RegularExpressions.Regex = null with get, set
     member val Sbre_SingleStepRegex: Regex = Unchecked.defaultof<_> with get, set
@@ -711,6 +775,7 @@ type AllRegexesInParagraphSeparate(regexesForRuntime: string list,regexForSbre:s
                         matchTimeout = TimeSpan.FromMilliseconds(10_000.)
                     )
         |]
+
         this.Compiled_MultipleIsMatchRegexes <- [|
             for word in regexesForRuntime do
                 yield
@@ -720,23 +785,26 @@ type AllRegexesInParagraphSeparate(regexesForRuntime: string list,regexForSbre:s
                         matchTimeout = TimeSpan.FromMilliseconds(10_000.)
                     )
         |]
+
         try
             this.NonBacktrack_MultipleIsMatchRegexes <- [|
-                    for word in regexesForRuntime do
-                        yield
-                            System.Text.RegularExpressions.Regex(
-                                word,
-                                options = opts_NonBacktracking,
-                                matchTimeout = TimeSpan.FromMilliseconds(10_000.)
-                            )
-                |]
+                for word in regexesForRuntime do
+                    yield
+                        System.Text.RegularExpressions.Regex(
+                            word,
+                            options = opts_NonBacktracking,
+                            matchTimeout = TimeSpan.FromMilliseconds(10_000.)
+                        )
+            |]
+
             this.NonBacktrack_SingleStep <-
                 System.Text.RegularExpressions.Regex(
                     singleStepRegex,
                     options = opts_NonBacktracking,
                     matchTimeout = TimeSpan.FromMilliseconds(10_000.)
                 )
-        with e -> ()
+        with e ->
+            ()
 
 
 
@@ -761,7 +829,7 @@ type AllRegexesInParagraphSeparate(regexesForRuntime: string list,regexForSbre:s
                     entireParagraphIsMatch <- false
 
             if entireParagraphIsMatch then
-                results.Add({Index =e.Current.Index; Length= e.Current.Length})
+                results.Add({ Index = e.Current.Index; Length = e.Current.Length })
 
         results
 
@@ -783,7 +851,7 @@ type AllRegexesInParagraphSeparate(regexesForRuntime: string list,regexForSbre:s
                     entireParagraphIsMatch <- false
 
             if entireParagraphIsMatch then
-                results.Add({Index =e.Current.Index; Length= e.Current.Length})
+                results.Add({ Index = e.Current.Index; Length = e.Current.Length })
 
         results
 
@@ -805,7 +873,7 @@ type AllRegexesInParagraphSeparate(regexesForRuntime: string list,regexForSbre:s
                     entireParagraphIsMatch <- false
 
             if entireParagraphIsMatch then
-                results.Add({Index =e.Current.Index; Length= e.Current.Length})
+                results.Add({ Index = e.Current.Index; Length = e.Current.Length })
 
         results
 
@@ -828,21 +896,27 @@ type AllRegexesInParagraphSeparate(regexesForRuntime: string list,regexForSbre:s
 [<ShortRunJob>]
 [<AbstractClass>]
 [<HideColumns([| "" |])>]
-type MatchInParagraphSeparate(regexForRuntime: string,regexForSbre:string, input: string) =
+type MatchInParagraphSeparate(regexForRuntime: string, regexForSbre: string, input: string) =
     do AppContext.SetData("REGEX_NONBACKTRACKING_MAX_AUTOMATA_SIZE", 1_000_000)
     let inputText = input
     // let paragraphRegex = @"(?:.+\n)+\n" // absolute fastest paragraph search but skips last one
     let paragraphRegex = @"(?:.+(?:\n|\z))+(?:\n|\z)" // fastest correct paragraph search adds around 2ms
-    let singleStepRegex = Permutations.permuteAltInParagraph [regexForRuntime]
+    let singleStepRegex = Permutations.permuteAltInParagraph [ regexForRuntime ]
     let conjunctionRegex = regexForSbre
     let opts_None = Text.RegularExpressions.RegexOptions.None
     let opts_NonBacktracking = Text.RegularExpressions.RegexOptions.NonBacktracking
     let opts_Compiled = Text.RegularExpressions.RegexOptions.Compiled
 
     member val ConjunctionRegex: Regex = Unchecked.defaultof<_> with get, set
-    member val None_Paragraph: System.Text.RegularExpressions.Regex = System.Text.RegularExpressions.Regex(paragraphRegex, opts_None) with get, set
-    member val NonBack_Paragraph: System.Text.RegularExpressions.Regex = System.Text.RegularExpressions.Regex(paragraphRegex, opts_NonBacktracking) with get, set
-    member val Compiled_Paragraph: System.Text.RegularExpressions.Regex = System.Text.RegularExpressions.Regex(paragraphRegex, opts_Compiled) with get, set
+
+    member val None_Paragraph: System.Text.RegularExpressions.Regex =
+        System.Text.RegularExpressions.Regex(paragraphRegex, opts_None) with get, set
+
+    member val NonBack_Paragraph: System.Text.RegularExpressions.Regex =
+        System.Text.RegularExpressions.Regex(paragraphRegex, opts_NonBacktracking) with get, set
+
+    member val Compiled_Paragraph: System.Text.RegularExpressions.Regex =
+        System.Text.RegularExpressions.Regex(paragraphRegex, opts_Compiled) with get, set
 
     member val None_TwostepRegex: System.Text.RegularExpressions.Regex = null with get, set
     member val NonBack_TwostepRegex: System.Text.RegularExpressions.Regex = null with get, set
@@ -859,18 +933,21 @@ type MatchInParagraphSeparate(regexForRuntime: string,regexForSbre:string, input
                 options = opts_None,
                 matchTimeout = TimeSpan.FromMilliseconds(10_000.)
             )
+
         this.NonBack_TwostepRegex <-
             System.Text.RegularExpressions.Regex(
                 regexForRuntime,
                 options = opts_None,
                 matchTimeout = TimeSpan.FromMilliseconds(10_000.)
             )
+
         this.Compiled_TwostepRegex <-
             System.Text.RegularExpressions.Regex(
                 regexForRuntime,
                 options = opts_None,
                 matchTimeout = TimeSpan.FromMilliseconds(10_000.)
             )
+
         this.NonBacktrack_SingleStep <-
             System.Text.RegularExpressions.Regex(
                 singleStepRegex,
@@ -890,9 +967,13 @@ type MatchInParagraphSeparate(regexForRuntime: string,regexForSbre:string, input
         // enumerate paragraphs during match
         while e.MoveNext() do
             entireParagraphIsMatch <- true
-            let mutable result = this.None_TwostepRegex.Match(inputText,e.Current.Index, e.Current.Length)
+
+            let mutable result =
+                this.None_TwostepRegex.Match(inputText, e.Current.Index, e.Current.Length)
+
             if result.Success then
-                results.Add({Index =result.Index; Length= result.Length})
+                results.Add({ Index = result.Index; Length = result.Length })
+
         results
 
     [<Benchmark>]
@@ -904,9 +985,13 @@ type MatchInParagraphSeparate(regexForRuntime: string,regexForSbre:string, input
         // enumerate paragraphs during match
         while e.MoveNext() do
             entireParagraphIsMatch <- true
-            let mutable result = this.NonBack_TwostepRegex.Match(inputText,e.Current.Index, e.Current.Length)
+
+            let mutable result =
+                this.NonBack_TwostepRegex.Match(inputText, e.Current.Index, e.Current.Length)
+
             if result.Success then
-                results.Add({Index =result.Index; Length= result.Length})
+                results.Add({ Index = result.Index; Length = result.Length })
+
         results
 
     [<Benchmark>]
@@ -918,9 +1003,13 @@ type MatchInParagraphSeparate(regexForRuntime: string,regexForSbre:string, input
         // enumerate paragraphs during match
         while e.MoveNext() do
             entireParagraphIsMatch <- true
-            let mutable result = this.Compiled_TwostepRegex.Match(inputText,e.Current.Index, e.Current.Length)
+
+            let mutable result =
+                this.Compiled_TwostepRegex.Match(inputText, e.Current.Index, e.Current.Length)
+
             if result.Success then
-                results.Add({Index =result.Index; Length= result.Length})
+                results.Add({ Index = result.Index; Length = result.Length })
+
         results
 
     [<Benchmark>] // single regex with line loop and alternations
@@ -939,16 +1028,22 @@ type MatchInParagraphSeparate(regexForRuntime: string,regexForSbre:string, input
 [<ShortRunJob>]
 [<AbstractClass>]
 [<HideColumns([| "" |])>]
-type TestAllBasic(regexForRuntime: string,regexForSbre:string, input: string) =
+type TestAllBasic(regexForRuntime: string, regexForSbre: string, input: string) =
     do AppContext.SetData("REGEX_NONBACKTRACKING_MAX_AUTOMATA_SIZE", 1_000_000)
     let inputText = input
     let opts_None = Text.RegularExpressions.RegexOptions.None
     let opts_NonBacktracking = Text.RegularExpressions.RegexOptions.NonBacktracking
     let opts_Compiled = Text.RegularExpressions.RegexOptions.Compiled
 
-    member val None_Regex: System.Text.RegularExpressions.Regex = System.Text.RegularExpressions.Regex(regexForRuntime, opts_None) with get, set
-    member val NonBack_Regex: System.Text.RegularExpressions.Regex = System.Text.RegularExpressions.Regex(regexForRuntime, opts_NonBacktracking) with get, set
-    member val Compiled_Regex: System.Text.RegularExpressions.Regex = System.Text.RegularExpressions.Regex(regexForRuntime, opts_Compiled) with get, set
+    member val None_Regex: System.Text.RegularExpressions.Regex =
+        System.Text.RegularExpressions.Regex(regexForRuntime, opts_None) with get, set
+
+    member val NonBack_Regex: System.Text.RegularExpressions.Regex =
+        System.Text.RegularExpressions.Regex(regexForRuntime, opts_NonBacktracking) with get, set
+
+    member val Compiled_Regex: System.Text.RegularExpressions.Regex =
+        System.Text.RegularExpressions.Regex(regexForRuntime, opts_Compiled) with get, set
+
     member val Sbre_Regex: Regex = Regex(regexForSbre, false) with get, set
 
 
@@ -971,7 +1066,7 @@ type TestAllBasic(regexForRuntime: string,regexForSbre:string, input: string) =
         let result = this.None_Regex.Matches(inputText)
         result.Count
 
-    [<Benchmark(Description="asd")>]
+    [<Benchmark(Description = "asd")>]
     member this.Sbre() =
         this.Sbre_Regex.MatchPositions(inputText) |> Seq.length
 
@@ -990,10 +1085,18 @@ type TestAllEngines(words: string list, input: string) =
     let conj_pattern = Permutations.permuteConjInLine words
     let look_pattern = Permutations.permuteLookaheadInLine words
 
-    member val None_Regex: System.Text.RegularExpressions.Regex = System.Text.RegularExpressions.Regex(alt_pattern, opts_None) with get, set
-    member val NonBack_Regex: System.Text.RegularExpressions.Regex = System.Text.RegularExpressions.Regex(alt_pattern, opts_NonBacktracking) with get, set
-    member val Compiled_Regex: System.Text.RegularExpressions.Regex = System.Text.RegularExpressions.Regex(alt_pattern, opts_Compiled) with get, set
-    member val CompiledLookahead_Regex: System.Text.RegularExpressions.Regex = System.Text.RegularExpressions.Regex(look_pattern, opts_Compiled) with get, set
+    member val None_Regex: System.Text.RegularExpressions.Regex =
+        System.Text.RegularExpressions.Regex(alt_pattern, opts_None) with get, set
+
+    member val NonBack_Regex: System.Text.RegularExpressions.Regex =
+        System.Text.RegularExpressions.Regex(alt_pattern, opts_NonBacktracking) with get, set
+
+    member val Compiled_Regex: System.Text.RegularExpressions.Regex =
+        System.Text.RegularExpressions.Regex(alt_pattern, opts_Compiled) with get, set
+
+    member val CompiledLookahead_Regex: System.Text.RegularExpressions.Regex =
+        System.Text.RegularExpressions.Regex(look_pattern, opts_Compiled) with get, set
+
     member val SbreAlt_Regex: Regex = Regex(alt_pattern, false) with get, set
     member val Sbre_Regex: Regex = Regex(conj_pattern, false) with get, set
 
@@ -1006,7 +1109,7 @@ type TestAllEngines(words: string list, input: string) =
     //     let result = this.None_Regex.Matches(inputText)
     //     result.Count
 
-    [<Benchmark(Description="NonBacktrack: .*R1.*R2.*|.*R2.*R1.*")>]
+    [<Benchmark(Description = "NonBacktrack: .*R1.*R2.*|.*R2.*R1.*")>]
     member this.Symbolic() =
         let result = this.NonBack_Regex.Matches(inputText)
         result.Count
@@ -1022,17 +1125,78 @@ type TestAllEngines(words: string list, input: string) =
     //     result.Count
     //
     //
-    [<Benchmark(Description="Sbre: .*R1.*R2.*|.*R2.*R1.*")>]
+    [<Benchmark(Description = "Sbre: .*R1.*R2.*|.*R2.*R1.*")>]
     member this.SbreAlt() =
         this.SbreAlt_Regex.MatchPositions(inputText) |> Seq.length
-        // this.Sbre_Regex.CountMatches(inputText)
+    // this.Sbre_Regex.CountMatches(inputText)
 
 
-        // this.SbreAlt_Regex.MatchPositions(inputText) |> Seq.length
+    // this.SbreAlt_Regex.MatchPositions(inputText) |> Seq.length
 
-    [<Benchmark(Description="Sbre: .*R1.*&.*R2.*")>]
+    [<Benchmark(Description = "Sbre: .*R1.*&.*R2.*")>]
     member this.Sbre() =
         this.Sbre_Regex.MatchPositions(inputText) |> Seq.length
-        // this.Sbre_Regex.CountMatches(inputText)// |> Seq.length
+// this.Sbre_Regex.CountMatches(inputText)// |> Seq.length
 
+
+
+[<MemoryDiagnoser(false)>]
+[<ShortRunJob>]
+[<AbstractClass>]
+type TestAllEnginesSeparate(defaultRegex: string, sbreRegex: string, input: string) =
+    do AppContext.SetData("REGEX_NONBACKTRACKING_MAX_AUTOMATA_SIZE", 1_000_000)
+    let inputText = input
+    let opts_None = Text.RegularExpressions.RegexOptions.None
+    let opts_NonBacktracking = Text.RegularExpressions.RegexOptions.NonBacktracking
+    let opts_Compiled = Text.RegularExpressions.RegexOptions.Compiled
+
+    let alt_pattern = defaultRegex
+    let conj_pattern = sbreRegex
+
+    member val None_Regex: System.Text.RegularExpressions.Regex =
+        System.Text.RegularExpressions.Regex(alt_pattern, opts_None) with get, set
+
+    member val NonBack_Regex: System.Text.RegularExpressions.Regex =
+        System.Text.RegularExpressions.Regex(alt_pattern, opts_NonBacktracking) with get, set
+
+    member val Compiled_Regex: System.Text.RegularExpressions.Regex =
+        System.Text.RegularExpressions.Regex(alt_pattern, opts_Compiled) with get, set
+
+    member val SbreAlt_Regex: Regex = Regex(alt_pattern, false) with get, set
+    member val Sbre_Regex: Regex = Regex(conj_pattern, false) with get, set
+
+
+    [<GlobalSetup>]
+    member this.Setup() = ()
+
+    // [<Benchmark(Description="None: '.*R1.*R2.*|.*R2.*R1.*'")>]
+    // member this.Default() =
+    //     let result = this.None_Regex.Matches(inputText)
+    //     result.Count
+
+    [<Benchmark(Description = "NonBacktrack: .*R1.*R2.*|.*R2.*R1.*")>]
+    member this.Symbolic() =
+        let result = this.NonBack_Regex.Matches(inputText)
+        result.Count
+
+    // [<Benchmark(Description="Compiled: .*R1.*R2.*|.*R2.*R1.*")>]
+    // member this.Compiled() =
+    //     let result = this.Compiled_Regex.Matches(inputText)
+    //     result.Count
+    //
+    // [<Benchmark(Description="Compiled: (?=R1)(?=R2).*")>]
+    // member this.CompiledLook() =
+    //     let result = this.CompiledLookahead_Regex.Matches(inputText)
+    //     result.Count
+    //
+    //
+    // [<Benchmark(Description="Sbre: .*R1.*R2.*|.*R2.*R1.*")>]
+    // member this.SbreAlt() =
+    //     this.SbreAlt_Regex.MatchPositions(inputText) |> Seq.length
+    //     // this.Sbre_Regex.CountMatches(inputText)
+    //     // this.SbreAlt_Regex.MatchPositions(inputText) |> Seq.length
+
+    // [<Benchmark(Description = "Sbre: .*R1.*&.*R2.*")>]
+    // member this.Sbre() =
+    //     this.Sbre_Regex.MatchPositions(inputText) |> Seq.length
 

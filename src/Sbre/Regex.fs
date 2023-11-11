@@ -300,10 +300,6 @@ type Regex(pattern: string, ?warnUnoptimized:bool) =
                 | ValueSome(endPos: int) ->
                     reverseLocation.Position <- endPos
 
-#if DIAGNOSTIC
-                    stdout.WriteLine "REVERSE"
-                    stdout.WriteLine (reverseLocation.DebugDisplay())
-#endif
                     let startPos =
                         RegexNode.matchEnd (
                             cache,
@@ -318,7 +314,6 @@ type Regex(pattern: string, ?warnUnoptimized:bool) =
                             $"match succeeded left to right but not right to left\nthis may occur because of an unimplemented feature\nend-pos:{endPos}, pattern:{reverseUint64Node}"
                     | ValueSome start ->
                         let startIdx = max currPos start
-                        // initialpos -1 is the end of the previous match, cancel the overlap
                         let response: MatchPosition = {
                             Index = startIdx
                             Length = (endPos - 1) - startIdx

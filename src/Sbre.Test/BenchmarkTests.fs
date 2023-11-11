@@ -43,21 +43,75 @@ let twain_20k = twain_input[..19999] // 10k chars limit
 //     let r = m.Matches(paragraph) |> Seq.toArray
 //     Assert.Equal(r.Length,9)
 
-
 [<Fact>]
 let ``paragraphs-huck``() =
+    let m = Regex(@"~(⊤*\n\n⊤*)&⊤*Huck⊤*")
+    let r1 = m.Matches(twain_input) |> Seq.toArray
+    let r2 =
+        Benchmarks.Jobs.twoStepSearch ["Huck"] twain_input
+        |> Seq.toArray
+
+    [|
+        Assert.Equal(411, r2.Length)
+        Assert.Equal(3635093, r2[0].Index)
+        Assert.Equal(844,r2[0].Length)
+        Assert.Equal(3735436, r2[1].Index)
+        Assert.Equal(361,r2[1].Length)
+    |]
+    |> Array.iter id
+
+
+    Assert.Equal(r2.Length, r1.Length)
+    Assert.Equal(r2[0].Index, r1[0].Index)
+    Assert.Equal(r2[0].Length,r1[0].Length)
+    Assert.Equal(r2[1].Index, r1[1].Index)
+    Assert.Equal(r2[1].Length,r1[1].Length)
+
+
+[<Fact>]
+let ``paragraphs-huck-2``() =
     let m = Regex(@"~(⊤*\n\n⊤*)\n&⊤*Huck⊤*")
-    let r = m.Matches(twain_input) |> Seq.toArray
-    // 411
+    let r1 = m.Matches(twain_input) |> Seq.toArray
+    let r2 =
+        Benchmarks.Jobs.twoStepSearch ["Huck"] twain_input
+        |> Seq.toArray
 
-    Assert.Equal(411, r.Length)
-    Assert.Equal(r[0].Index, 3635093)
-    Assert.Equal(r[1].Index, 3735436)
-    Assert.Equal(r[2].Index, 3807398)
+    [|
+        Assert.Equal(411, r2.Length)
+        Assert.Equal(3635093, r2[0].Index)
+        Assert.Equal(844,r2[0].Length)
+        Assert.Equal(3735436, r2[1].Index)
+        Assert.Equal(361,r2[1].Length)
+    |]
+    |> Array.iter id
 
-    Assert.Equal(r[0].Length, 845)
-    Assert.Equal(r[1].Length, 362)
-    Assert.Equal(r[2].Length, 1023)
+    Assert.Equal(r2.Length, r1.Length)
+    Assert.Equal(r2[0].Index, r1[0].Index)
+    Assert.Equal(r2[0].Length,r1[0].Length - 1)
+    Assert.Equal(r2[1].Index, r1[1].Index)
+    Assert.Equal(r2[1].Length,r1[1].Length - 1)
+
+// ["Huck"; "could"; "here"  ]
+
+[<Fact>]
+let ``paragraphs-huck-could``() =
+    let m = Regex(@"~(⊤*\n\n⊤*)&⊤*Huck⊤*&⊤*could⊤*")
+    let r1 = m.Matches(twain_input) |> Seq.toArray
+    let r2 =
+        Benchmarks.Jobs.twoStepSearch ["Huck";"could"] twain_input
+        |> Seq.toArray
+
+    Assert.Equal(54, r2.Length)
+    Assert.Equal(3808421, r2[0].Index)
+    Assert.Equal(687,r2[0].Length)
+    Assert.Equal(3840813, r2[1].Index)
+    Assert.Equal(1961,r2[1].Length)
+
+    Assert.Equal(r2.Length, r1.Length)
+    Assert.Equal(r2[0].Index, r1[0].Index)
+    Assert.Equal(r2[0].Length,r1[0].Length)
+    Assert.Equal(r2[1].Index, r1[1].Index)
+    Assert.Equal(r2[1].Length,r1[1].Length)
 
 
 

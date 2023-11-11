@@ -129,8 +129,8 @@ let patterns = [
     // ]
 
     // @"~(⊤*\n\n⊤*)\n&⊤*Huck⊤*"; // 2 ms
-    // @"~(⊤*\n\n⊤*)&⊤*Huck⊤*&⊤*Finn⊤*"; // 2 ms
     @"~(⊤*\n\n⊤*)&⊤*Huck⊤*&⊤*Finn⊤*"; // 2 ms
+    // @"~(⊤*\n\n⊤*)&⊤*Huck⊤*&⊤*Finn⊤*"; // 2 ms
     // Permutations.permuteAltInLine ["which";"could"] // 22ms
     // Permutations.permuteConjInLine ["which";"could"] // 18ms
     // Permutations.permuteConjInLine ["wh[a-z]+h";"co[a-z]+d"] // 107

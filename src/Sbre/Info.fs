@@ -410,11 +410,7 @@ module rec Startset =
                         match node, low, up with
                         | Singleton pred, 0,  Int32.MaxValue ->
                             if not (_solver.IsFull(pred)) then
-                                if loopterminatorPrefix.Count = 1 then
-                                    loopterminatorPrefix[0] <- _solver.Or(loopterminatorPrefix[0],_solver.Not(pred))
-                                else
-                                    loopterminatorPrefix.Clear()
-                                    loopterminatorPrefix.Add (_solver.Not(pred))
+                                mergePrefixes _solver loopterminatorPrefix [|_solver.Not(pred)|]
                         | _-> cannotOptimizeYet <- true
                         // ()
                     | LookAround(_) -> () // ignore
@@ -433,14 +429,12 @@ module rec Startset =
                         ()
                     // todo: more optimizations
                     | _ -> cannotOptimizeYet <- true
-                let a = 1
+
                 // only negations in AND
                 if acc.Count = 0 then
                     e.Reset()
                     let merged = Solver.mergeOrWithEnumerator _solver (fun v -> v.Startset) &e
                     acc.Add(merged)
-                    ()
-                    // acc <- loopterminatorPrefix
 
                 curr <- Unchecked.defaultof<_>
             | Concat(head, tail, info) ->

@@ -117,102 +117,103 @@ type RegexCache< ^t when ^t: struct and ^t :> IEquatable< ^t > and ^t: equality>
             else
                 ValueSome(sharedIndex + 1)
 
-    member this.TryNextStartsetLocation2(loc: Location, set: _, set2: _) =
+    // member this.TryNextStartsetLocation2(loc: Location, set: _, set2: _) =
+    //
+    //     let setChars = this.MintermIndexOfSpan(set)
+    //     let isInverted = this.IsValidPredicate(set, minterms[0])
+    //     let mutable currpos = loc.Position
+    //     let mutable skipping = true
+    //     let mutable result = ValueNone
+    //     let inputSpan = loc.Input.AsSpan()
+    //     let mutable slice = inputSpan.Slice(currpos)
+    //     let mutable sharedIndex = 0
+    //
+    //     match loc.Reversed, isInverted with
+    //     | false, false ->
+    //         while skipping do
+    //             slice <- inputSpan.Slice(currpos)
+    //             sharedIndex <- slice.IndexOfAny(setChars)
+    //
+    //             if sharedIndex = -1 then
+    //                 skipping <- false
+    //             else
+    //                 let potential = currpos + sharedIndex
+    //
+    //                 if Location.posIsPreFinal (potential, loc) then
+    //                     skipping <- false
+    //                     result <- ValueSome(potential)
+    //                 else
+    //                     let nextLocMinterm =
+    //                         this.MintermOfChar(inputSpan[potential + 1])
+    //
+    //                     match Solver.isElemOfSetU64 (set2) (nextLocMinterm) with
+    //                     | false -> currpos <- potential + 1
+    //                     | true ->
+    //                         skipping <- false
+    //                         result <- ValueSome(potential)
+    //
+    //         result
+    //     | false, true ->
+    //         while skipping do
+    //             slice <- loc.Input.AsSpan().Slice(currpos)
+    //             sharedIndex <- slice.IndexOfAnyExcept(setChars)
+    //
+    //             if sharedIndex = -1 then
+    //                 skipping <- false
+    //             else
+    //                 let potential = currpos + sharedIndex
+    //
+    //                 if Location.posIsPreFinal (potential, loc) then
+    //                     skipping <- false
+    //                     result <- ValueSome(potential)
+    //                 else
+    //
+    //                 let nextLocMinterm =
+    //                     this.MintermOfChar(inputSpan[potential + 1])
+    //
+    //                 match Solver.isElemOfSetU64 set2 nextLocMinterm with
+    //                 | false -> currpos <- potential + 1
+    //                 | true ->
+    //                     skipping <- false
+    //                     result <- ValueSome(potential)
+    //
+    //         result
+    //     | true, _ ->
+    //         while skipping do
+    //             let slice = loc.Input.AsSpan().Slice(0, currpos)
+    //
+    //             let sharedIndex =
+    //                 if not isInverted then
+    //                     slice.LastIndexOfAny(setChars)
+    //                 else
+    //                     slice.LastIndexOfAnyExcept(setChars)
+    //
+    //
+    //             if sharedIndex = -1 then
+    //                 skipping <- false
+    //                 result <- ValueNone
+    //             else
+    //                 let potential = sharedIndex + 1
+    //
+    //                 if Location.posIsPreFinal (potential, loc) then
+    //                     skipping <- false
+    //                     result <- ValueSome(potential)
+    //                 else
+    //
+    //                 let nextLocMinterm =
+    //                     if loc.Reversed then
+    //                         this.MintermForStringIndex(loc.Input, potential - 1)
+    //                     else
+    //                         this.MintermForStringIndex(loc.Input, potential + 2)
+    //
+    //                 match this.IsValidPredicate(set2, nextLocMinterm) with
+    //                 | false -> currpos <- potential - 1
+    //                 | true ->
+    //                     skipping <- false
+    //                     result <- ValueSome(potential)
+    //
+    //         result
 
-        let setChars = this.MintermIndexOfSpan(set)
-        let isInverted = this.IsValidPredicate(set, minterms[0])
-        let mutable currpos = loc.Position
-        let mutable skipping = true
-        let mutable result = ValueNone
-        let inputSpan = loc.Input.AsSpan()
-        let mutable slice = inputSpan.Slice(currpos)
-        let mutable sharedIndex = 0
-
-        match loc.Reversed, isInverted with
-        | false, false ->
-            while skipping do
-                slice <- inputSpan.Slice(currpos)
-                sharedIndex <- slice.IndexOfAny(setChars)
-
-                if sharedIndex = -1 then
-                    skipping <- false
-                else
-                    let potential = currpos + sharedIndex
-
-                    if Location.posIsPreFinal (potential, loc) then
-                        skipping <- false
-                        result <- ValueSome(potential)
-                    else
-                        let nextLocMinterm =
-                            this.MintermOfChar(inputSpan[potential + 1])
-
-                        match Solver.isElemOfSetU64 (set2) (nextLocMinterm) with
-                        | false -> currpos <- potential + 1
-                        | true ->
-                            skipping <- false
-                            result <- ValueSome(potential)
-
-            result
-        | false, true ->
-            while skipping do
-                slice <- loc.Input.AsSpan().Slice(currpos)
-                sharedIndex <- slice.IndexOfAnyExcept(setChars)
-
-                if sharedIndex = -1 then
-                    skipping <- false
-                else
-                    let potential = currpos + sharedIndex
-
-                    if Location.posIsPreFinal (potential, loc) then
-                        skipping <- false
-                        result <- ValueSome(potential)
-                    else
-
-                    let nextLocMinterm =
-                        this.MintermOfChar(inputSpan[potential + 1])
-
-                    match Solver.isElemOfSetU64 set2 nextLocMinterm with
-                    | false -> currpos <- potential + 1
-                    | true ->
-                        skipping <- false
-                        result <- ValueSome(potential)
-
-            result
-        | true, _ ->
-            while skipping do
-                let slice = loc.Input.AsSpan().Slice(0, currpos)
-
-                let sharedIndex =
-                    if not isInverted then
-                        slice.LastIndexOfAny(setChars)
-                    else
-                        slice.LastIndexOfAnyExcept(setChars)
-
-
-                if sharedIndex = -1 then
-                    skipping <- false
-                    result <- ValueNone
-                else
-                    let potential = sharedIndex + 1
-
-                    if Location.posIsPreFinal (potential, loc) then
-                        skipping <- false
-                        result <- ValueSome(potential)
-                    else
-
-                    let nextLocMinterm =
-                        if loc.Reversed then
-                            this.MintermForStringIndex(loc.Input, potential - 1)
-                        else
-                            this.MintermForStringIndex(loc.Input, potential + 2)
-
-                    match this.IsValidPredicate(set2, nextLocMinterm) with
-                    | false -> currpos <- potential - 1
-                    | true ->
-                        skipping <- false
-                        result <- ValueSome(potential)
-
-            result
 
     /// skip till a prefix of minterms matches
     member this.TryNextStartsetLocationArray(loc: Location, sets: _[]) =
@@ -274,7 +275,7 @@ type RegexCache< ^t when ^t: struct and ^t :> IEquatable< ^t > and ^t: equality>
                     |> Array.map this.PrettyPrintMinterm
                     |> String.concat ""
 #endif
-                while i < sets.Length - 1 && couldBe do
+                while i <= sets.Length - 1 && couldBe do
                     nextLocMinterm <-
                         if loc.Reversed then
                             this.MintermForStringIndex(loc.Input, potential - i + 1)
@@ -315,7 +316,6 @@ type RegexCache< ^t when ^t: struct and ^t :> IEquatable< ^t > and ^t: equality>
         let mutable result = ValueNone
         let mutable slice = inputSpan
         let mutable sharedIndex = -1
-        let mutable nextLocMinterm = 0uL
         let mutable setSpan = sets.AsSpan()
 
         while skipping do
@@ -360,9 +360,8 @@ type RegexCache< ^t when ^t: struct and ^t :> IEquatable< ^t > and ^t: equality>
                 let mutable couldBe = true
 
                 // exit if match loop terminator
-                nextLocMinterm <-
+                let nextLocMinterm =
                     if loc.Reversed then
-                        // this.MintermForStringIndex(loc.Input, potential + 1)
                         this.MintermForStringIndex(loc.Input, potential - 1)
                     else
                         this.MintermForStringIndex(loc.Input, potential)
@@ -379,23 +378,30 @@ type RegexCache< ^t when ^t: struct and ^t :> IEquatable< ^t > and ^t: equality>
                 //     |]
 #endif
 
-                let shouldTerminateLoop() =
-                    if loopTermSets.Length = 0 then false else
-                    if not (this.IsValidPredicate(loopTermSets[0], nextLocMinterm)) then false
+
+                // inline important
+                let shouldTerminateLoop =
+                    if
+                        loopTermSets.Length = 0
+                        || not (Solver.elemOfSet loopTermSets[0] nextLocMinterm)
+                    then false
                     elif loopTermSets.Length < 2 then true else
-                    let termSpan = loopTermSets.AsSpan()
-                    while i < termSpan.Length - 1 && couldBe do
-                        nextLocMinterm <-
+                    while i <= loopTermSets.Length - 1 && couldBe do
+                        let nextLocMinterm =
                             if loc.Reversed then
+                                // minterms[classifier.GetMintermID(int inputSpan[potential - i - 1])]
+                                // this.MintermOfChar(inputSpan[potential - i - 1])
                                 this.MintermForStringIndex(loc.Input, potential - i - 1 )
                             else
+                                // minterms[classifier.GetMintermID2(uint32 inputSpan[potential + i])]
+                                // minterms[classifier.GetMintermID(int inputSpan[potential + i])]
+                                // this.MintermOfChar(inputSpan[potential + i])
                                 this.MintermForStringIndex(loc.Input, potential + i )
 
-                        match this.IsValidPredicate(termSpan[i], nextLocMinterm) with
+                        match Solver.elemOfSet loopTermSets[i] nextLocMinterm with
                         | false ->
                             couldBe <- false
-                            // if loc.Reversed then currpos <- potential - 1
-                            // else currpos <- potential + 1
+
                         | true ->
                             i <- i + 1
                     let shouldEnd = couldBe
@@ -403,20 +409,21 @@ type RegexCache< ^t when ^t: struct and ^t :> IEquatable< ^t > and ^t: equality>
                     i <- 1
                     shouldEnd
 
-                if shouldTerminateLoop() then
+                if shouldTerminateLoop then
                     result <- ValueSome(potential)
                     skipping <- false
 
                 else
 
 
+                let mutable shouldTerminateLoop = false
 
-
-                while i < setSpan.Length - 1 && couldBe do
-                    nextLocMinterm <-
+                while i <= setSpan.Length - 1 && couldBe do
+                    let nextLocMinterm =
                         if loc.Reversed then
                             this.MintermForStringIndex(loc.Input, potential - i - 1 )
                         else
+                            // minterms[classifier.GetMintermID2(uint32 inputSpan[potential + i])]
                             this.MintermForStringIndex(loc.Input, potential + i )
 
                     match this.IsValidPredicate(setSpan[i], nextLocMinterm) with

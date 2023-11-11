@@ -56,13 +56,15 @@ let fast =
     // [@"which";@"could"; "there" ;  ] // 10
     // ["which";"could"; "that"; "have"; "were"] // 2
     // |> Sbre.Benchmarks.Jobs.Permutations.permuteConjInLine 
-    
-    ".*which.*&.*could.*&.*that.*&~(.*the.*)" // 21
+
+    // ".*which.*&.*could.*&.*that.*&~(.*the.*)" // 21
+    // Sbre.Benchmarks.Jobs.Permutations.permuteConjInLine ["could"; "were"; "have"]
+    Sbre.Benchmarks.Jobs.Permutations.permuteConjInLine ["Huck"; "them"; "were" ]
     |> Sbre.Regex
     // |> (fun v -> v.CountMatches(longSample))
     |> (fun v -> v.MatchPositions(longSample))
     |> Seq.toArray
-    |> viewn 1
+    |> viewn 7
 
 
 
@@ -92,22 +94,29 @@ Regex(pattern).Match(sampleText)
 
 
 
+let ts  = "⊤*"
+let pats =
+    // String.concat "&" [ @"[a-zA-Z]*"; $@".*b.*b.*"; $@".*i.*i.*"; $@".*e.*e.*"; $@"~({ts}x{ts})" ]
+    // String.concat "&" [ @"[a-zA-Z]*"; $@"{ts}b{ts}b{ts}"; $@"{ts}i{ts}i{ts}"; $@"{ts}e{ts}e{ts}"; $@"~({ts}x{ts})" ]
+    String.concat "&" [
+        @".*"
+        $@"{ts}nn{ts}"
+        $@"{ts}[Ii]{ts}[Ii]{ts}"
+        $@"{ts}[Ee]{ts}[Ee]{ts}"
+        $@"{ts}ee{ts}"
+        $@"{ts}F{ts}F{ts}"
+        $@"~({ts}\n\n{ts})"
+        $@"~({ts}Friends{ts})"
+    ]
 
-// let pats =
-//     // String.concat "&" [ @"[a-zA-Z]*"; $@".*b.*b.*"; $@".*i.*i.*"; $@".*e.*e.*"; $@"~({ts}x{ts})" ]
-//     // String.concat "&" [ @"[a-zA-Z]*"; $@"{ts}b{ts}b{ts}"; $@"{ts}i{ts}i{ts}"; $@"{ts}e{ts}e{ts}"; $@"~({ts}x{ts})" ]
-//     String.concat "&" [
-//         // @"[a-zA-Z ]{8,20}"
-//         // @"T[a-zA-Z ]{0,20}"
-//         // @"[a-zA-Z ]{0,20}"
-//         @".*"
-//         $@"{ts}nn{ts}"
-//         $@"{ts}[Ii]{ts}[Ii]{ts}"
-//         $@"{ts}[Ee]{ts}[Ee]{ts}"
-//         $@"{ts}ee{ts}"
-//         $@"{ts}F{ts}F{ts}"
-//         $@"~({ts}\n\n{ts})"
-//     ]
+let requirements =
+    pats
+    |> Sbre.Regex
+    |> (fun v -> v.MatchPositions(longSample))
+    |> Seq.toArray
+    |> viewn 2
+
+
 
 // let conj_line(words: string list) =
 //     words
@@ -161,12 +170,23 @@ let asdasds2 = permuteAltInLine [ "have"; "there"; "other" ]
 
 File.writeTo "test.txt" asdasds2
 
+Sbre.Benchmarks.Jobs.Permutations.permuteAltInLine ["which";"could"; "there"; "thing"]
 
 let matches =
     let reg =
         System.Text.RegularExpressions.Regex(
-            "[a-e]+ [0-9]",
-            System.Text.RegularExpressions.RegexOptions.Compiled
+            // "[a-e]+ [0-9]",
+            // Sbre.Benchmarks.Jobs.Permutations.permuteAltInLine ["which";"could"; "there"; "thing"],
+            // Sbre.Benchmarks.Jobs.Permutations.permuteAltInLine ["there"; "could"; "which"; "thing"],
+            // Sbre.Benchmarks.Jobs.Permutations.permuteAltInLine ["could"; "which"; "that"],
+            // Sbre.Benchmarks.Jobs.Permutations.permuteAltInLine ["could only"; "which was"; "that had"],
+            // Sbre.Benchmarks.Jobs.Permutations.permuteAltInLine [ "Huck[a-zA-Z]+";"Saw[a-zA-Z]+"; "Sawyer"],
+            Sbre.Benchmarks.Jobs.Permutations.permuteAltInLine [ "Saw[a-zA-Z]+"; "Sawyer"]
+            ,
+            // "could only",
+            // "which was",
+            // "that had",
+            System.Text.RegularExpressions.RegexOptions.NonBacktracking
         )
 
     reg.Matches(longSample) |> Seq.map (fun v -> v.Value) |> Seq.toArray
