@@ -231,8 +231,21 @@ type Regex(pattern: string, ?warnUnoptimized:bool) =
         let mutable reverseLocation = (Location.rev { location with Position = 0 })
         let mutable looping = true
         let mutable counter = 0
+        let inputSpan = input.AsSpan()
+        let initialPrefix = this.Cache.GetInitialStartsetPrefix()
 
         while looping do
+            location.Position <- currPos
+            match initialPrefix with
+            | InitialStartset.Unoptimized -> ()
+            | InitialStartset.MintermArrayPrefix(arr, loopEnd) ->
+                let commonStartsetLocation = this.Cache.TryNextStartsetLocationArray(location,arr)
+                match commonStartsetLocation with
+                | ValueNone ->
+                    looping <- false
+                | ValueSome newPos ->
+                    location.Position <- newPos
+
             // let jump =
             //     optimizations.TryFindNextStartingPositionLeftToRight(
             //         input.AsSpan(),
@@ -242,7 +255,8 @@ type Regex(pattern: string, ?warnUnoptimized:bool) =
             // if not jump then
             //     looping <- false
             // else
-                location.Position <- currPos
+
+
                 match RegexNode.matchEnd (cache, &location, ValueNone, trueStarredUint64Node) with
                 | ValueNone -> looping <- false
                 | ValueSome(endPos: int) ->
@@ -271,6 +285,7 @@ type Regex(pattern: string, ?warnUnoptimized:bool) =
         seq {
 
             while looping do
+                location.Position <- currPos
                 let inputSpan = input.AsSpan()
                 match initialPrefix with
                 | InitialStartset.Unoptimized ->

@@ -139,12 +139,13 @@ type Basic3() =
         )
 
 
+// Permutations.permuteConjInLine ["th.*at"; "an.*d"; "th.*e";"wa.*s"]
+// Permutations.permuteConjInLine ["t.*hat"; "a.*nd"; "t.*he";"w.*as"]
+
 type DebugSbre3() =
     inherit Jobs.SbreDebugSearch([
-        // Permutations.permuteConjInLine ["th.*at"; "an.*d"; "th.*e";"wa.*s"]
-        // Permutations.permuteConjInLine ["t.*hat"; "a.*nd"; "t.*he";"w.*as"]
-        @"~(⊤*\n\n⊤*)&⊤*Huck⊤*"
-        // Permutations.permuteConjInLine ["th.*at"; "an.*d"; "th.*e"]
+        // @"~(⊤*\n\n⊤*)&⊤*Huck⊤*"
+        @"~(⊤*\n\n⊤*)&⊤*Huck⊤*&⊤*could⊤*"
     ], fullInput)
 
 

@@ -278,7 +278,7 @@ let ``startset concat reversed 2``() =
 
 
 [<Fact>]
-let ``initialstartset prefix 1``() =
+let ``initialstartset prefix 01``() =
     let matcher = Regex(@"⊤*have⊤*")
     let info = matcher.RawPattern.TryGetInfo.Value
 
@@ -292,7 +292,7 @@ let ``initialstartset prefix 1``() =
 
 
 [<Fact>]
-let ``initialstartset prefix 2``() =
+let ``initialstartset prefix 02``() =
     let matcher = Regex(@"~(⊤*\n\n⊤*)\n&⊤*have⊤*")
     let info = matcher.RawPattern.TryGetInfo.Value
     let acc = ResizeArray()
@@ -305,7 +305,7 @@ let ``initialstartset prefix 2``() =
 
 
 [<Fact>]
-let ``initialstartset prefix 3``() =
+let ``initialstartset prefix 03``() =
     let matcher = Regex("THE.*LIFE")
     let initialStart =
         Info.Startset.inferInitialStartset matcher.Cache.Solver matcher.RawPattern
@@ -317,7 +317,7 @@ let ``initialstartset prefix 3``() =
 
 
 [<Fact>]
-let ``initialstartset prefix 4``() =
+let ``initialstartset prefix 04``() =
     let matcher = Regex("⊤*have⊤*&⊤*there⊤*&.*")
     let initialStart =
         Info.Startset.inferInitialStartset matcher.Cache.Solver matcher.RawPattern
@@ -331,7 +331,7 @@ let ``initialstartset prefix 4``() =
     | _ -> failwith "invalid result"
 
 [<Fact>]
-let ``initialstartset prefix 5``() =
+let ``initialstartset prefix 05``() =
     let matcher = Regex("⊤*have⊤*&⊤*there⊤*&.*")
     let initialStart =
         Info.Startset.inferInitialStartset matcher.Cache.Solver matcher.ReversePattern
@@ -345,7 +345,7 @@ let ``initialstartset prefix 5``() =
     | _ -> failwith "invalid result"
 
 [<Fact>]
-let ``initialstartset prefix 6``() =
+let ``initialstartset prefix 06``() =
     let matcher = Regex(@"lethargy.*air")
     let initialStart =
         Info.Startset.inferInitialStartset matcher.Cache.Solver matcher.ReversePattern
@@ -359,7 +359,7 @@ let ``initialstartset prefix 6``() =
 
 
 [<Fact>]
-let ``initialstartset prefix 7``() =
+let ``initialstartset prefix 07``() =
     let matcher = Regex(@".*have.*there.*|.*there.*have.*")
     let initialStart =
         Info.Startset.inferInitialStartset matcher.Cache.Solver matcher.RawPattern
@@ -374,7 +374,7 @@ let ``initialstartset prefix 7``() =
 
 
 [<Fact>]
-let ``initialstartset prefix 8``() =
+let ``initialstartset prefix 08``() =
     let matcher = Regex(@"((.* t[a-z]*e .*|[a-z]*e .*)&.* a[a-z]*d .*)")
     let initialStart =
         Info.Startset.inferInitialStartset matcher.Cache.Solver matcher.RawPattern
@@ -388,7 +388,7 @@ let ``initialstartset prefix 8``() =
 
 
 [<Fact>]
-let ``initialstartset prefix 9``() =
+let ``initialstartset prefix 09``() =
     let matcher = Regex(@"(~(⊤*honor⊤*)&~(⊤*\n\n⊤*)\n)")
     let initialStart =
         Info.Startset.inferInitialStartset matcher.Cache.Solver matcher.RawPattern
@@ -399,7 +399,42 @@ let ``initialstartset prefix 9``() =
         // Assert.Equal("[ at]",matcher.Cache.PrettyPrintMinterm(arr[1]))
     | _ -> failwith "invalid result"
 
+[<Fact>]
+let ``initialstartset prefix 10``() =
+    let matcher = Regex(@"~(⊤*\n\n⊤*)\n")
+    let initialStart =
+        Info.Startset.inferInitialStartset matcher.Cache.Solver matcher.RawPattern
+    match initialStart with
+    | InitialStartset.MintermArrayPrefix(prefix=arr) ->
+        Assert.Equal(arr.Length, 1)
+        Assert.Equal(@"\n",matcher.Cache.PrettyPrintMinterm(arr[0]))
+    | _ -> failwith "invalid result"
 
+[<Fact>]
+let ``initialstartset prefix 11``() =
+    let matcher = Regex(@"~(⊤*\n\n⊤*)")
+    let initialStart =
+        Info.Startset.inferInitialStartset matcher.Cache.Solver matcher.RawPattern
+    match initialStart with
+    | InitialStartset.MintermArrayPrefix(prefix=arr) ->
+        Assert.Equal(arr.Length, 2)
+        Assert.Equal(@"\n",matcher.Cache.PrettyPrintMinterm(arr[0]))
+        Assert.Equal(@"\n",matcher.Cache.PrettyPrintMinterm(arr[1]))
+    | _ -> failwith "invalid result"
+
+[<Fact>]
+let ``initialstartset prefix 12``() =
+    let matcher = Regex(@"~(⊤*\n\n⊤*)&⊤*Huck⊤*")
+    let initialStart =
+        Info.Startset.inferInitialStartset matcher.Cache.Solver matcher.RawPattern
+    match initialStart with
+    | InitialStartset.MintermArrayPrefix(prefix=arr) ->
+        Assert.Equal(arr.Length, 4)
+        Assert.Equal(@"H",matcher.Cache.PrettyPrintMinterm(arr[0]))
+        Assert.Equal(@"u",matcher.Cache.PrettyPrintMinterm(arr[1]))
+        Assert.Equal(@"c",matcher.Cache.PrettyPrintMinterm(arr[2]))
+        Assert.Equal(@"k",matcher.Cache.PrettyPrintMinterm(arr[3]))
+    | _ -> failwith "invalid result"
 
 
 [<Fact>]

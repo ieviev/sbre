@@ -298,6 +298,31 @@ module rec Startset =
             let ss = prefix2[i]
             prefix1[i] <- _solver.Or(ss, prefix1[i])
 
+    // let mergePrefixesArr (_solver:ISolver<uint64>) (prefix1:ResizeArray<uint64>) (prefix2:uint64[]) =
+    //     // initialize if needed
+    //     if prefix1.Count = 0 then
+    //         while prefix1.Count < prefix2.Length do
+    //             prefix1.Add(_solver.Empty)
+    //
+    //     // shorten to shared prefix
+    //     if prefix1.Count > prefix2.Length then
+    //         while prefix1.Count > prefix2.Length do
+    //             prefix1.RemoveAt(prefix1.Count - 1)
+    //
+    //     for i = 0 to prefix1.Count - 1 do
+    //         let ss = prefix2[i]
+    //         prefix1[i] <- _solver.Or(ss, prefix1[i])
+
+    let mergePrefixesArr (_solver:ISolver<uint64>) (prefix1:uint64[]) (prefix2:uint64[]) =
+        let longer, shorter =
+            match prefix1.Length < prefix2.Length with
+            | true -> prefix2, prefix1
+            | _ -> prefix1, prefix2
+
+        for i = 0 to shorter.Length - 1 do
+            shorter[i] <- _solver.Or(longer[i], shorter[i])
+        shorter
+
 
     /// can't be used during-match as it would skip newlines in .*
     let rec inferInitialStartset (_solver: ISolver<uint64>) (startNode: RegexNode<uint64>) =
@@ -308,6 +333,11 @@ module rec Startset =
         let mutable curr = startNode
         // let mutable loopTerminator = _solver.Empty
 
+        let getPrefix node =
+            match inferInitialStartset _solver node with
+            | MintermArrayPrefix(arr, loopEnd) -> (arr, loopEnd)
+            | _ -> failwithf "todo"
+
         while not (obj.ReferenceEquals(null, curr)) do
             match curr with
             | Loop(node = Singleton pred; info = info) when uninitialized ->
@@ -315,6 +345,15 @@ module rec Startset =
                     loopterminatorPrefix.Clear()
                     loopterminatorPrefix.Add (_solver.Not(pred))
                     acc.Add(_solver.Not(pred))
+                curr <- Unchecked.defaultof<_>
+            | Concat(Not(node = node; info = info), tail,info2) when uninitialized && info.HasPrefix ->
+                // 1.20
+                match getPrefix node, getPrefix tail with
+                | (arr1, loopEnd1), (arr2,loopEnd2) ->
+                    let merged = mergePrefixesArr _solver arr1 arr2
+                    mergePrefixes _solver acc merged
+                    ()
+
                 curr <- Unchecked.defaultof<_>
             | Not(node = node; info = info) when uninitialized && info.HasPrefix ->
                 match inferInitialStartset _solver node with

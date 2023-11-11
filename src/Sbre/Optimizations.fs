@@ -23,12 +23,17 @@ let rec tryJumpToStartset (c:RegexCache<_>,loc:inref<Location>, nodes:inref<Topl
 
         let prefix = c.Builder.GetPrefixCached(node)
         match prefix with
-        // | InitialStartset.MintermArrayPrefix(arr,loopEnd) ->
-        //     let commonStartsetLocation = c.TryNextStartsetLocationArrayWithLoopTerminator(loc,arr,loopEnd)
-        //
-        //     match commonStartsetLocation with
-        //     | ValueNone -> loc.Position
-        //     | ValueSome newPos -> newPos
+        | InitialStartset.MintermArrayPrefix(arr,loopEnd) ->
+            let commonStartsetLocation =
+                // if arr.Length = 1 && loopEnd.Length = 0 then
+                //     c.TryNextStartsetLocation(loc,arr[0])
+                // else
+                    c.TryNextStartsetLocationArrayWithLoopTerminator(loc,arr,loopEnd)
+
+
+            match commonStartsetLocation with
+            | ValueNone -> loc.Position
+            | ValueSome newPos -> newPos
         | _ ->
             match node with
             | Cache.IsTrueStar c -> Location.final loc

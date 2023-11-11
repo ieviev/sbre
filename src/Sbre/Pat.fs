@@ -116,7 +116,9 @@ let (|ValueRefEquals|_|) (y:'t list) (x:'t list voption) =
 module Solver =
 
     let inline isElemOfSetU64 predicate locationMinterm = predicate &&& locationMinterm <> 0uL
-    let inline elemOfSet predicate locationMinterm = predicate &&& locationMinterm <> LanguagePrimitives.GenericZero
+    let inline elemOfSet predicate locationMinterm =
+        predicate &&& locationMinterm <> LanguagePrimitives.GenericZero
+    let inline contains larger smaller = (larger &&& smaller) = smaller
     let inline notElemOfSetU64 predicate locationMinterm = predicate &&& locationMinterm = 0uL
     let inline not predicate = ~~~predicate
 
