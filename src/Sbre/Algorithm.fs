@@ -1,6 +1,8 @@
 module rec Sbre.Algorithm
 
 open System
+open System.Runtime.InteropServices
+open FSharp.Data.Adaptive
 open FSharpx.Collections
 open Sbre.Info
 open Sbre.Optimizations
@@ -255,12 +257,12 @@ module RegexNode =
                     | deriv ->
                         let nullableState =
                             if
-                                isAlwaysNullable deriv ||
-                                (canBeNullable deriv && isNullable (cache, loc, deriv))
-                                then loc.Position else -1
+                                canNotBeNullable deriv then -1
+                                elif isAlwaysNullable deriv || (isNullable (cache, loc, deriv))
+                                then loc.Position
+                                else -1
 
-
-                        // TODO: does not improve perf
+                        // TODO: refactor this elsewhere ?
                         let toplevelItemsSpan = toplevelOr.Items()
                         if toplevelItemsSpan.IsEmpty then
                             toplevelOr.Add(
@@ -279,7 +281,6 @@ module RegexNode =
                         | _ when refEq first deriv -> ()
                         | And(nodes=nodes1), And(nodes=nodes2) ->
                             let mutable found = false
-
                             if nodes1.IsSupersetOf(nodes2) then
                                 found <- true
                             else
@@ -292,8 +293,6 @@ module RegexNode =
                                         while n2e.MoveNext() do
                                             if nodes.Contains(n2e.Current) then
                                                 found <- true
-                                            else ()
-
                                         n2e.Reset()
                                     | _ -> ()
 
@@ -303,12 +302,26 @@ module RegexNode =
                                     deriv,
                                     nullableState,
                                     loc.Position)
+                        | (Concat(_)| Epsilon| Loop(_) | Or(_)), And(nodes=nodes2) ->
+                            let mutable found = false
+                            if first.IsAlwaysNullable || nodes2.Contains(first) then
+                                found <- true
+                            if not found then
+                                toplevelOr.Add(
+                                    deriv,
+                                    nullableState,
+                                    loc.Position)
                         | _ ->
-
-                        toplevelOr.Add(
-                            deriv,
-                            nullableState,
-                            loc.Position)
+#if OPTIMIZE
+                            [| first; deriv |]
+                            |> Array.map (fun v -> v.ToStringHelper())
+                            |> String.concat "\n"
+                            |> failwith
+#endif
+                            toplevelOr.Add(
+                                deriv,
+                                nullableState,
+                                loc.Position)
 
 
 
@@ -348,14 +361,6 @@ module RegexNode =
                             // use our own startset lookup (not optimized for long strings)
                             if not (Solver.isElemOfSetU64 startsetPredicate nextLocationPredicate) then
                                 loc.Position <- tryJumpToStartset (cache, &loc, &toplevelOr)
-
-                            // hardcoded for testing
-                            // let v = loc.Input.AsSpan(loc.Position).IndexOf("Huck")
-                            // match v with
-                            // | -1 -> loc.Position <- loc.Input.Length - 1
-                            // | _ ->
-                            //     loc.Position <- loc.Position + v
-
                     else
                         // check if some input can be skipped
                         if
@@ -446,8 +451,8 @@ let rec createDerivative
             | And(xs, info) as head ->
                 // todo: slightly faster but unreliable
                 use mutable e = xs.GetEnumerator()
-                let newNode = c.Builder.mkAndEnumerator (&e, Der)
-                newNode
+                c.Builder.mkAndEnumerator (&e, Der)
+
 
 
             // Derx(~R) = ~Derx (R)
@@ -457,8 +462,8 @@ let rec createDerivative
                 if refEq innerDerivative inner then
                     node
                 else
-                    let newNot = c.Builder.mkNot innerDerivative
-                    newNot
+                    c.Builder.mkNot innerDerivative
+
 
             // 3.3: Derx (R·S) = if Nullx (R) then Derx (R)·S|Derx (S) else Derx (R)·S
             | Concat(head, tail, info) ->

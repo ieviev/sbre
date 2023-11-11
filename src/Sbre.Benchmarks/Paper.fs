@@ -147,3 +147,10 @@ type SingleWord1() =
             fullInput
         )
 
+type LWord1() =
+    inherit
+        Jobs.TestAllEngines(
+            // ["w[a-z]+h";"c[a-z]+d"],
+            [@" w[a-z]*h "; @" c[a-z]*d "; ],
+            fullInput
+        )

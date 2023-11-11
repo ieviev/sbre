@@ -342,6 +342,12 @@ let ``subsumption and loop ``() =
     testPartDerivative (@"(.*&.*s)", "aaa", @".*s")
 
 
+[<Fact>]
+let ``subsumption and larger ``() =
+    testPartDerivatives (@"(.* and .*|and .*)&.*", "aaa", [@"(.* and .*|nd .*)";"(nd .*|.* and .*)"])
+
+
+
 // [<Fact>]
 // let ``subsumption negation nullable ``() =
 //     testPartDerivative (@"(.*(?=.*E)&~(d.*))", "dd", @"⊥")

@@ -611,3 +611,14 @@ module Node =
         | LookAround _ -> true
         | Concat(info = info) -> info.CanBeNullable
         | Epsilon -> true
+
+    let inline canNotBeNullable(node: RegexNode<'t>) =
+        match node with
+        | Or(info = info) -> not info.CanBeNullable
+        | Singleton _ -> true
+        | Loop(info = info) -> not info.CanBeNullable
+        | And(info = info) -> not info.CanBeNullable
+        | Not(info = info) -> not info.CanBeNullable
+        | LookAround _ -> false
+        | Concat(info = info) -> not info.CanBeNullable
+        | Epsilon -> false

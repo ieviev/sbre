@@ -399,6 +399,7 @@ type ToplevelORCollection() =
                 // does not happen in 99% cases
                 this.IncreaseArraySize()
 
+            if true then createNode() else
             match nodeArray[0], node with
             | x,y when refEq x y -> () // identical top level node
 

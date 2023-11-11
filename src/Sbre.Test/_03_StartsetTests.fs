@@ -104,7 +104,7 @@ let ``startset generation 8``() =
     let c = matcher.Cache
     let ss1 = Info.Startset.inferStartset (c.Solver) (matcher.RawPattern)
     let ss1pretty = c.PrettyPrintMinterm(ss1)
-    Assert.Equal(@"[^abi]", ss1pretty)
+    Assert.Equal(@"[^ab]", ss1pretty)
 
 [<Fact>]
 let ``startset generation 9``() =

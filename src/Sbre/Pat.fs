@@ -41,36 +41,39 @@ let (|LoopKind|) struct(x:int,y:int) =
     | _,_ -> LoopKind.Normal
 
 
-let isSubsumedFromAnd pred (nodes:RegexNode<_>seq) =
-    nodes
-    |> Seq.exists
-        (fun other ->
-        match other with
-        | Concat(SingletonStarLoop(cpred),t,_) when cpred = pred -> true
-        | _ -> false
-    )
 
-let rec loopSubsumesBranch (solver:ISolver<'t>) (pred: 't) (node:RegexNode<'t>) =
+
+let rec loopSubsumesBranch (solver:ISolver<'t>) (largePred: 't) (node:RegexNode<'t>) =
     match node with
     | Epsilon -> false
     | Singleton hpred ->
-        solver.isElemOfSet(pred,hpred)
-    | Loop(node=Singleton pred2) ->
-        if pred = pred2 then true
-        elif solver.isElemOfSet(pred,pred2) then true
+        solver.isElemOfSet(largePred,hpred)
+    | Loop(node=Singleton pred2; low=0; up = Int32.MaxValue) ->
+        let containsv = solver.And(largePred, pred2) = pred2
+        // let eset = solver.isElemOfSet(pred,pred2)
+        // if not containsv then
+            // ()
+        // let iselem = not (solver.IsEmpty(conj))
+        if largePred = pred2 then true
+        elif containsv then true
         else false
     | Concat (head,tail,info) ->
-        if loopSubsumesBranch solver pred head then
-            loopSubsumesBranch solver pred tail
+        if loopSubsumesBranch solver largePred head then
+            loopSubsumesBranch solver largePred tail
         else false
-    | Or (nodes,_) -> nodes |> Seq.forall (loopSubsumesBranch solver pred)
+    | Or (nodes,_) -> nodes |> Seq.forall (loopSubsumesBranch solver largePred)
     | Loop(node, low, up, info) ->
         // TODO: proper loop subsumption
         false
     | _ ->
         false
 
-
+let isSubsumedFromAnd (solver:ISolver<'t>) (pred) (singletonLoop) (nodes:RegexNode<_>seq) =
+    nodes
+    |> Seq.exists
+        (fun other ->
+        not (obj.ReferenceEquals(other,singletonLoop)) && loopSubsumesBranch solver pred other
+    )
 
 
 [<return: Struct>]

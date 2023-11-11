@@ -507,11 +507,9 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
         |> Seq.tryPick (fun (idx, v) ->
             match v with
             | SingletonStarLoop(pred) ->
-                let canSubsume = isSubsumedFromAnd pred nodes
-                if canSubsume then
+                if isSubsumedFromAnd solver pred v nodes then
                     Some(nodes |> Seq.removeAt idx)
-                else
-                    None
+                else None
             | _ -> None
         )
         |> Option.defaultValue nodes
@@ -585,7 +583,7 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
     member this.mkAndEnumerator
         (
             e: byref<Collections.Immutable.ImmutableHashSet<RegexNode<'t>>.Enumerator>,
-            mkDer: (RegexNode<'t> -> RegexNode<'t>)
+            mkDer: RegexNode<'t> -> RegexNode<'t>
         ) : RegexNode<'t> =
 
         let mutable enumerating = true

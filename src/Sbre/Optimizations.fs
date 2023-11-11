@@ -15,31 +15,15 @@ open Sbre.Info
 
 // [<MethodImpl(MethodImplOptions.AggressiveOptimization)>]
 let rec tryJumpToStartset (c:RegexCache<_>,loc:inref<Location>, nodes:inref<ToplevelORCollection>) : int32 =
+
     match nodes.Count with
     | 1 ->
         let node = nodes.Items()[0]
         let ss = node.Startset
 
-        // 20% worse performance for now
-        // let commonStartsetLocation = c.TryNextStartsetLocation(loc,ss)
-
-        // let mutable ss2 = Startset.inferStartset2(c.Solver)(headnode) //
-        // let commonStartsetLocation = c.TryNextStartsetLocation2(loc,ss,ss2)
-
-        // with caching about 125% better performance (NEEDS TESTING)
-        // let ss2 = c.Builder.GetSs2Cached(node)
-        // let commonStartsetLocation = c.TryNextStartsetLocation2(loc,ss,ss2)
-
-        // experimental array
-        // let prefix = Startset.inferInitialStartset c.Solver node
-
         let prefix = c.Builder.GetPrefixCached(node)
         match prefix with
         | InitialStartset.MintermArrayPrefix(arr,loopEnd) ->
-            let pretty =
-                arr
-                |> Array.map c.PrettyPrintMinterm
-                |> String.concat ""
             let commonStartsetLocation = c.TryNextStartsetLocationArrayWithLoopTerminator(loc,arr,loopEnd)
             match commonStartsetLocation with
             | ValueNone -> loc.Position
@@ -57,39 +41,27 @@ let rec tryJumpToStartset (c:RegexCache<_>,loc:inref<Location>, nodes:inref<Topl
         //     Location.create loc.Input commonStartsetLocation.Value
 
             match commonStartsetLocation with
-            | ValueNone -> loc.Position
+            | ValueNone ->
+                loc.Position
             | ValueSome newPos -> newPos
 
     | 0 ->
-
         // attempt prefix search
-        let prefix = c.GetInitialStartsetPrefix()
-        match prefix with
+        match c.GetInitialStartsetPrefix() with
         | InitialStartset.MintermArrayPrefix(arr, loopEnd) ->
             let commonStartsetLocation = c.TryNextStartsetLocationArray(loc,arr)
             match commonStartsetLocation with
             | ValueNone -> Location.final loc
-                // if loc.Reversed then 0 else loc.Input.Length - 1
-                // loc.Input.Length - 1
-                // loc.Position
             | ValueSome newPos -> newPos
-
         | _ -> loc.Position
-
-        // old approach
-        // let ss = c.InitialPatternWithoutDotstar.Startset
-        // let commonStartsetLocation = c.TryNextStartsetLocation(loc,ss)
-        // // let ss2 = c.InitialSs2()
-        // // let commonStartsetLocation = c.TryNextStartsetLocation2(loc,ss,ss2)
-        // match commonStartsetLocation with
-        // | ValueNone ->
-        //     loc.Position
-        // | ValueSome newPos -> newPos
     | _ ->
         // TBD: more optimizations
         // this branch is rarely reached
         // jump with multiple heads
+
         let nodeSpan = nodes.Items()
+
+
 
         // first try to eliminate any duplicates
         if refEq nodeSpan[0] nodeSpan[1] then
@@ -97,10 +69,12 @@ let rec tryJumpToStartset (c:RegexCache<_>,loc:inref<Location>, nodes:inref<Topl
             nodes.Remove(1)
             tryJumpToStartset(c,&loc,&nodes)
         else
-#if DIAGNOSTIC
-            failwith "TODO"
+#if OPTIMIZE
+            nodes.Items().ToArray()
+            |> Array.map (fun v -> v.ToStringHelper())
+            |> String.concat "\n"
+            |> failwith
 #endif
-
 
             let mutable ss = c.Solver.Empty
             let startsets =

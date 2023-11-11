@@ -149,8 +149,12 @@ let patterns = [
 
     // @"~(⊤*\n\n⊤*)\n&⊤*Huck⊤*"; // 2 ms
     // Permutations.permuteAltInLine ["which";"could"] // 22ms
-    // Permutations.permuteConjInLine ["which";"could"] // 18ms
-    Permutations.permuteConjInLine ["the";"and";"was";"with"] // 18ms
+    Permutations.permuteConjInLine ["which";"could"] // 18ms
+    // Permutations.permuteConjInLine ["wh[a-z]+h";"co[a-z]+d"] // 107
+    // Permutations.permuteConjInLine ["w[a-z]+h";"c[a-z]+d"] // 143
+    // Permutations.permuteConjInLine [@"w[a-z]*h "; @"c[a-z]*d "; ] // 143
+
+    // Permutations.permuteConjInLine ["the";"and";"was";"with"] // 18ms
 ]
 
 type DebugSbre() =

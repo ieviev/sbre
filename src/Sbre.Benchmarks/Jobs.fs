@@ -979,7 +979,7 @@ type TestAllBasic(regexForRuntime: string,regexForSbre:string, input: string) =
 [<MemoryDiagnoser(false)>]
 [<ShortRunJob>]
 [<AbstractClass>]
-type TestAllEngines(words: string list, input: string) as v =
+type TestAllEngines(words: string list, input: string) =
     do AppContext.SetData("REGEX_NONBACKTRACKING_MAX_AUTOMATA_SIZE", 1_000_000)
     let inputText = input
     let opts_None = Text.RegularExpressions.RegexOptions.None
@@ -1001,10 +1001,10 @@ type TestAllEngines(words: string list, input: string) as v =
     [<GlobalSetup>]
     member this.Setup() = ()
 
-    [<Benchmark(Description="None: '.*R1.*R2.*|.*R2.*R1.*'")>]
-    member this.Default() =
-        let result = this.None_Regex.Matches(inputText)
-        result.Count
+    // [<Benchmark(Description="None: '.*R1.*R2.*|.*R2.*R1.*'")>]
+    // member this.Default() =
+    //     let result = this.None_Regex.Matches(inputText)
+    //     result.Count
 
     [<Benchmark(Description="NonBacktrack: .*R1.*R2.*|.*R2.*R1.*")>]
     member this.Symbolic() =

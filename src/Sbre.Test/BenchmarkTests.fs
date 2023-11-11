@@ -78,8 +78,26 @@ let ``lines-have-there``() =
     Assert.Equal(r[1].Length, 39)
     Assert.Equal(r[2].Length, 49)
 
+
 [<Fact>]
-let ``which could test 1``() =
+let ``which could test``() =
+    let m = Regex(Permutations.permuteConjInLine ["w[a-z]*h ";"c[a-z]*d "])
+    let r = m.Matches(twain_input[..100_000]) |> Seq.toArray
+
+    Assert.Equal(24, r.Length)
+    Assert.Equal(r[0].Index, 17155)
+    Assert.Equal(r[0].Length, 45)
+    Assert.Equal(r[1].Index, 32338)
+    Assert.Equal(r[1].Length, 70)
+
+
+// ["w[a-z]+h";"c[a-z]+d"]
+
+
+
+
+[<Fact>]
+let ``line test 1``() =
     let m = Regex(@".* the .*&.* and .*")
     let r = m.Matches(twain_input[..15_000]) |> Seq.toArray
     // 411
@@ -91,7 +109,7 @@ let ``which could test 1``() =
     Assert.Equal(r[1].Length, 70)
 
 [<Fact>]
-let ``which could test 2``() =
+let ``line test 2``() =
     let m = Regex(@".* t[a-z]*e .*&.* a[a-z]*d .*")
     let r = m.Matches(twain_input[..15_000]) |> Seq.toArray
     // 411
@@ -101,7 +119,3 @@ let ``which could test 2``() =
     Assert.Equal(r[0].Length, 63)
     Assert.Equal(r[1].Index, 14710)
     Assert.Equal(r[1].Length, 70)
-
-
-
-// ["w[a-z]+h";"c[a-z]+d"]

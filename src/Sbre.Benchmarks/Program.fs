@@ -61,7 +61,7 @@ let dbgSbre() =
     // for i = 0 to 29 do
     // for i = 0 to 1 do
     // for i = 0 to 100 do
-    for i = 0 to 1000 do
+    for i = 0 to 5 do
         t.MatchWithConj() |> ignore
 
 
@@ -73,7 +73,7 @@ let main argv =
 #if DEBUG
     dbgSbre()
 #endif
-    // dbgSbre()
+    dbgSbre()
     // dbgSample()
 
 
@@ -118,7 +118,7 @@ let main argv =
     | "paper-basic-3" -> BenchmarkRunner.Run(typeof<Paper.Basic3>,config) |> ignore
     // ---
     | "all-w1" -> BenchmarkRunner.Run(typeof<Paper.SingleWord1>,config) |> ignore
-    // | "all-2" -> BenchmarkRunner.Run(typeof<ParagraphFull.All_2>,config) |> ignore
+    | "all-l1" -> BenchmarkRunner.Run(typeof<Paper.LWord1>,config) |> ignore
 
 
     | _ ->

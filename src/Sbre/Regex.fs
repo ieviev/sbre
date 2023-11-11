@@ -233,22 +233,22 @@ type Regex(pattern: string, ?warnUnoptimized:bool) =
         let mutable counter = 0
 
         while looping do
-            let jump =
-                optimizations.TryFindNextStartingPositionLeftToRight(
-                    input.AsSpan(),
-                    &currPos,
-                    currPos
-                )
-            if not jump then
-                looping <- false
-            else
+            // let jump =
+            //     optimizations.TryFindNextStartingPositionLeftToRight(
+            //         input.AsSpan(),
+            //         &currPos,
+            //         currPos
+            //     )
+            // if not jump then
+            //     looping <- false
+            // else
                 location.Position <- currPos
                 match RegexNode.matchEnd (cache, &location, ValueNone, trueStarredUint64Node) with
                 | ValueNone -> looping <- false
                 | ValueSome(endPos: int) ->
                     counter <- counter + 1
                     // continue
-                    if endPos <> input.Length then
+                    if endPos < input.Length then
                         if endPos = currPos then
                             currPos <- currPos + 1
                         else
@@ -313,7 +313,7 @@ type Regex(pattern: string, ?warnUnoptimized:bool) =
                             yield response
 
                         // continue
-                        if endPos <> input.Length then
+                        if endPos < input.Length then
                             if endPos = currPos then
                                 currPos <- currPos + 1
                             else

@@ -4,7 +4,6 @@
         <TargetFramework>net7.0</TargetFramework>
         <IsPackable>false</IsPackable>
         <GenerateProgramFile>false</GenerateProgramFile>
-<!--        <DefineConstants>OPTIMIZE</DefineConstants>-->
 <!--        <DefineConstants>$(DefineConstants);DIAGNOSTIC;DEBUG;OPTIMIZE</DefineConstants>-->
 <!--        <DefineConstants>$(DefineConstants);OPTIMIZE</DefineConstants>-->
 <!--        <DefineConstants>$(DefineConstants);DEBUG;OPTIMIZE</DefineConstants>-->
