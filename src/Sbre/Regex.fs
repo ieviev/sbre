@@ -266,12 +266,26 @@ type Regex(pattern: string, ?warnUnoptimized:bool) =
         let mutable location = Location.create input 0
         let mutable reverseLocation = (Location.rev { location with Position = 0 })
         let mutable looping = true
+        let initialPrefix = this.Cache.GetInitialStartsetPrefix()
 
         seq {
+
             while looping do
+                let inputSpan = input.AsSpan()
+                match initialPrefix with
+                | InitialStartset.Unoptimized ->
+                    ()
+                | InitialStartset.MintermArrayPrefix(arr, loopEnd) ->
+                    let commonStartsetLocation = this.Cache.TryNextStartsetLocationArray(location,arr)
+                    match commonStartsetLocation with
+                    | ValueNone ->
+                        looping <- false
+                    | ValueSome newPos ->
+                        location.Position <- newPos
+
                 // let success =
                 //     optimizations.TryFindNextStartingPositionLeftToRight(
-                //         input.AsSpan(),
+                //         inputSpan,
                 //         &currPos,
                 //         currPos
                 //     )
@@ -281,45 +295,44 @@ type Regex(pattern: string, ?warnUnoptimized:bool) =
                 // else
                 //     location.Position <- currPos
 
-
-                    match RegexNode.matchEnd (cache, &location, ValueNone, trueStarredUint64Node) with
-                    | ValueNone -> looping <- false
-                    | ValueSome(endPos: int) ->
-                        reverseLocation.Position <- endPos
+                match RegexNode.matchEnd (cache, &location, ValueNone, trueStarredUint64Node) with
+                | ValueNone -> looping <- false
+                | ValueSome(endPos: int) ->
+                    reverseLocation.Position <- endPos
 
 #if DIAGNOSTIC
-                        stdout.WriteLine "REVERSE"
-                        stdout.WriteLine (reverseLocation.DebugDisplay())
+                    stdout.WriteLine "REVERSE"
+                    stdout.WriteLine (reverseLocation.DebugDisplay())
 #endif
-                        let startPos =
-                            RegexNode.matchEnd (
-                                cache,
-                                &reverseLocation,
-                                ValueNone,
-                                reverseUint64Node
-                            )
+                    let startPos =
+                        RegexNode.matchEnd (
+                            cache,
+                            &reverseLocation,
+                            ValueNone,
+                            reverseUint64Node
+                        )
 
-                        match startPos with
-                        | ValueNone ->
-                            failwith
-                                $"match succeeded left to right but not right to left\nthis may occur because of an unimplemented feature\nend-pos:{endPos}, pattern:{reverseUint64Node}"
-                        | ValueSome start ->
-                            let startIdx = max currPos start
-                            // initialpos -1 is the end of the previous match, cancel the overlap
-                            let response: MatchPosition = {
-                                Index = startIdx
-                                Length = (endPos - 1) - startIdx
-                            }
-                            yield response
+                    match startPos with
+                    | ValueNone ->
+                        failwith
+                            $"match succeeded left to right but not right to left\nthis may occur because of an unimplemented feature\nend-pos:{endPos}, pattern:{reverseUint64Node}"
+                    | ValueSome start ->
+                        let startIdx = max currPos start
+                        // initialpos -1 is the end of the previous match, cancel the overlap
+                        let response: MatchPosition = {
+                            Index = startIdx
+                            Length = (endPos - 1) - startIdx
+                        }
+                        yield response
 
-                        // continue
-                        if endPos < input.Length then
-                            if endPos = currPos then
-                                currPos <- currPos + 1
-                            else
-                                currPos <- endPos
+                    // continue
+                    if endPos < input.Length then
+                        if endPos = currPos then
+                            currPos <- currPos + 1
                         else
-                            looping <- false
+                            currPos <- endPos
+                    else
+                        looping <- false
 
         }
 
@@ -331,7 +344,7 @@ type Regex(pattern: string, ?warnUnoptimized:bool) =
 
     member this.ReversePattern: RegexNode<uint64> = reverseUint64Node
 
-    member this.Cache = cache
+    member this.Cache: RegexCache<uint64> = cache
 
 
 #if DEBUG

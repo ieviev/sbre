@@ -128,6 +128,18 @@ let patterns = [
     //     @"\s(\w*a\w*&\w*b\w*&\w*c\w*&\w*d\w*)\s"
     // ]
 
+    // @"~(⊤*\n\n⊤*)\n&⊤*Huck⊤*"; // 2 ms
+    // @"~(⊤*\n\n⊤*)&⊤*Huck⊤*&⊤*Finn⊤*"; // 2 ms
+    @"~(⊤*\n\n⊤*)&⊤*Huck⊤*&⊤*Finn⊤*"; // 2 ms
+    // Permutations.permuteAltInLine ["which";"could"] // 22ms
+    // Permutations.permuteConjInLine ["which";"could"] // 18ms
+    // Permutations.permuteConjInLine ["wh[a-z]+h";"co[a-z]+d"] // 107
+    // Permutations.permuteConjInLine ["w[a-z]+h";"c[a-z]+d"] // 143
+    // Permutations.permuteConjInLine [@"w[a-z]*h "; @"c[a-z]*d "; ] // 123
+    // Permutations.permuteConjInLine [@"w[a-z]*h "; @"c[a-z]*d "; @"s[a-z]*d " ] // 266
+    // Permutations.permuteConjInLine [@"w[a-z]*h "; @"c[a-z]*d "; @"s[a-z]*d "; @"w[a-z]*d " ] // 273
+    // Permutations.permuteConjInLine ["the";"and";"was";"with"] // 18ms
+
     // Permutations.permuteConjInParagraph ["Huck"; ] // 13.3
 
     // ---------
@@ -147,24 +159,14 @@ let patterns = [
     // @"⊤*have⊤*&⊤*there⊤*&⊤*other⊤*&.*" // 144b
     // @".*have.*&.*there.*&.*other.*" // 278b
 
-    // @"~(⊤*\n\n⊤*)\n&⊤*Huck⊤*"; // 2 ms
-    // Permutations.permuteAltInLine ["which";"could"] // 22ms
-    // Permutations.permuteConjInLine ["which";"could"] // 18ms
-    // Permutations.permuteConjInLine ["wh[a-z]+h";"co[a-z]+d"] // 107
-    // Permutations.permuteConjInLine ["w[a-z]+h";"c[a-z]+d"] // 143
-    // Permutations.permuteConjInLine [@"w[a-z]*h "; @"c[a-z]*d "; ] // 123
-    // Permutations.permuteConjInLine [@"w[a-z]*h "; @"c[a-z]*d "; @"s[a-z]*d " ] // 266
-    Permutations.permuteConjInLine [@"w[a-z]*h "; @"c[a-z]*d "; @"s[a-z]*d "; @"w[a-z]*d " ] // 273
 
-    // Permutations.permuteConjInLine ["the";"and";"was";"with"] // 18ms
 ]
 
 type DebugSbre() =
     // inherit Jobs.SbreDebugSearch(patterns, shortInput100k)
     // inherit Jobs.SbreDebugSearch([@"~(⊤*\n\n⊤*)\n&⊤*Twain⊤*"], shortInput100k)
     inherit Jobs.SbreDebugSearch(patterns, fullInput)
-    // inherit Jobs.SbreDebugSearch(patterns, fullInput)
-    // inherit Jobs.SbreDebugSearch(patterns, fullInput)
+
 
 type DebugSbre2() =
     // inherit Jobs.SbreDebugSearch(["⊤*have⊤*&⊤*there⊤*&.*"], fullInput)

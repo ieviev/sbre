@@ -33,22 +33,10 @@ let config =
         .WithSummaryStyle(DefaultConfig.Instance.SummaryStyle.WithMaxParameterColumnWidth(60))
 
 let dbgSample() =
-
-    // let shortSample = Helpers.sample_inputText
-
-    // let matcher =
-    //     Regex(Permutations.permuteConjInParagraph [ "c([a-z]*)ion";])
-
     let reg = System.Text.RegularExpressions.Regex("Twain")
-
     for i = 0 to 1000 do
         reg.Matches(sample_inputText).Count |> ignore
-        // // matcher.CountMatches(sample_inputText) |> ignore
-        // matcher.MatchPositions(sample_inputText)
-        // |> Seq.toArray
-        // |> ignore
 
-    // t2 |> stdout.WriteLine
 
 
 let dbgSbre() =
@@ -58,14 +46,8 @@ let dbgSbre() =
         t.Patterns
         |> Seq.head
     t.Setup()
-    // for i = 0 to 29 do
-    // for i = 0 to 1 do
-    // for i = 0 to 100 do
     for i = 0 to 5 do
         t.MatchWithConj() |> ignore
-
-
-    ()
 
 [<EntryPoint>]
 let main argv =
@@ -73,7 +55,7 @@ let main argv =
 #if DEBUG
     dbgSbre()
 #endif
-    dbgSbre()
+    // dbgSbre()
     // dbgSample()
 
 
@@ -117,8 +99,13 @@ let main argv =
     | "paper-basic-2" -> BenchmarkRunner.Run(typeof<Paper.Basic2>,config) |> ignore
     | "paper-basic-3" -> BenchmarkRunner.Run(typeof<Paper.Basic3>,config) |> ignore
     // ---
-    | "all-w1" -> BenchmarkRunner.Run(typeof<Paper.SingleWord1>,config) |> ignore
+    | "all-w1" -> BenchmarkRunner.Run(typeof<Paper.WordsLine1>,config) |> ignore
+    | "all-w2" -> BenchmarkRunner.Run(typeof<Paper.WordsLine2>,config) |> ignore
+    | "all-w3" -> BenchmarkRunner.Run(typeof<Paper.WordsLine3>,config) |> ignore
+    | "all-w4" -> BenchmarkRunner.Run(typeof<Paper.WordsLine4>,config) |> ignore
+    | "all-w5" -> BenchmarkRunner.Run(typeof<Paper.WordsLine5>,config) |> ignore
     | "all-l1" -> BenchmarkRunner.Run(typeof<Paper.LWord1>,config) |> ignore
+    | "all-r3" -> BenchmarkRunner.Run(typeof<Paper.RegexLine3>,config) |> ignore
 
 
     | _ ->

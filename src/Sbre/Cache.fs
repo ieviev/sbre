@@ -298,9 +298,11 @@ type RegexCache< ^t when ^t: struct and ^t :> IEquatable< ^t > and ^t: equality>
         result
 
     /// skip till a prefix of minterms matches
-    member this.TryNextStartsetLocationArrayWithLoopTerminator(loc: Location, sets: _[], loopTerminator:uint64) =
+    member this.TryNextStartsetLocationArrayWithLoopTerminator(loc: Location, sets: _[], loopTermSets: _[]) =
 
-        let mergedSet = loopTerminator ||| sets[0]
+        let mergedSet =
+            if loopTermSets.Length = 0 then sets[0] else
+            loopTermSets[0] ||| sets[0]
 
         /// vectorize the search for the first character
         let firstSetChars = this.MintermIndexOfSpan(mergedSet)
@@ -354,6 +356,9 @@ type RegexCache< ^t when ^t: struct and ^t :> IEquatable< ^t > and ^t: equality>
                     result <- ValueSome(potential)
                 else
 
+                let mutable i = 1
+                let mutable couldBe = true
+
                 // exit if match loop terminator
                 nextLocMinterm <-
                     if loc.Reversed then
@@ -374,19 +379,40 @@ type RegexCache< ^t when ^t: struct and ^t :> IEquatable< ^t > and ^t: equality>
                 //     |]
 #endif
 
-                if this.IsValidPredicate(loopTerminator, nextLocMinterm) then
+                let shouldTerminateLoop() =
+                    if loopTermSets.Length = 0 then false else
+                    if not (this.IsValidPredicate(loopTermSets[0], nextLocMinterm)) then false
+                    elif loopTermSets.Length < 2 then true else
+                    let termSpan = loopTermSets.AsSpan()
+                    while i < termSpan.Length - 1 && couldBe do
+                        nextLocMinterm <-
+                            if loc.Reversed then
+                                this.MintermForStringIndex(loc.Input, potential - i - 1 )
+                            else
+                                this.MintermForStringIndex(loc.Input, potential + i )
+
+                        match this.IsValidPredicate(termSpan[i], nextLocMinterm) with
+                        | false ->
+                            couldBe <- false
+                            // if loc.Reversed then currpos <- potential - 1
+                            // else currpos <- potential + 1
+                        | true ->
+                            i <- i + 1
+                    let shouldEnd = couldBe
+                    couldBe <- true
+                    i <- 1
+                    shouldEnd
+
+                if shouldTerminateLoop() then
+                    result <- ValueSome(potential)
                     skipping <- false
-                    if loc.Reversed then
-                        result <- ValueSome(potential)
-                    else
-                        result <- ValueSome(potential)
+
                 else
 
 
-                let mutable i = 1
-                let mutable couldBe = true
 
-                while i < sets.Length - 1 && couldBe do
+
+                while i < setSpan.Length - 1 && couldBe do
                     nextLocMinterm <-
                         if loc.Reversed then
                             this.MintermForStringIndex(loc.Input, potential - i - 1 )
@@ -403,11 +429,8 @@ type RegexCache< ^t when ^t: struct and ^t :> IEquatable< ^t > and ^t: equality>
 
                 if couldBe then
                     skipping <- false
-                    if loc.Reversed then
-                        // result <- ValueSome(potential - 1)
-                        result <- ValueSome(potential )
-                    else
-                        result <- ValueSome(potential)
+                    result <- ValueSome(potential )
+
 
 
 

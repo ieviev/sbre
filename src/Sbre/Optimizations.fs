@@ -25,6 +25,7 @@ let rec tryJumpToStartset (c:RegexCache<_>,loc:inref<Location>, nodes:inref<Topl
         match prefix with
         | InitialStartset.MintermArrayPrefix(arr,loopEnd) ->
             let commonStartsetLocation = c.TryNextStartsetLocationArrayWithLoopTerminator(loc,arr,loopEnd)
+
             match commonStartsetLocation with
             | ValueNone -> loc.Position
             | ValueSome newPos -> newPos
@@ -33,12 +34,8 @@ let rec tryJumpToStartset (c:RegexCache<_>,loc:inref<Location>, nodes:inref<Topl
             | Cache.IsTrueStar c -> Location.final loc
             | _ ->
             // failwith $"todo unoptimized! {node.ToStringHelper()}"
-            let commonStartsetLocation = c.TryNextStartsetLocation(loc,ss)
 
-        // let pretty1 = c.PrettyPrintMinterm(ss)
-        // let pretty2 = c.PrettyPrintMinterm(ss2)
-        // let newloc =
-        //     Location.create loc.Input commonStartsetLocation.Value
+            let commonStartsetLocation = c.TryNextStartsetLocation(loc,ss)
 
             match commonStartsetLocation with
             | ValueNone ->
@@ -48,7 +45,7 @@ let rec tryJumpToStartset (c:RegexCache<_>,loc:inref<Location>, nodes:inref<Topl
     | 0 ->
         // attempt prefix search
         match c.GetInitialStartsetPrefix() with
-        | InitialStartset.MintermArrayPrefix(arr, loopEnd) ->
+        | InitialStartset.MintermArrayPrefix(arr, _) ->
             let commonStartsetLocation = c.TryNextStartsetLocationArray(loc,arr)
             match commonStartsetLocation with
             | ValueNone -> Location.final loc
@@ -82,13 +79,6 @@ let rec tryJumpToStartset (c:RegexCache<_>,loc:inref<Location>, nodes:inref<Topl
                 for n in nodeSpan do
                     ss <- c.Solver.Or(ss,n.Startset)
             let commonStartsetLocation = c.TryNextStartsetLocation(loc,ss)
-
-            // let mutable ss2 = c.Solver.Empty
-            // let startset2s =
-            //     for n in nodes.Items do
-            //         ss2 <- c.Solver.Or(ss2,c.Builder.GetSs2Cached(n))
-            //
-            // let commonStartsetLocation = c.TryNextStartsetLocation2(loc,ss,ss2)
 
             match commonStartsetLocation with
             | ValueNone -> loc.Position

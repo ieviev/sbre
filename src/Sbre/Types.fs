@@ -62,11 +62,7 @@ type RegexNodeInfo<'tset> = {
 [<Struct>]
 type InitialStartset =
     | Unoptimized
-    | MintermArrayPrefix of prefix:uint64[] * loopTerminator:uint64
-    // | StringPrefix of string
-    // | MultiStringPrefix of string
-    // | TwoMinterms of struct(uint64*uint64)
-
+    | MintermArrayPrefix of prefix:uint64[] * loopTerminator:uint64[]
 
 
 // TBD: experimenting with various other sets
@@ -158,6 +154,17 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
         | Not(info = info) -> info.ContainsEpsilon
         | LookAround _ -> true
         | Concat(info = info) -> info.ContainsEpsilon
+        | Epsilon -> false
+
+    member inline this.HasPrefix =
+        match this with
+        | Or(info = info) -> info.HasPrefix
+        | Singleton _ -> false
+        | Loop(info = info) -> info.HasPrefix
+        | And(info = info) -> info.HasPrefix
+        | Not(info = info) -> info.HasPrefix
+        | LookAround _ -> true
+        | Concat(info = info) -> info.HasPrefix
         | Epsilon -> false
 
     member inline this.TryGetInfo =

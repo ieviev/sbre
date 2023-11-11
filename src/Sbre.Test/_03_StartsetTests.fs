@@ -310,7 +310,7 @@ let ``initialstartset prefix 3``() =
     let initialStart =
         Info.Startset.inferInitialStartset matcher.Cache.Solver matcher.RawPattern
     match initialStart with
-    | InitialStartset.MintermArrayPrefix(arr,_) ->
+    | InitialStartset.MintermArrayPrefix(prefix=arr) ->
         Assert.Equal(arr.Length, 3)
         arr.Length
     | _ -> failwith "invalid result"
@@ -322,7 +322,7 @@ let ``initialstartset prefix 4``() =
     let initialStart =
         Info.Startset.inferInitialStartset matcher.Cache.Solver matcher.RawPattern
     match initialStart with
-    | InitialStartset.MintermArrayPrefix(arr,_) ->
+    | InitialStartset.MintermArrayPrefix(prefix=arr) ->
         Assert.Equal(arr.Length, 4)
         Assert.Equal("[ht]",matcher.Cache.PrettyPrintMinterm(arr[0]))
         Assert.Equal("[ah]",matcher.Cache.PrettyPrintMinterm(arr[1]))
@@ -336,7 +336,7 @@ let ``initialstartset prefix 5``() =
     let initialStart =
         Info.Startset.inferInitialStartset matcher.Cache.Solver matcher.ReversePattern
     match initialStart with
-    | InitialStartset.MintermArrayPrefix(arr,_) ->
+    | InitialStartset.MintermArrayPrefix(prefix=arr) ->
         Assert.Equal(arr.Length, 4)
         Assert.Equal("e",matcher.Cache.PrettyPrintMinterm(arr[0]))
         Assert.Equal("[rv]",matcher.Cache.PrettyPrintMinterm(arr[1]))
@@ -350,7 +350,7 @@ let ``initialstartset prefix 6``() =
     let initialStart =
         Info.Startset.inferInitialStartset matcher.Cache.Solver matcher.ReversePattern
     match initialStart with
-    | InitialStartset.MintermArrayPrefix(arr,_) ->
+    | InitialStartset.MintermArrayPrefix(prefix=arr) ->
         Assert.Equal(arr.Length, 3)
         Assert.Equal("r",matcher.Cache.PrettyPrintMinterm(arr[0]))
         Assert.Equal("i",matcher.Cache.PrettyPrintMinterm(arr[1]))
@@ -364,7 +364,7 @@ let ``initialstartset prefix 7``() =
     let initialStart =
         Info.Startset.inferInitialStartset matcher.Cache.Solver matcher.RawPattern
     match initialStart with
-    | InitialStartset.MintermArrayPrefix(arr,_) ->
+    | InitialStartset.MintermArrayPrefix(prefix=arr) ->
         Assert.Equal(arr.Length, 4)
         Assert.Equal("[ht]",matcher.Cache.PrettyPrintMinterm(arr[0]))
         Assert.Equal("[ah]",matcher.Cache.PrettyPrintMinterm(arr[1]))
@@ -379,11 +379,26 @@ let ``initialstartset prefix 8``() =
     let initialStart =
         Info.Startset.inferInitialStartset matcher.Cache.Solver matcher.RawPattern
     match initialStart with
-    | InitialStartset.MintermArrayPrefix(arr,_) ->
+    | InitialStartset.MintermArrayPrefix(prefix=arr) ->
         Assert.Equal(arr.Length, 2)
         Assert.Equal("[ e]",matcher.Cache.PrettyPrintMinterm(arr[0]))
         Assert.Equal("[ at]",matcher.Cache.PrettyPrintMinterm(arr[1]))
     | _ -> failwith "invalid result"
+
+
+
+[<Fact>]
+let ``initialstartset prefix 9``() =
+    let matcher = Regex(@"(~(⊤*honor⊤*)&~(⊤*\n\n⊤*)\n)")
+    let initialStart =
+        Info.Startset.inferInitialStartset matcher.Cache.Solver matcher.RawPattern
+    match initialStart with
+    | InitialStartset.MintermArrayPrefix(prefix=arr) ->
+        // Assert.Equal(arr.Length, 2)
+        Assert.Equal(@"[\nh]",matcher.Cache.PrettyPrintMinterm(arr[0]))
+        // Assert.Equal("[ at]",matcher.Cache.PrettyPrintMinterm(arr[1]))
+    | _ -> failwith "invalid result"
+
 
 
 
@@ -395,7 +410,7 @@ let ``skip position test 1``() =
     let prefix = matcher.Cache.GetInitialStartsetPrefix()
     let result =
         match prefix with
-        | InitialStartset.MintermArrayPrefix(arr,_) ->
+        | InitialStartset.MintermArrayPrefix(prefix=arr) ->
             matcher.Cache.TryNextStartsetLocationArray(loc, arr)
         | _ -> failwith "todo"
     Assert.Equal(result, ValueSome 7) // aa Twa |Tw
@@ -412,7 +427,7 @@ let ``skip position test 2``() =
     let prefix = matcher.Cache.Builder.GetPrefixCached(matcher.ReversePattern)
     let result =
         match prefix with
-        | InitialStartset.MintermArrayPrefix(arr,term) ->
+        | InitialStartset.MintermArrayPrefix(prefix=arr; loopTerminator=term) ->
             matcher.Cache.TryNextStartsetLocationArrayWithLoopTerminator(loc, arr,term)
         | _ -> failwith "todo"
     Assert.Equal(ValueSome 8, result)

@@ -225,7 +225,14 @@ module RegexNode =
                     for i = (toplevelOrSpan.Length - 1) downto 0 do
                         let curr = toplevelOrSpan[i]
 
-                        match createDerivative (cache, loc, locationPredicate, curr) with
+                        let deriv =
+                            // attempt to not even call createDerivative
+                            match cache.Builder.DerivativeCache.TryGetValue(struct (locationPredicate, curr)) with
+                            | true, v -> v
+                            | _ ->
+                                createDerivative (cache, loc, locationPredicate, curr)
+
+                        match deriv with
                         | deriv when obj.ReferenceEquals(deriv,cache.False) ->
                             if
                                 currentMax.IsSome
@@ -253,7 +260,15 @@ module RegexNode =
                     && currentMax.IsNone
                     && Solver.isElemOfSetU64 startsetPredicate locationPredicate
                 then
-                    match createDerivative (cache, loc, locationPredicate, initialWithoutDotstar) with
+
+                    let deriv =
+                        // attempt to not even call createDerivative
+                        match cache.Builder.DerivativeCache.TryGetValue(struct (locationPredicate, initialWithoutDotstar)) with
+                        | true, v -> v
+                        | _ ->
+                            createDerivative (cache, loc, locationPredicate, initialWithoutDotstar)
+
+                    match deriv with
                     | IsFalse cache -> ()
                     | deriv ->
                         let nullableState =
@@ -312,7 +327,7 @@ module RegexNode =
                                 | Or(nodes=nodes1) ->
                                     if exists nodes2.Contains nodes1 then
                                         found <- true
-                                    
+
                                 | _ -> ()
                             if not found then
                                 toplevelOr.Add(
@@ -447,21 +462,18 @@ let rec createDerivative
 
             // 3.3: Derx (R | S) = Derx (R) | Derx (S)
             | Or(xs, info) ->
-                let ders = xs |> Seq.map Der |> Seq.toArray
-                c.Builder.mkOr ders
+                // let ders = xs |> Seq.map Der |> Seq.toArray
+                // c.Builder.mkOr ders
 
-                // use mutable e = xs.GetEnumerator()
-                // let newNode = c.Builder.mkOrEnumerator (&e, Der)
+                use mutable e = xs.GetEnumerator()
+                c.Builder.mkOrEnumerator (&e, Der)
                 // newNode
 
             // B: EXTENDED REGEXES
             // Derx (R & S) = Derx (R) & Derx (S)
             | And(xs, info) as head ->
-                // todo: slightly faster but unreliable
                 use mutable e = xs.GetEnumerator()
                 c.Builder.mkAndEnumerator (&e, Der)
-
-
 
             // Derx(~R) = ~Derx (R)
             | Not(inner, info) ->

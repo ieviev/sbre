@@ -36,25 +36,28 @@ let viewn n (results: MatchPosition array) =
 // let pats = @"~(⊤*\n\n⊤*)&⊤*ing&occ⊤*"
 // let pats = @"occ~(⊤*\n\n⊤*)ing" // 844
 
-let ts = "⊤*"
-
 let pat= "⊤*have⊤*&⊤*there⊤*&⊤*other⊤*&.*"
 let pat= ".*city.*&.*town.*" // 15
 let pat= ".*thing.*&.*great.*" // 133
 let pat= ".*thing.*&.*again.*" // 3k, 187
 let pat= ".*ever.*&.*back.*" // 2,5k, 122
-let pat= ".*which.*&.*could.*" // 2,5k, 247
 let pat = @"~(⊤*\n\n⊤*)\n&⊤*Huck⊤*"
 
-
-
+Sbre.Benchmarks.Jobs.Permutations.permuteConjInLine [@"which";@"could"; "that"]
 
 let fast =
-    
     // [" w[a-z]*h ";" c[a-z]*d "; ] // 7190
     // [" w[a-z]*h ";" c[a-z]*d "; ] // 1794
-    [@" w[a-z]*h ";@" c[a-z]*d [ \n]"; ] // 1794
-    |> Sbre.Benchmarks.Jobs.Permutations.permuteConjInLine 
+    // ["with";"they"; "that"] // 128
+    // [@" w[a-z]*h ";@" c[a-z]*d "; ] // 1794
+    // [@"w[a-z]*h ";@"c[a-z]*d "; @"t[a-z]*e " ] // 11258
+    // [@"again";@"thing"; ] // 187
+    // [@"which";@"could"; "that"; "~(.*long.*)" ] // 27
+    // [@"which";@"could"; "there" ;  ] // 10
+    // ["which";"could"; "that"; "have"; "were"] // 2
+    // |> Sbre.Benchmarks.Jobs.Permutations.permuteConjInLine 
+    
+    ".*which.*&.*could.*&.*that.*&~(.*the.*)" // 21
     |> Sbre.Regex
     // |> (fun v -> v.CountMatches(longSample))
     |> (fun v -> v.MatchPositions(longSample))

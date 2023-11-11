@@ -1011,23 +1011,28 @@ type TestAllEngines(words: string list, input: string) =
         let result = this.NonBack_Regex.Matches(inputText)
         result.Count
 
-    [<Benchmark(Description="Compiled: .*R1.*R2.*|.*R2.*R1.*")>]
-    member this.Compiled() =
-        let result = this.Compiled_Regex.Matches(inputText)
-        result.Count
-
-    [<Benchmark(Description="Compiled: (?=R1)(?=R2).*")>]
-    member this.CompiledLook() =
-        let result = this.CompiledLookahead_Regex.Matches(inputText)
-        result.Count
-
-
+    // [<Benchmark(Description="Compiled: .*R1.*R2.*|.*R2.*R1.*")>]
+    // member this.Compiled() =
+    //     let result = this.Compiled_Regex.Matches(inputText)
+    //     result.Count
+    //
+    // [<Benchmark(Description="Compiled: (?=R1)(?=R2).*")>]
+    // member this.CompiledLook() =
+    //     let result = this.CompiledLookahead_Regex.Matches(inputText)
+    //     result.Count
+    //
+    //
     [<Benchmark(Description="Sbre: .*R1.*R2.*|.*R2.*R1.*")>]
     member this.SbreAlt() =
         this.SbreAlt_Regex.MatchPositions(inputText) |> Seq.length
+        // this.Sbre_Regex.CountMatches(inputText)
+
+
+        // this.SbreAlt_Regex.MatchPositions(inputText) |> Seq.length
 
     [<Benchmark(Description="Sbre: .*R1.*&.*R2.*")>]
     member this.Sbre() =
         this.Sbre_Regex.MatchPositions(inputText) |> Seq.length
+        // this.Sbre_Regex.CountMatches(inputText)// |> Seq.length
 
 

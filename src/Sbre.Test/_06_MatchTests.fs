@@ -549,3 +549,13 @@ let ``out of range test``() =
 
     ()
 
+
+[<Fact>]
+let ``ensure negation prevents match``() =
+    let matcher = Regex(".*which.*&.*could.*&.*that.*&~(.*the.*)")
+    let result =
+        matcher.MatchText("could only partly conceal the ravages which that long siege of storms had")
+
+    Assert.Equal( None, result )
+
+

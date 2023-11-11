@@ -469,12 +469,16 @@ let ``implication 2 ``() =
     let result1 =
         matcher1.MatchPositions(shortPg2)
         |> Seq.toArray
-    let a = 1
-    // let result1 = matcher1.Match(shortPg)
-    // Assert.Equal(result1.Value , "\"mistake of saying strawberries.\"")
-    ()
+    Assert.Equal(1, result1.Length)
 
-
+[<Fact>]
+let ``implication 3 ``() =
+    let pattern = @"~(⊤*\n\n⊤*)\n&~(⊤*honor⊤*)"
+    let matcher1 = Regex(pattern)
+    let result1 =
+        matcher1.MatchPositions(shortPg2)
+        |> Seq.toArray
+    Assert.Equal(2, result1.Length)
 
 // indicates problem with second startset
 [<Fact>]

@@ -561,25 +561,7 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
                 v
 
 
-    member this.purgeEpsilons
-        (
-            node: RegexNode<'t>
-        ) : RegexNode<'t> ValueOption =
-            match node with
-            | Epsilon -> ValueNone
-            | Or(nodes=nodes) ->
-                let mutable e = nodes.GetEnumerator()
-                let coll = ResizeArray()
-                while e.MoveNext() do
-                    match e.Current with
-                    | Epsilon -> ()
-                    | n when n.ContainsEpsilon ->
-                        match this.purgeEpsilons(n) with
-                        | ValueSome n -> coll.Add(n)
-                        | _ -> ()
-                    | n -> coll.Add(n)
-                ValueSome (this.mkOr(coll.ToArray()))
-            | _ -> ValueSome node
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.mkAndEnumerator
         (
             e: byref<Collections.Immutable.ImmutableHashSet<RegexNode<'t>>.Enumerator>,

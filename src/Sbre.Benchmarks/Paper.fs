@@ -140,10 +140,39 @@ type Basic3() =
 
 
 
-type SingleWord1() =
+type WordsLine1() =
+    inherit
+        Jobs.TestAllEngines(
+            ["which";],
+            fullInput
+        )
+
+type WordsLine2() =
     inherit
         Jobs.TestAllEngines(
             ["which";"could"],
+            fullInput
+        )
+
+type WordsLine3() =
+    inherit
+        Jobs.TestAllEngines(
+            ["which";"could"; "there"],
+            fullInput
+        )
+
+type WordsLine4() =
+    inherit
+        Jobs.TestAllEngines(
+            ["which";"could"; "there"; "thing"],
+            fullInput
+        )
+
+type WordsLine5() =
+    inherit
+        Jobs.TestAllEngines(
+            // ["which";"could"; "that"; "have"; "were"],
+            ["were";"have"; "which";"could"; "that"],
             fullInput
         )
 
@@ -151,6 +180,16 @@ type LWord1() =
     inherit
         Jobs.TestAllEngines(
             // ["w[a-z]+h";"c[a-z]+d"],
-            [@" w[a-z]*h "; @" c[a-z]*d "; ],
+            [@"w[a-z]*h"; @"c[a-z]*d"; ],
             fullInput
         )
+
+type RegexLine3() =
+    inherit
+        Jobs.TestAllEngines(
+            // [@"w[a-z]*h";@"c[a-z]*d"; @"t[a-z]*e" ],
+            // [@"wh[a-z]*h";@"co[a-z]*d"; @"th[a-z]*e" ],
+            [@"whi[a-z]*h";@"cou[a-z]*d"; @"the[a-z]*e" ],
+            fullInput
+        )
+
