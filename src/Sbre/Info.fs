@@ -422,7 +422,14 @@ module rec Startset =
 
             uninitialized <- false
 
-        if cannotOptimizeYet then InitialStartset.Unoptimized
+        if cannotOptimizeYet then
+#if OPTIMIZE
+            [| startNode |]
+            |> Array.map (fun v -> v.ToStringHelper())
+            |> String.concat "\n"
+            |> failwith
+#endif
+            InitialStartset.Unoptimized
         elif acc.Count = 0 then
             if _solver.IsEmpty(loopTerminator) then InitialStartset.Unoptimized
             else InitialStartset.MintermArrayPrefix([|loopTerminator|], loopTerminator)

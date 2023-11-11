@@ -527,25 +527,25 @@ module Common =
 
     let inline map ([<InlineIfLambda>] f) (coll: ImmutableHashSet<RegexNode<'t>>) =
         ImmutableHashSet.CreateRange(equalityComparer, Seq.map f coll)
-    // todo inline
+
     let inline setequals(coll1: ImmutableHashSet<RegexNode<_>>, coll2: ImmutableHashSet<RegexNode<_>>) =
         coll1.SetEquals(coll2)
 
     let inline exists ([<InlineIfLambda>] f) (coll: ImmutableHashSet<'t>) =
-        // let mutable e = coll.GetEnumerator()
-        // let mutable found = false
-        // while e.MoveNext() && not found do
-        //     found <- f e.Current
-        // found
-        coll |> Seq.exists f
+        use mutable e = coll.GetEnumerator()
+        let mutable found = false
+        while e.MoveNext() && not found do
+            found <- f e.Current
+        found
+        // coll |> Seq.exists f
 
     let inline forall ([<InlineIfLambda>] f) (coll: ImmutableHashSet<'t>) =
-        // let mutable e = coll.GetEnumerator()
-        // let mutable forall = true
-        // while e.MoveNext() && forall do
-        //     forall <- f e.Current
-        // forall
-        coll |> Seq.forall f
+        use mutable e = coll.GetEnumerator()
+        let mutable forall = true
+        while e.MoveNext() && forall do
+            forall <- f e.Current
+        forall
+        // coll |> Seq.forall f
 
 
 
@@ -556,7 +556,6 @@ module Common =
 module Enumerator =
     // let inline exists f (span: byref<Span<RegexNode<uint64>>>) =
     let inline exists ([<InlineIfLambda>] f) (e: byref<Span.Enumerator<RegexNode<uint64>>>) =
-        // let mutable e = span.GetEnumerator()
         let mutable found = false
         while e.MoveNext() && not found do
             found <- f e.Current

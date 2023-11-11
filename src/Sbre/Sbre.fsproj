@@ -18,7 +18,7 @@
     <WarnOn>3517</WarnOn>
     <WarnOn>3366</WarnOn>
     <WarnOn>1182</WarnOn>
-    <DefineConstants>$(DefineConstants);OPTIMIZE;</DefineConstants>
+<!--    <DefineConstants>$(DefineConstants);OPTIMIZE</DefineConstants>-->
   </PropertyGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Sbre.Test" />

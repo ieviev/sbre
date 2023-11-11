@@ -71,7 +71,8 @@ let rec tryJumpToStartset (c:RegexCache<_>,loc:inref<Location>, nodes:inref<Topl
         else
 #if OPTIMIZE
             nodes.Items().ToArray()
-            |> Array.map (fun v -> v.ToStringHelper())
+            // |> Array.map (fun v -> v.ToStringHelper())
+            |> Array.map (fun v -> v.ToString())
             |> String.concat "\n"
             |> failwith
 #endif

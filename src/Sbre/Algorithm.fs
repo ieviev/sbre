@@ -1,6 +1,7 @@
 module rec Sbre.Algorithm
 
 open System
+open System.Reflection
 open System.Runtime.InteropServices
 open FSharp.Data.Adaptive
 open FSharpx.Collections
@@ -284,8 +285,8 @@ module RegexNode =
                             if nodes1.IsSupersetOf(nodes2) then
                                 found <- true
                             else
-                                let mutable n1e = nodes1.GetEnumerator()
-                                let mutable n2e = nodes2.GetEnumerator()
+                                use mutable n1e = nodes1.GetEnumerator()
+                                use mutable n2e = nodes2.GetEnumerator()
                                 while n1e.MoveNext() && not found do
                                     let curr = n1e.Current
                                     match curr with
@@ -306,6 +307,13 @@ module RegexNode =
                             let mutable found = false
                             if first.IsAlwaysNullable || nodes2.Contains(first) then
                                 found <- true
+                            else
+                                match first with
+                                | Or(nodes=nodes1) ->
+                                    if exists nodes2.Contains nodes1 then
+                                        found <- true
+                                    
+                                | _ -> ()
                             if not found then
                                 toplevelOr.Add(
                                     deriv,
