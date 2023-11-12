@@ -44,7 +44,7 @@ module Permutations =
     let TS = $"⊤*"
 
     let permuteConjInParagraph(words: string list) =
-        let paragraphScope = $@"~({TS}\n\n{TS})\n"
+        let paragraphScope = $@"~({TS}\n\n{TS})"
 
         let permutations =
             String.concat "&" [
@@ -696,27 +696,27 @@ type AllRegexesInParagraph(regexes: string list, input: string) =
         this.ConjunctionRegex <- Regex(conjunctionRegex)
 
 
-    [<Benchmark>]
-    member this.Default() =
-        let results = ResizeArray()
-        let inputSpan = inputText.AsSpan()
-
-        let mutable entireParagraphIsMatch = true
-        let mutable e = this.None_Paragraph.EnumerateMatches(inputText)
-
-        // enumerate paragraphs during match
-        while e.MoveNext() do
-            entireParagraphIsMatch <- true
-            let paragraphSpan = inputSpan.Slice(e.Current.Index, e.Current.Length)
-            // run multiple ismatch regexes on each paragraph
-            for reg in this.None_MultipleIsMatchRegexes do
-                if not (reg.IsMatch(paragraphSpan)) then
-                    entireParagraphIsMatch <- false
-
-            if entireParagraphIsMatch then
-                results.Add({ Index = e.Current.Index; Length = e.Current.Length })
-
-        results
+    // [<Benchmark>]
+    // member this.Default() =
+    //     let results = ResizeArray()
+    //     let inputSpan = inputText.AsSpan()
+    //
+    //     let mutable entireParagraphIsMatch = true
+    //     let mutable e = this.None_Paragraph.EnumerateMatches(inputText)
+    //
+    //     // enumerate paragraphs during match
+    //     while e.MoveNext() do
+    //         entireParagraphIsMatch <- true
+    //         let paragraphSpan = inputSpan.Slice(e.Current.Index, e.Current.Length)
+    //         // run multiple ismatch regexes on each paragraph
+    //         for reg in this.None_MultipleIsMatchRegexes do
+    //             if not (reg.IsMatch(paragraphSpan)) then
+    //                 entireParagraphIsMatch <- false
+    //
+    //         if entireParagraphIsMatch then
+    //             results.Add({ Index = e.Current.Index; Length = e.Current.Length })
+    //
+    //     results
 
     // [<Benchmark>]
     // member this.NonBack_TwoStep() =
@@ -740,27 +740,27 @@ type AllRegexesInParagraph(regexes: string list, input: string) =
     //
     //     results
 
-    [<Benchmark>]
-    member this.Compiled() =
-        let results = ResizeArray()
-        let inputSpan = inputText.AsSpan()
-
-        let mutable entireParagraphIsMatch = true
-        let mutable e = this.Compiled_Paragraph.EnumerateMatches(inputText)
-
-        // enumerate paragraphs during match
-        while e.MoveNext() do
-            entireParagraphIsMatch <- true
-            let paragraphSpan = inputSpan.Slice(e.Current.Index, e.Current.Length)
-            // run multiple ismatch regexes on each paragraph
-            for reg in this.Compiled_MultipleIsMatchRegexes do
-                if not (reg.IsMatch(paragraphSpan)) then
-                    entireParagraphIsMatch <- false
-
-            if entireParagraphIsMatch then
-                results.Add({ Index = e.Current.Index; Length = e.Current.Length })
-
-        results
+    // [<Benchmark>]
+    // member this.Compiled() =
+    //     let results = ResizeArray()
+    //     let inputSpan = inputText.AsSpan()
+    //
+    //     let mutable entireParagraphIsMatch = true
+    //     let mutable e = this.Compiled_Paragraph.EnumerateMatches(inputText)
+    //
+    //     // enumerate paragraphs during match
+    //     while e.MoveNext() do
+    //         entireParagraphIsMatch <- true
+    //         let paragraphSpan = inputSpan.Slice(e.Current.Index, e.Current.Length)
+    //         // run multiple ismatch regexes on each paragraph
+    //         for reg in this.Compiled_MultipleIsMatchRegexes do
+    //             if not (reg.IsMatch(paragraphSpan)) then
+    //                 entireParagraphIsMatch <- false
+    //
+    //         if entireParagraphIsMatch then
+    //             results.Add({ Index = e.Current.Index; Length = e.Current.Length })
+    //
+    //     results
 
     // [<Benchmark>] // single regex with line loop and alternations
     // member this.NonBack_OneStep() =
@@ -773,8 +773,8 @@ type AllRegexesInParagraph(regexes: string list, input: string) =
 
     [<Benchmark>]
     member this.Sbre_Neg_Conj() =
-        // this.ConjunctionRegex.MatchPositions(inputText) |> Seq.length
-        this.ConjunctionRegex.CountMatches(inputText)
+        this.ConjunctionRegex.MatchPositions(inputText) |> Seq.length
+        // this.ConjunctionRegex.CountMatches(inputText)
 
 
 
@@ -1243,13 +1243,13 @@ type TestAllEnginesSeparate(defaultRegex: string, sbreRegex: string, input: stri
     //     result.Count
     //
     //
-    // [<Benchmark(Description="Sbre: .*R1.*R2.*|.*R2.*R1.*")>]
-    // member this.SbreAlt() =
-    //     this.SbreAlt_Regex.MatchPositions(inputText) |> Seq.length
-    //     // this.Sbre_Regex.CountMatches(inputText)
-    //     // this.SbreAlt_Regex.MatchPositions(inputText) |> Seq.length
+    [<Benchmark(Description="Sbre: .*R1.*R2.*|.*R2.*R1.*")>]
+    member this.SbreAlt() =
+        this.SbreAlt_Regex.MatchPositions(inputText) |> Seq.length
+        // this.Sbre_Regex.CountMatches(inputText)
+        // this.SbreAlt_Regex.MatchPositions(inputText) |> Seq.length
 
-    // [<Benchmark(Description = "Sbre: .*R1.*&.*R2.*")>]
-    // member this.Sbre() =
-    //     this.Sbre_Regex.MatchPositions(inputText) |> Seq.length
+    [<Benchmark(Description = "Sbre: .*R1.*&.*R2.*")>]
+    member this.Sbre() =
+        this.Sbre_Regex.MatchPositions(inputText) |> Seq.length
 

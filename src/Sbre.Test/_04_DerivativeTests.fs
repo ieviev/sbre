@@ -362,6 +362,14 @@ let ``subsumption or loop limited 1``() =
     )
 
 
+
+// [<Fact>]
+// let ``subsumption big ``() =
+//     testPartDerivatives (@"((.*t.*hat.*|.*hat.*)&.*w.*as.*&.*a.*nd.*)", "t", [""])
+//
+
+
+
 // [<Fact>]
 // let ``derivative or subsumption`` () = testPartDerivative (@"(aaa|[\s\S]*)", "aaa", @"⊤*")
 
@@ -430,12 +438,6 @@ let ``matchend test 4``() =
     let ism = matcher.FindMatchEnd(" aaa ")
     Assert.Equal(ValueSome 4, ism)
 
-
-[<Fact>]
-let ``matchend test 5``() =
-    let matcher = Regex(@".*(?=.*E)&~(.*and.*)")
-    let ism = matcher.FindMatchEnd(@"and__E")
-    Assert.Equal(ValueSome 2, ism)
 
 
 

@@ -175,3 +175,18 @@ let ``line test 2``() =
     Assert.Equal(r[1].Length, 70)
 
 
+[<Fact>]
+let ``line 4 words test 2``() =
+    let m = Regex(@".*t.*hat.*&.*a.*nd.*&.*t.*he.*&.*w.*as.*")
+    let r = m.Matches(twain_input[..100_000]) |> Seq.toArray
+
+    Assert.Equal(15, r.Length)
+
+
+[<Fact>]
+let ``line 4 words test alt``() =
+    let m = Regex(Permutations.permuteAltInLine ["which";"could"])
+    let r = m.Matches(twain_input[..500_000]) |> Seq.toArray
+
+    Assert.Equal(10, r.Length)
+

@@ -51,9 +51,14 @@ type RegexNodeInfo<'tset> = {
     Flags: RegexNodeFlags
     Startset: 'tset
 } with
-    member inline this.IsAlwaysNullable = this.Flags.HasFlag(RegexNodeFlags.IsAlwaysNullable)
-    member inline this.CanBeNullable = this.Flags.HasFlag(RegexNodeFlags.CanBeNullable)
-    member inline this.CanNotBeNullable = not(this.Flags.HasFlag(RegexNodeFlags.CanBeNullable))
+    member inline this.IsAlwaysNullable =
+        this.Flags.HasFlag(RegexNodeFlags.IsAlwaysNullable)
+        // (this.Flags &&& RegexNodeFlags.IsAlwaysNullable) <> RegexNodeFlags.None
+    member inline this.CanBeNullable =
+        this.Flags.HasFlag(RegexNodeFlags.CanBeNullable)
+        // (this.Flags &&& RegexNodeFlags.CanBeNullable) <> RegexNodeFlags.None
+    member inline this.CanSkip = (this.Flags &&& RegexNodeFlags.CanSkip) <> RegexNodeFlags.None
+    member inline this.CanNotBeNullable = not (this.Flags.HasFlag(RegexNodeFlags.CanBeNullable))
     member inline this.ContainsLookaround = this.Flags.HasFlag(RegexNodeFlags.ContainsLookaround)
     member inline this.ContainsEpsilon = this.Flags.HasFlag(RegexNodeFlags.ContainsEpsilon)
     member inline this.HasPrefix = this.Flags.HasFlag(RegexNodeFlags.Prefix)
@@ -367,27 +372,36 @@ type ToplevelORCollection() =
 
     [<Literal>]
     let startSize = 4
-    let mutable startPositionArray: int[] = ArrayPool.Shared.Rent(startSize)
-    let mutable lastNullableArray: int[] = ArrayPool.Shared.Rent(startSize)
-    let mutable nodeArray: RegexNode<uint64>[] = ArrayPool.Shared.Rent(startSize)
+    // let mutable startPositionArray: int[] = ArrayPool.Shared.Rent(startSize)
+    // let mutable lastNullableArray: int[] = ArrayPool.Shared.Rent(startSize)
+    // let mutable nodeArray: RegexNode<uint64>[] = ArrayPool.Shared.Rent(startSize)
+    let mutable startPositionArray: int[] = Array.zeroCreate startSize
+    let mutable lastNullableArray: int[] = Array.zeroCreate startSize
+    let mutable nodeArray: RegexNode<uint64>[] = Array.zeroCreate startSize
     let mutable _count = 0
     let mutable _capacity = startSize
 
     member this.IncreaseArraySize() =
-        ArrayPool.Shared.Return(startPositionArray)
-        ArrayPool.Shared.Return(lastNullableArray)
-        ArrayPool.Shared.Return(nodeArray)
+
+        // ArrayPool.Shared.Return(startPositionArray)
+        // ArrayPool.Shared.Return(lastNullableArray)
+        // ArrayPool.Shared.Return(nodeArray)
         let newSize = _capacity * 2
-        let newNodeArray = ArrayPool.Shared.Rent(newSize)
-        nodeArray.CopyTo(newNodeArray,0)
-        nodeArray <- newNodeArray
-        let newLastNullableArray = ArrayPool.Shared.Rent(newSize)
-        lastNullableArray.CopyTo(newLastNullableArray,0)
-        lastNullableArray <- newLastNullableArray
-        let newStartPositionArray = ArrayPool.Shared.Rent(newSize)
-        startPositionArray.CopyTo(newStartPositionArray,0)
-        startPositionArray <- newStartPositionArray
+
+        // let newNodeArray = ArrayPool.Shared.Rent(newSize)
+        // nodeArray.CopyTo(newNodeArray,0)
+        // nodeArray <- newNodeArray
+        // let newLastNullableArray = ArrayPool.Shared.Rent(newSize)
+        // lastNullableArray.CopyTo(newLastNullableArray,0)
+        // lastNullableArray <- newLastNullableArray
+        // let newStartPositionArray = ArrayPool.Shared.Rent(newSize)
+        // startPositionArray.CopyTo(newStartPositionArray,0)
+        // startPositionArray <- newStartPositionArray
         _capacity <- newSize
+
+        Array.Resize(&startPositionArray, newSize)
+        Array.Resize(&lastNullableArray, newSize)
+        Array.Resize(&nodeArray, newSize)
 
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
@@ -480,6 +494,7 @@ type ToplevelORCollection() =
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.Items() = nodeArray.AsSpan().Slice(0,_count)
+    member this.Items2 = nodeArray.AsSpan().Slice(0,_count)
     // member this.Nullabilities = lastNullableArray.AsSpan().Slice(0,_count)
     member this.First = nodeArray[0]
 

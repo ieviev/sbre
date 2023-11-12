@@ -177,29 +177,26 @@ module Location =
         {
             Input = loc.Input
             Position = loc.Position
-                // match loc.Position with
-                // | 0 -> loc.Input.Length
-                // | n when n = loc.Input.Length -> 0
-                // | _ -> loc.Position
             Reversed = not loc.Reversed
         }
 
 
-
-
-    let inline increment (loc: Location) =
-        match loc.Reversed with
-        | true -> Location.create loc.Input (loc.Position - 1)
-        | _ -> Location.create loc.Input (loc.Position + 1)
+    // let inline increment (loc: Location) =
+    //     match loc.Reversed with
+    //     | true -> Location.create loc.Input (loc.Position - 1)
+    //     | _ -> Location.create loc.Input (loc.Position + 1)
 
     let inline nextPosition (loc: Location) =
         match loc.Reversed with
         | true -> (loc.Position - 1)
         | _ -> (loc.Position + 1 )
     let inline isFinal (loc: Location) =
-        match loc.Reversed with
-        | true -> loc.Position = 0
-        | _ -> loc.Position = loc.Input.Length
+        loc.Reversed && loc.Position = 0
+        || not loc.Reversed && loc.Position = loc.Input.Length
+        // match loc.Reversed with
+        // | true -> loc.Position = 0
+        // | _ -> loc.Position = loc.Input.Length
+        // loc.Position = 0 || (loc.Position = loc.Input.Length)
 
     let inline final (loc: Location) =
         match loc.Reversed with
@@ -211,19 +208,6 @@ module Location =
         | true -> { loc with Position = 0} // loc.Position <- 0
         | _ -> { loc with Position = loc.Input.Length } //loc.Position <- loc.Input.Length
 
-    let inline isPreFinal (loc: Location) =
-        match loc.Reversed with
-        | true -> loc.Position = 1
-        | _ -> loc.Position = (loc.Input.Length - 1)
-
-    let inline posIsPreFinal (pos:int, loc: Location) =
-        match loc.Reversed with
-        | true -> pos = 1
-        | _ -> pos = (loc.Input.Length - 1)
-    let inline currentChar (loc: Location) =
-        match loc.Reversed with
-        | false -> loc.Input[loc.Position]
-        | true -> loc.Input[loc.Position - 1]
     let inline currentPos (loc: Location) = loc.Position
     let inline withPos (pos:int32) (loc: Location) =  { loc with Position = pos}
     let inline str (loc: Location) = loc.Input

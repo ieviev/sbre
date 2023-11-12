@@ -27,8 +27,11 @@ type MatchPositionResult = {
 [<Struct>]
 type MatchPosition = { Index: int; Length: int }
 
+open System.Runtime.InteropServices
+
+
 [<Sealed>]
-type Regex(pattern: string, ?warnUnoptimized:bool) =
+type Regex(pattern: string, [<Optional; DefaultParameterValue(false)>] warnUnoptimized: bool) =
 
     // experimental parser!
     let pattern = pattern.Replace("⊤", @"[\s\S]")
@@ -89,28 +92,37 @@ type Regex(pattern: string, ?warnUnoptimized:bool) =
     let rawUint64Node: RegexNode<uint64> =
         (Minterms.transform uintbuilder charsetSolver solver) symbolicBddnode
 
-
-
     let optimizations = RegexFindOptimizations(regexTree.Root, RegexOptions.NonBacktracking)
-
+    let reverseUint64Node = RegexNode.rev uintbuilder rawUint64Node
     let cache =
         Sbre.RegexCache(
             solver,
             charsetSolver,
             _implicitDotstarPattern = trueStarredUint64Node,
             _rawPattern = rawUint64Node,
+            _reversePattern = reverseUint64Node,
             _builder = uintbuilder,
             _optimizations = optimizations
         )
 
     do
         match warnUnoptimized with
-        | Some true ->
-            if cache.Solver.IsFull(cache.GetInitialStartsetPredicate()) then
-                failwith "the pattern has a startset of ⊤, which may result in extremely long match time. specify the beginning of the pattern more"
+        | true ->
+            match cache.GetInitialStartsetPrefix() with
+            | InitialStartset.MintermArrayPrefix(prefix=prefix) ->
+                if prefix.Length = 0 then
+                    failwith "TODO"
+
+            | _ ->
+                match rawUint64Node.TryGetInfo with
+                | Some (info) ->
+                    if info.ContainsEpsilon then () else
+                    if cache.Solver.IsFull(cache.GetInitialStartsetPredicate()) then
+                        failwith "the pattern has a startset of ⊤, which may result in extremely long match time. specify the beginning of the pattern more"
+                | None -> ()
         | _ -> ()
 
-    let reverseUint64Node = RegexNode.rev cache rawUint64Node
+
 
     member this.IsMatch(input: string) =
         let mutable currPos = 0
@@ -228,23 +240,25 @@ type Regex(pattern: string, ?warnUnoptimized:bool) =
     member this.CountMatches(input: string) =
         let mutable currPos = 0
         let mutable location = Location.create input 0
-        let mutable reverseLocation = (Location.rev { location with Position = 0 })
         let mutable looping = true
         let mutable counter = 0
+        let _cache = this.Cache
         let inputSpan = input.AsSpan()
-        let initialPrefix = this.Cache.GetInitialStartsetPrefix()
+        let initialPrefix =
+            match _cache.GetInitialStartsetPrefix() with
+            | InitialStartset.Unoptimized ->
+                // failwith "TODO UNOPTIMIZED REGEX"
+                [|_cache.Solver.Full|]
+            | InitialStartset.MintermArrayPrefix(arr, loopEnd) ->
+                arr
 
         while looping do
             location.Position <- currPos
-            match initialPrefix with
-            | InitialStartset.Unoptimized -> ()
-            | InitialStartset.MintermArrayPrefix(prefix=prefix) ->
-                let commonStartsetLocation = this.Cache.TryNextStartsetLocationArray(&location,prefix)
-                match commonStartsetLocation with
-                | ValueNone ->
-                    looping <- false
-                | ValueSome newPos ->
-                    location.Position <- newPos
+            match _cache.TryNextStartsetLocationArray(&location,initialPrefix) with
+            | ValueNone ->
+                looping <- false
+            | ValueSome newPos ->
+                location.Position <- newPos
 
             // let jump =
             //     optimizations.TryFindNextStartingPositionLeftToRight(
@@ -256,13 +270,12 @@ type Regex(pattern: string, ?warnUnoptimized:bool) =
             //     looping <- false
             // else
 
-
                 match RegexNode.matchEnd (cache, &location, ValueNone, trueStarredUint64Node) with
                 | ValueNone -> looping <- false
                 | ValueSome(endPos: int) ->
                     counter <- counter + 1
                     // continue
-                    if endPos < input.Length then
+                    if endPos < inputSpan.Length then
                         if endPos = currPos then
                             currPos <- currPos + 1
                         else
@@ -280,23 +293,24 @@ type Regex(pattern: string, ?warnUnoptimized:bool) =
         let mutable location = Location.create input 0
         let mutable reverseLocation = (Location.rev { location with Position = 0 })
         let mutable looping = true
-        let initialPrefix = this.Cache.GetInitialStartsetPrefix()
-
+        let initialPrefix =
+            match this.Cache.GetInitialStartsetPrefix() with
+                | InitialStartset.Unoptimized ->
+                    // failwith "TODO UNOPTIMIZED REGEX"
+                    [|cache.Solver.Full|]
+                | InitialStartset.MintermArrayPrefix(arr, loopEnd) ->
+                    arr
         seq {
 
             while looping do
                 location.Position <- currPos
                 let inputSpan = input.AsSpan()
-                match initialPrefix with
-                | InitialStartset.Unoptimized ->
-                    ()
-                | InitialStartset.MintermArrayPrefix(arr, loopEnd) ->
-                    let commonStartsetLocation = this.Cache.TryNextStartsetLocationArray(&location,arr)
-                    match commonStartsetLocation with
-                    | ValueNone ->
-                        looping <- false
-                    | ValueSome newPos ->
-                        location.Position <- newPos
+
+                match this.Cache.TryNextStartsetLocationArray(&location,initialPrefix) with
+                | ValueNone ->
+                    looping <- false
+                | ValueSome newPos ->
+                    location.Position <- newPos
 
                 // let success =
                 //     optimizations.TryFindNextStartingPositionLeftToRight(

@@ -23,55 +23,55 @@ module RegexNode =
     // 3.6 Reversal
 
     //  (R·S)r = Sr·Rr
-    let rec rev (cache: RegexCache<uint64>) (node: RegexNode<_>) =
+    let rec rev (builder: RegexBuilder<uint64>) (node: RegexNode<_>) =
         match node with
         // ψr = ψ
         | Singleton _ -> node
         // // (R|S)r = Rr|Sr
         | Or(xs, info) ->
-            let xs' = xs |> map (rev cache)
+            let xs' = xs |> map (rev builder)
 
-            cache.Builder.mkOr (Seq.toArray xs')
+            builder.mkOr (Seq.toArray xs')
         // R{m, n, b}r = Rr{m, n, b}
         | Loop(xs, low, up, info) ->
-            let xs' = (rev cache) xs
-            cache.Builder.mkLoop (xs', low, up)
+            let xs' = (rev builder) xs
+            builder.mkLoop (xs', low, up)
         // B: EXTENDED REGEXES
         // (R & S)r = Rr & S r
         | And(xs, info) ->
-            let xs' = xs |> map (rev cache)
+            let xs' = xs |> map (rev builder)
 
-            cache.Builder.mkAnd (Seq.toArray xs')
+            builder.mkAnd (Seq.toArray xs')
         // (~R)r = ~(Rr)
         | Not(xs, info) ->
-            let xs' = (rev cache) xs
-            cache.Builder.mkNot xs'
+            let xs' = (rev builder) xs
+            builder.mkNot xs'
         // 3.7 Lookarounds
         // (?=R)r = (?<=Rr)
         | LookAround(node = node'; lookBack = false; negate = false) ->
-            LookAround((rev cache) node', lookBack = true, negate = false)
+            LookAround((rev builder) node', lookBack = true, negate = false)
         // (?<=R)r = (?=Rr)
         | LookAround(node = node'; lookBack = true; negate = false) ->
-            LookAround((rev cache) node', lookBack = false, negate = false)
+            LookAround((rev builder) node', lookBack = false, negate = false)
         // (?!R)r = (?<!Rr)
         | LookAround(node = node'; lookBack = false; negate = true) ->
-            LookAround((rev cache) node', lookBack = true, negate = true)
+            LookAround((rev builder) node', lookBack = true, negate = true)
         // (?<!R)r = (?!Rr)
         | LookAround(node = node'; lookBack = true; negate = true) ->
-            LookAround((rev cache) node', lookBack = false, negate = true)
+            LookAround((rev builder) node', lookBack = false, negate = true)
 
         | Concat(head, tail, info) ->
 
             let rec revConcatNode acc curr =
                 match curr with
                 | Concat(head, (Concat(_) as tail), tinfo) ->
-                    revConcatNode (rev cache head :: acc) tail
+                    revConcatNode (rev builder head :: acc) tail
                 | Concat(head, tail, tinfo) ->
-                    rev cache tail :: rev cache head :: acc
-                | single -> rev cache single :: acc
+                    rev builder tail :: rev builder head :: acc
+                | single -> rev builder single :: acc
 
             let reversedList = revConcatNode [] node
-            cache.Builder.mkConcat reversedList
+            builder.mkConcat reversedList
         | Epsilon -> Epsilon
 
 
@@ -113,13 +113,13 @@ module RegexNode =
                 not (recursiveIsMatch loc body)
 
             | true, false -> // Nullx ((?<=R)) = IsMatch(xr, Rr)
-                let revnode = (RegexNode.rev cache body)
+                let revnode = (RegexNode.rev cache.Builder body)
                 let revloc = (Location.rev loc)
                 let ism = recursiveIsMatch revloc revnode
                 ism
             | true, true -> // Nullx ((?<!R)) = not IsMatch(x r, Rr)
                 let loc_rev = Location.rev loc
-                let R_rev = RegexNode.rev cache body
+                let R_rev = RegexNode.rev cache.Builder body
                 not (recursiveIsMatch loc_rev R_rev)
 
 
@@ -176,8 +176,9 @@ module RegexNode =
 
         // current active branches, without implicit dotstar node
         let toplevelOr =
-            // optimize the top matchEnd only for now
+            // optimize the top matchEnds only for now
             if initialIsDotStarred then cache.GetTopLevelOr()
+            elif cache.IsOrigReversePattern(initialNode) then cache.GetReverseTopLevelOr()
             else new ToplevelORCollection()
 
         let _initialWithoutDotstar =
@@ -197,6 +198,10 @@ module RegexNode =
 
 
         while looping do
+
+            let mutable canSkipAll = true
+            let mutable canBeNullableBranch = false
+
             // 3.3 Derivatives and MatchEnd optimizations
             match Location.isFinal loc || foundmatch with
             | true ->
@@ -254,6 +259,13 @@ module RegexNode =
                                 toplevelOr.UpdateTransition(i, deriv, loc.Position)
                             else
                                 toplevelOr.UpdateTransitionNode(i, deriv)
+                        // check nullability
+
+                        if deriv.CanBeNullable then
+                            canBeNullableBranch <- true
+                        canSkipAll <- canSkipAll && deriv.CanSkip
+
+
 
 
                 // create implicit dotstar derivative only if startset matches
@@ -276,66 +288,29 @@ module RegexNode =
                         let nullableState =
                             if
                                 canNotBeNullable deriv then -1
-                                elif isAlwaysNullable deriv || (isNullable (cache, loc, deriv))
+                                elif (canBeNullableBranch <- true ; isAlwaysNullable deriv) || (isNullable (cache, loc, deriv))
                                 then loc.Position
                                 else -1
+                        canSkipAll <- canSkipAll && canSkip deriv
 
-                        // TODO: refactor this elsewhere ?
-                        let toplevelItemsSpan = toplevelOr.Items()
-                        if toplevelItemsSpan.IsEmpty then
-                            toplevelOr.Add(
-                                deriv,
-                                nullableState,
-                                loc.Position)
-                        else
-                        let first = toplevelItemsSpan[0]
-                        match cache.Builder.AndSubsumptionCache.TryGetValue(struct(first,deriv)) with
-                        | true, v ->
-                            if v then ()
-                            else toplevelOr.Add( deriv, nullableState, loc.Position)
-                        | _ ->
+                        match toplevelOr.Count with
+                        | 0 -> toplevelOr.Add( deriv, nullableState, loc.Position)
+                        | 1 ->
+                            let first = toplevelOr.First
 
-                        match first, deriv with
-                        | _ when refEq first deriv -> ()
-                        | And(nodes=nodes1), And(nodes=nodes2) ->
-                            let mutable found = false
-                            if nodes1.IsSupersetOf(nodes2) then
-                                found <- true
-                            else
-                                use mutable n1e = nodes1.GetEnumerator()
-                                use mutable n2e = nodes2.GetEnumerator()
-                                while n1e.MoveNext() && not found do
-                                    let curr = n1e.Current
-                                    match curr with
-                                    | Or(nodes=nodes) ->
-                                        while n2e.MoveNext() do
-                                            if nodes.Contains(n2e.Current) then
-                                                found <- true
-                                        n2e.Reset()
-                                    | _ -> ()
+                            if refEq first deriv || first.IsAlwaysNullable then () else
+                            match cache.Builder.AndSubsumptionCache.TryGetValue(struct(first,deriv)) with
+                            | true, v ->
+                                if v then ()
+                                else toplevelOr.Add( deriv, nullableState, loc.Position)
+                            | _ ->
 
-                            cache.Builder.AndSubsumptionCache.Add(struct(first,deriv),found)
-                            if not found then
-                                toplevelOr.Add(
-                                    deriv,
-                                    nullableState,
-                                    loc.Position)
-                        | (Concat(_)| Epsilon| Loop(_) | Or(_)), And(nodes=nodes2) ->
-                            let mutable found = false
-                            if first.IsAlwaysNullable || nodes2.Contains(first) then
-                                found <- true
-                            else
-                                match first with
-                                | Or(nodes=nodes1) ->
-                                    if exists nodes2.Contains nodes1 then
-                                        found <- true
-
-                                | _ -> ()
-                            if not found then
-                                toplevelOr.Add(
-                                    deriv,
-                                    nullableState,
-                                    loc.Position)
+                            let isSubsumed = cache.Builder.trySubsumeTopLevelOr(first,deriv)
+                            if isSubsumed then () else
+#if OPTIMIZE
+                            failwith "top or not subsumed"
+#endif
+                                toplevelOr.Add( deriv, nullableState, loc.Position)
                         | _ ->
 #if OPTIMIZE
                             [| first; deriv |]
@@ -354,17 +329,15 @@ module RegexNode =
                 if not foundmatch then
                     let mutable e = toplevelOr.Items().GetEnumerator()
                     let mutable found = false
-                    let mutable canSkipAll = true
-
                     // check nullability
                     loc.Position <- Location.nextPosition loc
 
-                    while e.MoveNext() do
-                        if e.Current.CanBeNullable then
-                            found <- found || e.Current.IsAlwaysNullable || isNullable(cache,loc,e.Current)
-                        canSkipAll <- canSkipAll && e.Current.CanSkip
-                    if found then
-                        currentMax <- (ValueSome (loc.Position))
+                    if canBeNullableBranch then
+                        while not found && e.MoveNext() do
+                            if e.Current.CanBeNullable then
+                                found <- e.Current.IsAlwaysNullable || isNullable(cache,loc,e.Current)
+                        if found then
+                            currentMax <- (ValueSome (loc.Position))
 
                     // won't try to jump further if final
                     if Location.isFinal loc then () else
@@ -384,13 +357,13 @@ module RegexNode =
                             //     | _ -> looping <- false
 
                             // use our own startset lookup (not optimized for long strings)
-                            if not (Solver.isElemOfSetU64 _startsetPredicate nextLocationPredicate) then
+                            if Solver.notElemOfSet _startsetPredicate nextLocationPredicate then
                                 loc.Position <- tryJumpToStartset (cache, &loc, &toplevelOr)
                     else
                         // check if some input can be skipped
                         if
                             canSkipAll &&
-                            not (Solver.isElemOfSetU64 _startsetPredicate nextLocationPredicate)
+                            Solver.notElemOfSet _startsetPredicate nextLocationPredicate
                         then
                             // jump mid-regex
                             loc.Position <- tryJumpToStartset (cache, &loc, &toplevelOr)

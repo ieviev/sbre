@@ -145,9 +145,14 @@ type Basic3() =
 type DebugSbre3() =
     inherit Jobs.SbreDebugSearch([
         // @"~(⊤*\n\n⊤*)&⊤*Huck⊤*"
+        // @"~(⊤*\n\n⊤*)&⊤*Huck⊤*&⊤*Finn⊤*"
+        Permutations.permuteConjInParagraph ["Huck"; ]
+        // Permutations.permuteConjInParagraph ["Huck";"Finn"; "Tom"; "Sawyer" ]
         // @"~(⊤*\n\n⊤*)&⊤*Huck⊤*&⊤*could⊤*"
 
-        Permutations.permuteConjInLine ["which";"could"]
+        // Permutations.permuteConjInLine ["which";]
+        // Permutations.permuteConjInLine ["which";"could"]
+        // Permutations.permuteConjInLine ["which";"could"; "where"]
         // Permutations.permuteConjInLine ["t.*hat"; "a.*nd"; "t.*he";"w.*as"]
 
         // @"~(⊤*\n\n⊤*)&⊤*Huck⊤*&⊤*could⊤*&⊤*there⊤*"
@@ -201,12 +206,11 @@ type LWord1() =
 
 
 
-// let regexes = ["t.*hat"; "a.*nd"; "w.*as"]
-// let regexes = ["could"; "which"; "was"]
-// let regexes = ["co.*uld"; "wh.*ich"; "wa.*s"]
-// let regexes = ["(?:co.+uld|wh.+ich)"; "was"; "there";]
-// let regexes = [ "which [a-z]*ed"; "that (:?all|in|is|the)"; ]
-let regexes = [ "could"; ]
+
+// let regexes =  ["which";"could"; "where"]
+// let regexes =  ["which";"could"; "where"]
+// let regexes =  ["wh.*ich";"co.*uld"; "wh.*ere"]
+let regexes =  ["wh.*ich";"co.*uld"; "wh.*ere"]
 // let regexes = ["t.*hat"; "a.*nd"; "t.*he"]
 
 type RegexLine1() =

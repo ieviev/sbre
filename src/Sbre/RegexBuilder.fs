@@ -135,7 +135,10 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
             member this.Equals(struct (x1, x2), struct (y1, y2)) = x1 = y1 && refEq x2 y2
 
             [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-            member this.GetHashCode(struct (x, y)) = int x ^^^ LanguagePrimitives.PhysicalHash y
+            member this.GetHashCode(struct (x, y)) =
+                // LanguagePrimitives.PhysicalHash y
+                int x ^^^ LanguagePrimitives.PhysicalHash y
+                // int x ^^^ LanguagePrimitives.PhysicalHash y
         }
 
     let _andCacheComparer =
@@ -193,9 +196,7 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
         { new IEqualityComparer<struct(RegexNode<uint64>*RegexNode<uint64>)> with
             [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
             member this.Equals(struct(x1,y1), struct(x2,y2)) =
-                let r1 = refEq x1 x2
-                let r2  = refEq y1 y2
-                r1 && r2
+                refEq x1 x2 && refEq y1 y2
             [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
             member this.GetHashCode(struct(x,y)) =
                 LanguagePrimitives.PhysicalHash x ^^^ LanguagePrimitives.PhysicalHash y
@@ -520,6 +521,61 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
         |> Option.defaultValue nodes
 
 
+    member this.trySubsumeTopLevelOr(first, deriv) : bool =
+
+        match first, deriv with
+        | Concat(_), And(nodes=nodes2) ->
+            nodes2.Contains(first)
+
+        | Or(nodes=nodes1), And(nodes=nodes2) ->
+            if nodes2.Contains(first) then true else
+            let mutable found = false
+            use mutable n1e = nodes1.GetEnumerator()
+            while not found && n1e.MoveNext()  do
+                if nodes2.Contains(n1e.Current) then
+                    found <- true
+            found
+
+        | And(nodes=nodes1), And(nodes=nodes2) | Or(nodes=nodes2), Or(nodes=nodes1)  ->
+            // if nodes2.IsSupersetOf(nodes1) then true else
+
+            let mutable found = false
+
+            use mutable n1e = nodes1.GetEnumerator()
+            use mutable n2e = nodes2.GetEnumerator()
+            let mutable allcontained = true
+            while allcontained && n1e.MoveNext()  do
+
+                let mutable currFound = false
+                while not currFound && n2e.MoveNext() do
+                    let currN2 = n2e.Current
+                    let currN1 = n1e.Current
+                    if refEq currN1 currN2 then
+                        currFound <- true
+                    else
+
+                    match currN1 with
+                    | Or(nodes=currN1Inner) ->
+                        if currN1Inner.Contains(currN2) then
+                            currFound <- true
+                    | _ -> ()
+
+                n2e.Reset()
+                if not currFound then
+                    allcontained <- false
+            if allcontained then
+                found <- true
+            else
+                // todo: unoptimized?
+                ()
+
+            _andSubsumptionCache.TryAdd(struct(first,deriv),found) |> ignore
+            found
+
+        | _ -> false
+
+
+
     member this.mkAnd(nodeSet: RegexNode< ^t >[]) : RegexNode< ^t > =
         let nodeSet =
             // filter and expand!
@@ -590,9 +646,9 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
                 | And(nodes, _) -> for node in nodes do handleNode node
 
                 // ~(.*) -> always false (?)
-                // | Not(node,info) when info.CanNotBeNullable ->
-                //     enumerating <- false
-                //     status <- MkAndFlags.IsFalse
+                | Not(node,info) when info.CanNotBeNullable ->
+                    enumerating <- false
+                    status <- MkAndFlags.IsFalse
                 | Epsilon ->
                     // epsilon requires others to be nullable loops
                     // if derivatives.Exists(fun v -> v.CanNotBeNullable) then

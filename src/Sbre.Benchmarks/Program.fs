@@ -47,7 +47,8 @@ let dbgSbre() =
         |> Seq.head
     t.Setup()
     // for i = 0 to 1 do
-    for i = 0 to 1000 do
+    // for i = 0 to 1000 do
+    for i = 0 to 20 do
         t.MatchWithConj() |> ignore
 
 

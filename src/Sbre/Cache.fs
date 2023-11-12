@@ -27,6 +27,7 @@ type RegexCache< ^t when ^t: struct and ^t :> IEquatable< ^t > and ^t: equality>
         _charsetSolver: CharSetSolver,
         _implicitDotstarPattern: RegexNode<uint64>,
         _rawPattern: RegexNode<uint64>,
+        _reversePattern: RegexNode<uint64>,
         _builder: RegexBuilder<uint64>,
         _optimizations: RegexFindOptimizations
     ) =
@@ -35,6 +36,7 @@ type RegexCache< ^t when ^t: struct and ^t :> IEquatable< ^t > and ^t: equality>
     // let classify (c:char) =
     //
     //     ()
+
 
     let _ascii = classifier.Ascii
     let _nonAscii = classifier.NonAscii
@@ -49,6 +51,7 @@ type RegexCache< ^t when ^t: struct and ^t :> IEquatable< ^t > and ^t: equality>
 
     let mutable _cachedStartsets: Dictionary<uint64, char[]> = Dictionary()
     let mutable _toplevelOr: ToplevelORCollection = new ToplevelORCollection()
+    let mutable _reverseToplevelOr: ToplevelORCollection = new ToplevelORCollection()
     let mutable _startsetPredicate = Startset.inferStartset _solver _rawPattern
     let mutable _initialStartset = Startset.inferInitialStartset _solver _rawPattern
 
@@ -112,6 +115,11 @@ type RegexCache< ^t when ^t: struct and ^t :> IEquatable< ^t > and ^t: equality>
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.GetTopLevelOr() =
+        _toplevelOr.Reset()
+        _toplevelOr
+
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    member this.GetReverseTopLevelOr() =
         _toplevelOr.Reset()
         _toplevelOr
 
@@ -560,11 +568,11 @@ type RegexCache< ^t when ^t: struct and ^t :> IEquatable< ^t > and ^t: equality>
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.MintermForLocation(loc: Location) : _ =
-        match loc.Reversed with
-        | false -> minterms[classifier.GetMintermID(int loc.Input[loc.Position])]
-        | true ->
-            // if loc.Position = loc.Input.Length then 0uL
-            minterms[classifier.GetMintermID(int loc.Input[loc.Position - 1])]
+        let mutable pos = loc.Position
+        if loc.Reversed then
+            pos <- pos - 1
+        this.Classify(loc.Input[pos])
+
 
     member this.Ascii : _ = classifier.Ascii
     member this.NonAscii : _ = classifier.NonAscii
@@ -596,6 +604,7 @@ type RegexCache< ^t when ^t: struct and ^t :> IEquatable< ^t > and ^t: equality>
         | false -> this.NonAscii.Find(int c)
 
     member val InitialPatternWithoutDotstar = _rawPattern
+    // member val ReversePattern = _reversePattern
 
     member val Solver: UInt64Solver = typedSolver
     member val CharsetSolver: CharSetSolver = _charsetSolver
@@ -622,6 +631,10 @@ type RegexCache< ^t when ^t: struct and ^t :> IEquatable< ^t > and ^t: equality>
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.IsFalse(node: RegexNode< uint64 >) : bool =
         obj.ReferenceEquals(node, _builder.uniques._false)
+
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    member this.IsOrigReversePattern(node: RegexNode< uint64 >) : bool =
+        obj.ReferenceEquals(node, _reversePattern)
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.CreateInfo(flags, startset) : RegexNodeInfo<_> =

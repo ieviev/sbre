@@ -477,13 +477,16 @@ module rec Startset =
 
                 curr <- Unchecked.defaultof<_>
             | Concat(head, tail, info) ->
+                if uninitialized then
+                    acc.Add(curr.Startset)
                 // \d{2,2} not optimized for now
                 curr <- Unchecked.defaultof<_>
                 // failwith $"todo1 {head} {tail}"
             | Epsilon -> curr <- Unchecked.defaultof<_>
             | Loop(node, low, up, info) ->
-
                 // ending ⊤* not optimized-
+                if uninitialized then
+                    acc.Add(node.Startset)
                 curr <- Unchecked.defaultof<_>
 
 
@@ -688,6 +691,16 @@ module Node =
         | Concat(info = info) -> info.CanBeNullable
         | Epsilon -> true
 
+    let inline canSkip(node: RegexNode<'t>) =
+        match node with
+        | Or(info = info) -> info.CanSkip
+        | Singleton _ -> false
+        | Loop(info = info) -> info.CanSkip
+        | And(info = info) -> info.CanSkip
+        | Not(info = info) -> info.CanSkip
+        | LookAround _ -> false
+        | Concat(info = info) -> info.CanSkip
+        | Epsilon -> false
     let inline canNotBeNullable(node: RegexNode<'t>) =
         match node with
         | Or(info = info) -> not info.CanBeNullable
