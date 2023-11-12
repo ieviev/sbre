@@ -277,7 +277,6 @@ type RegexCache< ^t when ^t: struct and ^t :> IEquatable< ^t > and ^t: equality>
 
 
     /// skip till a prefix of minterms matches
-    // [<MethodImpl(MethodImplOptions.AggressiveOptimization)>]
     member this.TryNextStartsetLocationArray(loc: inref<Location>, prefix: _[]) =
         assert not loc.Reversed
 
@@ -285,7 +284,6 @@ type RegexCache< ^t when ^t: struct and ^t :> IEquatable< ^t > and ^t: equality>
         let mutable currpos = loc.Position
         let mutable skipping = true
         let mutable result = ValueNone
-        let mutable slice: ReadOnlySpan<char> = inputSpan.Slice(currpos)
         let setSpan = prefix.AsSpan()
 
         /// vectorize the search for the first character
@@ -293,26 +291,10 @@ type RegexCache< ^t when ^t: struct and ^t :> IEquatable< ^t > and ^t: equality>
         let isInverted = Solver.elemOfSet prefix[0] minterms[0]
         let tailPrefixSpan = setSpan.Slice(1)
         let _limitLength = inputSpan.Length + setSpan.Length - 1
-        let _tailPrefixLength = tailPrefixSpan.Length
-
-        if tailPrefixSpan.Length = 1 then
-            skipping <- false
-            let sharedIndex =
-                slice <- inputSpan.Slice(currpos)
-                if not isInverted then
-                    slice.IndexOfAny(firstSetChars)
-                else
-                    slice.IndexOfAnyExcept(firstSetChars)
-
-            if not (sharedIndex = -1) then
-                let potential =
-                    currpos + sharedIndex
-                result <- ValueSome(potential)
-
 
         while skipping do
             let sharedIndex =
-                slice <- inputSpan.Slice(currpos)
+                let slice = inputSpan.Slice(currpos)
                 if not isInverted then
                     slice.IndexOfAny(firstSetChars)
                 else
@@ -324,7 +306,6 @@ type RegexCache< ^t when ^t: struct and ^t :> IEquatable< ^t > and ^t: equality>
                 let potential = currpos + sharedIndex
 
                 let mutable couldBe = true
-                let mutable i = 0
 
                 // exit if too far
                 if potential > _limitLength then
@@ -340,7 +321,7 @@ type RegexCache< ^t when ^t: struct and ^t :> IEquatable< ^t > and ^t: equality>
                 //     |> Array.map this.PrettyPrintMinterm
                 //     |> String.concat ""
 #endif
-
+                let mutable i = 0
                 while couldBe && i < tailPrefixSpan.Length do
                     let inputMinterm = this.Classify(inputSpan[potential + 1 + i])
                     if Solver.notElemOfSet inputMinterm tailPrefixSpan[i] then

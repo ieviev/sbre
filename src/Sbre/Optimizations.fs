@@ -22,43 +22,25 @@ let rec tryJumpToStartset (c:RegexCache<_>,loc:byref<Location>, nodes:inref<Topl
         // check if initial pattern
         let isInitial = refEq c.InitialPatternWithoutDotstar node
 
-        if isInitial then
-            let prefix = c.GetInitialStartsetPrefix()
-            match prefix with
-            | InitialStartset.MintermArrayPrefix(arr,loopEnd) ->
-                match c.TryNextStartsetLocationArray(&loc,arr) with
-                | ValueNone -> Location.final loc
-                | ValueSome newPos -> newPos
-            | _ ->
-                loc.Position
-        else
-
-
-
         let prefix : InitialStartset =
-            c.Builder.GetPrefixCached(node)
-            // match node.TryGetInfo with
-            // | ValueSome info ->
-            //     match info.InitialStartset with
-            //     | InitialStartset.Uninitialized ->
-            //         info.InitialStartset <- c.Builder.GetPrefixCached(node)
-            //         info.InitialStartset
-            //     | _ ->
-            //         info.InitialStartset
-            // | _ -> InitialStartset.Unoptimized
+            match node.TryGetInfo with
+            | ValueSome info ->
+                match info.InitialStartset with
+                | InitialStartset.Uninitialized ->
+                    info.InitialStartset <- c.Builder.GetPrefixCached(node)
+                    info.InitialStartset
+                | _ ->
+                    info.InitialStartset
+            | _ -> InitialStartset.Unoptimized
 
         match prefix with
         | InitialStartset.MintermArrayPrefix(arr,loopEnd) ->
-
-
-
             let commonStartsetLocation =
-                if loc.Reversed && loopEnd.Length = 0 then
-                    c.TryNextStartsetLocationArrayReversed(&loc,arr)
-                elif isInitial then
+                if isInitial then
                     c.TryNextStartsetLocationArray(&loc,arr)
+                elif loc.Reversed && loopEnd.Length = 0 then
+                    c.TryNextStartsetLocationArrayReversed(&loc,arr)
                 elif arr.Length = 1 && loopEnd.Length = 1 then
-                // elif arr.Length = 1 then
                     c.TryNextStartsetLocation(loc,arr[0] ||| loopEnd[0])
                 else
                     c.TryNextStartsetLocationArrayWithLoopTerminator(loc,arr,loopEnd)

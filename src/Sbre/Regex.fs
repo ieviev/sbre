@@ -111,7 +111,7 @@ type Regex(pattern: string, [<Optional; DefaultParameterValue(false)>] warnUnopt
             match cache.GetInitialStartsetPrefix() with
             | InitialStartset.MintermArrayPrefix(prefix=prefix) ->
                 if prefix.Length = 0 then
-                    failwith "TODO"
+                    failwith $"TODO UNOPTIMIZED REGEX {pattern}"
 
             | _ ->
                 match rawUint64Node.TryGetInfo with
@@ -199,7 +199,17 @@ type Regex(pattern: string, [<Optional; DefaultParameterValue(false)>] warnUnopt
                         Length = endPos - start
                     }
 
+    /// replace all occurrences in string
+    member this.Replace(input: string, replacement: string) =
+        let sb = System.Text.StringBuilder(input)
+        let mutable offset = 0
+        for result in this.MatchPositions(input) do
+            let start = offset + result.Index
+            sb.Remove(start, result.Length + 1).Insert(start, replacement) |> ignore
+            offset <-  replacement.Length - result.Length - 1
+        sb.ToString()
 
+    /// return all matches on input
     member this.Matches(input: string) =
         this.MatchPositions(input)
         |> Seq.map (fun result ->
@@ -211,6 +221,7 @@ type Regex(pattern: string, [<Optional; DefaultParameterValue(false)>] warnUnopt
             }
         )
 
+    /// used internally
     member this.MatchText(input: string) =
         let mutable startPos = 0
 
@@ -237,7 +248,8 @@ type Regex(pattern: string, [<Optional; DefaultParameterValue(false)>] warnUnopt
                 | ValueSome start -> Some(input[start .. endPos - 1])
 
 
-    member this.CountMatches(input: string) =
+    /// counts the number of matches
+    member this.Count(input: string) =
         let mutable currPos = 0
         let mutable location = Location.create input 0
         let mutable looping = true
@@ -253,40 +265,33 @@ type Regex(pattern: string, [<Optional; DefaultParameterValue(false)>] warnUnopt
 
         while looping do
             location.Position <- currPos
+
             match _cache.TryNextStartsetLocationArray(&location,initialPrefix) with
-            | ValueNone ->
-                looping <- false
-            | ValueSome newPos ->
-                location.Position <- newPos
+            | ValueNone -> looping <- false
+            | ValueSome newPos -> location.Position <- newPos
 
-            // let jump =
-            //     optimizations.TryFindNextStartingPositionLeftToRight(
-            //         input.AsSpan(),
-            //         &currPos,
-            //         currPos
-            //     )
-            // if not jump then
-            //     looping <- false
-            // else
+            // if not (optimizations.TryFindNextStartingPositionLeftToRight( inputSpan, &currPos, currPos ))
+            // then looping <- false
+            // else location.Position <- currPos
 
-                match RegexNode.matchEnd (cache, &location, ValueNone, trueStarredUint64Node) with
-                | ValueNone -> looping <- false
-                | ValueSome(endPos: int) ->
-                    counter <- counter + 1
-                    // continue
-                    if endPos < inputSpan.Length then
-                        if endPos = currPos then
-                            currPos <- currPos + 1
-                        else
-                            currPos <- endPos
+            match RegexNode.matchEnd (cache, &location, ValueNone, trueStarredUint64Node) with
+            | ValueNone -> looping <- false
+            | ValueSome(endPos: int) ->
+                counter <- counter + 1
+                // continue
+                if endPos < inputSpan.Length then
+                    if endPos = currPos then
+                        currPos <- currPos + 1
                     else
-                        looping <- false
+                        currPos <- endPos
+                else
+                    looping <- false
 
         counter
 
 
 
-
+    /// return just the positions of matches without allocating the result
     member this.MatchPositions(input: string) =
         let mutable currPos = 0
         let mutable location = Location.create input 0
@@ -304,24 +309,18 @@ type Regex(pattern: string, [<Optional; DefaultParameterValue(false)>] warnUnopt
             while looping do
                 location.Position <- currPos
                 let inputSpan = input.AsSpan()
-
+                //
                 match _cache.TryNextStartsetLocationArray(&location,initialPrefix) with
                 | ValueNone ->
                     looping <- false
                 | ValueSome newPos ->
                     location.Position <- newPos
 
-                // let success =
-                //     optimizations.TryFindNextStartingPositionLeftToRight(
-                //         inputSpan,
-                //         &currPos,
-                //         currPos
-                //     )
-                //
-                // if not success then
-                //     looping <- false
-                // else
-                //     location.Position <- currPos
+
+                // .NET startset search
+                // if not (optimizations.TryFindNextStartingPositionLeftToRight( inputSpan, &currPos, currPos ))
+                // then looping <- false
+                // else location.Position <- currPos
 
                 match RegexNode.matchEnd (cache, &location, ValueNone, trueStarredUint64Node) with
                 | ValueNone -> looping <- false

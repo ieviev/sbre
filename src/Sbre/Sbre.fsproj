@@ -18,7 +18,7 @@
     <WarnOn>3517</WarnOn>
     <WarnOn>3366</WarnOn>
     <WarnOn>1182</WarnOn>
-<!--    <DefineConstants>$(DefineConstants);OPTIMIZE</DefineConstants>-->
+    <!--    <DefineConstants>$(DefineConstants);OPTIMIZE</DefineConstants>-->
   </PropertyGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Sbre.Test" />
@@ -43,21 +43,19 @@
     <!-- Stdlib -->
     <!--      <DefaultReferenceExclusion Include="System.Text.RegularExpressions" />-->
     <!-- <ProjectReference Include="..\RuntimeRegexCopy\RuntimeRegexCopy.csproj" /> -->
-     <ProjectReference Include="..\RuntimeRegexCopy\RuntimeRegexCopy.csproj" /> 
+    <ProjectReference Include="..\RuntimeRegexCopy\RuntimeRegexCopy.csproj" />
   </ItemGroup>
   <ItemGroup>
-<!--    <Reference Include="RuntimeRegexCopy">-->
-<!--      <HintPath>/home/ian/f/ieviev/sbre/src/RuntimeRegexCopy/bin/Release/net7.0/RuntimeRegexCopy.dll</HintPath>-->
-<!--    </Reference>-->
+    <!-- <Reference Include="RuntimeRegexCopy">
+      <HintPath>/home/ian/f/ieviev/sbre/src/RuntimeRegexCopy/bin/Release/net7.0/RuntimeRegexCopy.dll</HintPath>
+    </Reference> -->
   </ItemGroup>
   <PropertyGroup>
     <PackageOutputPath>./nupkg</PackageOutputPath>
     <Authors>ieviev</Authors>
     <Title>$(ProjectName)</Title>
-    <Version>0.0.9</Version>
+    <Version>0.0.12</Version>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="FSharp.Data.Adaptive" Version="1.2.14" />
-    <PackageReference Include="FSharpx.Collections" Version="3.1.0" />
   </ItemGroup>
 </Project>

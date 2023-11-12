@@ -9,7 +9,6 @@ open System.Runtime.CompilerServices
 open System.Runtime.InteropServices
 open System.Text.RuntimeRegexCopy
 open System.Text.RuntimeRegexCopy.Symbolic
-open FSharp.Data.Adaptive
 open Sbre
 open System.Diagnostics
 

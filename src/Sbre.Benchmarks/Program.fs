@@ -92,14 +92,9 @@ let main argv =
     | "debug-all" -> BenchmarkRunner.Run(typeof<ParagraphFull.DebugAll>,config) |> ignore
     // --
 
-
-
     // ----
     | "paper-short-1" -> BenchmarkRunner.Run(typeof<Paper.ParagraphShort1Word>,config) |> ignore
-    | "paper-long-1" -> BenchmarkRunner.Run(typeof<Paper.ParagraphLong1Word>,config) |> ignore
-    | "paper-long-2" -> BenchmarkRunner.Run(typeof<Paper.ParagraphLong2Word>,config) |> ignore
-    | "paper-long-3" -> BenchmarkRunner.Run(typeof<Paper.ParagraphLong3Word>,config) |> ignore
-    | "paper-long-4" -> BenchmarkRunner.Run(typeof<Paper.ParagraphLong4Word>,config) |> ignore
+
     | "paper-conj-1" -> BenchmarkRunner.Run(typeof<Paper.ParagraphConjunction1>,config) |> ignore
     | "paper-complex-1" -> BenchmarkRunner.Run(typeof<Paper.ParagraphComplexRegex1>,config) |> ignore
     | "paper-inner-1" -> BenchmarkRunner.Run(typeof<Paper.ParagraphInnerMatch1>,config) |> ignore
@@ -117,6 +112,22 @@ let main argv =
     | "all-r3" -> BenchmarkRunner.Run(typeof<Paper.RegexLine3>,config) |> ignore
     | "dbg" -> BenchmarkRunner.Run(typeof<Paper.DebugSbre3>,config) |> ignore
     | "dbg-mt" -> BenchmarkRunner.Run(typeof<Jobs.Minterms>,config) |> ignore
+    // ------------
+
+    // standard benchmarks
+    | "twain-1" -> BenchmarkRunner.Run(typeof<Paper.Twain_1>,config) |> ignore
+
+
+    // words in paragraph
+    | "paper-long-1" -> BenchmarkRunner.Run(typeof<Paper.ParagraphLong1Word>,config) |> ignore
+    | "paper-long-2" -> BenchmarkRunner.Run(typeof<Paper.ParagraphLong2Word>,config) |> ignore
+    | "paper-long-3" -> BenchmarkRunner.Run(typeof<Paper.ParagraphLong3Word>,config) |> ignore
+    | "paper-long-4" -> BenchmarkRunner.Run(typeof<Paper.ParagraphLong4Word>,config) |> ignore
+
+    // lines
+    | "paper-lines-1" -> BenchmarkRunner.Run(typeof<Paper.ParagraphLong4Word>,config) |> ignore
+
+
 
 
     | _ ->

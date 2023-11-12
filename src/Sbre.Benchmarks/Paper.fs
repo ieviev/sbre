@@ -94,19 +94,18 @@ type ParagraphInnerMatch1() =
 
 type Basic1() =
     inherit
-        Jobs.TestAllBasic(
+        Jobs.TestAllEngines(
             // @"(?i)Tom|Sawyer|Huckleberry|Finn",
             // @"(?i)Tom|Sawyer|Huckleberry|Finn",
             // "\w+ [0-9]",
             // "\w+ [0-9]",
-            ".*have.*there.*|.*there.*have.*",
             ".*have.*there.*|.*there.*have.*",
             fullInput
         )
 
 type Basic2() =
     inherit
-        Jobs.TestAllBasic(
+        Jobs.TestAllEngines(
             // "(?=.*b.*b)(?=.*i.*i)(?=.*e.*e)(?=.*F.*F)(?!.*x).*",
             // ".*&⊤*b⊤*b⊤*&⊤*i⊤*i⊤*&⊤*e⊤*e⊤*&⊤*F⊤*F⊤*&~(⊤*x⊤*)",
             // "(?=(.*[Ee]){2})(?=(.*[Ii]){2})(?=.*nn)(?=.*F.*F)(?!.*x).*",
@@ -121,7 +120,6 @@ type Basic2() =
 
             // ".*have.*there.*other.*|.*there.*have.*other.*|.*there.*other.*have.*|.*have.*other.*there.*|.*other.*have.*there.*|.*other.*there.*have.*",
             "Twain",
-            "Twain",
             //
             fullInput
 
@@ -132,8 +130,7 @@ let str = @"lethargy.*air"
 
 type Basic3() =
     inherit
-        Jobs.TestAllBasic(
-            str,
+        Jobs.TestAllEngines(
             str,
             fullInput
         )
@@ -144,11 +141,19 @@ type Basic3() =
 
 type DebugSbre3() =
     inherit Jobs.SbreDebugSearch([
-        // @"~(⊤*\n\n⊤*)&⊤*Huck⊤*"
-        // @"~(⊤*\n\n⊤*)&⊤*Huck⊤*&⊤*Finn⊤*"
-        Permutations.permuteConjInParagraph ["Huck"; ]
+        Permutations.permuteConjInParagraph ["Huck"]
+        // Permutations.permuteConjInParagraph ["Huck"; ]
+        // Permutations.permuteConjInParagraph ["Huck";"Finn"; ]
+        // Permutations.permuteConjInParagraph ["Huck";"Finn"; "Tom"; ]
         // Permutations.permuteConjInParagraph ["Huck";"Finn"; "Tom"; "Sawyer" ]
-        // @"~(⊤*\n\n⊤*)&⊤*Huck⊤*&⊤*could⊤*"
+
+        // @"(?:(?i)~(⊤*\n\n⊤*)&⊤*Huck⊤*)"
+        // @"(?:(?i)~(⊤*\n\n⊤*)&⊤*Huck⊤*)"
+
+        // @".*Huck.*&~(⊤*the⊤*)"
+        // @".*Huck.*&~(⊤*the⊤*)&.*\n"
+        // @".*Huck.*&~(⊤*the⊤*)"
+        // @".*Huck.*&~(⊤*the⊤*)"
 
         // Permutations.permuteConjInLine ["which";]
         // Permutations.permuteConjInLine ["which";"could"]
@@ -161,35 +166,35 @@ type DebugSbre3() =
 
 type WordsLine1() =
     inherit
-        Jobs.TestAllEngines(
+        Jobs.TestAllEnginesWords(
             ["which";],
             fullInput
         )
 
 type WordsLine2() =
     inherit
-        Jobs.TestAllEngines(
+        Jobs.TestAllEnginesWords(
             ["which";"could"],
             fullInput
         )
 
 type WordsLine3() =
     inherit
-        Jobs.TestAllEngines(
+        Jobs.TestAllEnginesWords(
             ["which";"could"; "there"],
             fullInput
         )
 
 type WordsLine4() =
     inherit
-        Jobs.TestAllEngines(
+        Jobs.TestAllEnginesWords(
             ["which";"could"; "there"; "thing"],
             fullInput
         )
 
 type WordsLine5() =
     inherit
-        Jobs.TestAllEngines(
+        Jobs.TestAllEnginesWords(
             // ["which";"could"; "that"; "have"; "were"],
             ["were";"have"; "which";"could"; "that"],
             fullInput
@@ -197,7 +202,7 @@ type WordsLine5() =
 
 type LWord1() =
     inherit
-        Jobs.TestAllEngines(
+        Jobs.TestAllEnginesWords(
             // ["w[a-z]+h";"c[a-z]+d"],
             // [@"w[a-z]*h"; @"c[a-z]*d"; ],
             [@"w[a-z]*h"; @"c[a-z]*d"; ],
@@ -240,10 +245,75 @@ type RegexLine1() =
 
 type RegexLine3() =
     inherit
-        Jobs.TestAllEngines(
-            // [@"w[a-z]*h";@"c[a-z]*d"; @"t[a-z]*e" ],
-            // [@"wh[a-z]*h";@"co[a-z]*d"; @"th[a-z]*e" ],
+        Jobs.TestAllEnginesWords(
             [@"whi[a-z]*h";@"cou[a-z]*d"; @"the[a-z]*e" ],
             fullInput
         )
+
+
+
+type Lines1() =
+    inherit
+        Jobs.TestAllEnginesSeparate(
+            // Permutations.permuteAltInLine ["that"; "and"; "the";"was"],
+            // Permutations.permuteAltInLine ["th.*at"; "an.*d"; "th.*e";"wa.*s"],
+            Permutations.permuteAltInLine regexes,
+            // Permutations.permuteAltInLine ["that"; "and"; "the";"was"; "for"; "his"],
+            // Permutations.permuteConjInLine ["th.*at"; "an.*d"; "th.*e";"wa.*s"],
+            ".*Huck.*&~(.*F.*)",
+            fullInput
+        )
+
+
+
+
+
+
+type Twain_1() =
+    inherit
+        Jobs.TestAllEngines(
+            // "Twain", // OK
+            // "(?i)Twain", // .net faster
+            // "[a-z]shing", // .net faster
+            @"Huck[a-zA-Z]+|Saw[a-zA-Z]+", // .net
+            // "[a-q][^u-z]{13}x", // ????
+            // "Tom|Sawyer|Huckleberry|Finn", // same
+            fullInput
+        )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

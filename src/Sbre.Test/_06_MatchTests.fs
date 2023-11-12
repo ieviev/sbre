@@ -558,4 +558,14 @@ let ``ensure negation prevents match``() =
 
     Assert.Equal( None, result )
 
+[<Fact>]
+let ``single char in negation``() =
+    let matcher = Regex(".*Huck.*&~(.*F.*)")
+    let result =
+        matcher.MatchText("The Adventures of Huckleberry Finn', published in 1885.")
+    Assert.Equal( Some "The Adventures of Huckleberry ", result )
+
+
+
+
 

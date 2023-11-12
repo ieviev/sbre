@@ -1,8 +1,6 @@
 module rec Sbre.Algorithm
 
 open System
-open FSharp.Data.Adaptive
-open FSharpx.Collections
 open Sbre.Info
 open Sbre.Optimizations
 open Sbre.Pat
