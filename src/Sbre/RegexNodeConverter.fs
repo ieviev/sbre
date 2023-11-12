@@ -85,7 +85,7 @@ let convertToSymbolicRegexNode
                         Info.addFlag &flags RegexNodeFlags.CanBeNullable
                         Info.addFlag &flags RegexNodeFlags.IsAlwaysNullable
 
-                    RegexNode.Not(inner, { Flags = flags; Startset = Unchecked.defaultof<_> })
+                    RegexNode.Not(inner, { Flags = flags; Startset = Unchecked.defaultof<_> ; InitialStartset = Uninitialized})
                     :: acc
                 else
                     convertChildren node

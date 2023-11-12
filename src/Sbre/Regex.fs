@@ -115,11 +115,11 @@ type Regex(pattern: string, [<Optional; DefaultParameterValue(false)>] warnUnopt
 
             | _ ->
                 match rawUint64Node.TryGetInfo with
-                | Some (info) ->
+                | ValueSome (info) ->
                     if info.ContainsEpsilon then () else
                     if cache.Solver.IsFull(cache.GetInitialStartsetPredicate()) then
                         failwith "the pattern has a startset of ⊤, which may result in extremely long match time. specify the beginning of the pattern more"
-                | None -> ()
+                | _ -> ()
         | _ -> ()
 
 
@@ -246,11 +246,10 @@ type Regex(pattern: string, [<Optional; DefaultParameterValue(false)>] warnUnopt
         let inputSpan = input.AsSpan()
         let initialPrefix =
             match _cache.GetInitialStartsetPrefix() with
-            | InitialStartset.Unoptimized ->
-                // failwith "TODO UNOPTIMIZED REGEX"
-                [|_cache.Solver.Full|]
             | InitialStartset.MintermArrayPrefix(arr, loopEnd) ->
                 arr
+            | _ ->
+                [|_cache.Solver.Full|]
 
         while looping do
             location.Position <- currPos
@@ -293,20 +292,20 @@ type Regex(pattern: string, [<Optional; DefaultParameterValue(false)>] warnUnopt
         let mutable location = Location.create input 0
         let mutable reverseLocation = (Location.rev { location with Position = 0 })
         let mutable looping = true
+        let mutable _cache = cache
         let initialPrefix =
-            match this.Cache.GetInitialStartsetPrefix() with
-                | InitialStartset.Unoptimized ->
-                    // failwith "TODO UNOPTIMIZED REGEX"
-                    [|cache.Solver.Full|]
-                | InitialStartset.MintermArrayPrefix(arr, loopEnd) ->
-                    arr
+            match _cache.GetInitialStartsetPrefix() with
+            | InitialStartset.MintermArrayPrefix(arr, loopEnd) ->
+                arr
+            | _ ->
+                [|_cache.Solver.Full|]
         seq {
 
             while looping do
                 location.Position <- currPos
                 let inputSpan = input.AsSpan()
 
-                match this.Cache.TryNextStartsetLocationArray(&location,initialPrefix) with
+                match _cache.TryNextStartsetLocationArray(&location,initialPrefix) with
                 | ValueNone ->
                     looping <- false
                 | ValueSome newPos ->

@@ -234,6 +234,7 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
                         ||| RegexNodeFlags.CanBeNullable
                         ||| RegexNodeFlags.CanSkip
                     Startset = solver.Full
+                    InitialStartset = Uninitialized
                 }
             )
         _truePlus =
@@ -241,7 +242,7 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
                 RegexNode.Singleton(solver.Full),
                 low = 1,
                 up = Int32.MaxValue,
-                info = { Flags = RegexNodeFlags.None; Startset = solver.Full }
+                info = { Flags = RegexNodeFlags.None; Startset = solver.Full; InitialStartset = Uninitialized }
             )
         _wordChar = lazy b.setFromStr @"\w"
         _nonWordChar = lazy b.setFromStr @"\W"
@@ -261,7 +262,7 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
                     let info = {
                         Flags = RegexNodeFlags.CanBeNullable //||| RegexNodeFlags.ContainsLookaround
                         Startset = Unchecked.defaultof<_>
-
+                        InitialStartset = Uninitialized
                     }
 
                     Or(
@@ -279,6 +280,7 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
                     let info = {
                         Flags = RegexNodeFlags.CanBeNullable //||| RegexNodeFlags.ContainsLookaround
                         Startset = solver.Full
+                        InitialStartset = Uninitialized
                     }
 
                     let seqv =
@@ -295,6 +297,7 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
                     let info = {
                         Flags = RegexNodeFlags.CanBeNullable
                         Startset = solver.Full
+                        InitialStartset = Uninitialized
                     }
                     // (?!ψ\w)
                     let c1 = [
@@ -330,6 +333,7 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
                     let info = {
                         Flags = RegexNodeFlags.CanBeNullable ||| RegexNodeFlags.ContainsLookaround
                         Startset = Unchecked.defaultof<_>
+                        InitialStartset = Uninitialized
                     }
 
                     Or(
@@ -370,6 +374,7 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
                             RegexNodeFlags.CanBeNullable
                             ||| RegexNodeFlags.None
                         Startset = Unchecked.defaultof<_>
+                        InitialStartset = Uninitialized
                     }
 
                     Or(
@@ -608,7 +613,7 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
                         | twoormore ->
                             let flags = Flags.inferAnd twoormore
                             let startset = twoormore |> Startset.inferMergeStartset solver
-                            let mergedInfo = { Flags = flags; Startset = startset }
+                            let mergedInfo = { Flags = flags; Startset = startset; InitialStartset = Uninitialized }
                             let newAnd = RegexNode.And(ofSeq twoormore, mergedInfo)
                             newAnd
 
@@ -676,7 +681,7 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
             | twoormore ->
                 let flags = Flags.inferAnd twoormore
                 let startset = twoormore |> Startset.inferMergeStartset (solver)
-                let mergedInfo = { Flags = flags; Startset = startset }
+                let mergedInfo = { Flags = flags; Startset = startset ; InitialStartset = Uninitialized }
                 let newAnd = RegexNode.And(ofSeq twoormore, mergedInfo)
                 newAnd
 
@@ -772,7 +777,7 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
 
                     let startset = twoormore |> Startset.inferMergeStartset solver
 
-                    let mergedInfo = { Flags = flags; Startset = startset }
+                    let mergedInfo = { Flags = flags; Startset = startset ; InitialStartset = Uninitialized }
                     RegexNode.Or(ofSeq twoormore, mergedInfo)
 
             let key = nodeSet
@@ -869,7 +874,7 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
 
                     let startset = twoormore |> Startset.inferMergeStartset solver
 
-                    let mergedInfo = { Flags = flags; Startset = startset }
+                    let mergedInfo = { Flags = flags; Startset = startset ; InitialStartset = Uninitialized }
                     RegexNode.Or(ofSeq twoormore, mergedInfo)
 
             let key = nodeSet
@@ -1054,7 +1059,7 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
         match _regexInfoCache.TryGetValue(struct (flags, startset)) with
         | true, v -> v
         | _ ->
-            let v = { Flags = flags; Startset = startset }
+            let v = { Flags = flags; Startset = startset; InitialStartset = Uninitialized }
             _regexInfoCache.Add(struct (flags, startset), v)
             v
 

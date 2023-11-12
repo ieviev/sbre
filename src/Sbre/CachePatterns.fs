@@ -60,7 +60,7 @@ module internal Cache =
                 RegexNodeFlags.IsAlwaysNullable
                 ||| RegexNodeFlags.CanBeNullable
 
-            { Flags = flags; Startset = cache.Solver.Full;  }
+            { Flags = flags; Startset = cache.Solver.Full; InitialStartset = Uninitialized }
 
         // ~(Derx(R))
         match derivative with
@@ -98,42 +98,4 @@ module internal Cache =
 
             let startset = Info.Startset.inferStartset (cache.Solver) (derivative)
             let info = cache.CreateInfo(flags, startset)
-
-            // let info = Info.ofFlagsAndStartset (flags, startset)
             Not(derivative, info)
-
-
-    // todo : not needed
-    [<return: Struct>]
-    let inline (|ReturnsInitialDerivative|_|)
-        (c: RegexCache<uint64>)
-        (loc: Location)
-        (loc_pred: uint64)
-        (node: RegexNode<uint64>)
-        : unit voption =
-
-        // inline
-        let inline notMatchInfo
-            (
-                info: RegexNodeInfo<uint64>,
-                loc_pred: uint64
-            ) =
-            if not (info.Flags.HasFlag(Flag.CanSkip)) then ValueNone else
-            if c.Solver.isElemOfSet (info.Startset, loc_pred) then
-                ValueNone
-            else if info.Flags.HasFlag(RegexNodeFlags.CanBeNullable) then
-                ValueNone
-            else
-                ValueSome()
-
-        match node with
-        | IsTrueStar c -> ValueSome()
-        | Epsilon -> ValueNone
-        | Or(info = info)  ->
-            notMatchInfo (info, loc_pred)
-        | And(info = info)  -> notMatchInfo (info, loc_pred)
-        | Not(info = info)  -> notMatchInfo (info, loc_pred)
-        | Loop(info = info)  -> notMatchInfo (info, loc_pred)
-        | Singleton pred  -> ValueNone
-        | Concat(info = info) -> notMatchInfo (info, loc_pred)
-        | LookAround _ -> ValueNone

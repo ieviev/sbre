@@ -35,7 +35,18 @@ let rec tryJumpToStartset (c:RegexCache<_>,loc:byref<Location>, nodes:inref<Topl
 
 
 
-        let prefix = c.Builder.GetPrefixCached(node)
+        let prefix : InitialStartset =
+            c.Builder.GetPrefixCached(node)
+            // match node.TryGetInfo with
+            // | ValueSome info ->
+            //     match info.InitialStartset with
+            //     | InitialStartset.Uninitialized ->
+            //         info.InitialStartset <- c.Builder.GetPrefixCached(node)
+            //         info.InitialStartset
+            //     | _ ->
+            //         info.InitialStartset
+            // | _ -> InitialStartset.Unoptimized
+
         match prefix with
         | InitialStartset.MintermArrayPrefix(arr,loopEnd) ->
 

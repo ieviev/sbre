@@ -46,26 +46,34 @@ type RegexNodeFlags =
     | CanSkip = 16uy
     | Prefix = 32uy
 
-[<Struct>]
+// [<Struct>]
 type RegexNodeInfo<'tset> = {
     Flags: RegexNodeFlags
     Startset: 'tset
+    mutable InitialStartset: InitialStartset
+    // mutable Transitions: []
 } with
     member inline this.IsAlwaysNullable =
-        this.Flags.HasFlag(RegexNodeFlags.IsAlwaysNullable)
-        // (this.Flags &&& RegexNodeFlags.IsAlwaysNullable) <> RegexNodeFlags.None
+        // this.Flags.HasFlag(RegexNodeFlags.IsAlwaysNullable)
+        (this.Flags &&& RegexNodeFlags.IsAlwaysNullable) <> RegexNodeFlags.None
     member inline this.CanBeNullable =
-        this.Flags.HasFlag(RegexNodeFlags.CanBeNullable)
-        // (this.Flags &&& RegexNodeFlags.CanBeNullable) <> RegexNodeFlags.None
-    member inline this.CanSkip = (this.Flags &&& RegexNodeFlags.CanSkip) <> RegexNodeFlags.None
-    member inline this.CanNotBeNullable = not (this.Flags.HasFlag(RegexNodeFlags.CanBeNullable))
+        // this.Flags.HasFlag(RegexNodeFlags.CanBeNullable)
+        (this.Flags &&& RegexNodeFlags.CanBeNullable) <> RegexNodeFlags.None
+    member inline this.CanSkip =
+        (this.Flags &&& RegexNodeFlags.CanSkip) <> RegexNodeFlags.None
+    member inline this.CanNotBeNullable =
+        (this.Flags &&& RegexNodeFlags.IsAlwaysNullable) = RegexNodeFlags.None
+        // not (this.Flags.HasFlag(RegexNodeFlags.CanBeNullable))
     member inline this.ContainsLookaround = this.Flags.HasFlag(RegexNodeFlags.ContainsLookaround)
-    member inline this.ContainsEpsilon = this.Flags.HasFlag(RegexNodeFlags.ContainsEpsilon)
+    member inline this.ContainsEpsilon =
+        (this.Flags &&& RegexNodeFlags.ContainsEpsilon) = RegexNodeFlags.None
+        // this.Flags.HasFlag(RegexNodeFlags.ContainsEpsilon)
     member inline this.HasPrefix = this.Flags.HasFlag(RegexNodeFlags.Prefix)
 
 
-[<Struct>]
+// [<Struct>]
 type InitialStartset =
+    | Uninitialized
     | Unoptimized
     | MintermArrayPrefix of prefix:uint64[] * loopTerminator:uint64[]
 
@@ -174,14 +182,14 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
 
     member inline this.TryGetInfo =
         match this with
-        | Or(info = info) -> Some info
-        | Singleton _ -> None
-        | Loop(info = info) -> Some info
-        | And(info = info) -> Some info
-        | Not(info = info) -> Some info
-        | LookAround _ -> None
-        | Concat(info = info) -> Some info
-        | Epsilon -> None
+        | Or(info = info) -> ValueSome info
+        | Singleton _ -> ValueNone
+        | Loop(info = info) -> ValueSome info
+        | And(info = info) -> ValueSome info
+        | Not(info = info) -> ValueSome info
+        | LookAround _ -> ValueNone
+        | Concat(info = info) -> ValueSome info
+        | Epsilon -> ValueNone
 
     member inline this.CanBeNullable =
         match this with
@@ -375,8 +383,9 @@ type ToplevelORCollection() =
     // let mutable startPositionArray: int[] = ArrayPool.Shared.Rent(startSize)
     // let mutable lastNullableArray: int[] = ArrayPool.Shared.Rent(startSize)
     // let mutable nodeArray: RegexNode<uint64>[] = ArrayPool.Shared.Rent(startSize)
-    let mutable startPositionArray: int[] = Array.zeroCreate startSize
-    let mutable lastNullableArray: int[] = Array.zeroCreate startSize
+
+
+    // let mutable startPositionArray: int[] = Array.zeroCreate startSize
     let mutable nodeArray: RegexNode<uint64>[] = Array.zeroCreate startSize
     let mutable _count = 0
     let mutable _capacity = startSize
@@ -399,38 +408,21 @@ type ToplevelORCollection() =
         // startPositionArray <- newStartPositionArray
         _capacity <- newSize
 
-        Array.Resize(&startPositionArray, newSize)
-        Array.Resize(&lastNullableArray, newSize)
+        // Array.Resize(&startPositionArray, newSize)
+        // Array.Resize(&lastNullableArray, newSize)
         Array.Resize(&nodeArray, newSize)
 
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    member this.Add(node: RegexNode<uint64>, nullableState: int, startPos: int) =
+    member this.Add(node: RegexNode<uint64>) =
+        if _count = _capacity then
+            // does not happen in 99% cases
+            this.IncreaseArraySize()
 
-        let inline createNode() =
-            nodeArray[_count] <- node
-            lastNullableArray[_count] <- nullableState
-            startPositionArray[_count] <- startPos
-            _count <- _count + 1
+        nodeArray[_count] <- node
+        _count <- _count + 1
 
-        match _count with
-        | 0 -> createNode()
-        | _ ->
-            if _count = _capacity then
-                // does not happen in 99% cases
-                this.IncreaseArraySize()
 
-            if true then createNode() else
-            match nodeArray[0], node with
-            | x,y when refEq x y -> () // identical top level node
-
-            // important optimization
-            | And(nodes1, _), And(nodes2, _)  ->
-                if nodes2.IsSupersetOf(nodes1) then () else
-                    createNode()
-            // TODO: equivalent for Or
-            | _ ->
-                createNode()
 
 
 
@@ -438,23 +430,10 @@ type ToplevelORCollection() =
     member this.UpdateTransition
         (
             i: int,
-            node: RegexNode<uint64>,
-            nullableState: int
-        ) =
-        nodeArray[i] <- node
-        lastNullableArray[i] <- nullableState
-
-    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    member this.UpdateTransitionNode
-        (
-            i: int,
             node: RegexNode<uint64>
         ) =
         nodeArray[i] <- node
 
-    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    member this.UpdateNullability(i:int, nullableState: int) =
-        lastNullableArray[i] <- nullableState
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.Remove(idx:int) =
@@ -464,27 +443,7 @@ type ToplevelORCollection() =
         | false ->
             // swap last element into current slot
             nodeArray[idx] <- nodeArray[_count - 1]
-            lastNullableArray[idx] <- lastNullableArray[_count - 1]
-            startPositionArray[idx] <- startPositionArray[_count - 1]
             _count <- _count - 1
-
-    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    member this.GetLastNullPos(idx:int) =
-        lastNullableArray[idx]
-
-    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    member this.IsOldestNullableBranch(idx:int) =
-
-        let span = startPositionArray.AsSpan().Slice(0,_count)
-        let nullspan = lastNullableArray.AsSpan().Slice(0,_count)
-        let mutable minBranch = Int32.MaxValue
-        let currBranch = span[idx]
-        for i = span.Length - 1 downto 0 do
-            let hasBeenNullable = nullspan[i]
-            if hasBeenNullable > -1 then
-                minBranch <- min (span[i]) minBranch
-
-        currBranch = minBranch
 
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
@@ -495,7 +454,6 @@ type ToplevelORCollection() =
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.Items() = nodeArray.AsSpan().Slice(0,_count)
     member this.Items2 = nodeArray.AsSpan().Slice(0,_count)
-    // member this.Nullabilities = lastNullableArray.AsSpan().Slice(0,_count)
     member this.First = nodeArray[0]
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
@@ -511,8 +469,10 @@ type ToplevelORCollection() =
 
     interface IDisposable with
         member this.Dispose() =
-            ArrayPool.Shared.Return(lastNullableArray)
-            ArrayPool.Shared.Return(nodeArray)
+            // ArrayPool.Shared.Return(lastNullableArray)
+            ()
+            // ArrayPool.Shared.Return(nodeArray)
+            // ArrayPool.Shared.Return(startPositionArray)
 
 
 

@@ -1,7 +1,6 @@
 module internal Sbre.Info
 
 open System
-open System.Runtime.CompilerServices
 open System.Text.RuntimeRegexCopy.Symbolic
 open Sbre.Types
 open Pat
@@ -39,18 +38,6 @@ module Flag =
     let inline mergeFlags(sourceFlags: RegexNodeFlags seq) =
         (RegexNodeFlags.None, sourceFlags) ||> Seq.fold (fun acc v -> acc ||| v)
 
-// accessors and common functions
-let rec canSkip(node: RegexNode<'t>) : bool =
-    match node with
-    | Singleton _ -> false
-    | Or(info = info) -> info.Flags.HasFlag(RegexNodeFlags.CanSkip)
-    | And(info = info) -> info.Flags.HasFlag(RegexNodeFlags.CanSkip)
-    | Loop(low = 0; up = Int32.MaxValue) -> true
-    | Loop _ -> false
-    | Not(inner, info) -> info.Flags.HasFlag(RegexNodeFlags.CanSkip)
-    | LookAround _ -> false
-    | Epsilon -> false
-    | Concat(info = info) -> Flag.hasFlag Flag.CanSkip info.Flags
 
 
 let inline removeFlag (flags: byref<RegexNodeFlags>) (flagsToRemove: RegexNodeFlags) =
@@ -245,7 +232,7 @@ module rec Startset =
         | Concat(Singleton hpred, t, info) ->
 
             match t with
-            | Not(_) -> _solver.Full
+            | Not _ -> _solver.Full
             | _ ->
                 // inferStartset2 _solver
                 t.Startset
@@ -277,7 +264,7 @@ module rec Startset =
         // | Loop(low=0; up=Int32.MaxValue) -> _solver.Empty
         // TODO: how to optimize (a|ab)*
 
-        | Loop(_)
+        | Loop _
         | Epsilon
         | Singleton _ -> _solver.Full
 
@@ -387,8 +374,8 @@ module rec Startset =
             // | Concat(head=Not(_) as head; tail=tail) when head.HasPrefix ->
             //     curr <- head
 
-            | LookAround(_)
-            | Not(_) ->
+            | LookAround _
+            | Not _ ->
                 curr <- Unchecked.defaultof<_> // ignore
             | Concat(Singleton pred, t, info) ->
                 acc.Add(pred)
@@ -414,17 +401,17 @@ module rec Startset =
                                 loopterminatorPrefix.Clear()
                                 loopterminatorPrefix.Add (_solver.Not(pred))
                         // ()
-                    | LookAround(_) -> () // ignore
-                    | Loop(_) -> cannotOptimizeYet <- true
+                    | LookAround _ -> () // ignore
+                    | Loop _ -> cannotOptimizeYet <- true
                     | Concat(_) | Or(_) | And(_) ->
                         match inferInitialStartset _solver e.Current with
                         | MintermArrayPrefix(arr,innerLoopTerminator) ->
                             if innerLoopTerminator.Length > 0 then
                                 mergePrefixes _solver loopterminatorPrefix innerLoopTerminator
                             mergePrefixes _solver acc arr
-
                         | InitialStartset.Unoptimized ->
                             cannotOptimizeYet <- true
+                        | InitialStartset.Uninitialized -> failwith "todo"
                     | _ -> cannotOptimizeYet <- true
                 curr <- Unchecked.defaultof<_>
             // and
@@ -462,7 +449,7 @@ module rec Startset =
 
                         | InitialStartset.Unoptimized ->
                             cannotOptimizeYet <- true
-
+                        | InitialStartset.Uninitialized -> failwith "todo"
 
                         let dbg = 1
                         ()
@@ -653,6 +640,7 @@ module rec Flags =
 let defaultInfo(solver: ISolver<'t>) : RegexNodeInfo<'t> = {
     Flags = Flag.None
     Startset = solver.Full
+    InitialStartset = Uninitialized
 }
 
 let convertLoop
@@ -664,7 +652,7 @@ let convertLoop
     : RegexNodeInfo<'t>
     =
     let startset = Startset.inferStartset solver xs
-    { Flags = info.Flags; Startset = startset }
+    { Flags = info.Flags; Startset = startset; InitialStartset = Uninitialized }
 
 
 [<AutoOpen>]
@@ -700,6 +688,17 @@ module Node =
         | Not(info = info) -> info.CanSkip
         | LookAround _ -> false
         | Concat(info = info) -> info.CanSkip
+        | Epsilon -> false
+
+    let inline containsLookaround(node: RegexNode<'t>) =
+        match node with
+        | Or(info = info) -> info.ContainsLookaround
+        | Singleton _ -> false
+        | Loop(info = info) -> info.ContainsLookaround
+        | And(info = info) -> info.ContainsLookaround
+        | Not(info = info) -> info.ContainsLookaround
+        | LookAround _ -> false
+        | Concat(info = info) -> info.ContainsLookaround
         | Epsilon -> false
     let inline canNotBeNullable(node: RegexNode<'t>) =
         match node with
