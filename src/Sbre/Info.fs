@@ -188,88 +188,6 @@ module rec Startset =
             Solver.mergeOrWithEnumerator _solver (inferStartset _solver) &e
 
 
-    let rec inferStartset2 (_solver: ISolver<'t>) (node: RegexNode<'t>) =
-        // if true then _solver.Full else // todo: optimize
-        // if not node.CanSkip then _solver.Full else // todo: optimize
-        match node with
-        | Or(xs, info) ->
-            use mutable e = xs.GetEnumerator()
-            Solver.mergeOrWithEnumerator _solver (inferStartset2 _solver) &e
-        | Not(inner, info) -> inferStartset2 _solver inner
-        | LookAround(node = body; lookBack = false) -> _solver.Empty // TODO: optimize
-        | LookAround(lookBack = true) -> _solver.Empty
-        | Concat(Loop(node = Singleton pred; low = 0; up = Int32.MaxValue),
-                 Concat(Singleton chead, concatTail2, _),
-                 info) ->
-
-            if _solver.IsFull(pred) then
-                match concatTail2 with
-                | Concat(Loop(node = loopBody; low = 0; up = up) as loop, tail, _) ->
-
-                    _solver.Or(_solver.Not(loop.Startset), tail.Startset)
-                | _ -> concatTail2.Startset
-            else if concatTail2.CanNotBeNullable then
-                // .*air -> .* only has 1 char startset
-                _solver.Full
-
-            else if concatTail2.IsAlwaysNullable then // negation startset inference test
-                _solver.Or(inferStartset2 _solver concatTail2, concatTail2.Startset)
-            else
-            // failwith "todo1"
-            _solver.Full // .* not optimized
-
-        | Concat(Not(node = inner; info = notInfo), Singleton pred, info) ->
-            let ss1 = inferStartset2 _solver inner
-            _solver.Or(ss1, pred) // 4x performance win
-        | Concat(Not(node = inner; info = notInfo), tailNode, info) ->
-
-            let ss2 = tailNode.Startset
-            let ss22 = inferStartset2 _solver tailNode
-            let ss1 = inferStartset2 _solver inner
-            _solver.Or(_solver.Or(ss1, ss2), ss22) // negation test 8
-        // _solver.Full
-
-        | Concat(Singleton hpred, t, info) ->
-
-            match t with
-            | Not _ -> _solver.Full
-            | _ ->
-                // inferStartset2 _solver
-                t.Startset
-        // _solver.Full // todo: (.*dogs.*&and.*), (a.*&~(.*b.*)b)
-        | Concat(Concat(h1, h2, _) as c1, tailNode, info) when h1.CanNotBeNullable ->
-            let ss1 = inferStartset2 _solver h1
-            let ss22 = h2.Startset
-            let ss2 = tailNode.Startset
-            _solver.Or(_solver.Or(ss1, ss2), ss22) // negation test 8
-        // ⊤*
-        | Concat(head = Loop(node = Singleton pred); tail = tail) when _solver.IsFull(pred) ->
-            inferStartset2 _solver tail
-
-        | Concat(h, t, info) ->
-            if h.CanNotBeNullable then // regexlib 20-30
-                let ss1 = inferStartset2 _solver h
-                let ss22 = inferStartset2 _solver t
-                let ss2 = t.Startset
-                _solver.Or(_solver.Or(ss1, ss2), ss22) // negation test 8
-            else
-                // failwith "todo2" // TODO: optimize further
-                _solver.Full
-
-        | And(xs, info) ->
-            use mutable e = xs.GetEnumerator()
-            Solver.mergeOrWithEnumerator _solver (inferStartset2 _solver) &e
-
-        // todo: correct?
-        // | Loop(low=0; up=Int32.MaxValue) -> _solver.Empty
-        // TODO: how to optimize (a|ab)*
-
-        | Loop _
-        | Epsilon
-        | Singleton _ -> _solver.Full
-
-
-
     let mergePrefixes (_solver:ISolver<uint64>) (prefix1:ResizeArray<uint64>) (prefix2:uint64[]) =
         // initialize if needed
         if prefix1.Count = 0 then
@@ -285,20 +203,6 @@ module rec Startset =
             let ss = prefix2[i]
             prefix1[i] <- _solver.Or(ss, prefix1[i])
 
-    // let mergePrefixesArr (_solver:ISolver<uint64>) (prefix1:ResizeArray<uint64>) (prefix2:uint64[]) =
-    //     // initialize if needed
-    //     if prefix1.Count = 0 then
-    //         while prefix1.Count < prefix2.Length do
-    //             prefix1.Add(_solver.Empty)
-    //
-    //     // shorten to shared prefix
-    //     if prefix1.Count > prefix2.Length then
-    //         while prefix1.Count > prefix2.Length do
-    //             prefix1.RemoveAt(prefix1.Count - 1)
-    //
-    //     for i = 0 to prefix1.Count - 1 do
-    //         let ss = prefix2[i]
-    //         prefix1[i] <- _solver.Or(ss, prefix1[i])
 
     let mergePrefixesArr (_solver:ISolver<uint64>) (prefix1:uint64[]) (prefix2:uint64[]) =
         let longer, shorter =
@@ -450,10 +354,6 @@ module rec Startset =
                         | InitialStartset.Unoptimized ->
                             cannotOptimizeYet <- true
                         | InitialStartset.Uninitialized -> failwith "todo"
-
-                        let dbg = 1
-                        ()
-                    // todo: more optimizations
                     | _ -> cannotOptimizeYet <- true
 
                 // only negations in AND
@@ -482,7 +382,8 @@ module rec Startset =
         if cannotOptimizeYet then
 #if OPTIMIZE
             [| startNode |]
-            |> Array.map (fun v -> v.ToStringHelper())
+            |> Array.map (fun v -> v.ToString())
+            // |> Array.map (fun v -> v.ToStringHelper())
             |> String.concat "\n"
             |> failwith
 #endif

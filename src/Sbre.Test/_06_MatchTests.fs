@@ -96,7 +96,8 @@ let ``top level or remove in correct order``() =
 let ``lookarounds test 1``() =
     let matcher = Regex(""" Sep""")
     let mutable loc = Pat.Location.create "1 Sep" 1
-    let ism = matcher.MatchFromLocation(&loc)
+    let ism =
+        RegexNode.matchEnd (matcher.Cache, &loc, ValueNone, matcher.RawPattern)
 
     Assert.True(ism.IsSome)
 

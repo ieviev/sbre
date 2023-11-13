@@ -48,10 +48,8 @@ let dbgSbre() =
     t.Setup()
     // for i = 0 to 1 do
     // for i = 0 to 1000 do
-    for i = 0 to 20 do
+    for i = 0 to 400 do
         t.MatchWithConj() |> ignore
-
-
 
 
 
@@ -63,7 +61,7 @@ let main argv =
 #if DEBUG
     dbgSbre()
 #endif
-    // dbgSbre()
+    dbgSbre()
     // dbgSample()
 
 
@@ -94,7 +92,6 @@ let main argv =
 
     // ----
     | "paper-short-1" -> BenchmarkRunner.Run(typeof<Paper.ParagraphShort1Word>,config) |> ignore
-
     | "paper-conj-1" -> BenchmarkRunner.Run(typeof<Paper.ParagraphConjunction1>,config) |> ignore
     | "paper-complex-1" -> BenchmarkRunner.Run(typeof<Paper.ParagraphComplexRegex1>,config) |> ignore
     | "paper-inner-1" -> BenchmarkRunner.Run(typeof<Paper.ParagraphInnerMatch1>,config) |> ignore
@@ -106,26 +103,46 @@ let main argv =
     | "all-w2" -> BenchmarkRunner.Run(typeof<Paper.WordsLine2>,config) |> ignore
     | "all-w3" -> BenchmarkRunner.Run(typeof<Paper.WordsLine3>,config) |> ignore
     | "all-w4" -> BenchmarkRunner.Run(typeof<Paper.WordsLine4>,config) |> ignore
-    | "all-w5" -> BenchmarkRunner.Run(typeof<Paper.WordsLine5>,config) |> ignore
-    | "all-l1" -> BenchmarkRunner.Run(typeof<Paper.LWord1>,config) |> ignore
-    | "all-r1" -> BenchmarkRunner.Run(typeof<Paper.RegexLine1>,config) |> ignore
-    | "all-r3" -> BenchmarkRunner.Run(typeof<Paper.RegexLine3>,config) |> ignore
+    // | "all-w5" -> BenchmarkRunner.Run(typeof<Paper.WordsLine5>,config) |> ignore
+    // | "all-l1" -> BenchmarkRunner.Run(typeof<Paper.LWord1>,config) |> ignore
+    | "all-r1" -> BenchmarkRunner.Run(typeof<Paper.PatternLine1>,config) |> ignore
+    // | "all-r3" -> BenchmarkRunner.Run(typeof<Paper.RegexLine3>,config) |> ignore
     | "dbg" -> BenchmarkRunner.Run(typeof<Paper.DebugSbre3>,config) |> ignore
     | "dbg-mt" -> BenchmarkRunner.Run(typeof<Jobs.Minterms>,config) |> ignore
     // ------------
 
     // standard benchmarks
     | "twain-1" -> BenchmarkRunner.Run(typeof<Paper.Twain_1>,config) |> ignore
+    | "twain" -> BenchmarkRunner.Run(typeof<Paper.TwainRegexes>,config) |> ignore
 
 
     // words in paragraph
-    | "paper-long-1" -> BenchmarkRunner.Run(typeof<Paper.ParagraphLong1Word>,config) |> ignore
-    | "paper-long-2" -> BenchmarkRunner.Run(typeof<Paper.ParagraphLong2Word>,config) |> ignore
-    | "paper-long-3" -> BenchmarkRunner.Run(typeof<Paper.ParagraphLong3Word>,config) |> ignore
-    | "paper-long-4" -> BenchmarkRunner.Run(typeof<Paper.ParagraphLong4Word>,config) |> ignore
+    | "paper-pg-1" -> BenchmarkRunner.Run(typeof<Paper.ParagraphLong1Word>,config) |> ignore
+    | "paper-pg-2" -> BenchmarkRunner.Run(typeof<Paper.ParagraphLong2Word>,config) |> ignore
+    | "paper-pg-3" -> BenchmarkRunner.Run(typeof<Paper.ParagraphLong3Word>,config) |> ignore
+    | "paper-pg-4" -> BenchmarkRunner.Run(typeof<Paper.ParagraphLong4Word>,config) |> ignore
+    | "paper-pg-all" -> BenchmarkRunner.Run(typeof<Paper.ParagraphRegexes>,config) |> ignore
+
+    // words in line (no change in first (?))
+    | "paper-line-1" -> BenchmarkRunner.Run(typeof<Paper.WordsLine1>,config) |> ignore
+    | "paper-line-2" -> BenchmarkRunner.Run(typeof<Paper.WordsLine2>,config) |> ignore
+    | "paper-line-3" -> BenchmarkRunner.Run(typeof<Paper.WordsLine3>,config) |> ignore
+    | "paper-line-4" -> BenchmarkRunner.Run(typeof<Paper.WordsLine4>,config) |> ignore
+    | "paper-line-5" -> BenchmarkRunner.Run(typeof<Paper.WordsLine5>,config) |> ignore
+    | "paper-line-6" -> BenchmarkRunner.Run(typeof<Paper.WordsLine6>,config) |> ignore
+    | "paper-line-7" -> BenchmarkRunner.Run(typeof<Paper.WordsLine7>,config) |> ignore
+
+    // patterns in line (no change in first (?))
+    | "paper-pat-1" -> BenchmarkRunner.Run(typeof<Paper.PatternLine1>,config) |> ignore
+    // | "paper-line-2" -> BenchmarkRunner.Run(typeof<Paper.WordsLine2>,config) |> ignore
+    // | "paper-line-3" -> BenchmarkRunner.Run(typeof<Paper.WordsLine3>,config) |> ignore
+    // | "paper-line-4" -> BenchmarkRunner.Run(typeof<Paper.WordsLine4>,config) |> ignore
+    // | "paper-line-5" -> BenchmarkRunner.Run(typeof<Paper.WordsLine5>,config) |> ignore
+    // | "paper-line-6" -> BenchmarkRunner.Run(typeof<Paper.WordsLine6>,config) |> ignore
 
     // lines
-    | "paper-lines-1" -> BenchmarkRunner.Run(typeof<Paper.ParagraphLong4Word>,config) |> ignore
+    | "paper-lines-1" -> BenchmarkRunner.Run(typeof<Paper.Lines1>,config) |> ignore
+    | "paper-lines-2" -> BenchmarkRunner.Run(typeof<Paper.Lines2>,config) |> ignore
 
 
 

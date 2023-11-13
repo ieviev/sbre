@@ -92,10 +92,7 @@ let ``startset generation 7``() =
     let c = matcher.Cache
     let ss1 = Info.Startset.inferStartset (c.Solver) (matcher.ImplicitPattern)
     let ss1pretty = c.PrettyPrintMinterm(ss1)
-    let ss2 = Info.Startset.inferStartset2 (c.Solver) (matcher.ImplicitPattern)
-    let ss2pretty = c.PrettyPrintMinterm(ss2)
     Assert.Equal(@"[^\n]", ss1pretty)
-    Assert.Equal(@".", ss2pretty) // FULL SET
 
 [<Fact>]
 let ``startset generation 8``() =
@@ -132,7 +129,6 @@ let ``first startset generation 1``() =
     let matcher = Regex(@"⊤*have⊤*&⊤*there⊤*&⊤*other⊤*&.*")
     let c = matcher.Cache
     let ss1 = Info.Startset.inferStartset (c.Solver) (matcher.RawPattern)
-    let ss2 = Info.Startset.inferStartset2 (c.Solver) (matcher.RawPattern)
     let ss1pretty = c.PrettyPrintMinterm(ss1)
     // let ss2pretty = c.PrettyPrintMinterm(ss2)
     // -- [\nhot]
@@ -150,17 +146,6 @@ let ``reverse startset generation 1``() =
     let ss1 = Info.Startset.inferStartset (c.Solver) (matcher.ReversePattern)
     let ss1pretty = c.PrettyPrintMinterm(ss1)
     Assert.Equal(@"[\nghs]", ss1pretty)
-
-[<Fact>]
-let ``startset2 generation 1``() =
-
-    let matcher = Regex(@"⊤*English⊤*&⊤*King⊤*")
-    let c = matcher.Cache
-    let ss1 = Info.Startset.inferStartset2 (c.Solver) (c.InitialPatternWithoutDotstar)
-    let ss1pretty = c.PrettyPrintMinterm(ss1)
-    Assert.Equal("[in]", ss1pretty)
-
-
 
 
 
@@ -223,48 +208,6 @@ let ``startsetChars of bdd 2 - merged span``() =
         String(mergedIndexOf.ToArray())
 
     Assert.Equal("FH",mergedStr)
-
-
-
-
-
-
-[<Fact>]
-let ``startset concat reversed``() =
-    let matcher = Regex(@".*EHT&.*EVIF.*")
-    let c = matcher.Cache
-
-    let ss2 = Info.Startset.inferStartset2 (c.Solver) (matcher.RawPattern)
-    let ss2pretty = c.PrettyPrintMinterm(ss2)
-    Assert.Equal(@".",ss2pretty)
-    // Assert.Equal(@"[HV]",ss2pretty)
-    // [HV]
-
-
-
-[<Fact>]
-let ``startset concat reversed 2``() =
-    let matcher = Regex(@"(.*EHT&.*EVIF.*)")
-    let c = matcher.Cache
-
-    let ss2 = Info.Startset.inferStartset2 (c.Solver) (matcher.RawPattern)
-    let ss2pretty = c.PrettyPrintMinterm(ss2)
-    Assert.Equal(@".",ss2pretty)
-    // Assert.Equal("[HV]", ss2pretty)
-    // [HV]
-
-
-
-// var from = span0.Length;
-//
-// var resultSpan = result.AsSpan();
-// span0.CopyTo(result);
-//             var from = span0.Length;
-//             span1.CopyTo(resultSpan.Slice(from));
-//             from += span1.Length;
-// span2.CopyTo(resultSpan.Slice(from));
-//             from += span2.Length;
-//             span3.CopyTo(resultSpan.Slice(from));
 
 
 

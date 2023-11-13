@@ -33,16 +33,20 @@ let viewn n (results: MatchPosition array) =
     )
 
 
-let pgConj words = Sbre.Benchmarks.Jobs.Permutations.permuteConjInParagraph  words
-let lineConj words = Sbre.Benchmarks.Jobs.Permutations.permuteConjInLine  words
-let pgConjICase words = 
-    Sbre.Benchmarks.Jobs.Permutations.permuteConjInParagraph  words
+let pgConj words =
+    Sbre.Benchmarks.Jobs.Permutations.permuteConjInParagraph words
+
+let lineConj words =
+    Sbre.Benchmarks.Jobs.Permutations.permuteConjInLine words
+
+let pgConjICase words =
+    Sbre.Benchmarks.Jobs.Permutations.permuteConjInParagraph words
     |> (fun v -> $"(?:(?i){v})")
 
-let allRegexes = 
+let allRegexes =
     [
         // standard benchmark from 2019
-        "Twain" 
+        "Twain"
         "(?i)Twain"
         @"[a-z]shing"
         @"Huck[a-zA-Z]+|Saw[a-zA-Z]+"
@@ -52,24 +56,24 @@ let allRegexes =
 
 
         //
-        pgConj ["Huck";] 
-        pgConj ["Huck";"Finn"; ] 
-        pgConj ["Huck";"Finn"; "Tom"; ] 
-        pgConj ["Huck";"Finn"; "Tom"; "Sawyer" ] 
-        
-        pgConjICase ["Huck";] 
-        pgConjICase ["Huck";"Finn"; ] 
-        pgConjICase ["Huck";"Finn"; "Tom"; ] 
-        pgConjICase ["Huck";"Finn"; "Tom"; "Sawyer" ]
-        pgConjICase ["Huck";"Finn"; "Tom"; "Sawyer" ]
+        pgConj [ "Huck" ]
+        pgConj [ "Huck"; "Finn" ]
+        pgConj [ "Huck"; "Finn"; "Tom" ]
+        pgConj [ "Huck"; "Finn"; "Tom"; "Sawyer" ]
 
-        pgConj ["H[a-z]*k"; ] 
-        pgConj ["H[a-z]*k";"F[a-z]*n"; ] 
-        pgConj ["H[a-z]*k";"F[a-z]*n"; "T[a-z]*m"; ] 
-        pgConj ["H[a-z]*k";"F[a-z]*n"; "T[a-z]*m"; "S[a-z]*r" ] 
+        pgConjICase [ "Huck" ]
+        pgConjICase [ "Huck"; "Finn" ]
+        pgConjICase [ "Huck"; "Finn"; "Tom" ]
+        pgConjICase [ "Huck"; "Finn"; "Tom"; "Sawyer" ]
+        pgConjICase [ "Huck"; "Finn"; "Tom"; "Sawyer" ]
+
+        pgConj [ "H[a-z]*k" ]
+        pgConj [ "H[a-z]*k"; "F[a-z]*n" ]
+        pgConj [ "H[a-z]*k"; "F[a-z]*n"; "T[a-z]*m" ]
+        pgConj [ "H[a-z]*k"; "F[a-z]*n"; "T[a-z]*m"; "S[a-z]*r" ]
     ]
     |> File.writeLinesTo "regexes.txt"
-    
+
 
 
 
@@ -87,30 +91,8 @@ let allRegexes =
 // let pat = @"~(⊤*\n\n⊤*)\n&⊤*Huck⊤*"
 
 
-let sample = "Hello World 123, Hello World 456"
-let newText = "Replaced"
-let replaced =
-    let input = sample
-    let sb = System.Text.StringBuilder(input)
-    let mutable offset = 0
-    Sbre.Regex("World").MatchPositions(input)
-    |> Seq.iter (fun result -> 
-        let start = offset + result.Index 
-        sb.Remove(start, result.Length + 1).Insert(start, newText) |> ignore
-        offset <-  newText.Length - result.Length - 1
-    )
-    sb.ToString()
-
-
-let replaced2 =
-    System.Text.RegularExpressions.Regex("World").Replace(sample,newText)
-
 let fast =
-    // [" w[a-z]*h ";" c[a-z]*d "; ] // 7190
-    // [" w[a-z]*h ";" c[a-z]*d "; ] // 1794
-    // ["Huck";""; "Tom"; "Sawyer" ] 
-    // |> Sbre.Benchmarks.Jobs.Permutations.permuteConjInLine 
-    
+
     // @".*Huck.*&~(.*the.*)&.*" // 283
     @".*Huck.*&.*Finn.*&~(.*the.*)&.*" // 283
     |> Sbre.Regex
@@ -120,23 +102,23 @@ let fast =
     |> Seq.toArray
     |> viewn 10
 
-let ts  = "⊤*"
+let ts = "⊤*"
 
 let requirements =
     String.concat "&" [
         // 11
         // $@"{ts}nn{ts}"
         @".{0,16}"
-        
+
         $@"{ts}[Ii]{ts}"
         $@"{ts}[Ee]{ts}"
         $@"{ts}[Ff]{ts}"
         $@"{ts}[bB]{ts}"
-        
-        // $@"{ts}[Ii]{ts}[Ii]{ts}"
-        // $@"{ts}[Ee]{ts}[Ee]{ts}"
-        // $@"{ts}[Ff]{ts}[Ff]{ts}"
-        // $@"~({ts}\n\n{ts})"
+
+    // $@"{ts}[Ii]{ts}[Ii]{ts}"
+    // $@"{ts}[Ee]{ts}[Ee]{ts}"
+    // $@"{ts}[Ff]{ts}[Ff]{ts}"
+    // $@"~({ts}\n\n{ts})"
     ]
     |> Sbre.Regex
     |> (fun v -> v.MatchPositions(shortSample))
@@ -148,13 +130,13 @@ let requirements =
 fsi.PrintWidth <- 150
 
 let permutePasswordSearch(words: string list) =
-    words 
+    words
     |> List.map (fun v -> $"(?=.{{0,15}}{v})")
     |> String.concat ""
     |> (fun v -> v + ".{0,16}")
 
-    
-let pwd = permutePasswordSearch ["[Ii]";"[Ee]";"[Ff]";"[Bb]"]
+
+let pwd = permutePasswordSearch [ "[Ii]"; "[Ee]"; "[Ff]"; "[Bb]" ]
 
 File.writeTo "test.txt" "asd"
 
@@ -162,71 +144,103 @@ File.writeTo "test.txt" "asd"
 let matches2way =
     let reg1 =
         System.Text.RegularExpressions.Regex(
-            Permutations.permuteAltInLine [ "Twain"],
+            Permutations.permuteAltInLine [ "Twain" ],
             System.Text.RegularExpressions.RegexOptions.Compiled
         )
+
     let reg2 =
         System.Text.RegularExpressions.Regex(
             @"(?<!.*Clemens.*)(.*)(?!.*Clemens.*)",
             System.Text.RegularExpressions.RegexOptions.Compiled
         )
 
-    reg1.Matches(shortSample) 
-    |> Seq.choose (fun v -> 
+    reg1.Matches(shortSample)
+    |> Seq.choose (fun v ->
         let res = reg2.Match(v.Value)
-        if res.Success then Some res.Value
-        else None
-    ) |> Seq.toArray
+        if res.Success then Some res.Value else None
+    )
+    |> Seq.toArray
 
 
 
-let input = 
-    "/home/ian/f/ieviev/sbre/scripts/input-text.txt"
-    |> File.readAllText
+let input = "/home/ian/f/ieviev/sbre/scripts/input-text.txt" |> File.readAllText
 
-let search pattern = 
+let search pattern =
     let reg1 =
-        System.Text.RegularExpressions.Regex( pattern , 
+        System.Text.RegularExpressions.Regex(
+            pattern,
             System.Text.RegularExpressions.RegexOptions.Compiled
         )
+
     reg1.Matches(input) |> Seq.toArray
 
-let searchParagraph (words:string list) = 
+let searchParagraph(words: string list) =
     let reg1 = Sbre.Regex(pgConj words)
     reg1.Matches(input) |> Seq.toArray
-let searchLine (words:string list) = 
+
+let searchLine(words: string list) =
     let reg1 = Sbre.Regex(lineConj words)
     reg1.MatchPositions(input) |> Seq.toArray
 
 
 
-let count1 pattern = 
+let count1 pattern =
     let reg1 =
-        System.Text.RegularExpressions.Regex( pattern , 
+        System.Text.RegularExpressions.Regex(
+            pattern,
             System.Text.RegularExpressions.RegexOptions.Compiled
         )
+
     reg1.Count(input)
 
-let count2 pattern = 
-    let reg1 = Sbre.Regex( pattern )
+let count2 pattern =
+    let reg1 = Sbre.Regex(pattern)
     reg1.Count(input)
 
 
-let lines = 
-    searchLine [ "Huck" ] |> viewn 4
+// let lines = searchLine [ "Huck" ] |> viewn 4
 
-searchLine [ "Huck" ] |> viewn 4
+// searchLine [ "Huck" ] |> viewn 4
+
+// [ @"[a-qA-Q][^u-z]{0,13}l [a-qA-Q][^u-z]{0,13}l [a-qA-Q][^w-z]{0,13}t"]
 
 let test =
     // let pattern = ".*Huck.*&~(.*Finn.*)"
-    let pattern = ".*Huck.*"
-    Regex(pattern).MatchPositions(input) 
-    |> Seq.toArray
-    |> viewn 10
+    // let pattern = Permutations.permuteConjInLine ["Huck"; "Finn"; "Tom"; "Sawyer"; "Usually"; ]
+    // let pattern = Permutations.permuteConjInLine [ @"(?i)[a-z]{2,12}ing to the (?:d[a-z]+)\s" ]
+    // let pattern = Permutations.permuteConjInLine [ @" [gw][a-z]{0,8}ing to the [a-z]{0,8}[a-z] " ]
+    // let pattern = Permutations.permuteConjInLine [ @"ing to the [a-z]{0,8}[a-z] "; "Huck" ]
+    // let pattern = Permutations.permuteConjInLine [ @"ing to"; "Huck" ] // 17
+    // let pattern = Permutations.permuteConjInLine [ @"ing to"; "Huck" ] // 17
+    let pattern =
+        Permutations.permuteConjInLine 
+        // Permutations.permuteAltInLine
+            
+            [ 
+                @"[a-qA-Q][^u-z]{0,13}l [a-qA-Q][^u-z]{0,13}l [a-qA-Q][^w-z]{0,13}t";
+                "[a-qA-Q][^u-z]{0,13}g to be an [a-qA-Q][^u-z]{0,13}n"
+                "into"
+                "that"
+                // "Huck"
+            ]
+            // [ @" [gw][a-z]{0,8}ing to [a-z]{0,8}[a-z] "; "Huck"; "Finn" ]
 
+    Regex(pattern).MatchPositions(input) |> Seq.toArray |> viewn 10
+
+
+let pattern = Permutations.permuteConjInLine [ "Huck"; "Finn"; "Tom" ]
+let pattern = Permutations.permuteAltInLine [ @"(?:(?i)ing to the (?:d[a-z]+)\s)" ]
+
+let pattern =
+    Permutations.permuteAltInLine [ "Huck"; "Finn"; "Tom"; "Sawyer"; "Usually"; "Now"; "Yes" ]
+
+pattern
 
 count1 "Twain"
 count2 "Twain"
+
+count1 @"(?:(?!F).)*Huck(?:(?!F).)*"
+count2 @".*Huck.*&~(.*F.*)"
 
 // searchParagraph ["Huck"]
 
@@ -235,16 +249,26 @@ let results = search ".*Twain.*"
 
 results.Length
 
+do AppContext.SetData("REGEX_NONBACKTRACKING_MAX_AUTOMATA_SIZE", 1_000_000)
+
+
 let matches =
     let reg1 =
         System.Text.RegularExpressions.Regex(
             // "Twain"
-            ".*Twain.*"
-            ,
-            System.Text.RegularExpressions.RegexOptions.Compiled
+            // ".*Twain.*"
+            Permutations.permuteAltInLine [
+                @" [gw][a-z]{0,8}ing to [a-z]{0,8}o "
+                "H[a-z]*k"
+                "F[a-z]*n"
+                "f[a-z]*y"
+                "H[a-z]*e"
+                "h[a-z]*n"
+            ],
+            System.Text.RegularExpressions.RegexOptions.NonBacktracking
         )
 
-    reg1.Matches(longSample[..3_800_000]) |> Seq.map (fun v -> v.Value) |> Seq.toArray
+    reg1.Matches(longSample) |> Seq.map (fun v -> v.Value) |> Seq.toArray
 
 matches.Length
 matches.Length

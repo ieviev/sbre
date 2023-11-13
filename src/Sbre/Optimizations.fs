@@ -20,7 +20,6 @@ let rec tryJumpToStartset (c:RegexCache<_>,loc:byref<Location>, nodes:inref<Topl
     | 1 ->
         let node = nodes.First
         // check if initial pattern
-        let isInitial = refEq c.InitialPatternWithoutDotstar node
 
         let prefix : InitialStartset =
             match node.TryGetInfo with
@@ -36,18 +35,19 @@ let rec tryJumpToStartset (c:RegexCache<_>,loc:byref<Location>, nodes:inref<Topl
         match prefix with
         | InitialStartset.MintermArrayPrefix(arr,loopEnd) ->
             let commonStartsetLocation =
-                if isInitial then
-                    c.TryNextStartsetLocationArray(&loc,arr)
-                elif loc.Reversed && loopEnd.Length = 0 then
-                    c.TryNextStartsetLocationArrayReversed(&loc,arr)
+                if refEq c.InitialPatternWithoutDotstar node || loopEnd.Length = 0 then
+                    if not loc.Reversed then c.TryNextStartsetLocationArray(&loc,arr)
+                    else c.TryNextStartsetLocationArrayReversed(&loc,arr)
                 elif arr.Length = 1 && loopEnd.Length = 1 then
                     c.TryNextStartsetLocation(loc,arr[0] ||| loopEnd[0])
+                elif arr.Length = 1 then
+                    c.TryNextStartsetLocation(loc,arr[0])
                 else
                     c.TryNextStartsetLocationArrayWithLoopTerminator(loc,arr,loopEnd)
 
             match commonStartsetLocation with
             | ValueNone ->
-                if isInitial then Location.final loc else
+                if refEq c.InitialPatternWithoutDotstar node then Location.final loc else
                 loc.Position
             | ValueSome newPos -> newPos
         | _ ->

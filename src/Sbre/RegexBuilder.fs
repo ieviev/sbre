@@ -12,7 +12,7 @@ open Sbre.Pat
 open Sbre.Types
 open System.Linq
 
-// TODO: proper startset optimization
+
 module internal StartsetHelpers =
     let bddToStartsetChars(bdd: BDD) : PredStartset =
         let rcc = RegexCharClass()
@@ -400,20 +400,6 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
     member this.Startset2Cache = _startset2Cache
     member this.AndSubsumptionCache = _andSubsumptionCache
 
-    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    member this.GetSs2Cached(node: RegexNode<uint64>) =
-        match this.Startset2Cache.TryGetValue(node) with
-        | true, v -> v
-        | _ ->
-            let ss2 = Startset.inferStartset2 (solver :?> ISolver<uint64>) (node)
-            this.Startset2Cache.Add(node, ss2)
-            ss2
-
-    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    member this.TryGetDerivative(struct (locationPredicate, curr)) =
-        _derivativeCache.TryGetValue(struct (locationPredicate, curr))
-
-
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.GetPrefixCached(node: RegexNode<uint64>) =
@@ -542,8 +528,6 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
             found
 
         | And(nodes=nodes1), And(nodes=nodes2) | Or(nodes=nodes2), Or(nodes=nodes1)  ->
-            // if nodes2.IsSupersetOf(nodes1) then true else
-
             let mutable found = false
 
             use mutable n1e = nodes1.GetEnumerator()
@@ -570,9 +554,11 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
                     allcontained <- false
             if allcontained then
                 found <- true
+#if OPTIMIZE
             else
-                // todo: unoptimized?
-                ()
+                failwith "unoptimized"
+#endif
+
 
             _andSubsumptionCache.TryAdd(struct(first,deriv),found) |> ignore
             found
@@ -673,6 +659,7 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
         | MkAndFlags.ContainsEpsilon when derivatives.Exists(fun v -> v.CanNotBeNullable) ->
             _uniques._false
         | _ ->
+        if derivatives.Count = 1 then derivatives[0] else
 
         let createNode(nodes: RegexNode<_>[]) =
             match nodes with
@@ -789,7 +776,6 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
                 _orCache.Add(key, v)
                 v
 
-    member this.DerivativeSet = HashSet(_refComparer)
 
     member this.mkOrEnumerator(
         e: byref<Collections.Immutable.ImmutableHashSet<RegexNode<'t>>.Enumerator>,
@@ -802,8 +788,7 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
         let mutable zeroloops = 0
         let mutable singletonLoops = 0
 
-        this.DerivativeSet.Clear()
-        let derivatives = this.DerivativeSet
+        let derivatives = HashSet(_refComparer) //this.DerivativeSet
 
         while e.MoveNext() && enumerating do
             // let deriv = e.Current
@@ -887,8 +872,11 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
                 v
 
     member this.mkNot(inner: RegexNode< ^t >) =
-
+        if inner.IsAlwaysNullable then _uniques._false else
         let createNode(inner: RegexNode< ^t >) =
+
+
+
             // ~(Derx(R))
             match inner with
             // optional rewrite, needs testing
@@ -909,7 +897,7 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
             // all non-epsilon zero minimum width nodes resolve to false
             // e.g. ~(_{0,_}) -> ⊥  (negation of any loop with lower bound 0 is false)
             // or containing always nullable nodes is also false
-            | Concat(info = regexNodeInfo) when regexNodeInfo.IsAlwaysNullable -> _uniques._false
+            // | Concat(info = regexNodeInfo) when regexNodeInfo.IsAlwaysNullable -> _uniques._false
             | _ ->
                 let mutable flags = Flags.inferNode inner
 
@@ -926,8 +914,6 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
 
                 Not(inner, info)
 
-
-        // _notCache.GetOrAdd(inner, valueFactory = createNode)
         let key = inner
 
         match _notCache.TryGetValue(key) with

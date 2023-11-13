@@ -54,9 +54,9 @@ let ``paragraphs-huck``() =
     [|
         Assert.Equal(411, r2.Length)
         Assert.Equal(3635093, r2[0].Index)
-        Assert.Equal(844,r2[0].Length)
+        Assert.Equal(845,r2[0].Length)
         Assert.Equal(3735436, r2[1].Index)
-        Assert.Equal(361,r2[1].Length)
+        Assert.Equal(362,r2[1].Length)
     |]
     |> Array.iter id
 
@@ -79,9 +79,9 @@ let ``paragraphs-huck-2``() =
     [|
         Assert.Equal(411, r2.Length)
         Assert.Equal(3635093, r2[0].Index)
-        Assert.Equal(844,r2[0].Length)
+        Assert.Equal(845,r2[0].Length)
         Assert.Equal(3735436, r2[1].Index)
-        Assert.Equal(361,r2[1].Length)
+        Assert.Equal(362,r2[1].Length)
     |]
     |> Array.iter id
 
@@ -103,9 +103,9 @@ let ``paragraphs-huck-could``() =
 
     Assert.Equal(54, r2.Length)
     Assert.Equal(3808421, r2[0].Index)
-    Assert.Equal(687,r2[0].Length)
+    Assert.Equal(688,r2[0].Length)
     Assert.Equal(3840813, r2[1].Index)
-    Assert.Equal(1961,r2[1].Length)
+    Assert.Equal(1962,r2[1].Length)
 
     Assert.Equal(r2.Length, r1.Length)
     Assert.Equal(r2[0].Index, r1[0].Index)
@@ -128,9 +128,9 @@ let ``lines-have-there``() =
     Assert.Equal(r[1].Index, 109000)
     Assert.Equal(r[2].Index, 112959)
 
-    Assert.Equal(r[0].Length, 72)
-    Assert.Equal(r[1].Length, 39)
-    Assert.Equal(r[2].Length, 49)
+    Assert.Equal(r[0].Length, 73)
+    Assert.Equal(r[1].Length, 40)
+    Assert.Equal(r[2].Length, 50)
 
 
 [<Fact>]
@@ -140,9 +140,9 @@ let ``which could test``() =
 
     Assert.Equal(24, r.Length)
     Assert.Equal(r[0].Index, 17155)
-    Assert.Equal(r[0].Length, 45)
+    Assert.Equal(r[0].Length, 46)
     Assert.Equal(r[1].Index, 32338)
-    Assert.Equal(r[1].Length, 70)
+    Assert.Equal(r[1].Length, 71)
 
 
 // ["w[a-z]+h";"c[a-z]+d"]
@@ -158,9 +158,9 @@ let ``line test 1``() =
 
     Assert.Equal(2, r.Length)
     Assert.Equal(r[0].Index, 113)
-    Assert.Equal(r[0].Length, 63)
+    Assert.Equal(r[0].Length, 64)
     Assert.Equal(r[1].Index, 14710)
-    Assert.Equal(r[1].Length, 70)
+    Assert.Equal(r[1].Length, 71)
 
 [<Fact>]
 let ``line test 2``() =
@@ -170,9 +170,9 @@ let ``line test 2``() =
 
     Assert.Equal(2, r.Length)
     Assert.Equal(r[0].Index, 113)
-    Assert.Equal(r[0].Length, 63)
+    Assert.Equal(r[0].Length, 64)
     Assert.Equal(r[1].Index, 14710)
-    Assert.Equal(r[1].Length, 70)
+    Assert.Equal(r[1].Length, 71)
 
 
 [<Fact>]
@@ -190,3 +190,10 @@ let ``line 4 words test alt``() =
 
     Assert.Equal(10, r.Length)
 
+// [<Fact>]
+// let ``last character out of reach``() =
+//     let m = Regex(Permutations.permuteAltInLine [@"\n.{0,20}"])
+//     let r = m.Matches(twain_input) |> Seq.toArray
+//
+//     Assert.Equal(23636, r.Length)
+//

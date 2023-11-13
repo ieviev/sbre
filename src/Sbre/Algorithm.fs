@@ -1,6 +1,7 @@
 module rec Sbre.Algorithm
 
 open System
+open System.Runtime.InteropServices
 open Sbre.Info
 open Sbre.Optimizations
 open Sbre.Pat
@@ -180,7 +181,6 @@ module RegexNode =
             if _implicitDotstarred then
                 cache.InitialPatternWithoutDotstar
             else
-                let branchNullPos = if isNullable (cache, &loc, initialNode) then loc.Position else -1
                 toplevelOr.Add( initialNode )
                 initialNode
 
@@ -192,12 +192,14 @@ module RegexNode =
 
             let mutable canSkipAll = true
             let mutable canBeNullableBranch = false
+            let mutable alwaysNullableBranch = false
             if Location.isFinal loc then
                 foundmatch <- true
 
             // 3.3 Derivatives and MatchEnd optimizations
             match foundmatch with
             | true ->
+                looping <- false
                 // check if any null
                 match currentMax with
                 | ValueSome(n) when n <> loc.Position ->
@@ -212,16 +214,17 @@ module RegexNode =
                         currentMax <- (ValueSome loc.Position)
                 | _ -> ()
 
-                looping <- false
+
 
             | false ->
                 let locationPredicate = cache.MintermForLocation(loc)
 
+                let _topCount = toplevelOr.Count
                 // current active branches
-                if toplevelOr.Count > 0 then
+                if _topCount > 0 then
                     let toplevelOrSpan = toplevelOr.Items()
 
-                    for i = (toplevelOrSpan.Length - 1) downto 0 do
+                    for i = _topCount - 1 downto 0 do
                         let curr = toplevelOrSpan[i]
 
                         let deriv =
@@ -231,9 +234,7 @@ module RegexNode =
                             | _ ->
                                 createDerivative (cache, loc, locationPredicate, curr)
 
-                        let derivCanBeNullable = canBeNullable deriv
-                        if derivCanBeNullable then
-                            canBeNullableBranch <- true
+
 
                         if obj.ReferenceEquals(deriv,cache.False) then
                             if
@@ -244,12 +245,15 @@ module RegexNode =
                                 foundmatch <- true
                             else
                                 toplevelOr.Remove(i)
-                        else toplevelOr.UpdateTransition(i, deriv)
+                        else
+                            toplevelOr.UpdateTransition(i, deriv)
 
-                        // check nullability
-                        canSkipAll <- canSkipAll && deriv.CanSkip
-
-
+                            if canBeNullable deriv then
+                                canBeNullableBranch <- true
+                            if isAlwaysNullable deriv then
+                                alwaysNullableBranch <- true
+                            // check nullability
+                            canSkipAll <- canSkipAll && deriv.CanSkip
 
 
                 // create implicit dotstar derivative only if startset matches
@@ -270,6 +274,7 @@ module RegexNode =
                     | IsFalse cache -> ()
                     | deriv ->
                         if canBeNullable deriv then canBeNullableBranch <- true
+                        if isAlwaysNullable deriv then alwaysNullableBranch <- true
                         canSkipAll <- canSkipAll && canSkip deriv
 
                         match toplevelOr.Count with
@@ -285,11 +290,14 @@ module RegexNode =
 #if OPTIMIZE
                             failwith "top or not subsumed"
 #endif
-                                toplevelOr.Add( deriv )
+                            toplevelOr.Add( deriv )
                         | _ ->
+
 #if OPTIMIZE
+                            let first = toplevelOr.First
                             [| first; deriv |]
-                            |> Array.map (fun v -> v.ToStringHelper())
+                            |> Array.map (fun v -> v.ToString())
+                            // |> Array.map (fun v -> v.ToStringHelper())
                             |> String.concat "\n"
                             |> failwith
 #endif
@@ -298,12 +306,13 @@ module RegexNode =
 
                 // found successful match - exit early
                 if not foundmatch then
-                    let mutable e = toplevelOr.Items().GetEnumerator()
-                    let mutable found = false
                     // check nullability
                     loc.Position <- Location.nextPosition loc
-
-                    if canBeNullableBranch then
+                    if alwaysNullableBranch then
+                        currentMax <- (ValueSome loc.Position)
+                    elif canBeNullableBranch then
+                        let mutable e = toplevelOr.Items().GetEnumerator()
+                        let mutable found = false
                         while not found && e.MoveNext() do
                             if e.Current.CanBeNullable then
                                 found <- e.Current.IsAlwaysNullable || isNullable(cache,&loc,e.Current)
@@ -315,8 +324,12 @@ module RegexNode =
 
                     // try to skip to next valid predicate if not matching
 
-                    if not _implicitDotstarred && toplevelOr.Count = 0 then
-                        looping <- false
+                    if toplevelOr.Count = 0 then
+                        if not _implicitDotstarred then
+                            looping <- false
+                        else
+                            if Solver.notElemOfSet _startsetPredicate (cache.MintermForLocation(loc)) then
+                                loc.Position <- tryJumpToStartset (cache, &loc, &toplevelOr)
                     else
                         // check if some input can be skipped
                         if

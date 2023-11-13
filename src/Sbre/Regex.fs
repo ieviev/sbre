@@ -137,9 +137,6 @@ type Regex(pattern: string, [<Optional; DefaultParameterValue(false)>] warnUnopt
             | ValueNone -> false
             | ValueSome _ -> true
 
-    member internal this.MatchFromLocation(location: byref<Location>) =
-        RegexNode.matchEnd (cache, &location, ValueNone, trueStarredUint64Node)
-
     member internal this.FindMatchEnd(input: string) =
         let mutable currPos = 0
 
@@ -215,7 +212,7 @@ type Regex(pattern: string, [<Optional; DefaultParameterValue(false)>] warnUnopt
         |> Seq.map (fun result ->
             {
                 Success = true
-                Value = input[result.Index .. result.Index + result.Length]
+                Value = input[result.Index .. result.Index + result.Length - 1]
                 Index = result.Index
                 Length = result.Length
             }
@@ -267,25 +264,26 @@ type Regex(pattern: string, [<Optional; DefaultParameterValue(false)>] warnUnopt
             location.Position <- currPos
 
             match _cache.TryNextStartsetLocationArray(&location,initialPrefix) with
-            | ValueNone -> looping <- false
-            | ValueSome newPos -> location.Position <- newPos
+            | ValueNone ->
+                looping <- false
+            | ValueSome newPos ->
+                location.Position <- newPos
 
             // if not (optimizations.TryFindNextStartingPositionLeftToRight( inputSpan, &currPos, currPos ))
             // then looping <- false
             // else location.Position <- currPos
 
-            match RegexNode.matchEnd (cache, &location, ValueNone, trueStarredUint64Node) with
-            | ValueNone -> looping <- false
-            | ValueSome(endPos: int) ->
-                counter <- counter + 1
-                // continue
-                if endPos < inputSpan.Length then
-                    if endPos = currPos then
-                        currPos <- currPos + 1
+                match RegexNode.matchEnd (cache, &location, ValueNone, trueStarredUint64Node) with
+                | ValueNone -> looping <- false
+                | ValueSome(endPos: int) ->
+                    counter <- counter + 1
+                    if endPos < inputSpan.Length then
+                        if endPos = currPos then
+                            currPos <- currPos + 1
+                        else
+                            currPos <- endPos
                     else
-                        currPos <- endPos
-                else
-                    looping <- false
+                        looping <- false
 
         counter
 
@@ -343,7 +341,7 @@ type Regex(pattern: string, [<Optional; DefaultParameterValue(false)>] warnUnopt
                         let startIdx = max currPos start
                         let response: MatchPosition = {
                             Index = startIdx
-                            Length = (endPos - 1) - startIdx
+                            Length = (endPos) - startIdx
                         }
                         yield response
 
