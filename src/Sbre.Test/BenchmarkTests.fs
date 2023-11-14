@@ -6,6 +6,8 @@ open System.IO
 open System.Text.RegularExpressions
 open Sbre
 open Sbre.Benchmarks.Jobs
+open Sbre.Pat
+open Sbre.Types
 open Xunit
 
 
@@ -197,3 +199,35 @@ let ``line 4 words test alt``() =
 //
 //     Assert.Equal(23636, r.Length)
 //
+
+
+
+// [<Fact>]
+// let ``skip position test 3``() =
+//     let matcher = Regex(@".*Huck.*Finn.*")
+//     let text = twain_input
+//     let loc = Location.create text 0
+//
+//     let prefix = matcher.Cache.Builder.GetPrefixCached(matcher.RawPattern)
+//     let result =
+//         match prefix with
+//         | InitialStartset.MintermArrayPrefix(prefix=arr; loopTerminator=term) ->
+//             // matcher.Cache.TryNextStartsetLocationArrayWithLoopTerminator(loc, arr,term)
+//             matcher.Cache.TryNextStartsetLocationArray(&loc, arr)
+//         | _ -> failwith "todo"
+//
+//     let mutable pos2 = 0
+//     let result2 =
+//         matcher.Cache.Optimizations.TryFindNextStartingPositionLeftToRight(
+//             text,&pos2,pos2)
+//     let v = 1
+//
+//     Assert.Equal(8, pos2)
+
+
+
+
+
+
+
+

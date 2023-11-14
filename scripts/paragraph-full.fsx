@@ -15,6 +15,10 @@ open Sbre.Benchmarks.Jobs
 
 Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
 
+
+
+
+
 let longSample = __SOURCE_DIRECTORY__ + "/input-text.txt" |> System.IO.File.ReadAllText
 let shortSample = longSample[..50000]
 

@@ -385,6 +385,9 @@ let ``skip position test 1``() =
     Assert.Equal(result, ValueSome 7) // aa Twa |Tw
 
 
+
+
+
 [<Fact>]
 let ``skip position test 2``() =
     let matcher = Regex(@"lethargy.*")
@@ -400,13 +403,6 @@ let ``skip position test 2``() =
             matcher.Cache.TryNextStartsetLocationArrayWithLoopTerminator(loc, arr,term)
         | _ -> failwith "todo"
     Assert.Equal(ValueSome 8, result)
-
-
-
-
-
-
-
 
 
 

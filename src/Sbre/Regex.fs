@@ -271,7 +271,8 @@ type Regex(pattern: string, [<Optional; DefaultParameterValue(false)>] warnUnopt
 
             // if not (optimizations.TryFindNextStartingPositionLeftToRight( inputSpan, &currPos, currPos ))
             // then looping <- false
-            // else location.Position <- currPos
+            // else
+            //     location.Position <- currPos
 
                 match RegexNode.matchEnd (cache, &location, ValueNone, trueStarredUint64Node) with
                 | ValueNone -> looping <- false

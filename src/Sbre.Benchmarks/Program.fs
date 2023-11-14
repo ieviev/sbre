@@ -61,7 +61,7 @@ let main argv =
 #if DEBUG
     dbgSbre()
 #endif
-    dbgSbre()
+    // dbgSbre()
     // dbgSample()
 
 
@@ -131,6 +131,7 @@ let main argv =
     | "paper-line-5" -> BenchmarkRunner.Run(typeof<Paper.WordsLine5>,config) |> ignore
     | "paper-line-6" -> BenchmarkRunner.Run(typeof<Paper.WordsLine6>,config) |> ignore
     | "paper-line-7" -> BenchmarkRunner.Run(typeof<Paper.WordsLine7>,config) |> ignore
+    | "paper-line-all" -> BenchmarkRunner.Run(typeof<Paper.LineRegexes>,config) |> ignore
 
     // patterns in line (no change in first (?))
     | "paper-pat-1" -> BenchmarkRunner.Run(typeof<Paper.PatternLine1>,config) |> ignore

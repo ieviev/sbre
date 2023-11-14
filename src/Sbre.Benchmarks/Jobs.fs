@@ -3,9 +3,11 @@ module Sbre.Benchmarks.Jobs
 open System
 // open System.Text.RuntimeRegexCopy
 open System.Text.RuntimeRegexCopy.Symbolic
+open System.Threading
 open BenchmarkDotNet.Attributes
 open Sbre
 open Sbre.Pat
+
 
 
 module Permutations =
@@ -1201,8 +1203,7 @@ type TestAllEnginesAllPatternsParagraphSeparate(words: (string list), input: str
             let mutable i = 0
             // run multiple ismatch regexes on each paragraph
             while
-                entireParagraphIsMatch
-                && i < innerEngines.Length do
+                i < innerEngines.Length do
                 let reg = innerEngines[i]
                 if not (reg.IsMatch(paragraphSpan)) then
                     entireParagraphIsMatch <- false
@@ -1232,11 +1233,8 @@ type TestAllEnginesAllPatternsParagraphSeparate(words: (string list), input: str
         null with get, set
 
 
-    [<Params(1,2,3,4,5)>]
+    [<Params(1,2,3,4, 5)>]
     member val NumOfWords: int = 0 with get, set
-
-    // [<ParamsSource("Patterns")>]
-    // member val Pattern: (string list) = [] with get, set
 
     [<GlobalSetup>]
     member this.Setup() =
@@ -1292,10 +1290,11 @@ type TestAllEnginesAllPatternsSeparate(patterns: (string*string) list, input: st
         ||| Text.RegularExpressions.RegexOptions.ExplicitCapture
 
 
-    member this.Patterns: System.Collections.Generic.IEnumerable<string*string> = patterns
+    member val Counts: int list = (patterns |> List.indexed |> List.map (fun v -> fst v + 1)) with get, set
 
-    [<ParamsSource("Patterns")>]
-    member val Pattern: (string*string) = ("","") with get, set
+    // [<Params(1,2,3,4,5,6,7)>]
+    [<ParamsSource("Counts")>]
+    member val NumOfWords: int = 0 with get, set
 
     member val NonBack_Regex: System.Text.RegularExpressions.Regex =
         Unchecked.defaultof<_> with get, set
@@ -1309,10 +1308,11 @@ type TestAllEnginesAllPatternsSeparate(patterns: (string*string) list, input: st
 
     [<GlobalSetup>]
     member this.Setup() =
-        this.NonBack_Regex <- System.Text.RegularExpressions.Regex(fst this.Pattern, opts_NonBacktracking, TimeSpan.FromSeconds(10))
-        this.Compiled_Regex <- System.Text.RegularExpressions.Regex(fst this.Pattern, opts_Compiled, TimeSpan.FromSeconds(10))
-        this.Sbre_Alt_Regex <- Regex(fst this.Pattern)
-        this.Sbre_Regex <- Regex(snd this.Pattern)
+        let n = this.NumOfWords - 1
+        this.NonBack_Regex <- System.Text.RegularExpressions.Regex(fst (patterns[n]), opts_NonBacktracking, TimeSpan.FromSeconds(10))
+        this.Compiled_Regex <- System.Text.RegularExpressions.Regex(fst (patterns[n]), opts_Compiled, TimeSpan.FromSeconds(10))
+        this.Sbre_Alt_Regex <- Regex(fst (patterns[n]))
+        this.Sbre_Regex <- Regex(snd (patterns[n]))
 
 
     [<Benchmark(Description="NonBacktrack: .*R1.*R2.*|.*R2.*R1.*")>]
@@ -1325,11 +1325,129 @@ type TestAllEnginesAllPatternsSeparate(patterns: (string*string) list, input: st
 
     [<Benchmark(Description="Sbre: .*R1.*R2.*|.*R2.*R1.*")>]
     member this.SbreAlt() =
-        this.Sbre_Alt_Regex.Count(inputText)
+        let tsk =
+            task{
+                return this.Sbre_Alt_Regex.Count(inputText)
+            }
+        tsk.Wait(10000)
+
+
 
     [<Benchmark(Description = "Sbre: .*R1.*&.*R2.*")>]
     member this.Sbre() =
         this.Sbre_Regex.Count(inputText)
+
+
+[<MemoryDiagnoser(false)>]
+[<ShortRunJob>]
+[<AbstractClass>]
+[<HideColumns([| "" |])>]
+type TestAllEnginesAllPatternsWithCompileTime(patterns: (string) list, input: string) =
+    do AppContext.SetData("REGEX_NONBACKTRACKING_MAX_AUTOMATA_SIZE", 1_000_000)
+    let inputText = input
+    let opts_None =
+        Text.RegularExpressions.RegexOptions.None
+        ||| Text.RegularExpressions.RegexOptions.ExplicitCapture
+    let opts_NonBacktracking =
+        Text.RegularExpressions.RegexOptions.NonBacktracking
+        ||| Text.RegularExpressions.RegexOptions.ExplicitCapture
+    let opts_Compiled =
+        Text.RegularExpressions.RegexOptions.Compiled
+        ||| Text.RegularExpressions.RegexOptions.ExplicitCapture
+
+    member val Counts: int list = (patterns |> List.indexed |> List.map (fun v -> fst v + 1)) with get, set
+    // member val Counts: int list = [7] with get, set
+
+    // [<Params(1,2,3,4,5,6,7)>]
+    // [<ParamsSource("Counts")>]
+    // member val NumOfWords: int = 0 with get, set
+    //
+    member this.Patterns: System.Collections.Generic.IEnumerable<string> = patterns
+
+    [<ParamsSource("Patterns")>]
+    member val Pattern: string = "" with get, set
+
+    [<GlobalSetup>]
+    member this.Setup() = ()
+
+    [<Benchmark(Description="NonBacktrack: .*R1.*R2.*|.*R2.*R1.*")>]
+    member this.Symbolic() =
+        System.Text.RegularExpressions.Regex(this.Pattern, opts_NonBacktracking, TimeSpan.FromSeconds(10)).Count(inputText)
+
+    [<Benchmark(Description="Compiled: .*R1.*R2.*|.*R2.*R1.*")>]
+    member this.Compiled() =
+        System.Text.RegularExpressions.Regex(this.Pattern, opts_Compiled, TimeSpan.FromSeconds(10)).Count(inputText)
+
+    [<Benchmark(Description = "Sbre: .*R1.*&.*R2.*")>]
+    member this.Sbre() =
+        Regex(this.Pattern).Count(inputText)
+
+
+
+[<MemoryDiagnoser(false)>]
+[<ShortRunJob>]
+[<AbstractClass>]
+[<HideColumns([| "" |])>]
+type TestAllEnginesAllPatternsSeparateWithCompileTime(patterns: (string*string*string) list, input: string) =
+    do AppContext.SetData("REGEX_NONBACKTRACKING_MAX_AUTOMATA_SIZE", 1_000_000)
+    let inputText = input
+
+    let fst (a,b,c) = a
+    let snd (a,b,c) = b
+    let trd (a,b,c) = c
+
+    // slow
+    // let opts_None =
+    //     Text.RegularExpressions.RegexOptions.None
+    //     ||| Text.RegularExpressions.RegexOptions.ExplicitCapture
+    let opts_NonBacktracking =
+        Text.RegularExpressions.RegexOptions.NonBacktracking
+        ||| Text.RegularExpressions.RegexOptions.ExplicitCapture
+    let opts_Compiled =
+        Text.RegularExpressions.RegexOptions.Compiled
+        ||| Text.RegularExpressions.RegexOptions.ExplicitCapture
+
+    member val Counts: int list = (patterns |> List.indexed |> List.map (fun (a,b) -> a + 1)) with get, set
+
+    [<ParamsSource("Counts")>]
+    member val NumOfWords: int = 0 with get, set
+
+    [<GlobalSetup>]
+    member this.Setup() = ()
+
+    // [<Benchmark(Description="NonBacktrack:Alt")>]
+    // member this.Symbolic() =
+    //     System.Text.RegularExpressions.Regex(fst (patterns[this.NumOfWords - 1]), opts_NonBacktracking, TimeSpan.FromSeconds(10)).Count(inputText)
+    //
+    // [<Benchmark(Description="Compiled:Alt")>]
+    // member this.Compiled() =
+    //     System.Text.RegularExpressions.Regex(fst (patterns[this.NumOfWords - 1]), opts_Compiled, TimeSpan.FromSeconds(10)).Count(inputText)
+
+    [<Benchmark(Description="Compiled:Look")>]
+    member this.CompiledLookahead() =
+        System.Text.RegularExpressions.Regex(trd (patterns[this.NumOfWords - 1]), opts_Compiled, TimeSpan.FromSeconds(10)).Count(inputText)
+    //
+    //
+    // [<Benchmark(Description="Sbre:Alt")>]
+    // member this.SbreAlt() =
+    //     use cts = new CancellationTokenSource()
+    //     cts.CancelAfter(millisecondsDelay = 10_000)
+    //     let tsk =
+    //         System.Threading.Tasks.Task.Factory.StartNew((fun v ->
+    //             Regex(fst (patterns[this.NumOfWords - 1])).Count(inputText)), cts.Token
+    //         )
+    //
+    //     tsk.Wait(cts.Token)
+
+    [<Benchmark(Description = "Sbre:Conj")>]
+    member this.Sbre() =
+        Regex(snd (patterns[this.NumOfWords - 1])).Count(inputText)
+
+
+
+
+
+
 
 [<MemoryDiagnoser(false)>]
 [<ShortRunJob>]

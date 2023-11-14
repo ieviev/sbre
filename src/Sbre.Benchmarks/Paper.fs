@@ -342,9 +342,10 @@ type Twain_1() =
         )
 
 
+
 type TwainRegexes() =
     inherit
-        Jobs.TestAllEnginesAllPatterns(
+        Jobs.TestAllEnginesAllPatternsWithCompileTime(
             [
                "Twain"
                "(?i)Twain"
@@ -370,16 +371,43 @@ let paragraphWords = ["Huck"; "Finn"; "Tom"; "Sawyer"; "Usually"; ]
 type ParagraphRegexes() =
     inherit
         Jobs.TestAllEnginesAllPatternsParagraphSeparate(
-            ["Huck"; "Finn"; "Tom"; "Sawyer"; "Usually"; ],
+            ["Huck"; "Finn"; "Tom"; "Sawyer"; "Usually"],
             fullInput
         )
 
 
 
+let lineWords =
+    [
+        "Huck"; "Finn"; "Tom"; "Sawyer"
+        "Usually"; "Now"; "Yes"; "They"
+        "There"; "You"; "Why"; "Mrs"
+        "She"; "Then"; "When"; "What"
+        "New"; "THE"; "One" ; "His"
+    ]
 
 
+let inLine n =
+    "",
+    // Permutations.permuteAltInLine lineWords[0..n],
+    Permutations.permuteConjInLine lineWords[0..n],
+    Permutations.permuteLookaheadInLine lineWords[0..n]
 
-
+type LineRegexes() =
+    inherit
+        Jobs.TestAllEnginesAllPatternsSeparateWithCompileTime(
+            [
+               // inLine 0
+               // inLine 1
+               // inLine 2
+               // inLine 3
+               // inLine 4
+               // inLine 5
+               // inLine 6
+               inLine 19
+            ],
+            fullInput
+        )
 
 
 
