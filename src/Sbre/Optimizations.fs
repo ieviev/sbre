@@ -1,14 +1,7 @@
 module internal rec Sbre.Optimizations
 
-open System
-open System.Collections.Generic
-open System.Runtime.CompilerServices
-open System.Runtime.InteropServices
-open System.Text.RuntimeRegexCopy
-open System.Text.RuntimeRegexCopy.Symbolic
 open Sbre.Types
 open Sbre.Pat
-open Sbre.Info
 
 #nowarn "9"
 
@@ -19,7 +12,7 @@ let rec tryJumpToStartset (c:RegexCache<_>,loc:byref<Location>, nodes:inref<Topl
     match nodes.Count with
     | 1 ->
         let node = nodes.First
-        // check if initial pattern
+
 
         let prefix : InitialStartset =
             match node.TryGetInfo with
@@ -51,11 +44,10 @@ let rec tryJumpToStartset (c:RegexCache<_>,loc:byref<Location>, nodes:inref<Topl
                 loc.Position
             | ValueSome newPos -> newPos
         | _ ->
-            let ss = node.Startset
-            match node with
-            | Cache.IsTrueStar c -> Location.final loc
+            match refEq node c.Builder.uniques._trueStar with
+            | true -> Location.final loc
             | _ ->
-            let commonStartsetLocation = c.TryNextStartsetLocation(loc,ss)
+            let commonStartsetLocation = c.TryNextStartsetLocation(loc,node.Startset)
             match commonStartsetLocation with
             | ValueNone ->
                 loc.Position
@@ -74,25 +66,19 @@ let rec tryJumpToStartset (c:RegexCache<_>,loc:byref<Location>, nodes:inref<Topl
         // TBD: more optimizations
         // this branch is rarely reached
         // jump with multiple heads
-
         let nodeSpan = nodes.Items()
 
-
-
-        // first try to eliminate any duplicates
+        // first try to eliminate any head duplicates
         if refEq nodeSpan[0] nodeSpan[1] then
-
             nodes.Remove(1)
             tryJumpToStartset(c,&loc,&nodes)
         else
 #if OPTIMIZE
             nodes.Items().ToArray()
-            // |> Array.map (fun v -> v.ToStringHelper())
             |> Array.map (fun v -> v.ToString())
             |> String.concat "\n"
             |> failwith
 #endif
-
             let mutable ss = c.Solver.Empty
             let startsets =
                 for n in nodeSpan do

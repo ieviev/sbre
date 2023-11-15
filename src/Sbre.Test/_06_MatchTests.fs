@@ -568,5 +568,49 @@ let ``single char in negation``() =
 
 
 
+let abc =
+    """
+The fists of all the generals came down this time, and again the
+King's eye sparkled with pleasure. The Chancellor sprang to his
+
+"Save your charity for another occasion, my lord," said Joan, as
+calmly as before. "Whenever anything is done to injure the
+interests and degrade the honor of France, all but the dead know
+how to name the two conspirators-in-chief--"
+"""
+
+
+[<Fact>]
+let ``index out of bounds test``() =
+    let matcher = Regex(@"~(⊤*\n\n⊤*)")
+    let result =
+        matcher.MatchPositions(abc)
+        |> Seq.toArray
+    Assert.Equal( 2, result.Length )
+
+
+
+[<Fact>]
+let ``negated end``() =
+    let matcher = Regex("F.*&~(.*Finn)")
+    let result =
+        matcher.MatchText("Finn', published in 1885.")
+    Assert.Equal( Some "Finn', published in 1885.", result )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 

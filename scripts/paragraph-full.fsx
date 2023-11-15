@@ -15,8 +15,50 @@ open Sbre.Benchmarks.Jobs
 
 Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
 
+let abc = 
+    """
+
+The fists of all the generals came down this time, and again the
+King's eye sparkled with pleasure. The Chancellor sprang to his
+feet and appealed to his Majesty:
+
+"Sire, I claim your protection."
+
+But the King waved him to his seat again, saying:
+
+"Peace. She had a right to be consulted before that thing was
+undertaken, since it concerned war as well as politics. It is but just
+that she be heard upon it now."
+
+The Chancellor sat down trembling with indignation, and
+remarked to Joan:
+
+"Out of charity I will consider that you did not know who devised
+this measure which you condemn in so candid language."
+
+"Save your charity for another occasion, my lord," said Joan, as
+calmly as before. "Whenever anything is done to injure the
+interests and degrade the honor of France, all but the dead know
+how to name the two conspirators-in-chief--"
+"""
 
 
+let results = 
+    Sbre.Regex(@"~(⊤*\n\n⊤*)").MatchPositions(abc)
+    |> Seq.toArray
+
+
+
+
+let rebar_input = 
+    "/mnt/g/repos/rebar/benchmarks/haystacks/opensubtitles/en-sampled.txt"
+    |> File.readAllText
+
+
+let results =
+    // Sbre.Regex("Sherlock Holmes").Count(rebar_input)
+    // Sbre.Regex("((?i)Sherlock Holmes)").Count(rebar_input)
+    Sbre.Regex("((?i)Sherlock Holmes)").Count(rebar_input)
 
 
 let longSample = __SOURCE_DIRECTORY__ + "/input-text.txt" |> System.IO.File.ReadAllText

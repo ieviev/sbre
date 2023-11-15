@@ -1,14 +1,8 @@
 module Sbre.Minterms
 
-open System
 open System.Collections.Generic
-open System.Text
-open System.Text.RuntimeRegexCopy
 open System.Text.RuntimeRegexCopy.Symbolic
-open Sbre.Info
 open Sbre.Types
-open Sbre.Pat
-
 
 let rec transform
     (builder: RegexBuilder<'tnewset>)
@@ -16,11 +10,7 @@ let rec transform
     (newSolver: ISolver<'tnewset>)
     (node: RegexNode<BDD>)
     : RegexNode<'tnewset> =
-    let transformInner = transform builder charsetSolver newSolver
-    let transformList: RegexNode<BDD> list -> RegexNode<'tnewset> list =
-        fun nodes ->
-        nodes |> List.map (transform builder charsetSolver newSolver)
-
+    let inline transformInner v = transform builder charsetSolver newSolver v
     match node with
     | Singleton tset -> builder.one(newSolver.ConvertFromBDD(tset, charsetSolver))
     | Not(xs,info) -> builder.mkNot(transformInner xs)

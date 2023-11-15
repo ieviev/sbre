@@ -1,7 +1,5 @@
 module Sbre.Benchmarks.ParagraphOuter
 
-open System
-open BenchmarkDotNet.Attributes
 
 let paragraphRegexes = [
     // line-loop (excludes last paragraph)

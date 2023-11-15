@@ -2,16 +2,7 @@
 
 module Program
 
-open System
-open System.Globalization
-open System.IO
-open System.Text.RuntimeRegexCopy
 open Sbre
-open Sbre.Pat
-open Sbre.Algorithm
-open Sbre.Test
-open Sbre.Types
-open Sbre.Test._04_DerivativeTests
 //
 // let matcher = Matcher(@"^\d$")
 //

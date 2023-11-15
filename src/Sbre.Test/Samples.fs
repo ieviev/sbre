@@ -1,8 +1,5 @@
 module Sbre.Test.Samples
 
-open System.Globalization
-open System.Text.RegularExpressions
-open Sbre
 
 /// len 6+, 1+ upper, 1+ lower, 1+ number, 1+ special
 let strongPassword1 = """(?=^.{6,}$)((?=.*\w)(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9])(?=.*[|!"$%&\/\(\)\?\^\'\\\+\-\*]))^.*"""

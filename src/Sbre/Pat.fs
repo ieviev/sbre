@@ -1,16 +1,12 @@
 module rec Sbre.Pat
 
-open System.Runtime.CompilerServices
 open System.Text.RuntimeRegexCopy.Symbolic
 open Sbre.Types
 open System
-open System.Collections.Generic
-
 
 [<AutoOpen>]
 module Extensions =
     type ISolver<'t> with
-
         /// si ∈ [[ψ]]
         /// - i.e. location si is elem of Singleton ψ
         /// - (location is smaller than singleton)
@@ -41,8 +37,6 @@ let (|LoopKind|) struct(x:int,y:int) =
     | _,_ -> LoopKind.Normal
 
 
-
-
 let rec loopSubsumesBranch (solver:ISolver<'t>) (largePred: 't) (node:RegexNode<'t>) =
     match node with
     | Epsilon -> false
@@ -50,10 +44,6 @@ let rec loopSubsumesBranch (solver:ISolver<'t>) (largePred: 't) (node:RegexNode<
         solver.isElemOfSet(largePred,hpred)
     | Loop(node=Singleton pred2; low=0; up = Int32.MaxValue) ->
         let containsv = solver.And(largePred, pred2) = pred2
-        // let eset = solver.isElemOfSet(pred,pred2)
-        // if not containsv then
-            // ()
-        // let iselem = not (solver.IsEmpty(conj))
         if largePred = pred2 then true
         elif containsv then true
         else false
@@ -75,46 +65,13 @@ let isSubsumedFromAnd (solver:ISolver<'t>) (pred) (singletonLoop) (nodes:RegexNo
         not (obj.ReferenceEquals(other,singletonLoop)) && loopSubsumesBranch solver pred other
     )
 
-
 [<return: Struct>]
 let (|SingletonStarLoop|_|) (node: RegexNode<_>) =
     match node with
     | Loop(node=Singleton pred;low=0;up=Int32.MaxValue) -> ValueSome(pred)
     | _ -> ValueNone
 
-[<return: Struct>]
-let (|SingletonLoop|_|) (node: RegexNode<_>) =
-    match node with
-    | Loop(node=Singleton pred) -> ValueSome(pred)
-    | _ -> ValueNone
-
-
-
-[<return: Struct>]
-let inline (|RefNull|_|) (node: obj) =
-    match obj.ReferenceEquals(null,node) with
-    | true -> ValueSome()
-    | _ -> ValueNone
-
-
-[<return: Struct>]
-let inline (|RefEq|_|) (v) (node: obj) =
-    match obj.ReferenceEquals(node, v) with
-    | true -> ValueSome()
-    | _ -> ValueNone
-
-
-[<return: Struct>]
-let (|ValueRefEquals|_|) (y:'t list) (x:'t list voption) =
-    match x with
-    | ValueNone -> ValueNone
-    | ValueSome x ->
-        match obj.ReferenceEquals(x,y) with
-        | true -> ValueSome()
-        | _ -> ValueNone
-
 module Solver =
-
     let inline isElemOfSetU64 predicate locationMinterm = predicate &&& locationMinterm <> 0uL
     let inline elemOfSet predicate locationMinterm =
         predicate &&& locationMinterm <> LanguagePrimitives.GenericZero
@@ -123,15 +80,6 @@ module Solver =
     let inline contains larger smaller = (larger &&& smaller) = smaller
     let inline notElemOfSetU64 predicate locationMinterm = predicate &&& locationMinterm = 0uL
     let inline not predicate = ~~~predicate
-
-    let inline mapAnd (s:ISolver<^t>) ([<InlineIfLambda>]f: 'a -> ^t) (coll: seq<'a>): ^t =
-        let mutable ss = s.Full
-        for x in coll do
-            ss <- s.And(ss,f x)
-        ss
-
-    let inline and' (s:ISolver< ^t>) (v: ^t) (mt: ^t): ^t = s.And(v,mt)
-
     let inline mapOr (s:ISolver<^t>) ([<InlineIfLambda>]f: 'a -> ^t) (xs): ^t =
         let mutable startset = s.Empty
         for x in xs do
@@ -160,32 +108,15 @@ module Solver =
         if s.IsEmpty(ss) then s.Full else
         ss
 
-    [<return: Struct>]
-    let inline (|TrueStar|_|) (_solver:ISolver<'t>) (node: RegexNode<'t>) =
-        match node with
-        | Loop(Singleton pred,0,Int32.MaxValue,info) ->
-            if _solver.IsFull(pred) then ValueSome()
-            else ValueNone
-        | _ -> ValueNone
-
 
 module Location =
     let inline create (str: string) (p: int32) : Location = { Input = str; Position = p; Reversed = false }
-
-    // The reverse s ⟨i⟩r of a valid location s ⟨i⟩ in s is the valid location s r⟨|s |−i⟩ in s r.
     let inline rev (loc: Location) =
         {
             Input = loc.Input
             Position = loc.Position
             Reversed = not loc.Reversed
         }
-
-
-    // let inline increment (loc: Location) =
-    //     match loc.Reversed with
-    //     | true -> Location.create loc.Input (loc.Position - 1)
-    //     | _ -> Location.create loc.Input (loc.Position + 1)
-
     let inline nextPosition (loc: Location) =
         match loc.Reversed with
         | true -> (loc.Position - 1)
@@ -193,33 +124,7 @@ module Location =
     let inline isFinal (loc: Location) =
         loc.Reversed && loc.Position = 0
         || not loc.Reversed && loc.Position = loc.Input.Length
-        // match loc.Reversed with
-        // | true -> loc.Position = 0
-        // | _ -> loc.Position = loc.Input.Length
-        // loc.Position = 0 || (loc.Position = loc.Input.Length)
-
     let inline final (loc: Location) =
         match loc.Reversed with
         | true -> 0
         | _ -> loc.Input.Length
-
-    let inline setFinal (loc: Location) =
-        match loc.Reversed with
-        | true -> { loc with Position = 0} // loc.Position <- 0
-        | _ -> { loc with Position = loc.Input.Length } //loc.Position <- loc.Input.Length
-
-    let inline currentPos (loc: Location) = loc.Position
-    let inline withPos (pos:int32) (loc: Location) =  { loc with Position = pos}
-    let inline str (loc: Location) = loc.Input
-    let inline remainingString (loc: Location) = loc.Input[loc.Position ..]
-    let inline endPos (loc: Location) =
-        match loc.Reversed with
-        | false -> loc.Input.Length
-        | true -> 0
-
-    // 2. let = ε ⟨−1⟩ used to represent match failure and also as a pre-initial location
-    let inline isFailure (loc: Location) = loc.Position = -1
-    let defaultLocation : Location = { Position = -1; Input = ""; Reversed = false }
-
-
-

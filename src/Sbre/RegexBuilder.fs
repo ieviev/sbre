@@ -149,7 +149,7 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
 
             [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
             member this.GetHashCode(x) =
-                Enumerator.sharedHashArray x
+                Enumerator.getSharedHash x
         }
 
     let _orCacheComparer =
@@ -158,7 +158,7 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
             member this.Equals(xs, ys) =
                 xs.Length = ys.Length && Array.forall2 refEq xs ys
             [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-            member this.GetHashCode(x) = Enumerator.sharedHashArray x
+            member this.GetHashCode(x) = Enumerator.getSharedHash x
         }
 
 
@@ -528,8 +528,10 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
             found
 
         | And(nodes=nodes1), And(nodes=nodes2) | Or(nodes=nodes2), Or(nodes=nodes1)  ->
+
             let mutable found = false
 
+            // check for subset equality
             use mutable n1e = nodes1.GetEnumerator()
             use mutable n2e = nodes2.GetEnumerator()
             let mutable allcontained = true
@@ -636,16 +638,12 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
                     status <- MkAndFlags.IsFalse
                 | And(nodes, _) -> for node in nodes do handleNode node
 
+                // todo: careful in case of epsilon here
                 // ~(.*) -> always false (?)
-                | Not(node,info) when info.CanNotBeNullable ->
+                | Not(node,info) when info.CanNotBeNullable && info.ContainsEpsilon ->
                     enumerating <- false
                     status <- MkAndFlags.IsFalse
                 | Epsilon ->
-                    // epsilon requires others to be nullable loops
-                    // if derivatives.Exists(fun v -> v.CanNotBeNullable) then
-                    //     enumerating <- false
-                    //     status <- MkAndFlags.IsFalse
-                    // else
                     status <- MkAndFlags.ContainsEpsilon
                     derivatives.Add(deriv)
 
@@ -861,9 +859,7 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
 
                     let mergedInfo = { Flags = flags; Startset = startset ; InitialStartset = Uninitialized }
                     RegexNode.Or(ofSeq twoormore, mergedInfo)
-
             let key = nodeSet
-
             match _orCache.TryGetValue(key) with
             | true, v -> v
             | _ ->
@@ -872,35 +868,16 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
                 v
 
     member this.mkNot(inner: RegexNode< ^t >) =
-        if inner.IsAlwaysNullable then _uniques._false else
+        // short-circuit
+        if inner.IsAlwaysNullable && inner.ContainsEpsilon then _uniques._false else
+
         let createNode(inner: RegexNode< ^t >) =
-
-
-
-            // ~(Derx(R))
             match inner with
-            // optional rewrite, needs testing
-            // ~(a) = epsilon | [^a] | a.+
-            // | [ Singleton tset ] ->
-            //     let ornode =
-            //         Or(
-            //             ofSeq [| derivative @ cache.TruePlusList
-            //                      []
-            //                      [ Singleton(cache.Solver.Not(tset)) ] |],
-            //             singletonInfo ()
-            //         )
-            //     [ ornode ]
-            // TODO:
             | _ when refEq _uniques._false inner -> _uniques._trueStar // ~(⊥) -> ⊤*
             | _ when refEq _uniques._trueStar inner -> _uniques._false // ~(⊤*) -> ⊥
             | Epsilon -> _uniques._truePlus // ~(ε) -> ⊤+
-            // all non-epsilon zero minimum width nodes resolve to false
-            // e.g. ~(_{0,_}) -> ⊥  (negation of any loop with lower bound 0 is false)
-            // or containing always nullable nodes is also false
-            // | Concat(info = regexNodeInfo) when regexNodeInfo.IsAlwaysNullable -> _uniques._false
             | _ ->
                 let mutable flags = Flags.inferNode inner
-
                 if flags.HasFlag(RegexNodeFlags.IsAlwaysNullable) then
                     removeFlag &flags RegexNodeFlags.CanBeNullable
                     removeFlag &flags RegexNodeFlags.IsAlwaysNullable
@@ -908,14 +885,9 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
                     addFlag &flags RegexNodeFlags.CanBeNullable
                     addFlag &flags RegexNodeFlags.IsAlwaysNullable
 
-                let startset = inner.Startset //Startset.inferStartset solver inner
-
-                let info = this.CreateInfo(flags, startset)
-
-                Not(inner, info)
+                Not(inner, this.CreateInfo(flags, inner.Startset))
 
         let key = inner
-
         match _notCache.TryGetValue(key) with
         | true, v -> v
         | _ ->
@@ -923,34 +895,21 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
             _notCache.Add(key, v)
             v
 
-
-
     member this.setFromStr(setPattern: string) =
         let tree =
-            RegexParser.Parse(
-                setPattern,
-                RegexOptions.ExplicitCapture,
-                CultureInfo.InvariantCulture
-            )
+            RegexParser.Parse( setPattern, RegexOptions.ExplicitCapture, CultureInfo.InvariantCulture )
 
         let setStr = tree.Root.Child(0).Str
         let bdd = converter.CreateBDDFromSetString(setStr)
         let converted = solver.ConvertFromBDD(bdd, bcss)
         RegexNode.Singleton(converted)
 
-    member this.bddFromSetString(setPattern: string) =
-        let bdd = converter.CreateBDDFromSetString(setPattern)
-        bdd
-
-
+    member this.bddFromSetString(setPattern: string) = converter.CreateBDDFromSetString(setPattern)
     member this.setFromNode(node: RegexNode) =
-        let bdd = converter.CreateBDDFromSetString(node.Str)
-        RegexNode.Singleton(bdd)
-
+        RegexNode.Singleton(converter.CreateBDDFromSetString(node.Str))
 
     member this.mkConcat2(head: RegexNode< ^t >, tail: RegexNode< ^t >) : RegexNode< ^t > =
         let key = struct (head, tail)
-
         match _concatCache.TryGetValue(key) with
         | true, v -> v
         | _ ->
@@ -964,7 +923,6 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
                     let flags = Flags.inferConcat head tail
                     let info = this.CreateInfo(flags, startset)
                     Concat(head, tail, info)
-
             _concatCache.Add(key, v)
             v
 
@@ -976,7 +934,6 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
         | [ x ] -> x
         | [ head; tail ] -> this.mkConcat2 (head, tail)
         | rest ->
-
             let combined =
                 rest
                 |> Seq.rev
@@ -1004,26 +961,17 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
                 if solver.IsFull(minterm) then
                     _uniques._trueStar
                 else
-                    // .*, etc is very common, cache it
-
                     let flags = Flags.inferLoop (body, lower, upper)
-
                     let startset = Startset.inferLoopStartset solver (body, lower, upper)
+                    RegexNode.Loop(body, lower, upper, info = b.CreateInfo(flags, startset))
 
-                    let loop =
-                        RegexNode.Loop(body, lower, upper, info = b.CreateInfo(flags, startset))
 
-                    loop
             | _, (x, y) when x > 0 ->
                 let flags = Flags.inferLoop (body, lower, upper)
-
                 let startset = Startset.inferLoopStartset solver (body, lower, upper)
-
                 let info = b.CreateInfo(flags, startset)
+                RegexNode.Loop(body, lower, upper, info = info)
 
-                let loop = RegexNode.Loop(body, lower, upper, info = info)
-
-                loop
 
             | _ ->
                 let flags = Flags.inferLoop (body, lower, upper)

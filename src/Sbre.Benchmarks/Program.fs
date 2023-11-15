@@ -2,17 +2,9 @@
 
 open System
 open System.IO
-open BenchmarkDotNet.Attributes
-open BenchmarkDotNet.Columns
 open BenchmarkDotNet.Configs
-open BenchmarkDotNet.Diagnosers
-open BenchmarkDotNet.Jobs
-open BenchmarkDotNet.Loggers
 open BenchmarkDotNet.Running
-open Sbre
 open Sbre.Benchmarks
-open Sbre.Benchmarks.Jobs
-open Sbre.Algorithm
 
 module private Helpers =
     // let sample_mariomka = __SOURCE_DIRECTORY__ + "/data/mariomka-benchmark.txt" |> File.ReadAllText
@@ -48,7 +40,7 @@ let dbgSbre() =
     t.Setup()
     // for i = 0 to 1 do
     // for i = 0 to 1000 do
-    for i = 0 to 400 do
+    for i = 0 to 0 do
         t.MatchWithConj() |> ignore
 
 

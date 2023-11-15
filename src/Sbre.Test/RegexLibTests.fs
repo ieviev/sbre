@@ -1,15 +1,7 @@
 [<Xunit.Collection("Sequential")>]
 module Sbre.Test.RegexLibTests
 
-open System
-open System.Collections
-open System.Collections.Generic
-open System.Globalization
-open System.Text.RegularExpressions
-open System.Text.RuntimeRegexCopy
 open Sbre
-open Sbre.Test
-open FSharp.Data
 open Xunit
 
 [<Literal>]

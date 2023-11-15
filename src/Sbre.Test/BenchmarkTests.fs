@@ -1,13 +1,9 @@
 [<Xunit.Collection("Sequential")>]
 module Sbre.Test.BenchmarkTests
 
-open System
 open System.IO
-open System.Text.RegularExpressions
 open Sbre
 open Sbre.Benchmarks.Jobs
-open Sbre.Pat
-open Sbre.Types
 open Xunit
 
 
@@ -179,10 +175,10 @@ let ``line test 2``() =
 
 [<Fact>]
 let ``line 4 words test 2``() =
-    let m = Regex(@".*t.*hat.*&.*a.*nd.*&.*t.*he.*&.*w.*as.*")
+    let m = Regex(@".*that.*&.*and.*&.*the.*&.*was.*")
     let r = m.Matches(twain_input[..100_000]) |> Seq.toArray
 
-    Assert.Equal(15, r.Length)
+    Assert.Equal(5, r.Length)
 
 
 [<Fact>]

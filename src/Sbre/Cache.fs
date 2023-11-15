@@ -2,10 +2,7 @@ namespace Sbre
 
 open System
 open System.Collections.Generic
-open System.Numerics
 open System.Runtime.CompilerServices
-open System.Runtime.InteropServices
-open System.Text
 open System.Text.RuntimeRegexCopy
 open System.Text.RuntimeRegexCopy.Symbolic
 open Microsoft.FSharp.Core
@@ -189,7 +186,7 @@ type RegexCache< ^t when ^t: struct and ^t :> IEquatable< ^t > and ^t: equality>
         let isInverted = Solver.elemOfSet setSpan[0] minterms[0]
         let tailPrefixSpan = setSpan.Slice(1)
 
-        let _limitLength = inputSpan.Length + setSpan.Length - 1
+        let _limitLength = inputSpan.Length - setSpan.Length
         let _tailLength = tailPrefixSpan.Length
 
         while skipping do

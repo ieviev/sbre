@@ -2,8 +2,6 @@ module Sbre.Benchmarks.Jobs
 
 open System
 // open System.Text.RuntimeRegexCopy
-open System.Text.RuntimeRegexCopy.Symbolic
-open System.Threading
 open BenchmarkDotNet.Attributes
 open Sbre
 open Sbre.Pat
@@ -1370,15 +1368,20 @@ type TestAllEnginesAllPatternsWithCompileTime(patterns: (string) list, input: st
     [<GlobalSetup>]
     member this.Setup() = ()
 
-    [<Benchmark(Description="NonBacktrack: .*R1.*R2.*|.*R2.*R1.*")>]
-    member this.Symbolic() =
-        System.Text.RegularExpressions.Regex(this.Pattern, opts_NonBacktracking, TimeSpan.FromSeconds(10)).Count(inputText)
+    //
+    // [<Benchmark(Description="None")>]
+    // member this.None() =
+    //     System.Text.RegularExpressions.Regex(this.Pattern, opts_None, TimeSpan.FromSeconds(10)).Count(inputText)
+    //
+    // [<Benchmark(Description="NonBacktrack")>]
+    // member this.Symbolic() =
+    //     System.Text.RegularExpressions.Regex(this.Pattern, opts_NonBacktracking, TimeSpan.FromSeconds(10)).Count(inputText)
+    //
+    // [<Benchmark(Description="Compiled")>]
+    // member this.Compiled() =
+    //     System.Text.RegularExpressions.Regex(this.Pattern, opts_Compiled, TimeSpan.FromSeconds(10)).Count(inputText)
 
-    [<Benchmark(Description="Compiled: .*R1.*R2.*|.*R2.*R1.*")>]
-    member this.Compiled() =
-        System.Text.RegularExpressions.Regex(this.Pattern, opts_Compiled, TimeSpan.FromSeconds(10)).Count(inputText)
-
-    [<Benchmark(Description = "Sbre: .*R1.*&.*R2.*")>]
+    [<Benchmark(Description = "Sbre")>]
     member this.Sbre() =
         Regex(this.Pattern).Count(inputText)
 
@@ -1455,12 +1458,20 @@ type TestAllEnginesAllPatternsSeparateWithCompileTime(patterns: (string*string*s
 type TestAllEnginesSeparate(defaultRegex: string, sbreRegex: string, input: string) =
     do AppContext.SetData("REGEX_NONBACKTRACKING_MAX_AUTOMATA_SIZE", 1_000_000)
     let inputText = input
+    let opts_None = Text.RegularExpressions.RegexOptions.None
     let opts_NonBacktracking = Text.RegularExpressions.RegexOptions.NonBacktracking
     let opts_Compiled = Text.RegularExpressions.RegexOptions.Compiled
 
-    member val NonBack_Regex: System.Text.RegularExpressions.Regex =
-            try System.Text.RegularExpressions.Regex(defaultRegex, opts_NonBacktracking, TimeSpan.FromSeconds(90))
+
+    member val None_Regex: System.Text.RegularExpressions.Regex =
+            try System.Text.RegularExpressions.Regex(defaultRegex, opts_None, TimeSpan.FromSeconds(90))
             with e -> Unchecked.defaultof<_>
+        with get, set
+
+    member val NonBack_Regex: System.Text.RegularExpressions.Regex =
+            // try System.Text.RegularExpressions.Regex(defaultRegex, opts_NonBacktracking, TimeSpan.FromSeconds(90))
+            // with e -> Unchecked.defaultof<_>
+        System.Text.RegularExpressions.Regex(defaultRegex, opts_NonBacktracking, TimeSpan.FromSeconds(90))
         with get, set
 
 
@@ -1472,19 +1483,30 @@ type TestAllEnginesSeparate(defaultRegex: string, sbreRegex: string, input: stri
 
 
     [<GlobalSetup>]
-    member this.Setup() = ()
+    member this.Setup() =
+        this.Compiled_Regex <- System.Text.RegularExpressions.Regex(defaultRegex, opts_Compiled, TimeSpan.FromSeconds(90))
+        this.NonBack_Regex <- System.Text.RegularExpressions.Regex(defaultRegex, opts_NonBacktracking, TimeSpan.FromSeconds(90))
+        this.None_Regex <- System.Text.RegularExpressions.Regex(defaultRegex, opts_None, TimeSpan.FromSeconds(90))
+        this.NonBack_Regex <- System.Text.RegularExpressions.Regex(defaultRegex, opts_NonBacktracking, TimeSpan.FromSeconds(90))
 
-    // [<Benchmark(Description = "NonBacktrack: .*R1.*R2.*|.*R2.*R1.*")>]
-    // member this.Symbolic() =
-    //     this.NonBack_Regex.Count(inputText)
+        ()
+
+    [<Benchmark(Description = "NonBacktrack: .*R1.*R2.*|.*R2.*R1.*")>]
+    member this.Symbolic() =
+        this.NonBack_Regex.Count(inputText)
     //
+
+    [<Benchmark(Description="None: .*R1.*R2.*|.*R2.*R1.*")>]
+    member this.None() =
+        this.None_Regex.Count(inputText)
+
     [<Benchmark(Description="Compiled: .*R1.*R2.*|.*R2.*R1.*")>]
     member this.Compiled() =
         this.Compiled_Regex.Count(inputText)
 
-    [<Benchmark(Description="Sbre: .*R1.*R2.*|.*R2.*R1.*")>]
-    member this.SbreAlt() =
-        this.SbreAlt_Regex.Count(inputText)
+    // [<Benchmark(Description="Sbre: .*R1.*R2.*|.*R2.*R1.*")>]
+    // member this.SbreAlt() =
+    //     this.SbreAlt_Regex.Count(inputText)
 
     [<Benchmark(Description = "Sbre: .*R1.*&.*R2.*")>]
     member this.Sbre() =

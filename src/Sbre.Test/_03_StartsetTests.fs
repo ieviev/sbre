@@ -5,18 +5,9 @@ module Sbre.Test._03_StartsetTests
 #if DEBUG
 
 open System
-open System.Collections
-open System.Collections.Generic
-open System.Globalization
-open System.Runtime.InteropServices
-open System.Text
-open System.Text.RegularExpressions
-open System.Text.RuntimeRegexCopy
 open System.Text.RuntimeRegexCopy.Symbolic
 open Sbre
 open Sbre.Pat
-open Sbre.Test
-open Sbre.Pat.Extensions
 open Sbre.Types
 open Xunit
 

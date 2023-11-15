@@ -1,25 +1,13 @@
 module rec Sbre.Algorithm
 
 open System
-open System.Runtime.InteropServices
 open Sbre.Info
 open Sbre.Optimizations
 open Sbre.Pat
 open Sbre.Types
-open Sbre.Cache
-
-module P = Sbre.Pat
-module C = Sbre.Cache
 
 module RegexNode =
 
-#if DEBUG
-    let display(node: RegexNode<'tset>) = node.ToStringHelper()
-#endif
-
-    // 3.6 Reversal
-
-    //  (R·S)r = Sr·Rr
     let rec rev (builder: RegexBuilder<uint64>) (node: RegexNode<_>) =
         match node with
         // ψr = ψ
@@ -36,7 +24,6 @@ module RegexNode =
         // (R & S)r = Rr & S r
         | And(xs, info) ->
             let xs' = xs |> map (rev builder)
-
             builder.mkAnd (Seq.toArray xs')
         // (~R)r = ~(Rr)
         | Not(xs, info) ->
@@ -57,7 +44,6 @@ module RegexNode =
             LookAround((rev builder) node', lookBack = false, negate = true)
 
         | Concat(head, tail, info) ->
-
             let rec revConcatNode acc curr =
                 match curr with
                 | Concat(head, (Concat _ as tail), tinfo) ->
@@ -80,11 +66,11 @@ module RegexNode =
             | ValueNone -> false
             | ValueSome _ -> true
 
+        // short-circuit
         if canNotBeNullable node then false
         elif isAlwaysNullable node then true
         else
 
-        // 3.2 Nullability and anchor-contexts
         match node with
         // Nullx () = true
         | Epsilon -> true
@@ -118,41 +104,12 @@ module RegexNode =
                 let R_rev = RegexNode.rev cache.Builder body
                 not (recursiveIsMatch loc_rev R_rev)
 
-
     // max(x,⊥) = max(⊥,x) = x
     let inline maxPos(x: int voption, y: int voption) =
         match y with
         | ValueSome _ -> y
         | ValueNone -> x
 
-    /// 3.3 Derivatives and MatchEnd: Null(fail)x(R) = if Nullx (R) then x else None
-    let isNullpos(cache: RegexCache<uint64>, loc: Location, node: RegexNode<uint64>) =
-        match isNullable (cache, &loc, node) with
-        | true -> ValueSome(loc.Position)
-        | false -> ValueNone
-
-
-    /// uses .NET FindMatchOptimizations to find the next startset
-    let inline jumpNextDotnetLocation(cache: RegexCache<'t>, loc: byref<Location>) : bool =
-        let mutable newPos = loc.Position
-
-        let success =
-            cache.Optimizations.TryFindNextStartingPositionLeftToRight(
-                loc.Input.AsSpan(),
-                &newPos,
-                loc.Position
-            )
-
-        if success then
-            loc.Position <- newPos
-            true
-        else
-            false
-
-    let enumeratorToSeq (enumerator:System.Collections.IEnumerator) = seq {while enumerator.MoveNext() do enumerator.Current}
-
-    // 3.3 Derivatives and MatchEnd: if Final(x) then Nullx (R) else max(Nullx (R), MatchEnd(x+1, Derx (R)))
-    // [<MethodImpl(MethodImplOptions.AggressiveOptimization)>]
     let matchEnd
         (
             cache: RegexCache<uint64>,
@@ -172,10 +129,10 @@ module RegexNode =
 
         // current active branches, without implicit dotstar node
         let toplevelOr =
-            // optimize the top matchEnds only for now
+            // cache only top matchEnds for now
             if _implicitDotstarred then cache.GetTopLevelOr()
             elif cache.IsOrigReversePattern(initialNode) then cache.GetReverseTopLevelOr()
-            else new ToplevelORCollection()
+            else ToplevelORCollection()
 
         let _initialWithoutDotstar =
             if _implicitDotstarred then
@@ -200,7 +157,7 @@ module RegexNode =
             match foundmatch with
             | true ->
                 looping <- false
-                // check if any null
+                // check if any nullable in the end
                 match currentMax with
                 | ValueSome(n) when n <> loc.Position ->
                     let mutable topSpan = toplevelOr.Items()
@@ -209,12 +166,9 @@ module RegexNode =
                     while not found && i < topSpan.Length  do
                         found <- isNullable(cache,&loc,topSpan[i])
                         i <- i + 1
-
                     if found then
                         currentMax <- (ValueSome loc.Position)
                 | _ -> ()
-
-
 
             | false ->
                 let locationPredicate = cache.MintermForLocation(loc)
@@ -228,13 +182,10 @@ module RegexNode =
                         let curr = toplevelOrSpan[i]
 
                         let deriv =
-                            // attempt to not even call createDerivative
                             match _derivativeCache.TryGetValue(struct (locationPredicate, curr)) with
                             | true, v -> v
                             | _ ->
                                 createDerivative (cache, loc, locationPredicate, curr)
-
-
 
                         if obj.ReferenceEquals(deriv,cache.False) then
                             if
@@ -271,7 +222,7 @@ module RegexNode =
                             createDerivative (cache, loc, locationPredicate, _initialWithoutDotstar)
 
                     match deriv with
-                    | IsFalse cache -> ()
+                    | _ when refEq deriv cache.Builder.uniques._false -> ()
                     | deriv ->
                         if canBeNullable deriv then canBeNullableBranch <- true
                         if isAlwaysNullable deriv then alwaysNullableBranch <- true
@@ -303,8 +254,6 @@ module RegexNode =
 #endif
                             toplevelOr.Add( deriv )
 
-
-                // found successful match - exit early
                 if not foundmatch then
                     // check nullability
                     loc.Position <- Location.nextPosition loc
@@ -321,9 +270,6 @@ module RegexNode =
 
                     // won't try to jump further if final
                     if Location.isFinal loc then () else
-
-                    // try to skip to next valid predicate if not matching
-
                     if toplevelOr.Count = 0 then
                         if not _implicitDotstarred then
                             looping <- false
@@ -363,16 +309,16 @@ let rec createDerivative
         //
         let result =
             match node with
-            // 3.3: Derx (R) = ⊥ if R ∈ ANC or R = ()
+            // Derx (R) = ⊥ if R ∈ ANC or R = ()
             | LookAround _
             | Epsilon -> c.False
             // ----------------
 
-            // 3.3: Der s⟨i⟩ (ψ) = if si ∈ [[ψ]] then () else ⊥
+            // Der s⟨i⟩ (ψ) = if si ∈ [[ψ]] then () else ⊥
             | Singleton pred ->
                 if Solver.elemOfSet pred loc_pred then Epsilon else c.False
 
-            // 3.3: Derx (R{m, n}) =
+            // Derx (R{m, n}) =
             // if m=0 or Null ∀(R)=true or Nullx (R)=false
             // then Derx (R)·R{m −1, n −1}
             // else Derx (R·R{m −1, n −1})
@@ -400,12 +346,11 @@ let rec createDerivative
                     )
                     |> Der
 
-            // 3.3: Derx (R | S) = Derx (R) | Derx (S)
+            // Derx (R | S) = Derx (R) | Derx (S)
             | Or(xs, info) ->
                 use mutable e = xs.GetEnumerator()
                 c.Builder.mkOrEnumerator (&e, Der)
 
-            // B: EXTENDED REGEXES
             // Derx (R & S) = Derx (R) & Derx (S)
             | And(xs, info) as head ->
                 use mutable e = xs.GetEnumerator()
@@ -415,8 +360,7 @@ let rec createDerivative
             | Not(inner, info) ->
                 c.Builder.mkNot (Der inner)
 
-
-            // 3.3: Derx (R·S) = if Nullx (R) then Derx (R)·S|Derx (S) else Derx (R)·S
+            // Derx (R·S) = if Nullx (R) then Derx (R)·S|Derx (S) else Derx (R)·S
             | Concat(head, tail, info) ->
                 let R' = Der head
                 // Derx (R)·S
@@ -429,7 +373,6 @@ let rec createDerivative
                 else
                     // Derx (R)·S
                     R'S
-
 
         if not (containsLookaround node) then
             c.Builder.DerivativeCache.Add(struct (loc_pred, node), result)

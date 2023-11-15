@@ -346,6 +346,9 @@ let ``subsumption and loop ``() =
 let ``subsumption and larger ``() =
     testPartDerivatives (@"(.* and .*|and .*)&.*", "aaa", [@"(.* and .*|nd .*)";"(nd .*|.* and .*)"])
 
+[<Fact>]
+let ``deriv negation end ``() =
+    testPartDerivatives (@"(.*&~((n|.*Finn)))", "nn", ["(~((ε|.*Finn))&.*)";"(~((.*Finn|ε))&.*)"])
 
 
 // [<Fact>]

@@ -2,7 +2,6 @@
 module Sbre.Test.NegationTests
 
 open Sbre
-open Sbre.Pat
 open Xunit
 //
 

@@ -7,6 +7,7 @@ open System.Text.RuntimeRegexCopy
 open Sbre.Algorithm
 open Sbre.Types
 open Sbre.Pat
+open System.Runtime.InteropServices
 
 [<Struct>]
 type MatchResult = {
@@ -27,30 +28,22 @@ type MatchPositionResult = {
 [<Struct>]
 type MatchPosition = { Index: int; Length: int }
 
-open System.Runtime.InteropServices
 
 
 [<Sealed>]
 type Regex(pattern: string, [<Optional; DefaultParameterValue(false)>] warnUnoptimized: bool) =
-
-    // experimental parser!
     let pattern = pattern.Replace("⊤", @"[\s\S]")
-
+    // experimental parser!
     let regexTree =
         ExtendedRegexParser.Parse(
             pattern,
             RegexOptions.ExplicitCapture ||| RegexOptions.NonBacktracking,
             CultureInfo.InvariantCulture
         )
-
     let charsetSolver = System.Text.RuntimeRegexCopy.Symbolic.CharSetSolver()
-
     // builder from .net runtime
     let bddBuilder = SymbolicRegexBuilder<BDD>(charsetSolver, charsetSolver)
-
     let converter = RegexNodeConverter(bddBuilder, null)
-
-    // builder from this library
     let bddBuilder2 = RegexBuilder(converter, charsetSolver, charsetSolver)
 
     let symbolicBddnode: RegexNode<BDD> =
@@ -149,7 +142,6 @@ type Regex(pattern: string, [<Optional; DefaultParameterValue(false)>] warnUnopt
                 ValueSome input.Length
             | _ -> ValueNone
         else
-
         let mutable startLocation = Location.create input currPos
         RegexNode.matchEnd (cache, &startLocation, ValueNone, trueStarredUint64Node)
 
@@ -263,12 +255,14 @@ type Regex(pattern: string, [<Optional; DefaultParameterValue(false)>] warnUnopt
         while looping do
             location.Position <- currPos
 
+            // use our prefix optimizations
             match _cache.TryNextStartsetLocationArray(&location,initialPrefix) with
             | ValueNone ->
                 looping <- false
             | ValueSome newPos ->
                 location.Position <- newPos
 
+            // use .net prefix optimizations
             // if not (optimizations.TryFindNextStartingPositionLeftToRight( inputSpan, &currPos, currPos ))
             // then looping <- false
             // else
@@ -315,7 +309,6 @@ type Regex(pattern: string, [<Optional; DefaultParameterValue(false)>] warnUnopt
                 | ValueSome newPos ->
                     location.Position <- newPos
 
-
                 // .NET startset search
                 // if not (optimizations.TryFindNextStartingPositionLeftToRight( inputSpan, &currPos, currPos ))
                 // then looping <- false
@@ -357,7 +350,6 @@ type Regex(pattern: string, [<Optional; DefaultParameterValue(false)>] warnUnopt
 
         }
 
-
     // accessors
     member this.ImplicitPattern: RegexNode<uint64> = trueStarredUint64Node
 
@@ -367,25 +359,3 @@ type Regex(pattern: string, [<Optional; DefaultParameterValue(false)>] warnUnopt
 
     member this.Cache: RegexCache<uint64> = cache
 
-
-#if DEBUG
-module Debugging =
-    open System.Diagnostics
-
-    [<DebuggerDisplay("{ToString()}")>]
-
-    type ConcatDebugView(concat: FSharp.Collections.List<RegexNode<uint64>>) =
-        override this.ToString() =
-            match concat with
-            | [] -> "[]"
-            | head :: _ -> $"{head.TagName()}:{head.ToStringHelper()}"
-
-        [<DebuggerBrowsable(DebuggerBrowsableState.RootHidden)>]
-        member val Nodes = concat |> Seq.map (fun v -> v.TagName(), v) |> Seq.toArray
-
-    [<assembly: DebuggerDisplay("{Head}, tail:{Tail.Length}",
-                                Target = typeof<RegexNode<uint64> list>)>]
-
-    do ()
-
-#endif

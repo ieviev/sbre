@@ -38,8 +38,6 @@ module Flag =
     let inline mergeFlags(sourceFlags: RegexNodeFlags seq) =
         (RegexNodeFlags.None, sourceFlags) ||> Seq.fold (fun acc v -> acc ||| v)
 
-
-
 let inline removeFlag (flags: byref<RegexNodeFlags>) (flagsToRemove: RegexNodeFlags) =
     flags <- flags &&& ~~~flagsToRemove
 
@@ -51,8 +49,6 @@ let inline invertFlag (flags: byref<RegexNodeFlags>) (flagsToInvert: RegexNodeFl
         flags <- flags &&& ~~~flagsToInvert
     else
         flags <- flags ||| flagsToInvert
-
-
 
 // Patterns
 [<return: Struct>]
@@ -67,7 +63,6 @@ let (|IsAlwaysNullable|_|)(x: RegexNodeInfo<'t>) =
     | true -> ValueSome()
     | _ -> ValueNone
 
-
 [<return: Struct>]
 let (|NodeIsAlwaysNullable|_|)(x: RegexNode<'t>) =
     match x with
@@ -78,8 +73,6 @@ let (|NodeIsAlwaysNullable|_|)(x: RegexNode<'t>) =
     | Not(fSharpList, IsAlwaysNullable) -> ValueSome()
     | LookAround(node, lookBack, negate) -> ValueNone
     | _ -> ValueNone
-
-
 
 [<return: Struct>]
 let (|CanBeNullable|_|)(x: RegexNodeInfo<'t>) =
@@ -95,25 +88,18 @@ let (|ContainsLookaround|_|)(x: RegexNodeInfo<'t>) =
 
 
 module rec Startset =
-
     let inline inferMergeStartset (_solver: ISolver<'t>) (nodes: seq<RegexNode<'t>>) =
-        // todo: small optimization here
-        nodes |> Solver.mapOr _solver (inferStartset _solver)
-
+        // todo: small optimization possible here
+        Solver.mapOr _solver (inferStartset _solver) nodes
 
     let rec inferConcatStartset (_solver: ISolver<'t>) (head: RegexNode<'t>) (tail: RegexNode<'t>) =
-
         match head with
         | Loop(node = Singleton pred; low = 0; up = Int32.MaxValue) ->
-            // bug here
             let tailStartset = inferStartset _solver tail
             let invertedPred = _solver.Not(pred)
             _solver.Or(invertedPred, tailStartset)
-
         | Loop(node = node; low = low; up = up) ->
-
             let inner = inferStartset _solver node
-            // failwith "debug2"
             match low with
             | 0 -> _solver.Full // TODO: optimize
             | _ -> inner
@@ -126,14 +112,7 @@ module rec Startset =
             else
                 let headss = Solver.mergeOrWithEnumerator _solver (inferStartset _solver) &e
                 _solver.Or(headss, tail.Startset)
-
-
-
-
-
-
         | Not(node, info) ->
-            // let tailConcat = Concat(tail, info)
             let tailStartset = inferStartset _solver tail
             let headStartset = inferStartset _solver node
             let merged = _solver.Or(headStartset, tailStartset)
@@ -152,7 +131,7 @@ module rec Startset =
 
         | Concat(chead, ctail, info) -> inferConcatStartset _solver chead ctail
 
-    let inline inferLoopStartset (_solver: ISolver<'t>) (R, low, up) =
+    let inline inferLoopStartset (_solver: ISolver<'t>) struct(R, low, up) =
         match (R, low, up) with
         | Concat _, 0, Int32.MaxValue -> _solver.Full
         | _ ->

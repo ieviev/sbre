@@ -41,7 +41,6 @@ let getNodeDerivative (m:Regex, node: RegexNode<_>, input: string) =
 
     der1
 
-open Xunit
 
 
 [<Fact>]

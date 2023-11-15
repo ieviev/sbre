@@ -1,8 +1,5 @@
 module Sbre.Benchmarks.Paper
 
-open System
-open System.Text.RegularExpressions
-open Microsoft.FSharp.Core.CompilerServices
 open Sbre.Benchmarks.Jobs
 
 let fullInput =
@@ -148,10 +145,10 @@ type DebugSbre3() =
         // @"[a-q][^u-z]{0,13}x"
         // @"~(⊤*\n\n⊤*)&⊤*Huck⊤*"
 
-        Permutations.permuteConjInParagraph ["Huck"; ]
-        // Permutations.permuteConjInParagraph ["Huck";"Finn"; ]
+        // Permutations.permuteConjInParagraph ["Huck";  ]
+        Permutations.permuteConjInParagraph ["Huck";"Finn"; ]
         // Permutations.permuteConjInParagraph ["Huck";"Finn"; "Tom"; ]
-        Permutations.permuteConjInParagraph ["Huck";"Finn"; "Tom"; "Sawyer" ]
+        // Permutations.permuteConjInParagraph ["Huck";"Finn"; "Tom"; "Sawyer" ]
 
         // @"(?:(?i)~(⊤*\n\n⊤*)&⊤*Huck⊤*)"
         // @"(?:(?i)~(⊤*\n\n⊤*)&⊤*Huck⊤*)"
@@ -173,8 +170,10 @@ type DebugSbre3() =
 type WordsLine1() =
     inherit
         Jobs.TestAllEnginesSeparate(
-            Permutations.permuteAltInLine ["Huck" ],
-            Permutations.permuteConjInLine ["Huck" ],
+            ".*Huck.*",
+            ".*Huck.*",
+            // Permutations.permuteAltInLine ["Huck" ],
+            // Permutations.permuteConjInLine ["Huck" ],
             fullInput
         )
 

@@ -1,7 +1,6 @@
 module Sbre.Benchmarks.ParagraphFull
 
 open System.Text.RegularExpressions
-open Sbre.Benchmarks.Jobs
 
 let fullInput =
     __SOURCE_DIRECTORY__ + "/data/input-text.txt" |> System.IO.File.ReadAllText

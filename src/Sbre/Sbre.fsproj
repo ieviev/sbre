@@ -11,13 +11,18 @@
     <NoWarn>FS1182</NoWarn>
     <!--  opt-in warnings   -->
     <WarnOn>21</WarnOn>
+    <!--  binding executed out of order   -->
+    <WarnOn>21</WarnOn>
     <!--    warn heap allocations    -->
     <WarnOn>3180</WarnOn>
     <WarnOn>52</WarnOn>
     <!--    warn inlineiflambda failures    -->
     <WarnOn>3517</WarnOn>
     <WarnOn>3366</WarnOn>
-    <WarnOn>1182</WarnOn>
+<!--    unused variables -->
+    <WarnOn>1182</WarnOn> 
+<!--    implicit conversion -->
+    <WarnOn>3387</WarnOn> 
 <!--    <DefineConstants>$(DefineConstants);OPTIMIZE</DefineConstants>-->
   </PropertyGroup>
   <ItemGroup>
@@ -30,9 +35,8 @@
     <Compile Include="Pat.fs" />
     <Compile Include="Info.fs" />
     <Compile Include="RegexBuilder.fs" />
-    <Compile Include="Vectorized.fs" />
+    <Compile Include="Vector.fs" />
     <Compile Include="Cache.fs" />
-    <Compile Include="CachePatterns.fs" />
     <Compile Include="RegexNodeConverter.fs" />
     <Compile Include="Minterms.fs" />
     <Compile Include="Optimizations.fs" />

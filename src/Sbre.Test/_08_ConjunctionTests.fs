@@ -1,8 +1,6 @@
 [<Xunit.Collection("Sequential")>]
 module Sbre.Test._08_ConjunctionTests
 
-open System
-open System.IO
 open Sbre
 open Sbre.Benchmarks.Jobs
 open Xunit

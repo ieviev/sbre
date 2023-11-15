@@ -1,16 +1,11 @@
 [<Xunit.Collection("Sequential")>]
 module Sbre.Test._02_NodeTests
 
-open System
-open System.Collections
-open System.Collections.Generic
 open System.Globalization
-open System.Text.RegularExpressions
 open System.Text.RuntimeRegexCopy
 open System.Text.RuntimeRegexCopy.Symbolic
 open Sbre
 open Sbre.Info
-open Sbre.Test
 open Sbre.Types
 open Xunit
 
