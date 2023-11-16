@@ -50,7 +50,7 @@ let ``collectSets has same behavior``() =
             Helpers.bddBuilder2,
             tree.Root
         )
-        |> Minterms.collectSetsHs Helpers.bddBuilder //|> HashSet
+        |> Minterms.collectSets Helpers.bddBuilder //|> HashSet
 
     let areEqual = runtimeSets.SetEquals(sbreSets)
 

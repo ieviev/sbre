@@ -7,10 +7,7 @@ open Sbre.Types
 open Sbre
 
 let children2Seq(node: System.Text.RuntimeRegexCopy.RegexNode) =
-    seq {
-        for i = 0 to node.ChildCount() - 1 do
-            yield node.Child(i)
-    }
+    seq { for i = 0 to node.ChildCount() - 1 do yield node.Child(i) }
 
 let convertToSymbolicRegexNode
     (
@@ -21,9 +18,7 @@ let convertToSymbolicRegexNode
     )
     : RegexNode<BDD>
     =
-
-    let bddSolver = css
-    let n = builder
+    let b = builder
 
     let rec loop
         (acc: Types.RegexNode<BDD> list)
@@ -39,21 +34,21 @@ let convertToSymbolicRegexNode
             | true -> node |> children2Seq |> Seq.rev |> Seq.collect (loop []) |> Seq.toList
 
         match node.Kind with
-        | RegexNodeKind.One -> n.one node.Ch :: acc
-        | RegexNodeKind.Notone -> n.notOne node.Ch :: acc
-        | RegexNodeKind.Set -> n.setFromNode node :: acc
-        | RegexNodeKind.Multi -> (node.Str |> Seq.map n.one |> Seq.toList) @ acc
+        | RegexNodeKind.One -> b.one node.Ch :: acc
+        | RegexNodeKind.Notone -> b.notOne node.Ch :: acc
+        | RegexNodeKind.Set -> b.setFromNode node :: acc
+        | RegexNodeKind.Multi -> (node.Str |> Seq.map b.one |> Seq.toList) @ acc
         | RegexNodeKind.Lazyloop
         | RegexNodeKind.Loop ->
-            let inner = n.mkConcat (convertChildren node)
-            let current = n.mkLoop (inner, node.M, node.N)
+            let inner = b.mkConcat (convertChildren node)
+            let current = b.mkLoop (inner, node.M, node.N)
             current :: acc
         | RegexNodeKind.Alternate ->
             let children2 =
                 node
                 |> children2Seq
                 |> Seq.map convertSingle
-                |> Seq.map n.mkConcat
+                |> Seq.map b.mkConcat
                 |> Seq.toArray
 
             let nodeset = ofSeq children2
@@ -61,7 +56,7 @@ let convertToSymbolicRegexNode
         | RegexNodeKind.Conjunction ->
 
             let children2 =
-                node |> children2Seq |> Seq.map convertSingle |> Seq.map n.mkConcat |> Seq.toArray
+                node |> children2Seq |> Seq.map convertSingle |> Seq.map b.mkConcat |> Seq.toArray
 
             builder.mkAnd children2 :: acc
 
@@ -70,12 +65,10 @@ let convertToSymbolicRegexNode
             inner @ acc
         | RegexNodeKind.Capture ->
             if node.N = -1 then
-                convertChildren node |> n.mkConcat |> List.singleton
+                convertChildren node |> b.mkConcat |> List.singleton
             else
-                let _ = 1
-
                 if node.Options.HasFlag(RegexOptions.Negated) then
-                    let inner = convertChildren node |> n.mkConcat
+                    let inner = convertChildren node |> b.mkConcat
                     let mutable flags = Info.Flags.inferNode inner
 
                     if flags.HasFlag(RegexNodeFlags.IsAlwaysNullable) then
@@ -104,34 +97,30 @@ let convertToSymbolicRegexNode
             // TBD: explore possibilities of rewrites here
             match node.M, node.N with
             // +
-            | 1, Int32.MaxValue -> single :: n.mkLoop (single, 0, Int32.MaxValue) :: acc
-            | _ -> n.mkLoop (single, node.M, node.N) :: acc
+            | 1, Int32.MaxValue -> single :: b.mkLoop (single, 0, Int32.MaxValue) :: acc
+            | _ -> b.mkLoop (single, node.M, node.N) :: acc
 
         // anchors
-        | RegexNodeKind.Beginning -> n.anchors._bigAAnchor.Value :: acc // TBD:  ^ or \A in multiline
-        | RegexNodeKind.EndZ -> n.anchors._dollarAnchor.Value :: acc // TBD:  $ or \z in multiline
-        | RegexNodeKind.Boundary -> n.anchors._wordBorder.Value :: acc
-        | RegexNodeKind.NonBoundary -> n.anchors._nonWordBorder.Value :: acc
+        | RegexNodeKind.Beginning -> b.anchors._bigAAnchor.Value :: acc // TBD:  ^ or \A in multiline
+        | RegexNodeKind.EndZ -> b.anchors._dollarAnchor.Value :: acc // TBD:  $ or \z in multiline
+        | RegexNodeKind.Boundary -> b.anchors._wordBorder.Value :: acc
+        | RegexNodeKind.NonBoundary -> b.anchors._nonWordBorder.Value :: acc
         | RegexNodeKind.Setlazy
         | RegexNodeKind.Setloop ->
             let set = node.Str
-            let bdd = n.bddFromSetString set
-            n.mkLoop (n.one bdd, node.M, node.N) :: acc
+            let bdd = b.bddFromSetString set
+            b.mkLoop (b.one bdd, node.M, node.N) :: acc
         | RegexNodeKind.Empty -> acc
         | RegexNodeKind.PositiveLookaround ->
-            let inner = n.mkConcat (convertChildren node)
-
             RegexNode.LookAround(
-                inner,
+                b.mkConcat (convertChildren node),
                 lookBack = node.Options.HasFlag(RegexOptions.RightToLeft),
                 negate = false
             )
             :: acc
         | RegexNodeKind.NegativeLookaround ->
-            let inner = n.mkConcat (convertChildren node)
-
             RegexNode.LookAround(
-                inner,
+                b.mkConcat (convertChildren node),
                 lookBack = node.Options.HasFlag(RegexOptions.RightToLeft),
                 negate = true
             )
@@ -140,4 +129,4 @@ let convertToSymbolicRegexNode
 
     let result = loop [] rootNode
 
-    result |> List.rev |> n.mkConcat
+    result |> List.rev |> b.mkConcat

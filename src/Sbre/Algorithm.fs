@@ -20,7 +20,6 @@ module RegexNode =
         | Loop(xs, low, up, info) ->
             let xs' = (rev builder) xs
             builder.mkLoop (xs', low, up)
-        // B: EXTENDED REGEXES
         // (R & S)r = Rr & S r
         | And(xs, info) ->
             let xs' = xs |> map (rev builder)
@@ -29,7 +28,6 @@ module RegexNode =
         | Not(xs, info) ->
             let xs' = (rev builder) xs
             builder.mkNot xs'
-        // 3.7 Lookarounds
         // (?=R)r = (?<=Rr)
         | LookAround(node = node'; lookBack = false; negate = false) ->
             LookAround((rev builder) node', lookBack = true, negate = false)
@@ -42,7 +40,6 @@ module RegexNode =
         // (?<!R)r = (?!Rr)
         | LookAround(node = node'; lookBack = true; negate = true) ->
             LookAround((rev builder) node', lookBack = false, negate = true)
-
         | Concat(head, tail, info) ->
             let rec revConcatNode acc curr =
                 match curr with
@@ -86,7 +83,6 @@ module RegexNode =
         | Not(node, info) -> not (isNullable (cache, &loc, node))
         // Nullx (R) and Nullx (S)
         | Concat(head, tail, _) -> isNullable (cache, &loc, head) && isNullable (cache, &loc, tail)
-        // 3.7 Lookarounds
         | LookAround(body, lookBack, negate) ->
             match lookBack, negate with
             | false, false -> recursiveIsMatch loc body // Nullx ((?=R)) = IsMatch(x, R)
@@ -152,8 +148,6 @@ module RegexNode =
             let mutable alwaysNullableBranch = false
             if Location.isFinal loc then
                 foundmatch <- true
-
-            // 3.3 Derivatives and MatchEnd optimizations
             match foundmatch with
             | true ->
                 looping <- false
@@ -288,8 +282,6 @@ module RegexNode =
 
         currentMax
 
-
-/// creates derivative without returning initial dot-starred pattern
 let rec createDerivative
     (
         c: RegexCache<uint64>,
@@ -300,8 +292,6 @@ let rec createDerivative
     : RegexNode<uint64>
     =
     let inline Der newNode = createDerivative (c, loc, loc_pred, newNode) //
-
-
     match c.Builder.DerivativeCache.TryGetValue(struct (loc_pred, node)) with
     | true, v -> v
     | _ ->
@@ -312,8 +302,6 @@ let rec createDerivative
             // Derx (R) = ⊥ if R ∈ ANC or R = ()
             | LookAround _
             | Epsilon -> c.False
-            // ----------------
-
             // Der s⟨i⟩ (ψ) = if si ∈ [[ψ]] then () else ⊥
             | Singleton pred ->
                 if Solver.elemOfSet pred loc_pred then Epsilon else c.False
@@ -359,20 +347,16 @@ let rec createDerivative
             // Derx(~R) = ~Derx (R)
             | Not(inner, info) ->
                 c.Builder.mkNot (Der inner)
-
             // Derx (R·S) = if Nullx (R) then Derx (R)·S|Derx (S) else Derx (R)·S
             | Concat(head, tail, info) ->
                 let R' = Der head
-                // Derx (R)·S
                 let R'S = c.Builder.mkConcat2 (R', tail)
                 if RegexNode.isNullable (c, &loc, head) then
                     let S' = Der(tail)
                     if refEq c.Builder.uniques._false S' then R'S else
                     let newConcat = c.Builder.mkOr [|R'S; S'|]
                     newConcat
-                else
-                    // Derx (R)·S
-                    R'S
+                else R'S
 
         if not (containsLookaround node) then
             c.Builder.DerivativeCache.Add(struct (loc_pred, node), result)

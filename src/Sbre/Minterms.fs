@@ -31,7 +31,7 @@ let rec transform
     | Epsilon -> Epsilon
 
 
-let collectSetsHs (_: SymbolicRegexBuilder<'tset>) (node: RegexNode<'tset>) =
+let collectSets (_: SymbolicRegexBuilder<'tset>) (node: RegexNode<'tset>) =
     let hs = HashSet()
     let rec collect (node: RegexNode<'tset>) : unit =
         let collectList (nodes: RegexNode<'tset> seq) =
@@ -53,7 +53,7 @@ let collectSetsHs (_: SymbolicRegexBuilder<'tset>) (node: RegexNode<'tset>) =
     hs
 
 let compute (builder: SymbolicRegexBuilder<'tset>) (node: RegexNode<'tset>) =
-    let hs = collectSetsHs builder node
+    let hs = collectSets builder node
     let list =
         MintermGenerator<'tset>.GenerateMinterms (builder._solver, hs)
     list.Sort()

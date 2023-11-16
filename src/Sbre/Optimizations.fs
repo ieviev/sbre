@@ -3,17 +3,11 @@ module internal rec Sbre.Optimizations
 open Sbre.Types
 open Sbre.Pat
 
-#nowarn "9"
-
-
-// [<MethodImpl(MethodImplOptions.AggressiveOptimization)>]
 let rec tryJumpToStartset (c:RegexCache<_>,loc:byref<Location>, nodes:inref<ToplevelORCollection>) : int32 =
 
     match nodes.Count with
     | 1 ->
         let node = nodes.First
-
-
         let prefix : InitialStartset =
             match node.TryGetInfo with
             | ValueSome info ->

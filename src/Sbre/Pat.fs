@@ -14,7 +14,7 @@ module Extensions =
         member inline this.isElemOfSet(predicate: 't, locationMinterm: 't) =
             not (this.IsEmpty(this.And(locationMinterm, predicate)))
 
-        /// faster variant that skips the middleman
+        /// marginally faster variant that skips the middleman
         member inline this.isElemOfSetu64(predicate: uint64, locationMinterm: uint64) =
             predicate &&& locationMinterm <> 0uL
 
@@ -40,8 +40,7 @@ let (|LoopKind|) struct(x:int,y:int) =
 let rec loopSubsumesBranch (solver:ISolver<'t>) (largePred: 't) (node:RegexNode<'t>) =
     match node with
     | Epsilon -> false
-    | Singleton hpred ->
-        solver.isElemOfSet(largePred,hpred)
+    | Singleton hpred -> solver.isElemOfSet(largePred,hpred)
     | Loop(node=Singleton pred2; low=0; up = Int32.MaxValue) ->
         let containsv = solver.And(largePred, pred2) = pred2
         if largePred = pred2 then true
