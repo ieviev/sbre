@@ -82,6 +82,3 @@ let rec tryJumpToStartset (c:RegexCache<_>,loc:byref<Location>, nodes:inref<Topl
             match commonStartsetLocation with
             | ValueNone -> loc.Position
             | ValueSome newPos -> newPos
-
-
-

@@ -42,22 +42,8 @@
     <Compile Include="Regex.fs" />
   </ItemGroup>
   <ItemGroup>
-    <!-- Stdlib -->
-    <!--      <DefaultReferenceExclusion Include="System.Text.RegularExpressions" />-->
-    <!-- <ProjectReference Include="..\RuntimeRegexCopy\RuntimeRegexCopy.csproj" /> -->
-        <ProjectReference Include="..\RuntimeRegexCopy\RuntimeRegexCopy.csproj" />
+      <ProjectReference Include="..\RuntimeRegexCopy\RuntimeRegexCopy.csproj" />
   </ItemGroup>
-  <ItemGroup>
-<!--    <Reference Include="RuntimeRegexCopy">-->
-<!--      <HintPath>/home/ian/f/ieviev/sbre/src/RuntimeRegexCopy/bin/Release/net7.0/RuntimeRegexCopy.dll</HintPath>-->
-<!--    </Reference>-->
-  </ItemGroup>
-  <PropertyGroup>
-    <PackageOutputPath>./nupkg</PackageOutputPath>
-    <Authors>ieviev</Authors>
-    <Title>$(ProjectName)</Title>
-    <Version>0.0.13</Version>
-  </PropertyGroup>
   <ItemGroup>
     <PackageReference Update="FSharp.Core" Version="7.0.*" />
   </ItemGroup>
