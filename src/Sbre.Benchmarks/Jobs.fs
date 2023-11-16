@@ -593,12 +593,12 @@ type Minterms() =
             let loc = this.Cache.Classify(spn[i])
             Solver.elemOfSet loc 11uL |> ignore
 
-    [<Benchmark>]
-    member this.Elem2() =
-        let spn = input.AsSpan()
-        for i = 0 to 100 do
-            let loc = this.Cache.Classify(spn[i])
-            this.Cache.IsValidPredicateUint64(11uL, loc) |> ignore
+    // [<Benchmark>]
+    // member this.Elem2() =
+    //     let spn = input.AsSpan()
+    //     for i = 0 to 100 do
+    //         let loc = this.Cache.Classify(spn[i])
+    //         this.Cache.IsValidPredicateUint64(11uL, loc) |> ignore
 
     // [<Benchmark>]
     // member this.Elem3() =

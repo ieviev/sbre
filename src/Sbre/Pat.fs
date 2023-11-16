@@ -127,3 +127,6 @@ module Location =
         match loc.Reversed with
         | true -> 0
         | _ -> loc.Input.Length
+
+
+let inline refEq x y = obj.ReferenceEquals(x, y)

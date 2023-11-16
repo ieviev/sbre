@@ -26,7 +26,7 @@ let testFullDerivative(pattern: string, input: string, expectedDerivative: strin
 
     let result =
         createDerivative (cache, location, cache.MintermForLocation(location), node)
-        |> cache.PrintNode
+        |> (fun v -> v.ToStringHelper())
 
     Assert.Equal(expectedDerivative, result)
 
@@ -39,7 +39,7 @@ let testFullDerivativeMultiple(pattern: string, input: string, expectedDerivativ
 
     let result =
         createDerivative (cache, location, cache.MintermForLocation(location), node)
-        |> cache.PrintNode
+        |> (fun v -> v.ToStringHelper())
 
     Assert.Contains(result, expectedDerivatives)
 
@@ -55,8 +55,8 @@ let test2ndDerivative(pattern: string, input: string, expectedDerivative: string
 
     let der2 = createDerivative (cache, location1, cache.MintermForLocation(location1), der1)
 
-    let result = der2 |> cache.PrintNode
-    let a = 1
+    let result = der2.ToStringHelper()
+
 
     Assert.Equal(expectedDerivative, result)
 
@@ -72,7 +72,7 @@ let test2ndDerivatives(pattern: string, input: string, expectedDerivatives: stri
 
     let der2 = createDerivative (cache, location1, cache.MintermForLocation(location1), der1)
 
-    let result = der2 |> cache.PrintNode
+    let result = der2 |> (fun v -> v.ToStringHelper())
 
     Assert.Contains(result, expectedDerivatives)
 
@@ -89,7 +89,7 @@ let testRawDerivative(pattern: string, input: string, expectedDerivative: string
 
     let result =
         createDerivative (cache, location, cache.MintermForLocation(location), node)
-        |> cache.PrintNode
+        |> (fun v -> v.ToStringHelper())
 
     Assert.Equal(expectedDerivative, result)
 
@@ -103,9 +103,8 @@ let testPartDerivative(pattern: string, input: string, expectedDerivative: strin
     let location = (Location.create input 0)
     let result = createDerivative (cache, location, cache.MintermForLocation(location), node)
 
-    let print node = node |> cache.PrintNode
 
-    Assert.Equal(expectedDerivative, print result)
+    Assert.Equal(expectedDerivative, result.ToStringHelper())
 
 
 let testPartDerivatives(pattern: string, input: string, expectedDerivatives: string list) =
@@ -115,9 +114,7 @@ let testPartDerivatives(pattern: string, input: string, expectedDerivatives: str
     let location = (Location.create input 0)
     let result = createDerivative (cache, location, cache.MintermForLocation(location), node)
 
-    let print node = node |> cache.PrintNode
-
-    Assert.Contains(print result, expectedDerivatives)
+    Assert.Contains(result.ToStringHelper(), expectedDerivatives)
 
 
 
@@ -137,7 +134,7 @@ let testPartDerivativeFromLocation
 
     let result =
         match createDerivative (cache, location, cache.MintermForLocation(location), node) with
-        | result -> cache.PrintNode result
+        | result -> result |> (fun v -> v.ToStringHelper())
 
     Assert.Equal(expectedDerivative, result)
 
@@ -157,7 +154,7 @@ let testPartDerivativeFromLocationMultiple
 
     let result =
         match createDerivative (cache, location, cache.MintermForLocation(location), node) with
-        | result -> cache.PrintNode result
+        | result -> result |> (fun v -> v.ToStringHelper())
 
     Assert.Contains(result, expectedDerivatives)
 
@@ -175,7 +172,7 @@ let testPartDerivativesLoc
 
     let result =
         match createDerivative (cache, location, cache.MintermForLocation(location), node) with
-        | result -> cache.PrintNode result
+        | result -> result |> (fun v -> v.ToStringHelper())
 
     Assert.Contains(result, expectedDerivatives)
 

@@ -19,23 +19,21 @@
     <!--    warn inlineiflambda failures    -->
     <WarnOn>3517</WarnOn>
     <WarnOn>3366</WarnOn>
-<!--    unused variables -->
-    <WarnOn>1182</WarnOn> 
-<!--    implicit conversion -->
-    <WarnOn>3387</WarnOn> 
-<!--    <DefineConstants>$(DefineConstants);OPTIMIZE</DefineConstants>-->
+    <!--    unused variables -->
+    <WarnOn>1182</WarnOn>
+    <!--    implicit conversion -->
+    <WarnOn>3387</WarnOn>
+    <!--    <DefineConstants>$(DefineConstants);OPTIMIZE</DefineConstants>-->
   </PropertyGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Sbre.Test" />
     <InternalsVisibleTo Include="Sbre.Benchmarks" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Common.fs" />
     <Compile Include="Types.fs" />
     <Compile Include="Pat.fs" />
     <Compile Include="Info.fs" />
     <Compile Include="RegexBuilder.fs" />
-    <Compile Include="Vector.fs" />
     <Compile Include="Cache.fs" />
     <Compile Include="RegexNodeConverter.fs" />
     <Compile Include="Minterms.fs" />
@@ -47,19 +45,20 @@
     <!-- Stdlib -->
     <!--      <DefaultReferenceExclusion Include="System.Text.RegularExpressions" />-->
     <!-- <ProjectReference Include="..\RuntimeRegexCopy\RuntimeRegexCopy.csproj" /> -->
-    <ProjectReference Include="..\RuntimeRegexCopy\RuntimeRegexCopy.csproj" />
+        <ProjectReference Include="..\RuntimeRegexCopy\RuntimeRegexCopy.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <!-- <Reference Include="RuntimeRegexCopy">
-      <HintPath>/home/ian/f/ieviev/sbre/src/RuntimeRegexCopy/bin/Release/net7.0/RuntimeRegexCopy.dll</HintPath>
-    </Reference> -->
+<!--    <Reference Include="RuntimeRegexCopy">-->
+<!--      <HintPath>/home/ian/f/ieviev/sbre/src/RuntimeRegexCopy/bin/Release/net7.0/RuntimeRegexCopy.dll</HintPath>-->
+<!--    </Reference>-->
   </ItemGroup>
   <PropertyGroup>
     <PackageOutputPath>./nupkg</PackageOutputPath>
     <Authors>ieviev</Authors>
     <Title>$(ProjectName)</Title>
-    <Version>0.0.12</Version>
+    <Version>0.0.13</Version>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Update="FSharp.Core" Version="7.0.*" />
   </ItemGroup>
 </Project>

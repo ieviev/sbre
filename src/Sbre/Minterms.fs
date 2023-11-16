@@ -54,8 +54,7 @@ let collectSets (_: SymbolicRegexBuilder<'tset>) (node: RegexNode<'tset>) =
 
 let compute (builder: SymbolicRegexBuilder<'tset>) (node: RegexNode<'tset>) =
     let hs = collectSets builder node
-    let list =
-        MintermGenerator<'tset>.GenerateMinterms (builder._solver, hs)
+    let list = MintermGenerator<'tset>.GenerateMinterms (builder._solver, hs)
     list.Sort()
     list.ToArray()
 

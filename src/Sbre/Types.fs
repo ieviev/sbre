@@ -1,12 +1,22 @@
-namespace rec Sbre.Types
+namespace Sbre.Types
 
 open System
 open System.Collections.Generic
 open System.Collections.Immutable
 open System.Runtime.CompilerServices
 open System.Text.RuntimeRegexCopy.Symbolic
-open Sbre
 open System.Diagnostics
+
+
+#if DEBUG
+[<AutoOpen>]
+module Debug =
+    let debugcharSetSolver = System.Text.RuntimeRegexCopy.Symbolic.CharSetSolver()
+    let bddBuilder = SymbolicRegexBuilder<BDD>(debugcharSetSolver, debugcharSetSolver)
+    let mutable debuggerSolver: ISolver<uint64> option = None
+#endif
+
+
 
 /// A location in s is a pair ⟨s, i⟩, where −1 ≤ i ≤ |s |
 [<DebuggerDisplay("{DebugDisplay()}")>]
@@ -31,6 +41,12 @@ type Location = {
             $"%s{this.Input[this.Position].ToString()}, %i{this.Position}"
 
 #endif
+
+type InitialStartset =
+    | Uninitialized
+    | Unoptimized
+    | MintermArrayPrefix of prefix: uint64[] * loopTerminator: uint64[]
+
 
 [<Flags>]
 type RegexNodeFlags =
@@ -67,13 +83,7 @@ type RegexNodeInfo<'tset> = {
 
     member inline this.HasPrefix = this.Flags.HasFlag(RegexNodeFlags.Prefix)
 
-type InitialStartset =
-    | Uninitialized
-    | Unoptimized
-    | MintermArrayPrefix of prefix: uint64[] * loopTerminator: uint64[]
 
-type NodeSet<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
-    ImmutableHashSet<RegexNode<'tset>>
 
 [<DebuggerDisplay("{ToStringHelper()}")>]
 [<ReferenceEquality>]
@@ -84,7 +94,7 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
         info: RegexNodeInfo<'tset>
     | Epsilon // ε
     | Or of  // RE|RE
-        nodes: NodeSet<'tset> *
+        nodes: ImmutableHashSet<RegexNode<'tset>> *
         info: RegexNodeInfo<'tset>
     | Singleton of set: 'tset // 𝜓 predicate
     | Loop of  // RE{𝑚, 𝑛}
@@ -93,7 +103,7 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
         up: int *
         info: RegexNodeInfo<'tset>
     | And of  // RE&RE ..
-        nodes: NodeSet<'tset> *
+        nodes: ImmutableHashSet<RegexNode<'tset>> *
         info: RegexNodeInfo<'tset>
     | Not of
         node: RegexNode<'tset> *  // ~RE
@@ -241,7 +251,6 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
     /// used to display the node during debugging
     member this.ToStringHelper() =
         let display(nodes: RegexNode<'tset>) = nodes.ToStringHelper()
-        let asString(nodes: RegexNode<'tset>) = nodes.ToStringHelper()
         let paren str = $"({str})"
 
         let tostr(v: 'tset) =
@@ -279,7 +288,7 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
         | Or(items, _) ->
             let setItems: string list =
                 if not (obj.ReferenceEquals(items, null)) then
-                    items |> Seq.map display |> Seq.toList
+                    items |> Seq.map (fun v -> v.ToString() ) |> Seq.toList
                 else
                     []
 
@@ -434,6 +443,10 @@ module Common =
         while e.MoveNext() && forall do
             forall <- f e.Current
         forall
+
+
+type NodeSet<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
+    ImmutableHashSet<RegexNode<'tset>>
 
 
 module Enumerator =
