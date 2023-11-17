@@ -600,6 +600,13 @@ let ``negated end``() =
 
 
 
+[<Fact>]
+let ``just loop``() =
+    let matcher = Regex("a*")
+    let result =
+        matcher.Matches("bbbbaaabbbbb") |> Seq.toArray
+    Assert.Equal( 11, result.Length )
+
 
 
 

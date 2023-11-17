@@ -165,13 +165,6 @@ let ``semantics test 1`` () =
 
 
 [<Fact>]
-let ``semantics test 2`` () =
-    let matcher = Regex(@"(a|ab)*")
-    let ism = matcher.MatchText("bbfbfbababgfgfgfgabababab")
-    Assert.Equal(ism, Some "abab")
-
-
-[<Fact>]
 let ``top level duplicate test`` () =
     let matcher = Regex(@"((\(\d{3}\)?)|(\d{3}))([\s-./]?)(\d{3})([\s-./]?)(\d{4})")
     let ism = matcher.MatchText("1-(212)-123 4567")

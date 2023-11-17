@@ -162,7 +162,10 @@ module RegexNode =
                         i <- i + 1
                     if found then
                         currentMax <- (ValueSome loc.Position)
-                | _ -> ()
+                | _ ->
+                    if _initialWithoutDotstar.IsAlwaysNullable then
+                        currentMax <- (ValueSome loc.Position)
+
 
             | false ->
                 let locationPredicate = cache.MintermForLocation(loc)
@@ -216,7 +219,10 @@ module RegexNode =
                             createDerivative (cache, loc, locationPredicate, _initialWithoutDotstar)
 
                     match deriv with
-                    | _ when refEq deriv cache.Builder.uniques._false -> ()
+                    | _ when refEq deriv cache.Builder.uniques._false ->
+                        if _topCount = 0 && _initialWithoutDotstar.IsAlwaysNullable then
+                            foundmatch <- true
+
                     | deriv ->
                         if canBeNullable deriv then canBeNullableBranch <- true
                         if isAlwaysNullable deriv then alwaysNullableBranch <- true
@@ -249,6 +255,12 @@ module RegexNode =
                             toplevelOr.Add( deriv )
 
                 if not foundmatch then
+
+                    // edge case if the entire regex is R*
+                    if toplevelOr.Count = 0 && not _implicitDotstarred then
+                        foundmatch <- true
+                    else
+
                     // check nullability
                     loc.Position <- Location.nextPosition loc
                     if alwaysNullableBranch then

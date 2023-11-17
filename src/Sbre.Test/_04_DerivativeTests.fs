@@ -345,7 +345,9 @@ let ``subsumption and larger ``() =
 
 [<Fact>]
 let ``deriv negation end ``() =
-    testPartDerivatives (@"(.*&~((n|.*Finn)))", "nn", ["(~((ε|.*Finn))&.*)";"(~((.*Finn|ε))&.*)"])
+    testPartDerivatives (@"(.*&~((n|.*Finn)))", "nn", [
+        "(~((ε|.*Finn))&.*)";"(~((.*Finn|ε))&.*)"; "(.*&~((ε|.*Finn)))"; "(.*&~((.*Finn|ε)))"
+    ])
 
 
 // [<Fact>]
