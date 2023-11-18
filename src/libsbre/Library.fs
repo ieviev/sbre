@@ -10,7 +10,7 @@ let print_matches (pStrPattern: nativeint) (pStrInput: nativeint) : int =
         let input = Marshal.PtrToStringUTF8(pStrInput)
         let matchArray = Sbre.Regex(pattern).Matches(input) |> Seq.toArray
         for m in matchArray do
-            stdout.WriteLine $"%A{m.Index}\t{m.Index + m.Length}\t{m.Value}"
+            stdout.WriteLine $"%i{m.Index}:{m.Index + m.Length}:{m.Value}"
         0
     with
     | _ -> -1

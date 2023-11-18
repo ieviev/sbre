@@ -609,6 +609,14 @@ let ``just loop``() =
 
 
 
+[<Fact>]
+let ``simple 1``() =
+    let matcher = Regex("..g")
+    let result =
+        matcher.Matches("dfdff dfgfgg gfgdfg gddfdf") |> Seq.toArray
+    Assert.Equal( 4, result.Length )
+
+
 
 
 
