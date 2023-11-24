@@ -59,12 +59,12 @@ type Regex(pattern: string, [<Optional; DefaultParameterValue(false)>] warnUnopt
         match symbolicBddnode with
         | Concat(head, tail, info) -> Concat(implicitTrueStar, Concat(head, tail, info), info)
         | Singleton pred as node ->
-            Concat(implicitTrueStar, node, Info.defaultInfo charsetSolver)
+            Concat(implicitTrueStar, node, Info.defaultInfo() charsetSolver)
         | And(xs, info) as node -> Concat(implicitTrueStar, node, info)
         | Or(xs, info) as node -> Concat(implicitTrueStar, node, info)
         | Loop(xs, low, up, info) as node -> Concat(implicitTrueStar, node, info)
         | LookAround(xs, low, up) as node ->
-            Concat(implicitTrueStar, node, Info.defaultInfo charsetSolver)
+            Concat(implicitTrueStar, node, Info.defaultInfo() charsetSolver)
         | Epsilon -> implicitTrueStar
         | Not(xs, info) as node ->
             let negflags = Info.Flags.inferNode xs
@@ -77,7 +77,7 @@ type Regex(pattern: string, [<Optional; DefaultParameterValue(false)>] warnUnopt
     let uintbuilder = RegexBuilder(converter, solver, charsetSolver)
 
 #if DEBUG
-    do debuggerSolver <- Some solver
+    do Debug.debuggerSolver <- Some solver
 #endif
     let trueStarredUint64Node: RegexNode<uint64> =
         (Minterms.transform uintbuilder charsetSolver solver) trueStarPattern
@@ -126,7 +126,7 @@ type Regex(pattern: string, [<Optional; DefaultParameterValue(false)>] warnUnopt
             false
         else
             let mutable startLocation = Location.create input currPos
-            match RegexNode.matchEnd (cache, &startLocation, ValueNone, trueStarredUint64Node) with
+            match RegexNode.matchEnd (cache, &startLocation, trueStarredUint64Node) with
             | ValueNone -> false
             | ValueSome _ -> true
 
@@ -143,7 +143,7 @@ type Regex(pattern: string, [<Optional; DefaultParameterValue(false)>] warnUnopt
             | _ -> ValueNone
         else
         let mutable startLocation = Location.create input currPos
-        RegexNode.matchEnd (cache, &startLocation, ValueNone, trueStarredUint64Node)
+        RegexNode.matchEnd (cache, &startLocation, trueStarredUint64Node)
 
 
     member this.Match(input: string) : MatchResult =
@@ -163,7 +163,7 @@ type Regex(pattern: string, [<Optional; DefaultParameterValue(false)>] warnUnopt
 
             let mutable startLocation = Location.create input startPos
 
-            match RegexNode.matchEnd (cache, &startLocation, ValueNone, trueStarredUint64Node) with
+            match RegexNode.matchEnd (cache, &startLocation, trueStarredUint64Node) with
             | ValueNone -> {
                 Success = false
                 Value = ""
@@ -174,7 +174,7 @@ type Regex(pattern: string, [<Optional; DefaultParameterValue(false)>] warnUnopt
                 let mutable reverseLocation = (Location.rev { startLocation with Position = endPos })
 
                 let startPos =
-                    RegexNode.matchEnd (cache, &reverseLocation, ValueNone, reverseUint64Node)
+                    RegexNode.matchEnd (cache, &reverseLocation, reverseUint64Node)
 
                 match startPos with
                 | ValueNone ->
@@ -222,13 +222,13 @@ type Regex(pattern: string, [<Optional; DefaultParameterValue(false)>] warnUnopt
         else
             let mutable startLocation = Location.create input startPos
 
-            match RegexNode.matchEnd (cache, &startLocation, ValueNone, trueStarredUint64Node) with
+            match RegexNode.matchEnd (cache, &startLocation, trueStarredUint64Node) with
             | ValueNone -> None
             | ValueSome endPos ->
                 let mutable reverseLocation = (Location.rev { startLocation with Position = endPos })
 
                 let startPos =
-                    RegexNode.matchEnd (cache, &reverseLocation, ValueNone, reverseUint64Node)
+                    RegexNode.matchEnd (cache, &reverseLocation, reverseUint64Node)
 
                 match startPos with
                 | ValueNone ->
@@ -268,7 +268,7 @@ type Regex(pattern: string, [<Optional; DefaultParameterValue(false)>] warnUnopt
             // else
             //     location.Position <- currPos
 
-                match RegexNode.matchEnd (cache, &location, ValueNone, trueStarredUint64Node) with
+                match RegexNode.matchEnd (cache, &location, trueStarredUint64Node) with
                 | ValueNone -> looping <- false
                 | ValueSome(endPos: int) ->
                     counter <- counter + 1
@@ -314,7 +314,7 @@ type Regex(pattern: string, [<Optional; DefaultParameterValue(false)>] warnUnopt
                 // then looping <- false
                 // else location.Position <- currPos
 
-                match RegexNode.matchEnd (cache, &location, ValueNone, trueStarredUint64Node) with
+                match RegexNode.matchEnd (cache, &location, trueStarredUint64Node) with
                 | ValueNone -> looping <- false
                 | ValueSome(endPos: int) ->
                     reverseLocation.Position <- endPos
@@ -323,7 +323,7 @@ type Regex(pattern: string, [<Optional; DefaultParameterValue(false)>] warnUnopt
                         RegexNode.matchEnd (
                             cache,
                             &reverseLocation,
-                            ValueNone,
+
                             reverseUint64Node
                         )
 

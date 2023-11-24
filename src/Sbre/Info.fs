@@ -535,11 +535,11 @@ module rec Flags =
         | Concat(head, tail, info) -> inferConcat head tail
 
 
-let defaultInfo(solver: ISolver<'t>) : RegexNodeInfo<'t> = {
-    Flags = Flag.None
-    Startset = solver.Full
+let defaultInfo()(solver: ISolver<'t>) : RegexNodeInfo<'t> = RegexNodeInfo<'t>(
+    Flags = Flag.None,
+    Startset = solver.Full,
     InitialStartset = Uninitialized
-}
+)
 
 let convertLoop
     (
@@ -549,11 +549,11 @@ let convertLoop
     )
     : RegexNodeInfo<'t>
     =
-    {
-        Flags = info.Flags
-        Startset = Startset.inferStartset solver xs
+    RegexNodeInfo<'t>(
+        Flags = info.Flags,
+        Startset = Startset.inferStartset solver xs,
         InitialStartset = Uninitialized
-    }
+    )
 
 
 [<AutoOpen>]
@@ -598,7 +598,7 @@ module Node =
         | Loop(info = info) -> info.ContainsLookaround
         | And(info = info) -> info.ContainsLookaround
         | Not(info = info) -> info.ContainsLookaround
-        | LookAround _ -> false
+        | LookAround _ -> true
         | Concat(info = info) -> info.ContainsLookaround
         | Epsilon -> false
 

@@ -59,7 +59,7 @@ module RegexNode =
 
         let recursiveIsMatch (loc:Location) body =
             let mutable loc1 = loc
-            match matchEnd (cache, &loc1, ValueNone, body) with
+            match matchEnd (cache, &loc1, body) with
             | ValueNone -> false
             | ValueSome _ -> true
 
@@ -110,13 +110,12 @@ module RegexNode =
         (
             cache: RegexCache<uint64>,
             loc: byref<Location>,
-            initialMax: int voption,
             initialNode: RegexNode<uint64>
         )
         : int voption
         =
 
-        let mutable currentMax = initialMax
+        let mutable currentMax = ValueNone
         let mutable looping = true
         let mutable foundmatch = false
 
@@ -137,9 +136,11 @@ module RegexNode =
                 toplevelOr.Add( initialNode )
                 initialNode
 
+        let _initialAlwaysNullable = _initialWithoutDotstar.IsAlwaysNullable
+
 
         let _startsetPredicate = cache.GetInitialStartsetPredicate()
-        let _derivativeCache = cache.Builder.DerivativeCache
+        let _builder = cache.Builder
 
         while looping do
 
@@ -163,7 +164,7 @@ module RegexNode =
                     if found then
                         currentMax <- (ValueSome loc.Position)
                 | _ ->
-                    if _initialWithoutDotstar.IsAlwaysNullable then
+                    if _initialAlwaysNullable then
                         currentMax <- (ValueSome loc.Position)
 
 
@@ -179,10 +180,9 @@ module RegexNode =
                         let curr = toplevelOrSpan[i]
 
                         let deriv =
-                            match _derivativeCache.TryGetValue(struct (locationPredicate, curr)) with
-                            | true, v -> v
-                            | _ ->
-                                createDerivative (cache, loc, locationPredicate, curr)
+                            match _builder.GetTransitionInfo(locationPredicate, curr) with
+                            | ValueSome v -> v
+                            | _ -> createDerivative (cache, loc, locationPredicate, curr)
 
                         if obj.ReferenceEquals(deriv,cache.False) then
                             if
@@ -210,17 +210,15 @@ module RegexNode =
                     && currentMax.IsNone
                     && Solver.elemOfSet _startsetPredicate locationPredicate
                 then
-
                     let deriv =
-                        // attempt to not even call createDerivative
-                        match _derivativeCache.TryGetValue(struct (locationPredicate, _initialWithoutDotstar)) with
-                        | true, v -> v
+                        match _builder.GetTransitionInfo(locationPredicate, _initialWithoutDotstar) with
+                        | ValueSome v -> v
                         | _ ->
                             createDerivative (cache, loc, locationPredicate, _initialWithoutDotstar)
 
                     match deriv with
                     | _ when refEq deriv cache.Builder.uniques._false ->
-                        if _topCount = 0 && _initialWithoutDotstar.IsAlwaysNullable then
+                        if _topCount = 0 && _initialAlwaysNullable then
                             foundmatch <- true
 
                     | deriv ->
@@ -248,7 +246,6 @@ module RegexNode =
                             let first = toplevelOr.First
                             [| first; deriv |]
                             |> Array.map (fun v -> v.ToString())
-                            // |> Array.map (fun v -> v.ToStringHelper())
                             |> String.concat "\n"
                             |> failwith
 #endif
@@ -256,7 +253,7 @@ module RegexNode =
 
                 if not foundmatch then
 
-                    // edge case if the entire regex is R*
+                    // edge case if the entire regex is nullable like R*
                     if toplevelOr.Count = 0 && not _implicitDotstarred then
                         foundmatch <- true
                     else
@@ -304,11 +301,9 @@ let rec createDerivative
     : RegexNode<uint64>
     =
     let inline Der newNode = createDerivative (c, loc, loc_pred, newNode) //
-    match c.Builder.DerivativeCache.TryGetValue(struct (loc_pred, node)) with
-    | true, v -> v
+    match c.Builder.GetTransitionInfo(loc_pred,node) with
+    | ValueSome n -> n
     | _ ->
-
-        //
         let result =
             match node with
             // Derx (R) = ⊥ if R ∈ ANC or R = ()
@@ -371,6 +366,6 @@ let rec createDerivative
                 else R'S
 
         if not (containsLookaround node) then
-            c.Builder.DerivativeCache.Add(struct (loc_pred, node), result)
+            c.Builder.AddTransitionInfo(loc_pred, node, result)
 
         result

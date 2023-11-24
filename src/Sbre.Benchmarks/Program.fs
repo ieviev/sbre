@@ -40,8 +40,20 @@ let dbgSbre() =
     t.Setup()
     // for i = 0 to 1 do
     // for i = 0 to 1000 do
-    for i = 0 to 0 do
+    for i = 0 to 1000 do
         t.MatchWithConj() |> ignore
+
+
+let dbgNonb() =
+
+    let t = Paper.TestNonbacktrackingByte()
+    t.Setup()
+    for i = 1 to 1 do
+        let c = t.Symbolic()
+        stdout.WriteLine $"GOT {c}"
+        ()
+
+
 
 
 
@@ -54,6 +66,7 @@ let main argv =
     dbgSbre()
 #endif
     // dbgSbre()
+    // dbgNonb()
     // dbgSample()
 
 
@@ -136,6 +149,7 @@ let main argv =
     // lines
     | "paper-lines-1" -> BenchmarkRunner.Run(typeof<Paper.Lines1>,config) |> ignore
     | "paper-lines-2" -> BenchmarkRunner.Run(typeof<Paper.Lines2>,config) |> ignore
+    | "solver-u8" -> BenchmarkRunner.Run(typeof<Paper.TestNonbacktrackingByte>,config) |> ignore
 
 
 

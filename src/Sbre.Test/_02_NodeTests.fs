@@ -204,7 +204,7 @@ let assertConverted (pattern: string) (expected: string) =
 
     let solver = UInt64Solver(minterms, Helpers.charSetSolver)
 
-    debuggerSolver <- Some solver
+    Debug.debuggerSolver <- Some solver
 
     let asstr = symbolicBddnode.ToStringHelper()
     Assert.Equal(expected, asstr)

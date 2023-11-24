@@ -1,4 +1,4 @@
-namespace Sbre.Types
+namespace rec Sbre.Types
 
 open System
 open System.Collections.Generic
@@ -13,7 +13,8 @@ open System.Diagnostics
 module Debug =
     let debugcharSetSolver = System.Text.RuntimeRegexCopy.Symbolic.CharSetSolver()
     let bddBuilder = SymbolicRegexBuilder<BDD>(debugcharSetSolver, debugcharSetSolver)
-    let mutable debuggerSolver: ISolver<uint64> option = None
+
+
 #endif
 
 
@@ -24,7 +25,7 @@ module Debug =
 type Location = {
     Input: string
     mutable Position: int32
-    Reversed: bool
+    mutable Reversed: bool
 }
 #if DEBUG
     with
@@ -58,11 +59,18 @@ type RegexNodeFlags =
     | CanSkip = 16uy
     | Prefix = 32uy
 
-type RegexNodeInfo<'tset> = {
-    Flags: RegexNodeFlags
-    Startset: 'tset
-    mutable InitialStartset: InitialStartset
-} with
+type Transition<'tset when 'tset : equality > = {
+    mutable Set : 'tset
+    Node : obj
+}
+
+[<Sealed>]
+type RegexNodeInfo<'tset when 'tset : equality >() =
+
+    member val Flags: RegexNodeFlags = RegexNodeFlags.None with get, set
+    member val Startset: 'tset = Unchecked.defaultof<'tset> with get, set
+    member val InitialStartset: InitialStartset = InitialStartset.Uninitialized with get, set
+    member val Transitions: ResizeArray<Transition<'tset>> = ResizeArray() with get, set
 
     member inline this.IsAlwaysNullable =
         (this.Flags &&& RegexNodeFlags.IsAlwaysNullable) <> RegexNodeFlags.None
@@ -148,49 +156,36 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
         | Concat(info = info) -> info.ContainsLookaround
         | Epsilon -> false
 
-    member inline this.IsAlwaysNullable =
+    member this.IsAlwaysNullable =
         match this with
-        | Or(info = info) -> info.IsAlwaysNullable
+        | Or(info = info) | Loop(info = info) | And(info = info) | Not(info = info) | Concat(info = info) ->
+            info.IsAlwaysNullable
         | Singleton _ -> false
-        | Loop(info = info) -> info.IsAlwaysNullable
-        | And(info = info) -> info.IsAlwaysNullable
-        | Not(info = info) -> info.IsAlwaysNullable
         | LookAround _ -> false
-        | Concat(info = info) -> info.IsAlwaysNullable
         | Epsilon -> false
 
-    member inline this.ContainsEpsilon =
+    member this.ContainsEpsilon =
         match this with
-        | Or(info = info) -> info.ContainsEpsilon
+        | Or(info = info) | Loop(info = info) | And(info = info) | Not(info = info) | Concat(info = info) ->
+            info.ContainsEpsilon
         | Singleton _ -> false
-        | Loop(info = info) -> info.ContainsEpsilon
-        | And(info = info) -> info.ContainsEpsilon
-        | Not(info = info) -> info.ContainsEpsilon
         | LookAround _ -> true
-        | Concat(info = info) -> info.ContainsEpsilon
         | Epsilon -> false
 
     member inline this.HasPrefix =
         match this with
-        | Or(info = info) -> info.HasPrefix
+        | Or(info = info) | Loop(info = info) | And(info = info) | Not(info = info) | Concat(info = info) ->
+            info.HasPrefix
         | Singleton _ -> false
-        | Loop(info = info) -> info.HasPrefix
-        | And(info = info) -> info.HasPrefix
-        | Not(info = info) -> info.HasPrefix
         | LookAround _ -> true
-        | Concat(info = info) -> info.HasPrefix
         | Epsilon -> false
 
-    member inline this.TryGetInfo =
+    member this.TryGetInfo =
         match this with
-        | Or(info = info) -> ValueSome info
-        | Singleton _ -> ValueNone
-        | Loop(info = info) -> ValueSome info
-        | And(info = info) -> ValueSome info
-        | Not(info = info) -> ValueSome info
-        | LookAround _ -> ValueNone
-        | Concat(info = info) -> ValueSome info
-        | Epsilon -> ValueNone
+        | Or(info = info) | Loop(info = info) | And(info = info) | Not(info = info) | Concat(info = info) ->
+            ValueSome info
+        | _ -> ValueNone
+
     member inline this.CanBeNullable =
         match this with
         | Or(info = info) -> info.CanBeNullable
@@ -236,7 +231,7 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
         | Concat(h, t, info) -> h.ToStringHelper() + t.ToStringHelper()
         | Epsilon -> "ε"
     member this.debuggerSolver =
-        match debuggerSolver with
+        match Debug.debuggerSolver with
         | None -> failwith "debugger solver not initialized"
         | Some solver -> solver
     member this.isFull(node: RegexNode<'t>) =
@@ -254,7 +249,7 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
         let paren str = $"({str})"
 
         let tostr(v: 'tset) =
-            match debuggerSolver with
+            match Debug.debuggerSolver with
             | None ->
                 match box v with
                 | :? BDD as v ->

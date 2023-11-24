@@ -222,25 +222,27 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
                 RegexNode.Singleton(solver.Full),
                 low = 0,
                 up = Int32.MaxValue,
-                info = {
-                    Flags =
-                        RegexNodeFlags.IsAlwaysNullable
-                        ||| RegexNodeFlags.CanBeNullable
-                        ||| RegexNodeFlags.CanSkip
-                    Startset = solver.Full
-                    InitialStartset = Uninitialized
-                }
+                info =
+                    RegexNodeInfo<'t>(
+                        Flags =
+                            (RegexNodeFlags.IsAlwaysNullable
+                             ||| RegexNodeFlags.CanBeNullable
+                             ||| RegexNodeFlags.CanSkip),
+                        Startset = solver.Full,
+                        InitialStartset = Uninitialized
+                    )
             )
         _truePlus =
             RegexNode.Loop(
                 RegexNode.Singleton(solver.Full),
                 low = 1,
                 up = Int32.MaxValue,
-                info = {
-                    Flags = RegexNodeFlags.None
-                    Startset = solver.Full
-                    InitialStartset = Uninitialized
-                }
+                info =
+                    RegexNodeInfo<'t>(
+                        Flags = RegexNodeFlags.None,
+                        Startset = solver.Full,
+                        InitialStartset = Uninitialized
+                    )
             )
         _wordChar = lazy b.setFromStr @"\w"
         _nonWordChar = lazy b.setFromStr @"\W"
@@ -257,11 +259,12 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
             _zAnchor = __z_anchor
             _dollarAnchor =
                 lazy
-                    let info = {
-                        Flags = RegexNodeFlags.CanBeNullable //||| RegexNodeFlags.ContainsLookaround
-                        Startset = Unchecked.defaultof<_>
-                        InitialStartset = Uninitialized
-                    }
+                    let info =
+                        RegexNodeInfo<'t>(
+                            Flags = RegexNodeFlags.CanBeNullable, //||| RegexNodeFlags.ContainsLookaround
+                            Startset = Unchecked.defaultof<_>,
+                            InitialStartset = Uninitialized
+                        )
 
                     Or(
                         ofSeq [
@@ -275,11 +278,12 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
             // (?<=\A|\A\n) ≡ \a
             _aAnchor =
                 lazy
-                    let info = {
-                        Flags = RegexNodeFlags.CanBeNullable //||| RegexNodeFlags.ContainsLookaround
-                        Startset = solver.Full
-                        InitialStartset = Uninitialized
-                    }
+                    let info =
+                        RegexNodeInfo<'t>(
+                            Flags = RegexNodeFlags.CanBeNullable, //||| RegexNodeFlags.ContainsLookaround
+                            Startset = solver.Full,
+                            InitialStartset = Uninitialized
+                        )
 
                     let seqv =
                         ofSeq [
@@ -292,11 +296,12 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
 
             _nonWordBorder =
                 lazy
-                    let info = {
-                        Flags = RegexNodeFlags.CanBeNullable
-                        Startset = solver.Full
-                        InitialStartset = Uninitialized
-                    }
+                    let info =
+                        RegexNodeInfo<'t>(
+                            Flags = RegexNodeFlags.CanBeNullable,
+                            Startset = solver.Full,
+                            InitialStartset = Uninitialized
+                        )
                     // (?!ψ\w)
                     let c1 = [
                         RegexNode.LookAround(
@@ -328,11 +333,13 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
 
             _wordBorder =
                 lazy
-                    let info = {
-                        Flags = RegexNodeFlags.CanBeNullable ||| RegexNodeFlags.ContainsLookaround
-                        Startset = Unchecked.defaultof<_>
-                        InitialStartset = Uninitialized
-                    }
+                    let info =
+                        RegexNodeInfo<'t>(
+                            Flags =
+                                (RegexNodeFlags.CanBeNullable ||| RegexNodeFlags.ContainsLookaround),
+                            Startset = Unchecked.defaultof<_>,
+                            InitialStartset = Uninitialized
+                        )
 
                     Or(
                         ofSeq [
@@ -367,11 +374,12 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
             // ^ ≡ \A|(?<=\n)
             _caretAnchor =
                 lazy
-                    let info = {
-                        Flags = RegexNodeFlags.CanBeNullable ||| RegexNodeFlags.None
-                        Startset = Unchecked.defaultof<_>
-                        InitialStartset = Uninitialized
-                    }
+                    let info =
+                        RegexNodeInfo<'t>(
+                            Flags = (RegexNodeFlags.CanBeNullable ||| RegexNodeFlags.None),
+                            Startset = Unchecked.defaultof<_>,
+                            InitialStartset = Uninitialized
+                        )
 
                     Or(
                         ofSeq [
@@ -391,10 +399,9 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
     member this.epsilon = _uniques._epsilon
     member this.uniques = _uniques
     member this.anchors = _anchors
-
     member this.PrefixCache = _prefixCache
-    member this.DerivativeCache = _derivativeCache
-    member this.Startset2Cache = _startset2Cache
+    // member this.DerivativeCache = _derivativeCache
+    // member this.Startset2Cache = _startset2Cache
     member this.AndSubsumptionCache = _andSubsumptionCache
 
 
@@ -407,7 +414,73 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
             this.PrefixCache.Add(node, ss2)
             ss2
 
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    member this.AddTransitionInfo
+        (
+            pred: uint64,
+            node: RegexNode<uint64>,
+            result: RegexNode<uint64>
+        ) =
+        match node with
+        | Or(info = info)
+        | Loop(info = info)
+        | And(info = info)
+        | Not(info = info)
+        | Concat(info = info) ->
+            match info.Transitions.Count with
+            | 0 ->
+                if
+                    refEq _uniques._true node
+                    || refEq _uniques._trueStar node
+                    || refEq _uniques._truePlus node
+                then
+                    info.Transitions.Add({ Set = UInt64.MaxValue; Node = result })
+                else
+                    if info.CanSkip then
+                        info.Transitions.Add({ Set = Solver.``not`` node.Startset; Node = node })
 
+                    info.Transitions.Add({ Set = pred; Node = result })
+
+            | n ->
+                use mutable e = info.Transitions.GetEnumerator()
+                let mutable looping = true
+                let mutable counter = 0
+
+                while looping && e.MoveNext() do
+                    let curr = e.Current
+
+                    if obj.ReferenceEquals(curr.Node, result) then
+                        looping <- false
+                        info.Transitions[counter].Set <- pred ||| curr.Set
+
+                    counter <- counter + 1
+
+                if looping then
+                    info.Transitions.Add({ Set = pred; Node = result })
+        | _ -> ()
+
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    member this.GetTransitionInfo(pred: uint64, node: RegexNode<uint64>) =
+        let mutable result = ValueNone
+
+        match node with
+        | Or(info = info)
+        | Loop(info = info)
+        | And(info = info)
+        | Not(info = info)
+        | Concat(info = info) ->
+            use mutable e = info.Transitions.GetEnumerator()
+            let mutable looping = true
+
+            while looping && e.MoveNext() do
+                let curr = e.Current
+
+                if Solver.isElemOfSetU64 pred curr.Set then
+                    looping <- false
+                    result <- ValueSome(curr.Node :?> RegexNode<uint64>)
+
+            result
+        | _ -> result
 
     member this.one(char: char) : RegexNode< ^t > =
         let a1: BDD = bcss.CreateBDDFromChar char
@@ -466,9 +539,8 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
             )
             |> Seq.toArray
 
-        match starLoops with
-        | [||] -> nodes
-        | _ ->
+        match starLoops.Length > 0 with
+        | true ->
 
             let struct (largestPred, largestStarLoop) =
                 starLoops
@@ -495,6 +567,48 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
 
                 nodes.Add(largestStarLoop) |> ignore
                 nodes
+        | _ ->
+            // let mutable allsame = true
+            //
+            // let rec isSubSequence a b =
+            //     match a, b with
+            //     | Concat(head = head1; tail = tail1), Concat(head = head2; tail = tail2) ->
+            //         if obj.ReferenceEquals(tail1, tail2) then
+            //             ValueSome b
+            //         else
+            //             isSubSequence tail1 b
+            //     | _ -> ValueNone
+            //
+            // let allSameHead =
+            //     nodes
+            //     |> Seq.pairwise
+            //     |> Seq.iter (fun (prev, v) ->
+            //         match prev, v with
+            //         | Concat(head = head1; tail = tail1), Concat(head = head2; tail = tail2) ->
+            //             if not (obj.ReferenceEquals(head1, head2)) then
+            //                 allsame <- false
+            //         | _ -> allsame <- false
+            //     )
+            //
+            // if allsame then
+            //     let arr = nodes |> Seq.toArray
+            //
+            //     match arr with
+            //     | [| e1; e2 |] ->
+            //         match isSubSequence e1 e2 with
+            //         | ValueSome s -> Seq.singleton s
+            //         | _ ->
+            //             match isSubSequence e2 e1 with
+            //             | ValueSome s -> Seq.singleton s
+            //             | _ -> nodes
+            //     | _ ->
+            //         // TODO:
+            //         // failwith "todo optimize"
+            //         nodes
+            //
+            // else
+
+            nodes
 
 
 
@@ -612,11 +726,12 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
                             let flags = Flags.inferAnd twoormore
                             let startset = twoormore |> Startset.inferMergeStartset solver
 
-                            let mergedInfo = {
-                                Flags = flags
-                                Startset = startset
-                                InitialStartset = Uninitialized
-                            }
+                            let mergedInfo =
+                                RegexNodeInfo<'t>(
+                                    Flags = flags,
+                                    Startset = startset,
+                                    InitialStartset = Uninitialized
+                                )
 
                             let newAnd = RegexNode.And(ofSeq twoormore, mergedInfo)
                             newAnd
@@ -688,11 +803,12 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
                     let flags = Flags.inferAnd twoormore
                     let startset = twoormore |> Startset.inferMergeStartset (solver)
 
-                    let mergedInfo = {
-                        Flags = flags
-                        Startset = startset
-                        InitialStartset = Uninitialized
-                    }
+                    let mergedInfo =
+                        RegexNodeInfo<'t>(
+                            Flags = flags,
+                            Startset = startset,
+                            InitialStartset = Uninitialized
+                        )
 
                     let newAnd = RegexNode.And(ofSeq twoormore, mergedInfo)
                     newAnd
@@ -786,11 +902,12 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
 
                     let startset = twoormore |> Startset.inferMergeStartset solver
 
-                    let mergedInfo = {
-                        Flags = flags
-                        Startset = startset
-                        InitialStartset = Uninitialized
-                    }
+                    let mergedInfo =
+                        RegexNodeInfo<'t>(
+                            Flags = flags,
+                            Startset = startset,
+                            InitialStartset = Uninitialized
+                        )
 
                     RegexNode.Or(ofSeq twoormore, mergedInfo)
 
@@ -843,7 +960,6 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
 
         match status with
         | MkOrFlags.IsTrueStar -> _uniques._trueStar
-        // | _ when derivatives.Count = 1 -> derivatives |> Seq.head
         | _ ->
 
         if zeroloops > 1 then
@@ -872,6 +988,9 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
             else
                 derivatives.Add(Epsilon) |> ignore
 
+        if derivatives.Count = 0 then _uniques._false else
+        if derivatives.Count = 1 then derivatives |> Seq.head else
+
         let nodeSet = derivatives |> this.trySubsumeOr |> Seq.toArray
         Array.sortInPlaceBy LanguagePrimitives.PhysicalHash nodeSet
 
@@ -887,11 +1006,12 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
 
                     let startset = twoormore |> Startset.inferMergeStartset solver
 
-                    let mergedInfo = {
-                        Flags = flags
-                        Startset = startset
-                        InitialStartset = Uninitialized
-                    }
+                    let mergedInfo =
+                        RegexNodeInfo<'t>(
+                            Flags = flags,
+                            Startset = startset,
+                            InitialStartset = Uninitialized
+                        )
 
                     RegexNode.Or(ofSeq twoormore, mergedInfo)
 
@@ -1038,17 +1158,14 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.CreateInfo(flags, startset) : RegexNodeInfo<_> =
-        match _regexInfoCache.TryGetValue(struct (flags, startset)) with
-        | true, v -> v
-        | _ ->
-            let v = {
-                Flags = flags
-                Startset = startset
-                InitialStartset = Uninitialized
-            }
+        // match _regexInfoCache.TryGetValue(struct (flags, startset)) with
+        // | true, v -> v
+        // | _ ->
+        let v =
+            RegexNodeInfo<'t>(Flags = flags, Startset = startset, InitialStartset = Uninitialized)
 
-            _regexInfoCache.Add(struct (flags, startset), v)
-            v
+        // _regexInfoCache.Add(struct (flags, startset), v)
+        v
 
 
 // trivia:

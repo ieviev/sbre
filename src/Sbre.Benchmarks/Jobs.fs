@@ -2,6 +2,7 @@ module Sbre.Benchmarks.Jobs
 
 open System
 // open System.Text.RuntimeRegexCopy
+open System.Threading
 open BenchmarkDotNet.Attributes
 open Sbre
 open Sbre.Pat
@@ -563,15 +564,15 @@ type Minterms() =
 
 
     member val Matcher: Regex = Unchecked.defaultof<_> with get, set
-    member val Cache: RegexCache<uint64> = Unchecked.defaultof<_> with get, set
-    member val Minterms:  uint64 array = Unchecked.defaultof<_> with get, set
+    // member val Cache: RegexCache<uint64> = Unchecked.defaultof<_> with get, set
+    // member val Minterms:  uint64 array = Unchecked.defaultof<_> with get, set
     // member val Classifier: MintermClassifier = Unchecked.defaultof<_> with get, set
 
     [<GlobalSetup>]
     member this.Setup() =
         this.Matcher <- Regex(@"~(⊤*\n\n⊤*)&⊤*Huck⊤*")
-        this.Cache <- this.Matcher.Cache
-        this.Minterms <- this.Matcher.Cache.Minterms()
+        // this.Cache <- this.Matcher.Cache
+        // this.Minterms <- this.Matcher.Cache.Minterms()
 
     // [<Benchmark>]
     // member this.Minterm1() =
@@ -586,12 +587,12 @@ type Minterms() =
     //     for i = 0 to 100 do
     //         this.Cache.Classify2(spn[i]) |> ignore
 
-    [<Benchmark>]
-    member this.Elem1() =
-        let spn = input.AsSpan()
-        for i = 0 to 100 do
-            let loc = this.Cache.Classify(spn[i])
-            Solver.elemOfSet loc 11uL |> ignore
+    // [<Benchmark>]
+    // member this.Elem1() =
+    //     let spn = input.AsSpan()
+    //     for i = 0 to 100 do
+    //         let loc = this.Cache.Classify(spn[i])
+    //         Solver.elemOfSet loc 11uL |> ignore
 
     // [<Benchmark>]
     // member this.Elem2() =
@@ -1426,21 +1427,21 @@ type TestAllEnginesAllPatternsSeparateWithCompileTime(patterns: (string*string*s
     // member this.Compiled() =
     //     System.Text.RegularExpressions.Regex(fst (patterns[this.NumOfWords - 1]), opts_Compiled, TimeSpan.FromSeconds(10)).Count(inputText)
 
-    [<Benchmark(Description="Compiled:Look")>]
-    member this.CompiledLookahead() =
-        System.Text.RegularExpressions.Regex(trd (patterns[this.NumOfWords - 1]), opts_Compiled, TimeSpan.FromSeconds(10)).Count(inputText)
-    //
-    //
-    // [<Benchmark(Description="Sbre:Alt")>]
-    // member this.SbreAlt() =
-    //     use cts = new CancellationTokenSource()
-    //     cts.CancelAfter(millisecondsDelay = 10_000)
-    //     let tsk =
-    //         System.Threading.Tasks.Task.Factory.StartNew((fun v ->
-    //             Regex(fst (patterns[this.NumOfWords - 1])).Count(inputText)), cts.Token
-    //         )
-    //
-    //     tsk.Wait(cts.Token)
+    // [<Benchmark(Description="Compiled:Look")>]
+    // member this.CompiledLookahead() =
+    //     System.Text.RegularExpressions.Regex(trd (patterns[this.NumOfWords - 1]), opts_Compiled, TimeSpan.FromSeconds(10)).Count(inputText)
+
+
+    [<Benchmark(Description="Sbre:Alt")>]
+    member this.SbreAlt() =
+        use cts = new CancellationTokenSource()
+        cts.CancelAfter(millisecondsDelay = 10_000)
+        let tsk =
+            System.Threading.Tasks.Task.Factory.StartNew((fun v ->
+                Regex(fst (patterns[this.NumOfWords - 1])).Count(inputText)), cts.Token
+            )
+
+        tsk.Wait(cts.Token)
 
     [<Benchmark(Description = "Sbre:Conj")>]
     member this.Sbre() =
@@ -1489,24 +1490,23 @@ type TestAllEnginesSeparate(defaultRegex: string, sbreRegex: string, input: stri
         this.None_Regex <- System.Text.RegularExpressions.Regex(defaultRegex, opts_None, TimeSpan.FromSeconds(90))
         this.NonBack_Regex <- System.Text.RegularExpressions.Regex(defaultRegex, opts_NonBacktracking, TimeSpan.FromSeconds(90))
 
-        ()
 
-    [<Benchmark(Description = "NonBacktrack: .*R1.*R2.*|.*R2.*R1.*")>]
-    member this.Symbolic() =
-        this.NonBack_Regex.Count(inputText)
+    // [<Benchmark(Description = "NonBacktrack: .*R1.*R2.*|.*R2.*R1.*")>]
+    // member this.Symbolic() =
+    //     this.NonBack_Regex.Count(inputText)
+    // //
     //
+    // [<Benchmark(Description="None: .*R1.*R2.*|.*R2.*R1.*")>]
+    // member this.None() =
+    //     this.None_Regex.Count(inputText)
+    //
+    // [<Benchmark(Description="Compiled: .*R1.*R2.*|.*R2.*R1.*")>]
+    // member this.Compiled() =
+    //     this.Compiled_Regex.Count(inputText)
 
-    [<Benchmark(Description="None: .*R1.*R2.*|.*R2.*R1.*")>]
-    member this.None() =
-        this.None_Regex.Count(inputText)
-
-    [<Benchmark(Description="Compiled: .*R1.*R2.*|.*R2.*R1.*")>]
-    member this.Compiled() =
-        this.Compiled_Regex.Count(inputText)
-
-    // [<Benchmark(Description="Sbre: .*R1.*R2.*|.*R2.*R1.*")>]
-    // member this.SbreAlt() =
-    //     this.SbreAlt_Regex.Count(inputText)
+    [<Benchmark(Description="Sbre: .*R1.*R2.*|.*R2.*R1.*")>]
+    member this.SbreAlt() =
+        this.SbreAlt_Regex.Count(inputText)
 
     [<Benchmark(Description = "Sbre: .*R1.*&.*R2.*")>]
     member this.Sbre() =
@@ -1561,3 +1561,26 @@ type TestAllEnginesCount(defaultRegex: string, sbreRegex: string, input: string)
         this.Sbre_Regex.Count(inputText)
 
 
+[<MemoryDiagnoser(false)>]
+[<ShortRunJob>]
+[<AbstractClass>]
+[<HideColumns([| "" |])>]
+type TestOnlyNonBacktracking(pattern: string, input: string) =
+    do AppContext.SetData("REGEX_NONBACKTRACKING_MAX_AUTOMATA_SIZE", 1_000_000)
+    let inputText = input
+
+    let opts_NonBacktracking =
+        Text.RuntimeRegexCopy.RegexOptions.NonBacktracking
+        ||| Text.RuntimeRegexCopy.RegexOptions.ExplicitCapture
+
+    member val NonBack_Regex: System.Text.RuntimeRegexCopy.Regex =
+        System.Text.RuntimeRegexCopy.Regex(pattern, opts_NonBacktracking) with get, set
+
+
+    [<GlobalSetup>]
+    member this.Setup() = ()
+
+
+    [<Benchmark(Description = "NonBacktrack")>]
+    member this.Symbolic() =
+        this.NonBack_Regex.Count(inputText)

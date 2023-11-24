@@ -146,7 +146,7 @@ type DebugSbre3() =
         // @"~(⊤*\n\n⊤*)&⊤*Huck⊤*"
 
         // Permutations.permuteConjInParagraph ["Huck";  ]
-        Permutations.permuteConjInParagraph ["Huck";"Finn"; ]
+        // Permutations.permuteConjInParagraph ["Huck";"Finn"; ]
         // Permutations.permuteConjInParagraph ["Huck";"Finn"; "Tom"; ]
         // Permutations.permuteConjInParagraph ["Huck";"Finn"; "Tom"; "Sawyer" ]
 
@@ -161,7 +161,7 @@ type DebugSbre3() =
         // Permutations.permuteConjInLine ["which";]
         // Permutations.permuteConjInLine ["which";"could"]
         // Permutations.permuteConjInLine ["which";"could"; "where"]
-        // Permutations.permuteConjInLine ["t.*hat"; "a.*nd"; "t.*he";"w.*as"]
+        Permutations.permuteConjInLine ["t.*hat"; "a.*nd"; "t.*he";"w.*as"]
 
         // @"~(⊤*\n\n⊤*)&⊤*Huck⊤*&⊤*could⊤*&⊤*there⊤*"
     ], fullInput)
@@ -396,14 +396,14 @@ type LineRegexes() =
     inherit
         Jobs.TestAllEnginesAllPatternsSeparateWithCompileTime(
             [
-               // inLine 0
+               inLine 0
                // inLine 1
                // inLine 2
                // inLine 3
                // inLine 4
                // inLine 5
                // inLine 6
-               inLine 19
+               // inLine 19
             ],
             fullInput
         )
@@ -415,6 +415,12 @@ type LineRegexes() =
 
 
 
+type TestNonbacktrackingByte() =
+    inherit
+        Jobs.TestOnlyNonBacktracking(
+            ".*Huck.*",
+            fullInput
+        )
 
 
 

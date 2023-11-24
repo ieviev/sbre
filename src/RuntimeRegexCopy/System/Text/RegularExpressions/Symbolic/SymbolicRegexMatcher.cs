@@ -126,7 +126,7 @@ namespace System.Text.RegularExpressions.Symbolic
         /// <summary>Constructs matcher for given symbolic regex.</summary>
         private SymbolicRegexMatcher(SymbolicRegexBuilder<TSet> builder, SymbolicRegexNode<TSet> rootNode, int captureCount, RegexFindOptimizations findOptimizations, TimeSpan matchTimeout)
         {
-            Debug.Assert(builder._solver is UInt64Solver or BitVectorSolver, $"Unsupported solver: {builder._solver}");
+            Debug.Assert(builder._solver is UInt8Solver or UInt64Solver or BitVectorSolver, $"Unsupported solver: {builder._solver}");
             _pattern = rootNode;
             _builder = builder;
             _checkTimeout = Regex.InfiniteMatchTimeout != matchTimeout;
@@ -138,7 +138,12 @@ namespace System.Text.RegularExpressions.Symbolic
             // minterms or adds an extra bit with power-of-two minterms. The extra slot at index _minterms.Length is used to
             // represent an \n occurring at the very end of input, for supporting the \Z anchor.
             _mintermsLog = BitOperations.Log2((uint)_minterms.Length) + 1;
-            _mintermClassifier = builder._solver is UInt64Solver bv64 ? bv64._classifier : ((BitVectorSolver)(object)builder._solver)._classifier;
+            _mintermClassifier = builder._solver switch
+            {
+                UInt64Solver bv64 => bv64._classifier,
+                UInt8Solver bv8 => bv8._classifier,
+                _ => ((BitVectorSolver)(object)builder._solver)._classifier
+            };
             _capsize = captureCount;
             // Initialization for fields in SymbolicRegexMatcher.Automata.cs
             _stateArray = new MatchingState<TSet>[InitialDfaStateCapacity];

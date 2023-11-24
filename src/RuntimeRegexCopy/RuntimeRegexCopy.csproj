@@ -36,6 +36,7 @@
         </Compile>
         <Compile Include="System\Collections\HashtableExtensions.cs" />
         <Compile Include="System\Text\RegularExpressions\ExtendedRegexParser.cs" />
+        <Compile Include="System\Text\RegularExpressions\Symbolic\UInt8Solver.cs" />
         <Compile Include="System\Text\RegularExpressions\ValueMatch.cs" />
         <Compile Include="System\Threading\StackHelper.cs" />
         <Compile Include="System\Text\SegmentStringBuilder.cs" />

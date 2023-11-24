@@ -30,6 +30,7 @@
     <InternalsVisibleTo Include="Sbre.Benchmarks" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Debug.fs" />
     <Compile Include="Types.fs" />
     <Compile Include="Pat.fs" />
     <Compile Include="Info.fs" />
@@ -45,11 +46,13 @@
     <PackageOutputPath>./nupkg</PackageOutputPath>
     <Authors>ieviev</Authors>
     <Title>$(ProjectName)</Title>
-    <Version>0.0.13</Version>
+    <Version>0.0.14</Version>
   </PropertyGroup>
   <ItemGroup>
-<!--      <Reference Include="RuntimeRegexCopy"><HintPath>../RuntimeRegexCopy/bin/Release/net7.0/RuntimeRegexCopy.dll</HintPath></Reference>-->
-      <ProjectReference Include="..\RuntimeRegexCopy\RuntimeRegexCopy.csproj" />
+    <!-- <Reference Include="RuntimeRegexCopy">
+      <HintPath>../RuntimeRegexCopy/bin/Release/net7.0/RuntimeRegexCopy.dll</HintPath>
+    </Reference> -->
+    <ProjectReference Include="..\RuntimeRegexCopy\RuntimeRegexCopy.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Update="FSharp.Core" Version="7.0.*" />
