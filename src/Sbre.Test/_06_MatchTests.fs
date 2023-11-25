@@ -96,8 +96,8 @@ let ``top level or remove in correct order``() =
 let ``lookarounds test 1``() =
     let matcher = Regex(""" Sep""")
     let mutable loc = Pat.Location.create "1 Sep" 1
-    let ism =
-        RegexNode.matchEnd (matcher.Cache, &loc, matcher.RawPattern)
+    let ism = matcher.FindMatchEnd(""" Sep""")
+        // RegexNode.matchEnd (matcher.Cache, &loc, matcher.RawPattern)
 
     Assert.True(ism.IsSome)
 
@@ -347,7 +347,7 @@ let ``reverse pattern 2``() =
     let m = Regex(@"(?=.*A)(?=.*a)(?=.*1).{3,3}")
     let m_rev = Regex(@".{3,3}(?<=1.*)(?<=a.*)(?<=A.*)")
 
-    let res = RegexNode.matchEnd (m.Cache, &startLocation, m.ReversePattern)
+    let res = m_rev.FindMatchEnd("1aA")
     // let res_rev = RegexNode.matchEnd (m_rev.Cache,startLocation , ValueNone, m_rev.RawPattern)
     // Assert.Equal(res_rev,res)
     ()
@@ -387,7 +387,7 @@ let ``end with truestar test``() =
     let matcher = Regex("class=\"⊤*")
     // let matcher = Matcher(@"~(Lorem⊤*)")
     let input = @"class=""dasdasdsdasd"""
-    let result = matcher.Match(input)
+    let result = matcher.MatchText(input)
     // Assert.Equal(Some "a------b", result)
     Assert.Equal(input, result.Value)
 

@@ -1,6 +1,7 @@
 module rec Sbre.Pat
 
 open System.Collections.Generic
+open System.Runtime.CompilerServices
 open System.Text.RuntimeRegexCopy.Symbolic
 open Sbre.Types
 open System
@@ -13,28 +14,34 @@ module Extensions =
         /// - i.e. location si is elem of Singleton ψ
         /// - (location is smaller than singleton)
         /// - predicate matches location
-        member inline this.isElemOfSet(predicate: 't, locationMinterm: 't) =
+        [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+        member this.isElemOfSet(predicate: 't, locationMinterm: 't) =
             not (this.IsEmpty(this.And(locationMinterm, predicate)))
 
-        /// marginally faster variant that skips the middleman
-        member inline this.isElemOfSetu64(predicate: uint64, locationMinterm: uint64) =
-            predicate &&& locationMinterm <> 0uL
+        [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+        member this.notElemOfSet(predicate: 't, locationMinterm: 't) =
+            this.IsEmpty(this.And(locationMinterm, predicate))
 
 
+
+#nowarn "42"
 
 module Solver =
-    let inline isElemOfSetU64 predicate locationMinterm = predicate &&& locationMinterm <> 0uL
+    // todo
     let inline elemOfSet predicate locationMinterm =
         predicate &&& locationMinterm <> LanguagePrimitives.GenericZero
+
+    let inline il_and (x:'t) (y:'t) =
+        (# "and" x y : 't #)
     let inline notElemOfSet predicate locationMinterm =
         (predicate &&& locationMinterm) = LanguagePrimitives.GenericZero
     let inline contains
         (larger: ^d when ^d : struct)
         (smaller: ^d): bool =
             (larger &&& smaller) = smaller
-    let inline notElemOfSetU64 predicate locationMinterm = predicate &&& locationMinterm = 0uL
-    let inline not predicate = ~~~predicate
-    let inline mapOr (s:ISolver<^t>) ([<InlineIfLambda>]f: 'a -> ^t) (xs): ^t =
+    // let inline notElemOfSetU64 predicate locationMinterm = predicate &&& locationMinterm = 0uL
+    let inline not' predicate = ~~~predicate
+    let inline mapOr (s:ISolver<^t>) ([<InlineIfLambda>]f: 'a -> ^t) xs: ^t =
         let mutable startset = s.Empty
         for x in xs do
             startset <- s.Or(startset,f x)
@@ -45,7 +52,7 @@ module Solver =
         ([<InlineIfLambda>]f: RegexNode<'t> -> ^t)
         (coll:byref<Collections.Immutable.ImmutableHashSet<RegexNode<'t>>.Enumerator>): ^t =
         let mutable ss = s.Empty
-        while coll.MoveNext() = true do
+        while (not (s.IsFull(ss))) && coll.MoveNext() do
             ss <- s.Or(ss,f coll.Current)
         ss
 
@@ -71,8 +78,8 @@ type LoopKind =
     | Normal = 8uy
 
 /// loop recognizer from lower and upper
-let (|LoopKind|) struct(x:int,y:int) =
-    match x,y with
+let inline (|LoopKind|) struct(x:int,y:int) =
+    match struct(x,y) with
     | 0, 0 -> LoopKind.EmptyLoop
     | 1, 1 -> LoopKind.Single
     | 0, Int32.MaxValue -> LoopKind.Star
@@ -99,7 +106,7 @@ let rec loopSubsumesBranch (solver:ISolver<'t>) (largePred: 't) (node:RegexNode<
     | _ ->
         false
 
-let isSubsumedFromAnd (solver:ISolver<'t>) (pred) (singletonLoop) (nodes:RegexNode<_>seq) =
+let isSubsumedFromAnd (solver:ISolver<'t>) pred singletonLoop (nodes:RegexNode<_>seq) =
     nodes
     |> Seq.exists
         (fun other ->
@@ -131,12 +138,12 @@ let (|AllSameHead|_|) (nodes: HashSet<RegexNode<_>>) =
 
 
 
-let rec isSubSequence (solver:ISolver<'t>) (bigger: RegexNode<'t>) (smaller: RegexNode<'t>): RegexNode<'t> voption  =
+let rec isSubSequence (bigger: RegexNode<uint64>) (smaller: RegexNode<uint64>): RegexNode<uint64> voption  =
     match bigger, smaller with
     | Concat(head = SingletonStarLoop(head1); tail = tail1), Or(nodes = xs) ->
         xs
         |> Seq.tryPick (fun v ->
-            match isSubSequence solver tail1 v with
+            match isSubSequence tail1 v with
             | ValueSome v -> Some v
             | _ -> None
         )
@@ -150,26 +157,26 @@ let rec isSubSequence (solver:ISolver<'t>) (bigger: RegexNode<'t>) (smaller: Reg
             if obj.ReferenceEquals(tail1, tail2) then
                 ValueSome smaller
             else
-                isSubSequence solver tail1 smaller
+                isSubSequence tail1 smaller
         | Singleton spred, SingletonStarLoop(lpred) ->
-            if solver.isElemOfSet (lpred, spred) then
+            if Solver.elemOfSet lpred spred then
                 if obj.ReferenceEquals(tail1, smaller) then
                     ValueSome smaller
                 else
-                    isSubSequence solver tail1 smaller
+                    isSubSequence tail1 smaller
             else
                 ValueNone
         | Or(nodes= headNodes), SingletonStarLoop(lpred) ->
             failwith "todo"
-            if setIsSubsumedSingle (unbox solver) (unbox headNodes) (unbox smaller) then
+            if setIsSubsumedSingle headNodes smaller then
                 ValueSome smaller
             else
                 ValueNone
         | _ ->
             ValueNone
-    | _, n when n.IsAlwaysNullable -> ValueSome (smaller)
+    | _, n when n.IsAlwaysNullable -> ValueSome smaller
     // | _, Epsilon -> ValueSome (smaller)
-    | Loop(_), _
+    | Loop _, _
     | Or _, Concat _
     | Or _, Or _
     | Not _, _
@@ -182,24 +189,24 @@ let rec isSubSequence (solver:ISolver<'t>) (bigger: RegexNode<'t>) (smaller: Reg
         ValueNone
 
 
-let rec setIsSubsumed (solver:ISolver<uint64>) (bigger: RegexNode<uint64> seq) (smaller: RegexNode<uint64> seq) : bool  =
+let rec setIsSubsumed  (bigger: RegexNode<_> seq) (smaller: RegexNode<_> seq) : bool  =
     use mutable eSmaller = smaller.GetEnumerator()
     use mutable eBigger = bigger.GetEnumerator()
     let mutable found = false
     while eSmaller.MoveNext() do
         while not found && eBigger.MoveNext() do
-            match isSubSequence solver eBigger.Current eSmaller.Current   with
+            match isSubSequence eBigger.Current eSmaller.Current   with
             | ValueSome v ->
                 found <- true
             | _ -> ()
     found
 
 
-let rec setIsSubsumedSingle (solver:ISolver<uint64>) (bigger: RegexNode<uint64> seq) (smaller: RegexNode<uint64>) : bool  =
+let rec setIsSubsumedSingle (bigger: RegexNode<_> seq) (smaller: RegexNode<_>) : bool  =
     use mutable eBigger = bigger.GetEnumerator()
     let mutable found = false
     while not found && eBigger.MoveNext() do
-        match isSubSequence solver eBigger.Current smaller with
+        match isSubSequence eBigger.Current smaller with
         | ValueSome v ->
             found <- true
         | _ -> ()
@@ -207,17 +214,17 @@ let rec setIsSubsumedSingle (solver:ISolver<uint64>) (bigger: RegexNode<uint64> 
 
 
 [<return: Struct>]
-let (|TrySubsumeSameTail|_|) (solver) (nodes: HashSet<RegexNode<_>>) =
+let (|TrySubsumeSameTail|_|) (nodes: HashSet<RegexNode<uint64>>) =
     let arr =
         nodes
         |> Seq.toArray
     match arr with
     | [| e1; e2 |] ->
-        match isSubSequence solver e1 e2 with
+        match isSubSequence e1 e2 with
         | ValueSome s -> ValueSome(s)
         | _ ->
-            match isSubSequence solver e2 e1 with
-            | ValueSome s -> ValueSome (s)
+            match isSubSequence e2 e1 with
+            | ValueSome s -> ValueSome s
             | _ -> ValueNone
     | _ ->
         // TODO:
@@ -232,13 +239,14 @@ let (|TrySubsumeSameTail|_|) (solver) (nodes: HashSet<RegexNode<_>>) =
 
 
 module Location =
-    let inline create (str: string) (p: int32) : Location = { Input = str; Position = p; Reversed = false }
-    let inline rev (loc: Location) =
-        {
-            Input = loc.Input
-            Position = loc.Position
-            Reversed = not loc.Reversed
-        }
+    let inline create (str: string) (p: int32) : Location = { Input = str.AsSpan(); Position = p; Reversed = false }
+    let inline createSpan (str: ReadOnlySpan<char>) (p: int32) : Location = { Input = str; Position = p; Reversed = false }
+    let inline clone (loc:inref<Location>) : Location =
+        { Input = loc.Input ; Position = loc.Position ; Reversed = loc.Reversed }
+    let inline createSpanRev (str: ReadOnlySpan<char>) (p: int32) (currDirection:bool) : Location = {
+        Input = str; Position = p; Reversed = not currDirection
+    }
+
     let inline nextPosition (loc: Location) =
         match loc.Reversed with
         | true -> (loc.Position - 1)
@@ -252,4 +260,8 @@ module Location =
         | _ -> loc.Input.Length
 
 
-let inline refEq x y = obj.ReferenceEquals(x, y)
+let inline refEq x y =
+    // obj.ReferenceEquals(x, y)
+    // System.Runtime.CompilerServices.RuntimeHelpers.Equals(x,y)
+    // obj.ReferenceEquals(x, y)
+    LanguagePrimitives.PhysicalEquality x y

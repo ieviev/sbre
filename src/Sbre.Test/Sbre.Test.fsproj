@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net7.0</TargetFramework>
+        <TargetFramework>net8.0</TargetFramework>
         <IsPackable>false</IsPackable>
         <GenerateProgramFile>false</GenerateProgramFile>
 <!--        <DefineConstants>$(DefineConstants);DIAGNOSTIC;DEBUG;OPTIMIZE</DefineConstants>-->
@@ -11,6 +11,7 @@
 
     <ItemGroup>
         <Compile Include="Samples.fs" />
+        <Compile Include="Common.fs" />
         <Compile Include="_02_NodeTests.fs" />
         <Compile Include="_03_StartsetTests.fs" />
         <Compile Include="_01_ParserTests.fs" />

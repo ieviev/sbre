@@ -4,6 +4,7 @@ module Debug
 open System.Text.RuntimeRegexCopy.Symbolic
 
 
-let mutable debuggerSolver: ISolver<uint64> option = None
+// let mutable debuggerSolver: ISolver<obj> option = None
 
 #endif
+

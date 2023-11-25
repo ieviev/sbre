@@ -54,6 +54,7 @@ namespace System.Text.RuntimeRegexCopy
         {
         }
 
+        [Obsolete]
         protected RegexMatchTimeoutException(SerializationInfo info, StreamingContext context) : base(info, context)
         {
             Input = info.GetString("regexInput")!;
@@ -61,6 +62,7 @@ namespace System.Text.RuntimeRegexCopy
             MatchTimeout = new TimeSpan(info.GetInt64("timeoutTicks"));
         }
 
+        [Obsolete]
         void ISerializable.GetObjectData(SerializationInfo info, StreamingContext context)
         {
             base.GetObjectData(info, context);

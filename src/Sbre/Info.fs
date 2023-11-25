@@ -108,7 +108,7 @@ module rec Startset =
         | Or(xs, info) ->
             use mutable e = xs.GetEnumerator()
 
-            if info.CanNotBeNullable then
+            if info.CanNotBeNullable() then
                 Solver.mergeOrWithEnumerator _solver (inferStartset _solver) &e
             else
                 let headss = Solver.mergeOrWithEnumerator _solver (inferStartset _solver) &e
@@ -123,7 +123,7 @@ module rec Startset =
         | And(xs, info) ->
             use mutable e = xs.GetEnumerator()
 
-            if info.CanNotBeNullable then
+            if info.CanNotBeNullable() then
                 Solver.mergeOrWithEnumerator _solver (inferStartset _solver) &e
             else
                 let headss = Solver.mergeOrWithEnumerator _solver (inferStartset _solver) &e
@@ -169,9 +169,9 @@ module rec Startset =
 
 
     let mergePrefixes
-        (_solver: ISolver<uint64>)
-        (prefix1: ResizeArray<uint64>)
-        (prefix2: uint64[])
+        (_solver: ISolver<'t>)
+        (prefix1: ResizeArray<'t>)
+        (prefix2: Memory<'t>)
         =
         // initialize if needed
         if prefix1.Count = 0 then
@@ -184,24 +184,24 @@ module rec Startset =
                 prefix1.RemoveAt(prefix1.Count - 1)
 
         for i = 0 to prefix1.Count - 1 do
-            let ss = prefix2[i]
+            let ss = prefix2.Span[i]
             prefix1[i] <- _solver.Or(ss, prefix1[i])
 
 
-    let mergePrefixesArr (_solver: ISolver<uint64>) (prefix1: uint64[]) (prefix2: uint64[]) =
+    let mergePrefixesArr (_solver: ISolver<'t>) (prefix1: Memory<'t>) (prefix2: Memory<'t>) =
         let longer, shorter =
             match prefix1.Length < prefix2.Length with
             | true -> prefix2, prefix1
             | _ -> prefix1, prefix2
 
         for i = 0 to shorter.Length - 1 do
-            shorter[i] <- _solver.Or(longer[i], shorter[i])
+            shorter.Span[i] <- _solver.Or(longer.Span[i], shorter.Span[i])
 
         shorter
 
 
     /// can't be used during-match as it would skip newlines in .*
-    let rec inferInitialStartset (_solver: ISolver<uint64>) (startNode: RegexNode<uint64>) =
+    let rec inferInitialStartset (_solver: ISolver<'t>) (startNode: RegexNode<'t>) =
         let mutable acc = ResizeArray()
         let loopterminatorPrefix = ResizeArray()
         let mutable uninitialized = true
@@ -241,7 +241,7 @@ module rec Startset =
                         acc.Add(_solver.Empty)
 
                     for i = 0 to arr.Length - 1 do
-                        let ss = arr[i]
+                        let ss = arr.Span[i]
                         acc[i] <- _solver.Or(ss, acc[i])
                 | _ -> ()
 
@@ -297,7 +297,7 @@ module rec Startset =
                     // ()
                     | LookAround _ -> () // ignore
                     | Loop _ -> cannotOptimizeYet <- true
-                    | Concat(_)
+                    | Concat _
                     | Or(_)
                     | And(_) ->
                         match inferInitialStartset _solver e.Current with
@@ -310,9 +310,9 @@ module rec Startset =
                             cannotOptimizeYet <- true
                         | InitialStartset.Uninitialized -> failwith "todo"
                     | Singleton pred ->
-                        mergePrefixes _solver acc [|pred|]
+                        mergePrefixes _solver acc ([|pred|].AsMemory())
                     | Epsilon ->
-                        mergePrefixes _solver acc [||]
+                        mergePrefixes _solver acc ([||].AsMemory())
 
                 curr <- Unchecked.defaultof<_>
             // and
@@ -337,7 +337,7 @@ module rec Startset =
                         match node, low, up with
                         | Singleton pred, 0, Int32.MaxValue ->
                             if not (_solver.IsFull(pred)) then
-                                mergePrefixes _solver loopterminatorPrefix [| _solver.Not(pred) |]
+                                mergePrefixes _solver loopterminatorPrefix ([| _solver.Not(pred) |].AsMemory())
                         | _ -> cannotOptimizeYet <- true
                     // ()
                     | LookAround(_) -> () // ignore
@@ -369,7 +369,7 @@ module rec Startset =
                 match head with
                 // \d{2,2}
                 | Loop(Singleton pred, low, up, regexNodeInfo) ->
-                    mergePrefixes _solver acc (Array.init low (fun v -> pred))
+                    mergePrefixes _solver acc ((Array.init low (fun v -> pred)).AsMemory())
                     curr <- Unchecked.defaultof<_>
 
                 | _ ->
@@ -401,9 +401,9 @@ module rec Startset =
                 InitialStartset.Unoptimized
             else
                 let arr = loopterminatorPrefix.ToArray()
-                InitialStartset.MintermArrayPrefix(arr, arr)
+                InitialStartset.MintermArrayPrefix(arr.AsMemory(), arr)
         else
-            InitialStartset.MintermArrayPrefix(acc.ToArray(), loopterminatorPrefix.ToArray())
+            InitialStartset.MintermArrayPrefix(acc.ToArray().AsMemory(), loopterminatorPrefix.ToArray())
 
 
 
@@ -449,13 +449,14 @@ module rec Flags =
     let inferConcat (head: RegexNode<'t>) (tail: RegexNode<'t>) =
 
         // todo: can be optimized
-        let infos = [| inferNodeOptimized head; inferNodeOptimized tail |] |> Seq.toArray
+        let h1 = inferNodeOptimized head //|> Seq.toArray
+        let t1 = inferNodeOptimized tail //|> Seq.toArray
 
-        let allCanBeNull = infos |> Array.forall (fun v -> v.HasFlag(Flag.CanBeNullable))
+        let allCanBeNull = h1.HasFlag(Flag.CanBeNullable) && t1.HasFlag(Flag.CanBeNullable)
 
-        let allAlwaysNull = infos |> Array.forall (Flag.hasFlag Flag.IsAlwaysNullable)
+        let allAlwaysNull = h1.HasFlag(Flag.IsAlwaysNullable) && t1.HasFlag(Flag.IsAlwaysNullable)
 
-        let canSkipHead = infos[0] |> Flag.hasFlag Flag.CanSkip
+        let canSkipHead = h1 |> Flag.hasFlag Flag.CanSkip
 
         let isPrefix =
             match head, tail with
@@ -464,7 +465,7 @@ module rec Flags =
             | _ -> false
 
         let newFlags =
-            infos
+            seq {h1 ; t1}
             |> Seq.map Flag.getContainsFlags
             |> Flag.mergeFlags
             |> Flag.withFlagIf allCanBeNull Flag.CanBeNullable
@@ -581,26 +582,33 @@ module Node =
         | Concat(info = info) -> info.IsAlwaysNullable
         | Epsilon -> false
 
+    let inline isAlwaysNullableV(vinfo: RegexNodeInfo<'t> voption, node:RegexNode<'t>) =
+        match vinfo with
+        | ValueSome info -> info.IsAlwaysNullable
+        | ValueNone -> isAlwaysNullable node
+
     let inline canBeNullable(node: RegexNode<'t>) =
         match node with
-        | Or(info = info) -> info.CanBeNullable
+        | Or(info = info) | Loop(info = info) | And(info = info) | Not(info = info) | Concat(info = info) ->
+            info.Flags.HasFlag(Flag.CanBeNullable)
         | Singleton _ -> false
-        | Loop(info = info) -> info.CanBeNullable
-        | And(info = info) -> info.CanBeNullable
-        | Not(info = info) -> info.CanBeNullable
         | LookAround _ -> true
-        | Concat(info = info) -> info.CanBeNullable
         | Epsilon -> true
+
+    let inline canBeNullableV(vinfo: RegexNodeInfo<'t> voption, node:RegexNode<'t>)=
+        match vinfo with
+        | ValueSome info -> info.CanBeNullable
+        | ValueNone -> canBeNullable node
 
     let inline canSkip(node: RegexNode<'t>) =
         match node with
-        | Or(info = info) -> info.CanSkip
+        | Or(info = info) -> info.CanSkip()
         | Singleton _ -> false
-        | Loop(info = info) -> info.CanSkip
-        | And(info = info) -> info.CanSkip
-        | Not(info = info) -> info.CanSkip
+        | Loop(info = info) -> info.CanSkip()
+        | And(info = info) -> info.CanSkip()
+        | Not(info = info) -> info.CanSkip()
         | LookAround _ -> false
-        | Concat(info = info) -> info.CanSkip
+        | Concat(info = info) -> info.CanSkip()
         | Epsilon -> false
 
     let inline containsLookaround(node: RegexNode<'t>) =

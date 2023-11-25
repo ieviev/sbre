@@ -1,6 +1,7 @@
 namespace rec Sbre.Types
 
 open System
+open System.Buffers
 open System.Collections.Generic
 open System.Collections.Immutable
 open System.Runtime.CompilerServices
@@ -21,32 +22,35 @@ module Debug =
 
 /// A location in s is a pair ⟨s, i⟩, where −1 ≤ i ≤ |s |
 [<DebuggerDisplay("{DebugDisplay()}")>]
-[<Struct>] // todo: try as reference
+[<Struct; IsByRefLike>]
 type Location = {
-    Input: string
+    Input: ReadOnlySpan<char>
     mutable Position: int32
     mutable Reversed: bool
 }
+
 #if DEBUG
     with
     member this.DebugDisplay() =
-        if this.Position = this.Input.Length then
-            this.Input + "|"
-        else if
+        if
             // display entire input if it is short
             this.Input.Length < 60
         then
-            let inserted = this.Input.Insert(this.Position, "|")
-            $"%s{this.Input[this.Position].ToString()}, %s{inserted}, %i{this.Position}"
+            if this.Position = this.Input.Length then
+                this.Input.ToString() + "|"
+            else
+                let inserted = this.Input.ToString().Insert(this.Position, "|")
+                $"%s{this.Input[this.Position].ToString()}, %s{inserted}, %i{this.Position}"
         else
             $"%s{this.Input[this.Position].ToString()}, %i{this.Position}"
 
 #endif
 
-type InitialStartset =
+[<Struct;>]
+type InitialStartset<'t> =
     | Uninitialized
     | Unoptimized
-    | MintermArrayPrefix of prefix: uint64[] * loopTerminator: uint64[]
+    | MintermArrayPrefix of prefix: Memory<'t> * loopTerminator: Memory<'t>
 
 
 [<Flags>]
@@ -69,18 +73,24 @@ type RegexNodeInfo<'tset when 'tset :> IEquatable<'tset> and 'tset: equality >()
 
     member val Flags: RegexNodeFlags = RegexNodeFlags.None with get, set
     member val Startset: 'tset = Unchecked.defaultof<'tset> with get, set
-    member val InitialStartset: InitialStartset = InitialStartset.Uninitialized with get, set
+    member val InitialStartset: InitialStartset<'tset> = InitialStartset.Uninitialized with get, set
     member val Transitions: ResizeArray<Transition<'tset>> = ResizeArray() with get, set
+    member val Subsumes: Dictionary<RegexNode<'tset>,bool> = Dictionary() with get, set
 
     member inline this.IsAlwaysNullable =
-        (this.Flags &&& RegexNodeFlags.IsAlwaysNullable) <> RegexNodeFlags.None
+        this.Flags.HasFlag(RegexNodeFlags.IsAlwaysNullable)
+        // (this.Flags &&& RegexNodeFlags.IsAlwaysNullable) <> RegexNodeFlags.None
 
     member inline this.CanBeNullable =
-        (this.Flags &&& RegexNodeFlags.CanBeNullable) <> RegexNodeFlags.None
+        this.Flags.HasFlag(RegexNodeFlags.CanBeNullable)
+        // (this.Flags &&& RegexNodeFlags.CanBeNullable) <> RegexNodeFlags.None
 
-    member inline this.CanSkip = (this.Flags &&& RegexNodeFlags.CanSkip) <> RegexNodeFlags.None
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    member this.CanSkip() =
+        this.Flags.HasFlag(RegexNodeFlags.CanSkip)
 
-    member inline this.CanNotBeNullable =
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    member this.CanNotBeNullable() =
         (this.Flags &&& RegexNodeFlags.IsAlwaysNullable) = RegexNodeFlags.None
 
     member inline this.ContainsLookaround =
@@ -92,8 +102,6 @@ type RegexNodeInfo<'tset when 'tset :> IEquatable<'tset> and 'tset: equality >()
     member inline this.HasPrefix = this.Flags.HasFlag(RegexNodeFlags.Prefix)
 
 
-
-[<DebuggerDisplay("{ToStringHelper()}")>]
 [<ReferenceEquality>]
 type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
     | Concat of  // RE.RE
@@ -134,27 +142,44 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
         | Epsilon -> "-"
 #endif
 
-    member inline this.Startset =
-        match this with
-        | Or(info = info) -> info.Startset
-        | Singleton pred -> pred
-        | Loop(info = info) -> info.Startset
-        | And(info = info) -> info.Startset
-        | Not(info = info) -> info.Startset
-        | LookAround _ -> Unchecked.defaultof<_>
-        | Concat(info = info) -> info.Startset
-        | Epsilon -> Unchecked.defaultof<_>
 
-    member inline this.ContainsLookaround =
+
+
+
+    member inline this.TryGetInfo =
         match this with
-        | Or(info = info) -> info.ContainsLookaround
-        | Singleton _ -> false
-        | Loop(info = info) -> info.ContainsLookaround
-        | And(info = info) -> info.ContainsLookaround
-        | Not(info = info) -> info.ContainsLookaround
-        | LookAround _ -> true
-        | Concat(info = info) -> info.ContainsLookaround
-        | Epsilon -> false
+        | Or(info = info) | Loop(info = info) | And(info = info) | Not(info = info) | Concat(info = info) ->
+            ValueSome info
+        | _ -> ValueNone
+
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    member this.GetFlags() =
+        match this with
+        | Or(info = info) | Loop(info = info) | And(info = info) | Not(info = info) | Concat(info = info) ->
+            info.Flags
+        | Epsilon ->
+            RegexNodeFlags.CanBeNullable ||| RegexNodeFlags.IsAlwaysNullable ||| RegexNodeFlags.ContainsEpsilon
+        | Singleton foo -> RegexNodeFlags.None
+        | LookAround(node, lookBack, negate) ->
+            RegexNodeFlags.CanBeNullable ||| RegexNodeFlags.ContainsLookaround
+
+    member this.CanBeNullable =
+        this.GetFlags().HasFlag(RegexNodeFlags.CanBeNullable)
+    member this.CanNotBeNullable =
+        not (this.GetFlags().HasFlag(RegexNodeFlags.CanBeNullable))
+    member this.CanSkip =
+        this.GetFlags().HasFlag(RegexNodeFlags.CanSkip)
+
+    member this.HasPrefix =
+        this.GetFlags().HasFlag(RegexNodeFlags.Prefix)
+    member this.Startset =
+        match this with
+        | Or(info = info) | Loop(info = info) | And(info = info) | Not(info = info) | Concat(info = info) ->
+            info.Startset
+        | Singleton p -> p
+        | _ -> Unchecked.defaultof<_>
+    member this.ContainsLookaround =
+        this.GetFlags().HasFlag(RegexNodeFlags.ContainsLookaround)
 
     member this.IsAlwaysNullable =
         match this with
@@ -172,168 +197,6 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
         | LookAround _ -> true
         | Epsilon -> false
 
-    member inline this.HasPrefix =
-        match this with
-        | Or(info = info) | Loop(info = info) | And(info = info) | Not(info = info) | Concat(info = info) ->
-            info.HasPrefix
-        | Singleton _ -> false
-        | LookAround _ -> true
-        | Epsilon -> false
-
-    member this.TryGetInfo =
-        match this with
-        | Or(info = info) | Loop(info = info) | And(info = info) | Not(info = info) | Concat(info = info) ->
-            ValueSome info
-        | _ -> ValueNone
-
-    member inline this.CanBeNullable =
-        match this with
-        | Or(info = info) -> info.CanBeNullable
-        | Singleton _ -> false
-        | Loop(info = info) -> info.CanBeNullable
-        | And(info = info) -> info.CanBeNullable
-        | Not(info = info) -> info.CanBeNullable
-        | LookAround _ -> true
-        | Concat(info = info) -> info.CanBeNullable
-        | Epsilon -> true
-
-    member inline this.CanNotBeNullable =
-        match this with
-        | Or(info = info) -> not info.CanBeNullable
-        | Singleton _ -> true
-        | Loop(info = info) -> not info.CanBeNullable
-        | And(info = info) -> not info.CanBeNullable
-        | Not(info = info) -> not info.CanBeNullable
-        | LookAround _ -> false
-        | Concat(info = info) -> not info.CanBeNullable
-        | Epsilon -> false
-
-    member inline this.CanSkip =
-        match this with
-        | Or(info = info) -> info.Flags.HasFlag(RegexNodeFlags.CanSkip)
-        | Singleton _ -> false
-        | Loop(info = info) -> info.Flags.HasFlag(RegexNodeFlags.CanSkip)
-        | And(info = info) -> info.Flags.HasFlag(RegexNodeFlags.CanSkip)
-        | Not(info = info) -> info.Flags.HasFlag(RegexNodeFlags.CanSkip)
-        | LookAround _ -> false
-        | Concat(info = info) -> info.Flags.HasFlag(RegexNodeFlags.CanSkip)
-        | Epsilon -> false
-
-#if DEBUG
-    override this.ToString() : string =
-        match this with
-        | Or(xs, _) -> $"Or({xs})"
-        | Singleton _ -> this.ToStringHelper()
-        | Loop _ -> this.ToStringHelper()
-        | And _ -> this.ToStringHelper()
-        | Not _ -> this.ToStringHelper()
-        | LookAround _ -> this.ToStringHelper()
-        | Concat(h, t, info) -> h.ToStringHelper() + t.ToStringHelper()
-        | Epsilon -> "ε"
-    member this.debuggerSolver =
-        match Debug.debuggerSolver with
-        | None -> failwith "debugger solver not initialized"
-        | Some solver -> solver
-    member this.isFull(node: RegexNode<'t>) =
-        match node with
-        | Singleton v ->
-            match box v with
-            | :? BDD as v -> v = debugcharSetSolver.Full
-            | :? uint64 -> box v = this.debuggerSolver.Full
-            | _ -> false
-        | _ -> false
-
-    /// used to display the node during debugging
-    member this.ToStringHelper() =
-        let display(nodes: RegexNode<'tset>) = nodes.ToStringHelper()
-        let paren str = $"({str})"
-
-        let tostr(v: 'tset) =
-            match Debug.debuggerSolver with
-            | None ->
-                match box v with
-                | :? BDD as v ->
-                    debugcharSetSolver.PrettyPrint(v)
-                | _ -> $"{v}L"
-            | Some db ->
-                match box v with
-                | :? BDD as v ->
-                    if v = debugcharSetSolver.Full then
-                        "⊤"
-                    elif debugcharSetSolver.IsEmpty(v) then
-                        "⊥"
-                    else
-                        match debugcharSetSolver.PrettyPrint(v) with
-                        | @"[^\n]" -> "."
-                        | c when c.Length > 12 -> "φ" // dont expand massive sets
-                        | c -> c
-                | _ ->
-                    if unbox v = db.Full then
-                        "⊤"
-                    elif db.IsEmpty(unbox v) then
-                        "⊥"
-                    else
-                        match db.PrettyPrint(unbox (box v), debugcharSetSolver) with
-                        | @"[^\n]" -> "."
-                        | c when c.Length > 12 -> "φ" // dont expand massive sets
-                        | c -> c
-
-        match this with
-        | Singleton v -> tostr v
-        | Or(items, _) ->
-            let setItems: string list =
-                if not (obj.ReferenceEquals(items, null)) then
-                    items |> Seq.map (fun v -> v.ToString() ) |> Seq.toList
-                else
-                    []
-
-            let combinedList = setItems
-
-            combinedList |> String.concat "|" |> paren
-        | And(items, _) ->
-            let setItems: string list =
-                if not (obj.ReferenceEquals(items, null)) then
-                    items |> Seq.map display |> Seq.toList
-                else
-                    []
-
-            setItems |> String.concat "&" |> paren
-        | Not(items, info) ->
-            let inner = items.ToStringHelper()
-
-            $"~({inner})"
-        | Loop(body, lower, upper, info) ->
-            let inner = body.ToStringHelper()
-
-            let isStar = lower = 0 && upper = Int32.MaxValue
-
-            let inner = $"{inner}"
-
-            let loopCount =
-                if isStar then "*"
-                elif lower = 1 && upper = Int32.MaxValue then "+"
-                elif lower = 0 && upper = 1 then "?"
-                else $"{{{lower},{upper}}}"
-
-            match isStar with
-            | true -> $"{inner}*"
-            | false -> inner + loopCount
-
-        | LookAround(body, lookBack, negate) ->
-            let inner = body.ToStringHelper()
-
-            match lookBack, negate with
-            // | true, true when this.isFull body.Head -> "\\A"
-            // | false, true when this.isFull body.Head -> "\\z"
-            | false, true -> $"(?!{inner})"
-            | false, false -> $"(?={inner})"
-            | true, true -> $"(?<!{inner})"
-            | true, false -> $"(?<={inner})"
-
-        | Concat(h, t, info) -> h.ToStringHelper() + t.ToStringHelper()
-        | Epsilon -> "ε"
-#endif
-
 
 [<Flags>]
 type StartsetFlags =
@@ -347,59 +210,7 @@ type PredStartset = {
     Flags: StartsetFlags
     Chars: char[]
 } with
-    static member Of(inverted, startset) = { Flags = inverted; Chars = startset }
-
-[<Sealed>]
-type ToplevelORCollection() =
-
-    [<Literal>]
-    let startSize = 2
-    let mutable nodeArray: RegexNode<uint64>[] = Array.zeroCreate startSize
-    let mutable _count = 0
-    let mutable _capacity = startSize
-    member this.IncreaseArraySize() =
-        let newSize = _capacity * 2
-        _capacity <- newSize
-        Array.Resize(&nodeArray, newSize)
-
-    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    member this.Add(node: RegexNode<uint64>) =
-        if _count = _capacity then
-            // does not happen in 99% cases
-            this.IncreaseArraySize()
-        nodeArray[_count] <- node
-        _count <- _count + 1
-
-    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    member this.UpdateTransition(i: int, node: RegexNode<uint64>) = nodeArray[i] <- node
-
-    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    member this.Remove(idx: int) =
-        match idx = _count - 1 with
-        | true -> _count <- _count - 1 // is last element
-        | false ->
-            // swap last element into current slot
-            nodeArray[idx] <- nodeArray[_count - 1]
-            _count <- _count - 1
-
-
-    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    member this.Reset() = _count <- 0
-    member this.Count = _count
-
-    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    member this.Items() = nodeArray.AsSpan().Slice(0, _count)
-    member this.First = nodeArray[0]
-
-    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    member this.CanSkipAll() =
-        let mutable canskip = true
-        let mutable e = nodeArray.AsSpan().Slice(0, _count).GetEnumerator()
-
-        while e.MoveNext() = true && canskip do
-            canskip <- e.Current.CanSkip
-
-        canskip
+    static member Of(inverted, (startset:char[])) = { Flags = inverted; Chars = startset }
 
 [<AutoOpen>]
 module Common =
@@ -428,14 +239,14 @@ module Common =
     let inline exists ([<InlineIfLambda>] f) (coll: ImmutableHashSet<'t>) =
         use mutable e = coll.GetEnumerator()
         let mutable found = false
-        while e.MoveNext() && not found do
+        while not found && e.MoveNext()  do
             found <- f e.Current
         found
 
     let inline forall ([<InlineIfLambda>] f) (coll: ImmutableHashSet<'t>) =
         use mutable e = coll.GetEnumerator()
         let mutable forall = true
-        while e.MoveNext() && forall do
+        while forall && e.MoveNext()  do
             forall <- f e.Current
         forall
 
@@ -451,3 +262,10 @@ module Enumerator =
         for n in e do
             hash <- hash ^^^ LanguagePrimitives.PhysicalHash n
         hash
+
+
+type TSet = uint64
+// type TSet = uint16
+
+type DerivativeEnumerator() =
+    do ()

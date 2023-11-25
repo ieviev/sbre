@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net7.0</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
     <Tailcalls>true</Tailcalls>
@@ -31,6 +31,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Debug.fs" />
+    <Compile Include="UInt16Solver.fs" />
     <Compile Include="Types.fs" />
     <Compile Include="Pat.fs" />
     <Compile Include="Info.fs" />

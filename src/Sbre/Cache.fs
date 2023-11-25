@@ -1,6 +1,7 @@
 namespace Sbre
 
 open System
+open System.Buffers
 open System.Collections.Generic
 open System.Runtime.CompilerServices
 open System.Text.RuntimeRegexCopy
@@ -13,82 +14,89 @@ open Info
 // #nowarn "25" // missing patterns inference
 
 [<Sealed>]
-type RegexCache< ^t when ^t: struct and ^t :> IEquatable< ^t > and ^t: equality>
+type RegexCache< 't
+    // TSet when
+    //     TSet: struct
+    //     and TSet :> IEquatable< TSet >
+    //     and TSet: equality
+
+        >
     (
-        _solver: ISolver<uint64>,
+        _solver: ISolver<TSet>,
         _charsetSolver: CharSetSolver,
-        _implicitDotstarPattern: RegexNode<uint64>,
-        _rawPattern: RegexNode<uint64>,
-        _reversePattern: RegexNode<uint64>,
-        _builder: RegexBuilder<uint64>,
+        _implicitDotstarPattern: RegexNode<TSet>,
+        _rawPattern: RegexNode<TSet>,
+        _reversePattern: RegexNode<TSet>,
+        _builder: RegexBuilder<TSet>,
         _optimizations: RegexFindOptimizations
     ) =
-    let typedSolver = (_solver :?> UInt64Solver)
-    let classifier = typedSolver._classifier
+    let classifier =
+        if typeof<TSet> = typeof<TSet> then
+            ((box _solver) :?> UInt64Solver)._classifier
+        elif typeof<TSet> = typeof<byte> then
+            ((box _solver) :?> UInt8Solver)._classifier
+        elif typeof<TSet> = typeof<uint16> then
+            ((box _solver) :?> UInt16Solver).Classifier
+        else
+            failwith "todo"
+
 
     let _ascii = classifier.Ascii
     let _nonAscii = classifier.NonAscii
-    let minterms: _[] = _solver.GetMinterms()
+    let minterms: TSet[] = _solver.GetMinterms()
 
     let mintermBdds =
-        lazy (minterms |> Array.map (fun v -> _solver.ConvertToBDD(v, _charsetSolver)))
+        (minterms |> Array.map (fun v -> _solver.ConvertToBDD(v, _charsetSolver)))
 
-    let predStartsets = lazy StartsetHelpers.startsetsFromMintermArray mintermBdds.Value
-    let mutable _cachedStartsets: Dictionary<uint64, char[]> = Dictionary()
-    let mutable _toplevelOr: ToplevelORCollection = ToplevelORCollection()
-    let mutable _reverseToplevelOr: ToplevelORCollection = ToplevelORCollection()
+    let predStartsets = StartsetHelpers.startsetsFromMintermArray mintermBdds
+    let mutable _cachedStartsets: Dictionary<TSet, SearchValues<char>> = Dictionary()
     let mutable _startsetPredicate = Startset.inferStartset _solver _rawPattern
-    let mutable _initialStartset = Startset.inferInitialStartset _solver _rawPattern
+    let mutable _initialStartset =
+        match Startset.inferInitialStartset _solver _rawPattern with
+        | InitialStartset.MintermArrayPrefix(arr, _) -> arr
+        | _ ->
+            // TODO: unoptimzed regex
+            ([|_solver.Full|].AsMemory())
+
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.Minterms() = minterms
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.GetInitialStartsetPrefix() = _initialStartset
+    member this.GetInitialStartsetPredicate = _startsetPredicate
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    member this.GetInitialStartsetPredicate() = _startsetPredicate
+    member this.MintermBdds() = mintermBdds
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    member this.GetTopLevelOr() =
-        _toplevelOr.Reset()
-        _toplevelOr
+    member this.MintermStartsets() = predStartsets
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    member this.GetReverseTopLevelOr() =
-        _toplevelOr.Reset()
-        _toplevelOr
-
-    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    member this.MintermBdds() = mintermBdds.Value
-
-    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    member this.MintermStartsets() = predStartsets.Value
-
-    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    member this.MintermIndexOfSpan(startset: uint64) =
+    member this.MintermIndexOfSpan(startset: TSet) =
         match _cachedStartsets.TryGetValue(startset) with
-        | true, v -> v.AsSpan()
+        | true, v -> v
         | _ ->
             let newSpan =
                 StartsetHelpers.getMergedIndexOfSpan (
-                    predStartsets.Value,
+                    _solver,
+                    predStartsets,
                     minterms,
                     startset
                 )
 
-            _cachedStartsets.Add(startset, newSpan.ToArray())
+            _cachedStartsets.Add(startset, (newSpan))
             newSpan
 
-    member this.TryNextStartsetLocation(loc: Location, set: uint64) =
+    member this.TryNextStartsetLocation(loc: inref<Location>, set: TSet) =
 
         let setChars = this.MintermIndexOfSpan(set)
-        let isInverted = Solver.elemOfSet set minterms[0]
+        let isInverted = _solver.isElemOfSet (set,minterms[0])
         let currpos = loc.Position
 
         match loc.Reversed with
         | false ->
-            let slice = loc.Input.AsSpan().Slice(currpos)
+            let slice = loc.Input.Slice(currpos)
 
             let sharedIndex =
                 if isInverted then
@@ -101,7 +109,7 @@ type RegexCache< ^t when ^t: struct and ^t :> IEquatable< ^t > and ^t: equality>
             else
                 ValueSome(currpos + sharedIndex)
         | true ->
-            let slice = loc.Input.AsSpan().Slice(0, currpos)
+            let slice = loc.Input.Slice(0, currpos)
 
             let sharedIndex =
                 if isInverted then
@@ -115,14 +123,11 @@ type RegexCache< ^t when ^t: struct and ^t :> IEquatable< ^t > and ^t: equality>
                 ValueSome(sharedIndex + 1)
 
     /// skip till a prefix of minterms matches
-    member this.TryNextStartsetLocationArray(loc: inref<Location>, prefix: _[]) =
-        assert not loc.Reversed
-
-        let inputSpan = loc.Input.AsSpan()
-        let mutable currpos = loc.Position
+    member this.TryNextStartsetLocationArray(loc: byref<Location>, setSpan: ReadOnlySpan<TSet>) =
+        // assert not loc.Reversed
+        let inputSpan = loc.Input
         let mutable skipping = true
-        let mutable result = ValueNone
-        let setSpan = prefix.AsSpan()
+        // let mutable result = ValueNone
 
         /// vectorize the search for the first character
         let firstSetChars = this.MintermIndexOfSpan(setSpan[0])
@@ -132,9 +137,23 @@ type RegexCache< ^t when ^t: struct and ^t :> IEquatable< ^t > and ^t: equality>
         let _limitLength = inputSpan.Length - setSpan.Length
         let _tailLength = tailPrefixSpan.Length
 
+        if setSpan.Length = 1 then
+            let sharedIndex =
+                let slice = inputSpan.Slice(loc.Position)
+                if not isInverted then
+                    slice.IndexOfAny(firstSetChars)
+                else
+                    slice.IndexOfAnyExcept(firstSetChars)
+            if sharedIndex = -1 then
+                skipping <- false
+            else
+                loc.Position <- loc.Position + sharedIndex
+        else
+
+
         while skipping do
             let sharedIndex =
-                let slice = inputSpan.Slice(currpos)
+                let slice = inputSpan.Slice(loc.Position)
                 if not isInverted then
                     slice.IndexOfAny(firstSetChars)
                 else
@@ -143,43 +162,43 @@ type RegexCache< ^t when ^t: struct and ^t :> IEquatable< ^t > and ^t: equality>
             if sharedIndex = -1 then
                 skipping <- false
             else
-                let potential = currpos + sharedIndex
+                let potential = loc.Position + sharedIndex
                 let mutable couldBe = true
                 // exit if too far
                 if potential > _limitLength then
                     skipping <- false
-                    result <- ValueSome(potential)
+                    loc.Position <- potential
                     couldBe <- false
 
                 let mutable i = 0
                 while couldBe && i < _tailLength do
                     let inputMinterm = this.Classify(inputSpan[potential + 1 + i])
-                    if Solver.notElemOfSetU64 inputMinterm tailPrefixSpan[i] then
+                    // if _solver.notElemOfSet (inputMinterm,tailPrefixSpan[i]) then
+                    if Solver.notElemOfSet inputMinterm tailPrefixSpan[i] then
                         couldBe <- false
                     i <- i + 1
 
                 if couldBe then
                     skipping <- false
-                    result <- ValueSome(potential)
+                    loc.Position <- potential
                 else
-                    currpos <- potential + 1
+                    loc.Position <- potential + 1
 
 
 
-        result
-
-    member this.TryNextStartsetLocationArrayReversed(loc: inref<Location>, prefix: _[]) =
+    member this.TryNextStartsetLocationArrayReversed(loc: inref<Location>, setSpan: ReadOnlySpan<TSet>) =
         assert loc.Reversed
 
-        let inputSpan = loc.Input.AsSpan()
+        let inputSpan = loc.Input
         let mutable currpos = loc.Position
         let mutable skipping = true
         let mutable result = ValueNone
         let mutable slice: ReadOnlySpan<char> = inputSpan.Slice(0, currpos)
-        let setSpan = prefix.AsSpan()
+        // let setSpan = prefix.AsSpan()
 
         /// vectorize the search for the first character
         let firstSetChars = this.MintermIndexOfSpan(setSpan[0])
+        // let isInverted = _solver.isElemOfSet(setSpan[0],minterms[0])
         let isInverted = Solver.elemOfSet setSpan[0] minterms[0]
         let tailPrefixSpan = setSpan.Slice(1)
         let _tailPrefixLength = tailPrefixSpan.Length
@@ -214,7 +233,7 @@ type RegexCache< ^t when ^t: struct and ^t :> IEquatable< ^t > and ^t: equality>
                 let mutable couldBe = true
 
                 // exit if too far
-                if potential < prefix.Length then
+                if potential < setSpan.Length then
                     skipping <- false
                     result <- ValueSome(potential)
                     couldBe <- false
@@ -223,6 +242,7 @@ type RegexCache< ^t when ^t: struct and ^t :> IEquatable< ^t > and ^t: equality>
                 while couldBe && i < tailPrefixSpan.Length do
                     let inputMinterm = this.Classify(inputSpan[potential - i - 2])
 
+                    // if _solver.notElemOfSet (inputMinterm,tailPrefixSpan[i]) then
                     if Solver.notElemOfSet inputMinterm tailPrefixSpan[i] then
                         couldBe <- false
                     i <- i + 1
@@ -236,23 +256,23 @@ type RegexCache< ^t when ^t: struct and ^t :> IEquatable< ^t > and ^t: equality>
         result
 
     /// skip till a prefix of minterms matches
-    member this.TryNextStartsetLocationArrayWithLoopTerminator(loc: Location, prefix: _[], termPrefix: _[]) =
-        assert (termPrefix.Length > 0)
-        let inputSpan = loc.Input.AsSpan()
+    member this.TryNextStartsetLocationArrayWithLoopTerminator(loc: inref<Location>, setSpan: ReadOnlySpan<TSet>, termSpan: ReadOnlySpan<TSet>) =
+        assert (termSpan.Length > 0)
+        let inputSpan = loc.Input
         let mutable currpos = loc.Position
         let mutable skipping = true
         let mutable result = ValueNone
         let mutable sharedIndex = -1
-        let mutable setSpan = prefix.AsSpan()
-        let mutable termSpan = termPrefix.AsSpan()
 
         let mergedPrefix =
             setSpan[0] ||| termSpan[0]
+
 
         /// vectorize the search for the first minterm
         let firstSetChars = this.MintermIndexOfSpan(mergedPrefix)
 
         /// '.' to ^\n -> it's easier to invert large sets
+        // let isInverted = _solver.isElemOfSet(mergedPrefix,minterms[0])
         let isInverted = Solver.elemOfSet mergedPrefix minterms[0]
 
         while skipping do
@@ -282,8 +302,8 @@ type RegexCache< ^t when ^t: struct and ^t :> IEquatable< ^t > and ^t: equality>
 
                 let shouldExit =
                     match loc.Reversed with
-                    | true -> potential < prefix.Length
-                    | _ -> potential + prefix.Length > (loc.Input.Length - 1)
+                    | true -> potential < setSpan.Length
+                    | _ -> potential + setSpan.Length > (loc.Input.Length - 1)
 
                 if shouldExit then
                     skipping <- false
@@ -301,6 +321,7 @@ type RegexCache< ^t when ^t: struct and ^t :> IEquatable< ^t > and ^t: equality>
                         -1, true
                     else
                         let termMatch =
+                            // _solver.isElemOfSet(termSpan[0],nextLocMinterm)
                             (Solver.elemOfSet termSpan[0] nextLocMinterm)
                         (if termMatch then 0 else -1), termSpan.Length <> 1
 
@@ -314,7 +335,7 @@ type RegexCache< ^t when ^t: struct and ^t :> IEquatable< ^t > and ^t: equality>
                         else
                             this.Classify(inputSpan[potential + i])
 
-                    match Solver.elemOfSet setSpan[i] nextLocMinterm with
+                    match (Solver.elemOfSet setSpan[i] nextLocMinterm) with
                     | false ->
                         stopSearch <- false
                         looping <- false
@@ -325,7 +346,7 @@ type RegexCache< ^t when ^t: struct and ^t :> IEquatable< ^t > and ^t: equality>
 
                     if canTerminateLoop >= 0 && i < termSpan.Length
                        then
-                           match Solver.elemOfSet termSpan[i] nextLocMinterm with
+                           match (Solver.elemOfSet termSpan[i] nextLocMinterm) with
                            | true ->
                                canTerminateLoop <- i
                                if i = termSpan.Length - 1 then
@@ -347,7 +368,7 @@ type RegexCache< ^t when ^t: struct and ^t :> IEquatable< ^t > and ^t: equality>
         this.Classify(loc.Input[pos])
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    member this.Classify(c: char) : uint64 =
+    member this.Classify(c: char) =
         minterms[
             let i = int c
             match i < 128 with
@@ -356,7 +377,7 @@ type RegexCache< ^t when ^t: struct and ^t :> IEquatable< ^t > and ^t: equality>
         ]
 
     member val InitialPatternWithoutDotstar = _rawPattern
-    member val Solver: UInt64Solver = typedSolver
+    member val Solver: ISolver<TSet> = _solver
     member val CharsetSolver: CharSetSolver = _charsetSolver
     member val Builder = _builder
 
@@ -367,19 +388,84 @@ type RegexCache< ^t when ^t: struct and ^t :> IEquatable< ^t > and ^t: equality>
     member val FullMinterm: _ = _solver.Full
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    member this.IsOrigReversePattern(node: RegexNode< uint64 >) : bool =
+    member this.IsOrigReversePattern(node: RegexNode< TSet >) : bool =
         obj.ReferenceEquals(node, _reversePattern)
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    member this.CreateInfo(flags, startset) : RegexNodeInfo<_> =
-        _builder.CreateInfo(flags, startset)
-
-
-    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    member this.IsImplicitDotStarred(node: RegexNode<uint64>) : bool =
+    member this.IsImplicitDotStarred(node: RegexNode<TSet>) : bool =
         obj.ReferenceEquals(node, _implicitDotstarPattern)
 
 #if DEBUG
     member cache.PrettyPrintMinterm(xs: _) : string = cache.Solver.PrettyPrint(xs, _charsetSolver)
+
+    member this.PrettyPrintNode(node: RegexNode<TSet>) : string =
+        let display(nodes: RegexNode<TSet>) = this.PrettyPrintNode(nodes)
+        let paren str = $"({str})"
+
+        let tostr(v: TSet) =
+                if v = _solver.Full then
+                    "⊤"
+                elif _solver.IsEmpty(v) then
+                    "⊥"
+                else
+                    match _solver.PrettyPrint(v, debugcharSetSolver) with
+                    | @"[^\n]" -> "."
+                    | c when c.Length > 12 -> "φ" // dont expand massive sets
+                    | c -> c
+
+        match node with
+        | Singleton v -> tostr v
+        | Or(items, _) ->
+            let setItems: string list =
+                if not (obj.ReferenceEquals(items, null)) then
+                    items |> Seq.map (fun v -> this.PrettyPrintNode v ) |> Seq.toList
+                else
+                    []
+
+            let combinedList = setItems
+
+            combinedList |> String.concat "|" |> paren
+        | And(items, _) ->
+            let setItems: string list =
+                if not (obj.ReferenceEquals(items, null)) then
+                    items |> Seq.map display |> Seq.toList
+                else
+                    []
+
+            setItems |> String.concat "&" |> paren
+        | Not(items, info) ->
+            let inner = this.PrettyPrintNode items
+
+            $"~({inner})"
+        | Loop(body, lower, upper, info) ->
+            let inner = this.PrettyPrintNode body
+
+            let isStar = lower = 0 && upper = Int32.MaxValue
+
+            let inner = $"{inner}"
+
+            let loopCount =
+                if isStar then "*"
+                elif lower = 1 && upper = Int32.MaxValue then "+"
+                elif lower = 0 && upper = 1 then "?"
+                else $"{{{lower},{upper}}}"
+
+            match isStar with
+            | true -> $"{inner}*"
+            | false -> inner + loopCount
+
+        | LookAround(body, lookBack, negate) ->
+            let inner = this.PrettyPrintNode body
+
+            match lookBack, negate with
+            // | true, true when this.isFull body.Head -> "\\A"
+            // | false, true when this.isFull body.Head -> "\\z"
+            | false, true -> $"(?!{inner})"
+            | false, false -> $"(?={inner})"
+            | true, true -> $"(?<!{inner})"
+            | true, false -> $"(?<={inner})"
+
+        | Concat(h, t, info) -> this.PrettyPrintNode h + this.PrettyPrintNode t
+        | Epsilon -> "ε"
 #endif
     member this.Optimizations = _optimizations

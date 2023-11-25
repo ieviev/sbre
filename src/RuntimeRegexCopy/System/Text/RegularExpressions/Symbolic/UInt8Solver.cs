@@ -23,8 +23,8 @@ namespace System.Text.RuntimeRegexCopy.Symbolic
         public byte Empty => 0;
         public byte Full { get; }
 
-        public bool IsFull(byte set) => unchecked (set == Full);
-        public bool IsEmpty(byte set) => unchecked(set == 0);
+        public bool IsFull(byte set) => (set == Full);
+        public bool IsEmpty(byte set) => (set == 0);
         public List<byte> GenerateMinterms(HashSet<byte> constraints) => MintermGenerator<byte>.GenerateMinterms(this, constraints);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public byte And(byte set1, byte set2) => unchecked((byte)(set1 & set2));
@@ -86,7 +86,8 @@ namespace System.Text.RuntimeRegexCopy.Symbolic
         }
 #if DEBUG
         /// <summary>Pretty print the bitvector bv as the character set it represents.</summary>
-        public string PrettyPrint(byte bv, CharSetSolver solver) => solver.PrettyPrint(ConvertToBDD(bv, solver));
+        public string PrettyPrint(byte bv, CharSetSolver solver) => 
+            solver.PrettyPrint(ConvertToBDD(bv, solver));
 #endif
         public BDD ConvertToBDD(byte set, CharSetSolver solver)
         {

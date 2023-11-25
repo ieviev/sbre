@@ -133,15 +133,15 @@ type Basic3() =
         )
 
 
-// Permutations.permuteConjInLine ["th.*at"; "an.*d"; "th.*e";"wa.*s"]
-// Permutations.permuteConjInLine ["t.*hat"; "a.*nd"; "t.*he";"w.*as"]
-
 type DebugSbre3() =
     inherit Jobs.SbreDebugSearch([
-        Permutations.permuteConjInLine ["t.*hat"; "a.*nd"; "t.*he";"w.*as"]
-        // Permutations.permuteConjInLine ["th.*at"; "an.*d"; "th.*e";"wa.*s"]
-        Permutations.permuteConjInParagraph ["Huck";"Finn"; "Tom"; "Sawyer" ]
-        Permutations.permuteConjInLine ["Huck";"Finn"; "Tom"; "Sawyer" ]
+
+
+        // Permutations.permuteConjInLine ["Huck";"Finn"; "Tom"; "Saw" ]
+        // Permutations.permuteConjInParagraph ["Huck";"Finn"; "Tom"; "Saw" ]
+        // Permutations.permuteConjInParagraph ["Huck";]
+        // Permutations.permuteConjInLine ["t.*hat"; "a.*nd"; "t.*he";"w.*as"]
+        Permutations.permuteConjInLine ["th.*at"; "an.*d"; "th.*e";"wa.*s"]
     ], fullInput)
 
 
@@ -150,8 +150,6 @@ type DebugAll() =
         // Permutations.permuteAltInLine ["t.*hat"; "a.*nd"; "t.*he";"w.*as"]
         Permutations.permuteAltInLine ["Huck";"Finn"; "Tom"; "Sawyer" ]
 
-
-        // @"~(⊤*\n\n⊤*)&⊤*Huck⊤*&⊤*could⊤*&⊤*there⊤*"
     , fullInput)
 
 

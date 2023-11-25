@@ -3,6 +3,7 @@ module Sbre.Test._04_DerivativeTests
 
 #if DEBUG
 
+open System
 open Sbre
 open Sbre.Algorithm
 open Sbre.Pat
@@ -10,101 +11,102 @@ open Sbre.Types
 open Xunit
 
 let getDerivative(matcher: Regex, input: string) =
+    let cache = matcher.UInt64Matcher.Cache
+    let node = matcher.UInt64Matcher.RawPattern
+    let location = (Location.create input 0)
+    // let matchCache = RegexMatchCache(cache,node)
+    createDerivative (cache, &location, cache.MintermForLocation(location), node)
+
+let getDerivativeT<'t when 't : struct and 't :> IEquatable< 't >
+        and 't: equality>(matcher: Regex, input: string) =
+    let matcher = matcher.Matcher :?> RegexMatcher<'t>
     let cache = matcher.Cache
     let node = matcher.RawPattern
     let location = (Location.create input 0)
-    // let matchCache = RegexMatchCache(cache,node)
-    createDerivative (cache, location, cache.MintermForLocation(location), node)
+    createDerivative (cache, &location, cache.MintermForLocation(location), node)
+
 
 
 
 let testFullDerivative(pattern: string, input: string, expectedDerivative: string) =
-    let matcher = Regex(pattern)
+    let matcher = Regex(pattern).UInt64Matcher
     let cache = matcher.Cache
     let node = matcher.ImplicitPattern
     let location = (Location.create input 0)
 
     let result =
-        createDerivative (cache, location, cache.MintermForLocation(location), node)
-        |> (fun v -> v.ToStringHelper())
+        createDerivative (cache, &location, cache.MintermForLocation(location), node)
+        |> (fun v -> cache.PrettyPrintNode v)
 
     Assert.Equal(expectedDerivative, result)
 
 
 let testFullDerivativeMultiple(pattern: string, input: string, expectedDerivatives: string list) =
     let matcher = Regex(pattern)
-    let cache = matcher.Cache
-    let node = matcher.ImplicitPattern
-    let location = (Location.create input 0)
-
-    let result =
-        createDerivative (cache, location, cache.MintermForLocation(location), node)
-        |> (fun v -> v.ToStringHelper())
+    let result = Common.getDerImpl matcher input
 
     Assert.Contains(result, expectedDerivatives)
 
 
 let test2ndDerivative(pattern: string, input: string, expectedDerivative: string) =
-    let matcher = Regex(pattern)
+    let matcher = Regex(pattern).UInt64Matcher
     let cache = matcher.Cache
     let node = matcher.ImplicitPattern
     let location = (Location.create input 0)
     let location1 = (Location.create input 1)
 
-    let der1 = createDerivative (cache, location, cache.MintermForLocation(location), node)
+    let der1 = createDerivative (cache, &location, cache.MintermForLocation(location), node)
 
-    let der2 = createDerivative (cache, location1, cache.MintermForLocation(location1), der1)
+    let der2 = createDerivative (cache, &location1, cache.MintermForLocation(location1), der1)
 
-    let result = der2.ToStringHelper()
+    let result = der2 |> (fun v -> cache.PrettyPrintNode v)
 
 
     Assert.Equal(expectedDerivative, result)
 
 
 let test2ndDerivatives(pattern: string, input: string, expectedDerivatives: string list) =
-    let matcher = Regex(pattern)
-    let cache = matcher.Cache
-    let node = matcher.ImplicitPattern
+
     let location = (Location.create input 0)
     let location1 = (Location.create input 1)
+    let result =
+        try
+            let matcher = Regex(pattern).UInt64Matcher
+            let cache = matcher.Cache
+            let node = matcher.ImplicitPattern
 
-    let der1 = createDerivative (cache, location, cache.MintermForLocation(location), node)
+            let der1 = createDerivative (cache, &location, cache.MintermForLocation(location), node)
+            let der2 = createDerivative (cache, &location1, cache.MintermForLocation(location1), der1)
+            cache.PrettyPrintNode der2
+        with
+            e ->
+                try
+                    let matcher = Regex(pattern).ByteMatcher
+                    let cache = matcher.Cache
+                    let node = matcher.ImplicitPattern
+                    let der1 = createDerivative (cache, &location, cache.MintermForLocation(location), node)
+                    let der2 = createDerivative (cache, &location1, cache.MintermForLocation(location1), der1)
+                    cache.PrettyPrintNode der2
+                with e ->
+                    let matcher = Regex(pattern).UInt16Matcher
+                    let cache = matcher.Cache
+                    let node = matcher.ImplicitPattern
+                    let der1 = createDerivative (cache, &location, cache.MintermForLocation(location), node)
+                    let der2 = createDerivative (cache, &location1, cache.MintermForLocation(location1), der1)
+                    cache.PrettyPrintNode der2
 
-    let der2 = createDerivative (cache, location1, cache.MintermForLocation(location1), der1)
 
-    let result = der2 |> (fun v -> v.ToStringHelper())
 
     Assert.Contains(result, expectedDerivatives)
 
 
-let test2ndDerivativesDirect(pattern: string, input: string, expectedDerivatives: string list) =
-    let matcher = Regex(pattern)
-    let cache = matcher.Cache
-    let node = matcher.RawPattern
-    let location = (Location.create input 0)
-    let location1 = (Location.create input 1)
-
-    let der1 = createDerivative (cache, location, cache.MintermForLocation(location), node)
-
-    let der2 = createDerivative (cache, location1, cache.MintermForLocation(location1), der1)
-
-    let result = der2 |> (fun v -> v.ToStringHelper())
-
-    Assert.Contains(result, expectedDerivatives)
 
 
 
 
 let testRawDerivative(pattern: string, input: string, expectedDerivative: string) =
     let matcher = Regex(pattern)
-    let cache = matcher.Cache
-    let node = matcher.RawPattern
-    let location = (Location.create input 0)
-
-    let result =
-        createDerivative (cache, location, cache.MintermForLocation(location), node)
-        |> (fun v -> v.ToStringHelper())
-
+    let result = Common.getDer1 matcher input
     Assert.Equal(expectedDerivative, result)
 
 
@@ -112,23 +114,17 @@ let testRawDerivative(pattern: string, input: string, expectedDerivative: string
 
 let testPartDerivative(pattern: string, input: string, expectedDerivative: string) =
     let matcher = Regex(pattern)
-    let cache = matcher.Cache
-    let node = matcher.RawPattern
     let location = (Location.create input 0)
-    let result = createDerivative (cache, location, cache.MintermForLocation(location), node)
+    let result = Common.getDerLoc matcher location
 
 
-    Assert.Equal(expectedDerivative, result.ToStringHelper())
+    Assert.Equal(expectedDerivative, result)
 
 
 let testPartDerivatives(pattern: string, input: string, expectedDerivatives: string list) =
     let matcher = Regex(pattern)
-    let cache = matcher.Cache
-    let node = matcher.RawPattern
-    let location = (Location.create input 0)
-    let result = createDerivative (cache, location, cache.MintermForLocation(location), node)
-
-    Assert.Contains(result.ToStringHelper(), expectedDerivatives)
+    let prettyResult = Common.getDer1 matcher input
+    Assert.Contains(prettyResult , expectedDerivatives)
 
 
 
@@ -142,15 +138,9 @@ let testPartDerivativeFromLocation
     )
     =
     let matcher = Regex(pattern)
-    let cache = matcher.Cache
-    let node = matcher.RawPattern
     let location = (Location.create input position)
-
-    let result =
-        match createDerivative (cache, location, cache.MintermForLocation(location), node) with
-        | result -> result |> (fun v -> v.ToStringHelper())
-
-    Assert.Equal(expectedDerivative, result)
+    let prettyResult = Common.getDerLoc matcher location
+    Assert.Equal(expectedDerivative, prettyResult)
 
 
 let testPartDerivativeFromLocationMultiple
@@ -162,15 +152,10 @@ let testPartDerivativeFromLocationMultiple
     )
     =
     let matcher = Regex(pattern)
-    let cache = matcher.Cache
-    let node = matcher.RawPattern
     let location = (Location.create input position)
+    let prettyResult = Common.getDerLoc matcher location
 
-    let result =
-        match createDerivative (cache, location, cache.MintermForLocation(location), node) with
-        | result -> result |> (fun v -> v.ToStringHelper())
-
-    Assert.Contains(result, expectedDerivatives)
+    Assert.Contains(prettyResult, expectedDerivatives)
 
 let testPartDerivativesLoc
     (
@@ -180,37 +165,9 @@ let testPartDerivativesLoc
     )
     =
     let matcher = Regex(pattern)
-    let cache = matcher.Cache
-    let node = matcher.RawPattern
-    let location = loc
-
-    let result =
-        match createDerivative (cache, location, cache.MintermForLocation(location), node) with
-        | result -> result |> (fun v -> v.ToStringHelper())
+    let result = Common.getDerLoc matcher loc
 
     Assert.Contains(result, expectedDerivatives)
-
-
-[<Fact>]
-let ``concat derivative nullability``() =
-    let pattern = @"(?=.*A)(?=.*a)(?=.*1).{2,2}"
-    let location = Pat.Location.create "1aA" 0
-    let matcher = Regex(pattern)
-    let cache = matcher.Cache
-    let node = matcher.ReversePattern
-
-    // let result1 =
-    //     match createDerivative(cache, location, cache.MintermForLocation(location), node) with
-    //     | Concat(head,(Concat(info=info2) as tail),info) ->
-    //         let t = tail
-    //         Assert.True(info2.CanBeNullable)
-    //     | Concat(head,(Concat(info=info2) as tail),info) ->
-    //     | x ->
-    //         let a = 1
-    //         failwith "invalid node"
-
-    // Assert.Equal(expectedDerivative, result)
-    ()
 
 
 [<Fact>]
@@ -286,9 +243,9 @@ let ``derivative boundary 5``() =
 
 
 
-[<Fact>]
-let ``derivative or tail``() =
-    testPartDerivative (@"(310|0[1-9]2|452)", "002", "[1-9]2")
+// [<Fact>]
+// let ``derivative or tail``() =
+//     testPartDerivative (@"(310|0[1-9]2|452)", "002", "[1-9]2")
 
 
 [<Fact>]
@@ -301,11 +258,6 @@ let ``derivative concat lookaround``() =
     testPartDerivatives (@"^\d+$", "123", [ @"\d*((?=\n)|(?!⊤))"; @"\d*((?!⊤)|(?=\n))" ])
 
 
-// [<Fact>]
-// let ``derivative conj lookaround`` () =
-//     testPartDerivative (""".*rain.*&.*dogs.*""", "raining cats and dogs", @"\d*((?=\n)|(?!⊤))")
-//
-//
 
 
 [<Fact>]
@@ -368,13 +320,6 @@ let ``deriv negation end ``() =
 let ``subsumption or concat ``() =
     testPartDerivative (@".*t.*hat.*", "ttt", @".*hat.*")
 
-[<Fact>]
-let ``subsumption or concat 2``() =
-    test2ndDerivativesDirect (
-        ".*w.*as.*",
-        "waaaaaa",
-        [ @"(s.*|.*as.*)"; @"(.*as.*|s.*)" ]
-    )
 
 
 

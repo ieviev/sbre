@@ -2,58 +2,40 @@ module internal rec Sbre.Optimizations
 
 open Sbre.Types
 open Sbre.Pat
+open System
 
-let rec tryJumpToStartset (c:RegexCache<_>,loc:byref<Location>, nodes:RegexNode<uint64>) : int32 =
 
-    match refEq nodes c.False with
-    | true ->
-        // attempt prefix search
-        match c.GetInitialStartsetPrefix() with
-        | InitialStartset.MintermArrayPrefix(arr, _) ->
-            let commonStartsetLocation = c.TryNextStartsetLocationArray(&loc,arr)
-            match commonStartsetLocation with
-            | ValueNone -> Location.final loc
-            | ValueSome newPos -> newPos
-        | _ -> loc.Position
-    | false ->
-        let node = nodes
-        let prefix : InitialStartset =
-            match node.TryGetInfo with
-            | ValueSome info ->
-                match info.InitialStartset with
-                | InitialStartset.Uninitialized ->
-                    info.InitialStartset <- c.Builder.GetPrefixCached(node)
-                    info.InitialStartset
-                | _ ->
-                    info.InitialStartset
-            | _ -> InitialStartset.Unoptimized
+let inline tryJumpToStartset (c:RegexCache<uint64>)(loc:byref<Location>) (node:RegexNode<uint64>) : int32 =
 
-        match prefix with
-        | InitialStartset.MintermArrayPrefix(arr,loopEnd) ->
-            let commonStartsetLocation =
-                if refEq c.InitialPatternWithoutDotstar node || loopEnd.Length = 0 then
-                    if not loc.Reversed then c.TryNextStartsetLocationArray(&loc,arr)
-                    else c.TryNextStartsetLocationArrayReversed(&loc,arr)
-                elif arr.Length = 1 && loopEnd.Length = 1 then
-                    c.TryNextStartsetLocation(loc,arr[0] ||| loopEnd[0])
-                elif arr.Length = 1 then
-                    c.TryNextStartsetLocation(loc,arr[0])
-                else
-                    c.TryNextStartsetLocationArrayWithLoopTerminator(loc,arr,loopEnd)
 
-            match commonStartsetLocation with
-            | ValueNone ->
-                if refEq c.InitialPatternWithoutDotstar node then Location.final loc else
-                loc.Position
-            | ValueSome newPos -> newPos
-        | _ ->
-            match refEq node c.Builder.uniques._trueStar with
-            | true -> Location.final loc
-            | _ ->
-            let commonStartsetLocation = c.TryNextStartsetLocation(loc,node.Startset)
-            match commonStartsetLocation with
-            | ValueNone ->
-                loc.Position
-            | ValueSome newPos -> newPos
+    let prefix : InitialStartset<_> =
+        c.Builder.GetInitializedPrefix(node)
+
+    match prefix with
+    | InitialStartset.MintermArrayPrefix(arr,loopEnd) ->
+        let arr = arr.Span
+        let loopEnd = loopEnd.Span
+        let commonStartsetLocation =
+            if refEq c.InitialPatternWithoutDotstar node || loopEnd.Length = 0 then
+                if not loc.Reversed then
+                    c.TryNextStartsetLocationArray(&loc,arr)
+                    ValueSome loc.Position
+                else c.TryNextStartsetLocationArrayReversed(&loc,arr)
+            elif arr.Length = 1 && loopEnd.Length = 1 then
+                c.TryNextStartsetLocation(&loc,c.Solver.Or(arr[0],loopEnd[0]))
+            // elif arr.Length = 1 then
+            //     c.TryNextStartsetLocation(loc,arr[0])
+            else
+                // c.TryNextStartsetLocation(&loc,c.Solver.Or(arr[0],loopEnd[0]))
+                c.TryNextStartsetLocationArrayWithLoopTerminator(&loc,arr,loopEnd)
+        match commonStartsetLocation with
+        | ValueNone ->
+            Location.final loc
+
+        | ValueSome newPos -> newPos
+    | _ ->
+        // TODO: does occur
+        loc.Position
+
 
 

@@ -2,6 +2,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 
 namespace System.Text.RuntimeRegexCopy.Symbolic
 {
@@ -21,11 +22,20 @@ namespace System.Text.RuntimeRegexCopy.Symbolic
         public ulong Empty => 0;
         public ulong Full { get; }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsFull(ulong set) => set == Full;
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsEmpty(ulong set) => set == 0;
         public List<ulong> GenerateMinterms(HashSet<ulong> constraints) => MintermGenerator<ulong>.GenerateMinterms(this, constraints);
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ulong And(ulong set1, ulong set2) => set1 & set2;
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        // public ulong Not(ulong set) => Full & ~set; //NOTE: must filter off unused bits
         public ulong Not(ulong set) => Full & ~set; //NOTE: must filter off unused bits
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ulong Or(ReadOnlySpan<ulong> sets)
         {
             ulong result = 0;
@@ -42,6 +52,7 @@ namespace System.Text.RuntimeRegexCopy.Symbolic
             return result;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ulong Or(ulong set1, ulong set2) => set1 | set2;
         /// <summary>
         /// Assumes that set is a union of some minterms (or empty).

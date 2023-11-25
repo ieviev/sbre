@@ -5,7 +5,7 @@
         <!-- modified start -->
         <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
         <EnableDefaultEmbeddedResourceItems>false</EnableDefaultEmbeddedResourceItems>
-        <NetCoreAppCurrent>net7.0</NetCoreAppCurrent>
+        <NetCoreAppCurrent>net8.0</NetCoreAppCurrent>
         <Nullable>enable</Nullable>
         <!-- modified end  -->
 
