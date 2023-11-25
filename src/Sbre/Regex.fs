@@ -17,13 +17,6 @@ type MatchResult = {
     Length: int
 }
 
-[<Struct>]
-type MatchPositionResult = {
-    Success: bool
-    Index: int
-    Length: int
-}
-
 [<CLIMutable>]
 [<Struct>]
 type MatchPosition = { Index: int; Length: int }
@@ -147,46 +140,23 @@ type Regex(pattern: string, [<Optional; DefaultParameterValue(false)>] warnUnopt
 
 
     member this.Match(input: string) : MatchResult =
-        let mutable startPos = 0
-
-        let success =
-            optimizations.TryFindNextStartingPositionLeftToRight(input.AsSpan(), &startPos, 0)
-
-        if not success then
+        let firstMatch =
+            this.MatchPositions(input) |> Seq.tryHead
+        match firstMatch with
+        | None ->
             {
                 Success = false
                 Value = ""
                 Index = 0
                 Length = 0
             }
-        else
-
-            let mutable startLocation = Location.create input startPos
-
-            match RegexNode.matchEnd (cache, &startLocation, trueStarredUint64Node) with
-            | ValueNone -> {
-                Success = false
-                Value = ""
-                Index = 0
-                Length = 0
-              }
-            | ValueSome endPos ->
-                let mutable reverseLocation = (Location.rev { startLocation with Position = endPos })
-
-                let startPos =
-                    RegexNode.matchEnd (cache, &reverseLocation, reverseUint64Node)
-
-                match startPos with
-                | ValueNone ->
-                    failwith
-                        $"match succeeded left to right but not right to left:\nmatch end: {endPos}\nreverse pattern: {reverseUint64Node}"
-                | ValueSome start ->
-                    {
-                        Success = true
-                        Value = input[start .. endPos - 1]
-                        Index = start
-                        Length = endPos - start
-                    }
+        | Some result ->
+            {
+                Success = true
+                Value = input[result.Index .. result.Index + result.Length - 1]
+                Index = result.Index
+                Length = result.Length
+            }
 
     /// replace all occurrences in string
     member this.Replace(input: string, replacement: string) =
@@ -211,7 +181,7 @@ type Regex(pattern: string, [<Optional; DefaultParameterValue(false)>] warnUnopt
         )
 
     /// used internally
-    member this.MatchText(input: string) =
+    member internal this.MatchText(input: string) =
         let mutable startPos = 0
 
         let success =

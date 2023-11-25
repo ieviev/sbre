@@ -1,5 +1,6 @@
 module rec Sbre.Pat
 
+open System.Collections.Generic
 open System.Text.RuntimeRegexCopy.Symbolic
 open Sbre.Types
 open System
@@ -7,6 +8,7 @@ open System
 [<AutoOpen>]
 module Extensions =
     type ISolver<'t> with
+
         /// si ∈ [[ψ]]
         /// - i.e. location si is elem of Singleton ψ
         /// - (location is smaller than singleton)
@@ -18,6 +20,47 @@ module Extensions =
         member inline this.isElemOfSetu64(predicate: uint64, locationMinterm: uint64) =
             predicate &&& locationMinterm <> 0uL
 
+
+
+module Solver =
+    let inline isElemOfSetU64 predicate locationMinterm = predicate &&& locationMinterm <> 0uL
+    let inline elemOfSet predicate locationMinterm =
+        predicate &&& locationMinterm <> LanguagePrimitives.GenericZero
+    let inline notElemOfSet predicate locationMinterm =
+        (predicate &&& locationMinterm) = LanguagePrimitives.GenericZero
+    let inline contains
+        (larger: ^d when ^d : struct)
+        (smaller: ^d): bool =
+            (larger &&& smaller) = smaller
+    let inline notElemOfSetU64 predicate locationMinterm = predicate &&& locationMinterm = 0uL
+    let inline not predicate = ~~~predicate
+    let inline mapOr (s:ISolver<^t>) ([<InlineIfLambda>]f: 'a -> ^t) (xs): ^t =
+        let mutable startset = s.Empty
+        for x in xs do
+            startset <- s.Or(startset,f x)
+        startset
+
+    let inline mergeOrWithEnumerator
+        (s:ISolver<^t>)
+        ([<InlineIfLambda>]f: RegexNode<'t> -> ^t)
+        (coll:byref<Collections.Immutable.ImmutableHashSet<RegexNode<'t>>.Enumerator>): ^t =
+        let mutable ss = s.Empty
+        while coll.MoveNext() = true do
+            ss <- s.Or(ss,f coll.Current)
+        ss
+
+    let inline mergeNonFullWithEnumerator
+        (s:ISolver<^t>)
+        ([<InlineIfLambda>]f: RegexNode<'t> -> ^t)
+        (coll:byref<Collections.Immutable.ImmutableHashSet<RegexNode<'t>>.Enumerator>): ^t =
+        let mutable ss = s.Empty
+        while coll.MoveNext() = true do
+            let pot = f coll.Current
+            if s.IsFull(pot) then () else
+            ss <- s.Or(ss,pot)
+
+        if s.IsEmpty(ss) then s.Full else
+        ss
 
 [<Flags>]
 type LoopKind =
@@ -35,7 +78,6 @@ let (|LoopKind|) struct(x:int,y:int) =
     | 0, Int32.MaxValue -> LoopKind.Star
     | 0, 1 -> LoopKind.Plus
     | _,_ -> LoopKind.Normal
-
 
 let rec loopSubsumesBranch (solver:ISolver<'t>) (largePred: 't) (node:RegexNode<'t>) =
     match node with
@@ -70,42 +112,123 @@ let (|SingletonStarLoop|_|) (node: RegexNode<_>) =
     | Loop(node=Singleton pred;low=0;up=Int32.MaxValue) -> ValueSome(pred)
     | _ -> ValueNone
 
-module Solver =
-    let inline isElemOfSetU64 predicate locationMinterm = predicate &&& locationMinterm <> 0uL
-    let inline elemOfSet predicate locationMinterm =
-        predicate &&& locationMinterm <> LanguagePrimitives.GenericZero
-    let inline notElemOfSet predicate locationMinterm =
-        (predicate &&& locationMinterm) = LanguagePrimitives.GenericZero
-    let inline contains larger smaller = (larger &&& smaller) = smaller
-    let inline notElemOfSetU64 predicate locationMinterm = predicate &&& locationMinterm = 0uL
-    let inline not predicate = ~~~predicate
-    let inline mapOr (s:ISolver<^t>) ([<InlineIfLambda>]f: 'a -> ^t) (xs): ^t =
-        let mutable startset = s.Empty
-        for x in xs do
-            startset <- s.Or(startset,f x)
-        startset
+[<return: Struct>]
+let (|AllSameHead|_|) (nodes: HashSet<RegexNode<_>>) =
+    let mutable allsame = true
+    let tails = ResizeArray()
+    nodes
+    |> Seq.pairwise
+    |> Seq.iter (fun (prev, v) ->
+        match prev, v with
+        | Concat(head = head1; tail = tail1), Concat(head = head2; tail = tail2) ->
+            if not (obj.ReferenceEquals(head1, head2)) then
+                allsame <- false
+        | _ -> allsame <- false
+    )
+    if allsame then
+        ValueSome()
+    else ValueNone
 
-    let inline mergeOrWithEnumerator
-        (s:ISolver<^t>)
-        ([<InlineIfLambda>]f: RegexNode<'t> -> ^t)
-        (coll:byref<Collections.Immutable.ImmutableHashSet<RegexNode<'t>>.Enumerator>): ^t =
-        let mutable ss = s.Empty
-        while coll.MoveNext() = true do
-            ss <- s.Or(ss,f coll.Current)
-        ss
 
-    let inline mergeNonFullWithEnumerator
-        (s:ISolver<^t>)
-        ([<InlineIfLambda>]f: RegexNode<'t> -> ^t)
-        (coll:byref<Collections.Immutable.ImmutableHashSet<RegexNode<'t>>.Enumerator>): ^t =
-        let mutable ss = s.Empty
-        while coll.MoveNext() = true do
-            let pot = f coll.Current
-            if s.IsFull(pot) then () else
-            ss <- s.Or(ss,pot)
 
-        if s.IsEmpty(ss) then s.Full else
-        ss
+let rec isSubSequence (solver:ISolver<'t>) (bigger: RegexNode<'t>) (smaller: RegexNode<'t>): RegexNode<'t> voption  =
+    match bigger, smaller with
+    | Concat(head = SingletonStarLoop(head1); tail = tail1), Or(nodes = xs) ->
+        xs
+        |> Seq.tryPick (fun v ->
+            match isSubSequence solver tail1 v with
+            | ValueSome v -> Some v
+            | _ -> None
+        )
+        |> function
+        | Some v -> ValueSome v
+        | _ -> ValueNone
+    | Concat(head = head1; tail = tail1), Concat(head = head2; tail = tail2) ->
+        match head1, head2 with
+        | _, Singleton head2 -> ValueNone
+        | SingletonStarLoop(head1), SingletonStarLoop(head2) ->
+            if obj.ReferenceEquals(tail1, tail2) then
+                ValueSome smaller
+            else
+                isSubSequence solver tail1 smaller
+        | Singleton spred, SingletonStarLoop(lpred) ->
+            if solver.isElemOfSet (lpred, spred) then
+                if obj.ReferenceEquals(tail1, smaller) then
+                    ValueSome smaller
+                else
+                    isSubSequence solver tail1 smaller
+            else
+                ValueNone
+        | Or(nodes= headNodes), SingletonStarLoop(lpred) ->
+            failwith "todo"
+            if setIsSubsumedSingle (unbox solver) (unbox headNodes) (unbox smaller) then
+                ValueSome smaller
+            else
+                ValueNone
+        | _ ->
+            ValueNone
+    | _, n when n.IsAlwaysNullable -> ValueSome (smaller)
+    // | _, Epsilon -> ValueSome (smaller)
+    | Loop(_), _
+    | Or _, Concat _
+    | Or _, Or _
+    | Not _, _
+    | _, Not  _
+    | Singleton _, _
+     -> ValueNone
+    | _ ->
+        // let dbg = 1
+        // failwith $"todo!:\n{bigger.ToStringHelper()}\n{smaller.ToStringHelper()}"
+        ValueNone
+
+
+let rec setIsSubsumed (solver:ISolver<uint64>) (bigger: RegexNode<uint64> seq) (smaller: RegexNode<uint64> seq) : bool  =
+    use mutable eSmaller = smaller.GetEnumerator()
+    use mutable eBigger = bigger.GetEnumerator()
+    let mutable found = false
+    while eSmaller.MoveNext() do
+        while not found && eBigger.MoveNext() do
+            match isSubSequence solver eBigger.Current eSmaller.Current   with
+            | ValueSome v ->
+                found <- true
+            | _ -> ()
+    found
+
+
+let rec setIsSubsumedSingle (solver:ISolver<uint64>) (bigger: RegexNode<uint64> seq) (smaller: RegexNode<uint64>) : bool  =
+    use mutable eBigger = bigger.GetEnumerator()
+    let mutable found = false
+    while not found && eBigger.MoveNext() do
+        match isSubSequence solver eBigger.Current smaller with
+        | ValueSome v ->
+            found <- true
+        | _ -> ()
+    found
+
+
+[<return: Struct>]
+let (|TrySubsumeSameTail|_|) (solver) (nodes: HashSet<RegexNode<_>>) =
+    let arr =
+        nodes
+        |> Seq.toArray
+    match arr with
+    | [| e1; e2 |] ->
+        match isSubSequence solver e1 e2 with
+        | ValueSome s -> ValueSome(s)
+        | _ ->
+            match isSubSequence solver e2 e1 with
+            | ValueSome s -> ValueSome (s)
+            | _ -> ValueNone
+    | _ ->
+        // TODO:
+        // failwith "todo optimize"
+        ValueNone
+
+
+
+
+
+
 
 
 module Location =

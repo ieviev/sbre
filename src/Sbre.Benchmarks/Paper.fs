@@ -138,33 +138,21 @@ type Basic3() =
 
 type DebugSbre3() =
     inherit Jobs.SbreDebugSearch([
-        // Permutations.permuteConjInParagraph ["Huck"]
-
-        // @"[a-q][^u-z]{13}x"
-
-        // @"[a-q][^u-z]{0,13}x"
-        // @"~(⊤*\n\n⊤*)&⊤*Huck⊤*"
-
-        // Permutations.permuteConjInParagraph ["Huck";  ]
-        // Permutations.permuteConjInParagraph ["Huck";"Finn"; ]
-        // Permutations.permuteConjInParagraph ["Huck";"Finn"; "Tom"; ]
-        // Permutations.permuteConjInParagraph ["Huck";"Finn"; "Tom"; "Sawyer" ]
-
-        // @"(?:(?i)~(⊤*\n\n⊤*)&⊤*Huck⊤*)"
-        // @"(?:(?i)~(⊤*\n\n⊤*)&⊤*Huck⊤*)"
-
-        // @".*Huck.*&~(⊤*the⊤*)"
-        // @".*Huck.*&~(⊤*the⊤*)&.*\n"
-        // @".*Huck.*&~(⊤*the⊤*)"
-        // @".*Huck.*&~(⊤*the⊤*)"
-
-        // Permutations.permuteConjInLine ["which";]
-        // Permutations.permuteConjInLine ["which";"could"]
-        // Permutations.permuteConjInLine ["which";"could"; "where"]
         Permutations.permuteConjInLine ["t.*hat"; "a.*nd"; "t.*he";"w.*as"]
+        // Permutations.permuteConjInLine ["th.*at"; "an.*d"; "th.*e";"wa.*s"]
+        Permutations.permuteConjInParagraph ["Huck";"Finn"; "Tom"; "Sawyer" ]
+        Permutations.permuteConjInLine ["Huck";"Finn"; "Tom"; "Sawyer" ]
+    ], fullInput)
+
+
+type DebugAll() =
+    inherit Jobs.TestAllEngines(
+        // Permutations.permuteAltInLine ["t.*hat"; "a.*nd"; "t.*he";"w.*as"]
+        Permutations.permuteAltInLine ["Huck";"Finn"; "Tom"; "Sawyer" ]
+
 
         // @"~(⊤*\n\n⊤*)&⊤*Huck⊤*&⊤*could⊤*&⊤*there⊤*"
-    ], fullInput)
+    , fullInput)
 
 
 type WordsLine1() =
@@ -299,8 +287,8 @@ type PatternLine1() =
 
 // type RegexLine3() =
 //     inherit
-//         Jobs.TestAllEnginesWords(
-//             [@"whi[a-z]*h";@"cou[a-z]*d"; @"the[a-z]*e" ],
+//         Jobs.TestAllEngines(
+//             Permutations.permuteAltInLine [@"whi[a-z]*h";@"cou[a-z]*d"; @"the[a-z]*e" ],
 //             fullInput
 //         )
 

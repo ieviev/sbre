@@ -477,7 +477,7 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
 
                 if Solver.isElemOfSetU64 pred curr.Set then
                     looping <- false
-                    result <- ValueSome(curr.Node :?> RegexNode<uint64>)
+                    result <- ValueSome(curr.Node)
 
             result
         | _ -> result
@@ -568,47 +568,15 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
                 nodes.Add(largestStarLoop) |> ignore
                 nodes
         | _ ->
-            // let mutable allsame = true
-            //
-            // let rec isSubSequence a b =
-            //     match a, b with
-            //     | Concat(head = head1; tail = tail1), Concat(head = head2; tail = tail2) ->
-            //         if obj.ReferenceEquals(tail1, tail2) then
-            //             ValueSome b
-            //         else
-            //             isSubSequence tail1 b
-            //     | _ -> ValueNone
-            //
-            // let allSameHead =
-            //     nodes
-            //     |> Seq.pairwise
-            //     |> Seq.iter (fun (prev, v) ->
-            //         match prev, v with
-            //         | Concat(head = head1; tail = tail1), Concat(head = head2; tail = tail2) ->
-            //             if not (obj.ReferenceEquals(head1, head2)) then
-            //                 allsame <- false
-            //         | _ -> allsame <- false
-            //     )
-            //
-            // if allsame then
-            //     let arr = nodes |> Seq.toArray
-            //
-            //     match arr with
-            //     | [| e1; e2 |] ->
-            //         match isSubSequence e1 e2 with
-            //         | ValueSome s -> Seq.singleton s
-            //         | _ ->
-            //             match isSubSequence e2 e1 with
-            //             | ValueSome s -> Seq.singleton s
-            //             | _ -> nodes
-            //     | _ ->
-            //         // TODO:
-            //         // failwith "todo optimize"
-            //         nodes
-            //
-            // else
 
-            nodes
+            match nodes with
+            | AllSameHead() ->
+                match nodes with
+                | TrySubsumeSameTail solver (s) -> Seq.singleton s //:?> RegexNode<'t> seq
+                | _ -> nodes
+            | _ ->
+
+                nodes
 
 
 
@@ -627,26 +595,41 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
         |> Option.defaultValue nodes
 
 
-    member this.trySubsumeTopLevelOr(first, deriv) : bool =
+    member this.trySubsumeTopLevelOr(existing: RegexNode<uint64>, newnode: RegexNode<uint64>) : bool =
 
-        match first, deriv with
-        | Concat(_), And(nodes = nodes2) -> nodes2.Contains(first)
+        match existing, newnode with
+        | Concat(_), And(nodes = nodes2) ->
+            nodes2.Contains(existing)
+            || setIsSubsumedSingle (unbox solver) nodes2 (existing)
 
         | Or(nodes = nodes1), And(nodes = nodes2) ->
-            if nodes2.Contains(first) then
+            if nodes2.Contains(existing) then
                 true
             else
                 let mutable found = false
                 use mutable n1e = nodes1.GetEnumerator()
 
                 while not found && n1e.MoveNext() do
-                    if nodes2.Contains(n1e.Current) then
-                        found <- true
+                    if
+                        nodes2.Contains(n1e.Current)
 
+                    then
+                        found <- true
+                if not found then
+                    if setIsSubsumedSingle (unbox solver) nodes2 (existing) then
+                        found <- true
+                    else
+                        let v = 1
+                        ()
+#if OPTIMIZE
+                if not found then
+                    failwith $"unoptimized:\n{existing.ToStringHelper()}\n{newnode.ToStringHelper()}"
+#endif
                 found
 
         | And(nodes = nodes1), And(nodes = nodes2)
         | Or(nodes = nodes2), Or(nodes = nodes1) ->
+
 
             let mutable found = false
 
@@ -671,7 +654,16 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
                     | Or(nodes = currN1Inner) ->
                         if currN1Inner.Contains(currN2) then
                             currFound <- true
-                    | _ -> ()
+                        else
+                            match isSubSequence solver (unbox currN2) (unbox currN1) with
+                            | ValueSome (v) ->
+                                currFound <- true
+                            | _ -> ()
+                    | _ ->
+                        match isSubSequence solver (unbox currN2) (unbox currN1) with
+                        | ValueSome (v) ->
+                            currFound <- true
+                        | _ -> ()
 
                 n2e.Reset()
 
@@ -684,83 +676,25 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
             else
                 failwith "unoptimized"
 #endif
-
-
-            _andSubsumptionCache.TryAdd(struct (first, deriv), found) |> ignore
             found
 
         | _ -> false
+        |> (fun v ->
+            _andSubsumptionCache.Add(struct (existing, newnode), v)
+            v
+        )
 
 
-
-    member this.mkAnd(nodeSet: RegexNode< ^t >[]) : RegexNode< ^t > =
-        let nodeSet =
-            // filter and expand!
-            nodeSet
-            |> Seq.collect (fun v ->
-                match v with
-                | _ when obj.ReferenceEquals(v, _uniques._trueStar) -> [||]
-                | And(nodes, _) -> nodes |> Seq.toArray
-                | n -> [| n |]
-            )
-            |> Seq.toArray
-
-        Array.sortInPlaceBy LanguagePrimitives.PhysicalHash nodeSet
-
-        if nodeSet.Length = 0 then
-            _uniques._trueStar
-        else
-
-            let createNode(nodeSet: RegexNode< ^t >[]) =
-                nodeSet
-                |> Array.tryFind (fun v -> obj.ReferenceEquals(v, _uniques._false))
-                |> function
-                    | Some falseNode -> falseNode
-                    | _ ->
-                        let nodes = nodeSet
-
-                        match nodes with
-                        | _ when nodes.Length = 0 -> _uniques._trueStar
-                        | _ when nodes.Length = 1 -> (head nodes)
-                        | twoormore ->
-                            let flags = Flags.inferAnd twoormore
-                            let startset = twoormore |> Startset.inferMergeStartset solver
-
-                            let mergedInfo =
-                                RegexNodeInfo<'t>(
-                                    Flags = flags,
-                                    Startset = startset,
-                                    InitialStartset = Uninitialized
-                                )
-
-                            let newAnd = RegexNode.And(ofSeq twoormore, mergedInfo)
-                            newAnd
-
-            let key = nodeSet
-
-            match _andCache.TryGetValue(key) with
-            | true, v -> v
-            | _ ->
-                let v = createNode key
-                _andCache.Add(key, v)
-                v
-
-
-    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    member this.mkAndEnumerator
+    member this.mkAnd
         (
-            e: byref<Collections.Immutable.ImmutableHashSet<RegexNode<'t>>.Enumerator>,
-            mkDer: RegexNode<'t> -> RegexNode<'t>
+            nodes: RegexNode<'t> seq
         ) : RegexNode<'t> =
 
         let mutable enumerating = true
         let mutable status = MkAndFlags.None
         let derivatives = ResizeArray()
-
+        use mutable e = nodes.GetEnumerator()
         while e.MoveNext() = true && enumerating do
-            let curr = e.Current
-            let deriv = mkDer curr
-
             let rec handleNode(deriv) =
                 match deriv with
                 | _ when obj.ReferenceEquals(deriv, _uniques._trueStar) -> ()
@@ -782,7 +716,7 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
 
                 | _ -> derivatives.Add(deriv)
 
-            handleNode deriv
+            handleNode e.Current
 
 
         match status with
@@ -825,120 +759,19 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
                 _andCache.Add(asArray, v)
                 v
 
-    member this.mkOr(nodeSet: RegexNode<_>[]) : RegexNode<_> =
-
-        let mutable enumerating = true
-        let mutable status = MkOrFlags.None
-        let mutable zeroloops = 0
-        let mutable singletonLoops = 0
-        let mutable e = nodeSet.AsSpan().GetEnumerator()
-
-        let derivatives = HashSet(_refComparer)
-
-        while e.MoveNext() = true && enumerating do
-            let deriv = e.Current
-
-            let rec handleNode(deriv: RegexNode<'t>) =
-                match deriv with
-                | _ when obj.ReferenceEquals(deriv, _uniques._false) -> ()
-                | _ when obj.ReferenceEquals(deriv, _uniques._trueStar) ->
-                    enumerating <- false
-                    status <- MkOrFlags.IsTrueStar
-                | Or(nodes, _) -> nodes |> Seq.iter handleNode
-                | Concat(head = Loop(low = 0; up = upper)) when upper <> Int32.MaxValue ->
-                    zeroloops <- zeroloops + 1
-                    derivatives.Add(deriv) |> ignore
-                | Loop(node = Singleton body; low = 0; up = Int32.MaxValue) ->
-                    singletonLoops <- singletonLoops + 1
-                    derivatives.Add(deriv) |> ignore
-                // todo: eat epsilon
-                | Epsilon -> status <- status ||| MkOrFlags.ContainsEpsilon
-                | _ -> derivatives.Add(deriv) |> ignore
-
-            handleNode deriv
-
-        match status with
-        | MkOrFlags.IsTrueStar -> _uniques._trueStar
-        | _ ->
-
-        if zeroloops > 1 then
-            // remove loop duplicates
-            // C{0,9}D  | C{0,8}D = C{0,9}D
-            derivatives
-            |> Seq.choose (fun v ->
-                match v with
-                | Concat(head = Loop(low = 0; up = upper; node = body); tail = tail) when
-                    upper < Int32.MaxValue
-                    ->
-                    Some(struct (body, tail), upper, v)
-                | _ -> None
-            )
-            |> Seq.groupBy (fun (uniq, upper, v) -> uniq)
-            |> Seq.iter (fun (uniq, nodes) ->
-                nodes
-                |> Seq.sortByDescending (fun (body, upper, v) -> upper)
-                |> Seq.skip 1
-                |> Seq.iter (fun (body, upper, v) -> derivatives.Remove(v) |> ignore)
-            )
-        // add epsilon only if no nullables yet
-        if (status &&& MkOrFlags.ContainsEpsilon) <> MkOrFlags.None then
-            if derivatives.Any(fun v -> v.IsAlwaysNullable) then
-                ()
-            else
-                derivatives.Add(Epsilon) |> ignore
-
-        let nodeSet = derivatives |> this.trySubsumeOr |> Seq.toArray
-        Array.sortInPlaceBy LanguagePrimitives.PhysicalHash nodeSet
-
-        if nodeSet.Length = 0 then
-            _uniques._false
-        else
-            let createNode(nodes: RegexNode< ^t >[]) =
-                match nodes with
-                | _ when nodes.Length = 0 -> _uniques._false
-                | _ when nodes.Length = 1 -> (head nodes)
-                | twoormore ->
-                    let flags = Flags.inferOr twoormore
-
-                    let startset = twoormore |> Startset.inferMergeStartset solver
-
-                    let mergedInfo =
-                        RegexNodeInfo<'t>(
-                            Flags = flags,
-                            Startset = startset,
-                            InitialStartset = Uninitialized
-                        )
-
-                    RegexNode.Or(ofSeq twoormore, mergedInfo)
-
-            let key = nodeSet
-
-            match _orCache.TryGetValue(key) with
-            | true, v -> v
-            | _ ->
-                let v = createNode key
-                _orCache.Add(key, v)
-                v
-
-
-    member this.mkOrEnumerator
+    member this.mkOr
         (
-            e: byref<Collections.Immutable.ImmutableHashSet<RegexNode<'t>>.Enumerator>,
-            mkDer: (RegexNode<'t> -> RegexNode<'t>)
+            nodes: RegexNode<'t> seq
 
         ) : RegexNode<_> =
-
         let mutable enumerating = true
         let mutable status = MkOrFlags.None
         let mutable zeroloops = 0
         let mutable singletonLoops = 0
-
+        use mutable e = nodes.GetEnumerator()
         let derivatives = HashSet(_refComparer) //this.DerivativeSet
 
         while e.MoveNext() && enumerating do
-            // let deriv = e.Current
-            let deriv = mkDer e.Current
-
             let rec handleNode(deriv: RegexNode<'t>) =
                 match deriv with
                 | _ when obj.ReferenceEquals(deriv, _uniques._false) -> ()
@@ -956,7 +789,7 @@ type RegexBuilder<'t when ^t :> IEquatable< ^t > and ^t: equality>
                 | Epsilon -> status <- status ||| MkOrFlags.ContainsEpsilon
                 | _ -> derivatives.Add(deriv) |> ignore
 
-            handleNode deriv
+            handleNode e.Current
 
         match status with
         | MkOrFlags.IsTrueStar -> _uniques._trueStar

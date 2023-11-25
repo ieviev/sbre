@@ -23,7 +23,7 @@
     <WarnOn>1182</WarnOn>
     <!--    implicit conversion -->
     <WarnOn>3387</WarnOn>
-    <!--    <DefineConstants>$(DefineConstants);OPTIMIZE</DefineConstants>-->
+<!--        <DefineConstants>$(DefineConstants);OPTIMIZE</DefineConstants>-->
   </PropertyGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Sbre.Test" />

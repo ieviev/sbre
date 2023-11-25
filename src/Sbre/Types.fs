@@ -59,13 +59,13 @@ type RegexNodeFlags =
     | CanSkip = 16uy
     | Prefix = 32uy
 
-type Transition<'tset when 'tset : equality > = {
+type Transition<'tset when 'tset :> IEquatable<'tset> and 'tset: equality > = {
     mutable Set : 'tset
-    Node : obj
+    Node : RegexNode<'tset>
 }
 
 [<Sealed>]
-type RegexNodeInfo<'tset when 'tset : equality >() =
+type RegexNodeInfo<'tset when 'tset :> IEquatable<'tset> and 'tset: equality >() =
 
     member val Flags: RegexNodeFlags = RegexNodeFlags.None with get, set
     member val Startset: 'tset = Unchecked.defaultof<'tset> with get, set

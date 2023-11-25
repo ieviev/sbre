@@ -1076,7 +1076,7 @@ type TestAllEngines(pattern: string, input: string) =
         System.Text.RegularExpressions.Regex(pattern, opts_NonBacktracking) with get, set
 
     member val Compiled_Regex: System.Text.RegularExpressions.Regex =
-        System.Text.RegularExpressions.Regex(pattern, opts_Compiled) with get, set
+        System.Text.RegularExpressions.Regex(pattern, opts_Compiled, matchTimeout = TimeSpan.FromMilliseconds(2_000.)) with get, set
 
     member val Sbre_Regex: Regex = Regex(pattern, false) with get, set
 

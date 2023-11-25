@@ -113,6 +113,7 @@ let main argv =
     | "all-r1" -> BenchmarkRunner.Run(typeof<Paper.PatternLine1>,config) |> ignore
     // | "all-r3" -> BenchmarkRunner.Run(typeof<Paper.RegexLine3>,config) |> ignore
     | "dbg" -> BenchmarkRunner.Run(typeof<Paper.DebugSbre3>,config) |> ignore
+    | "dbg2" -> BenchmarkRunner.Run(typeof<Paper.DebugAll>,config) |> ignore
     | "dbg-mt" -> BenchmarkRunner.Run(typeof<Jobs.Minterms>,config) |> ignore
     // ------------
 

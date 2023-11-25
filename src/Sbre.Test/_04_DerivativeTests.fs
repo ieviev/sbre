@@ -77,6 +77,20 @@ let test2ndDerivatives(pattern: string, input: string, expectedDerivatives: stri
     Assert.Contains(result, expectedDerivatives)
 
 
+let test2ndDerivativesDirect(pattern: string, input: string, expectedDerivatives: string list) =
+    let matcher = Regex(pattern)
+    let cache = matcher.Cache
+    let node = matcher.RawPattern
+    let location = (Location.create input 0)
+    let location1 = (Location.create input 1)
+
+    let der1 = createDerivative (cache, location, cache.MintermForLocation(location), node)
+
+    let der2 = createDerivative (cache, location1, cache.MintermForLocation(location1), der1)
+
+    let result = der2 |> (fun v -> v.ToStringHelper())
+
+    Assert.Contains(result, expectedDerivatives)
 
 
 
@@ -350,9 +364,18 @@ let ``deriv negation end ``() =
     ])
 
 
-// [<Fact>]
-// let ``subsumption negation nullable ``() =
-//     testPartDerivative (@"(.*(?=.*E)&~(d.*))", "dd", @"⊥")
+[<Fact>]
+let ``subsumption or concat ``() =
+    testPartDerivative (@".*t.*hat.*", "ttt", @".*hat.*")
+
+[<Fact>]
+let ``subsumption or concat 2``() =
+    test2ndDerivativesDirect (
+        ".*w.*as.*",
+        "waaaaaa",
+        [ @"(s.*|.*as.*)"; @"(.*as.*|s.*)" ]
+    )
+
 
 
 [<Fact>]

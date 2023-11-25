@@ -306,9 +306,13 @@ module rec Startset =
                                 mergePrefixes _solver loopterminatorPrefix innerLoopTerminator
 
                             mergePrefixes _solver acc arr
-                        | InitialStartset.Unoptimized -> cannotOptimizeYet <- true
+                        | InitialStartset.Unoptimized ->
+                            cannotOptimizeYet <- true
                         | InitialStartset.Uninitialized -> failwith "todo"
-                    | _ -> cannotOptimizeYet <- true
+                    | Singleton pred ->
+                        mergePrefixes _solver acc [|pred|]
+                    | Epsilon ->
+                        mergePrefixes _solver acc [||]
 
                 curr <- Unchecked.defaultof<_>
             // and
@@ -361,7 +365,15 @@ module rec Startset =
             | Concat(head, tail, info) ->
                 if uninitialized then
                     acc.Add(curr.Startset)
-                // \d{2,2} not optimized for now
+
+                match head with
+                // \d{2,2}
+                | Loop(Singleton pred, low, up, regexNodeInfo) ->
+                    mergePrefixes _solver acc (Array.init low (fun v -> pred))
+                    curr <- Unchecked.defaultof<_>
+
+                | _ ->
+
                 curr <- Unchecked.defaultof<_>
             // failwith $"todo1 {head} {tail}"
             | Epsilon -> curr <- Unchecked.defaultof<_>
@@ -378,10 +390,10 @@ module rec Startset =
         if cannotOptimizeYet then
 #if OPTIMIZE
             [| startNode |]
-            |> Array.map (fun v -> v.ToString())
-            // |> Array.map (fun v -> v.ToStringHelper())
+            // |> Array.map (fun v -> v.ToString())
+            |> Array.map (fun v -> v.ToStringHelper())
             |> String.concat "\n"
-            |> failwith
+            |> failwithf "cannot optimize initial startset:\n%A"
 #endif
             InitialStartset.Unoptimized
         elif acc.Count = 0 then
