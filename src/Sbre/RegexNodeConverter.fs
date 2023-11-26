@@ -71,12 +71,12 @@ let convertToSymbolicRegexNode
                     let inner = convertChildren node |> b.mkConcat
                     let mutable flags = Info.Flags.inferNode inner
 
-                    if flags.HasFlag(RegexNodeFlags.IsAlwaysNullable) then
-                        Info.removeFlag &flags RegexNodeFlags.CanBeNullable
-                        Info.removeFlag &flags RegexNodeFlags.IsAlwaysNullable
-                    else if not (flags.HasFlag(RegexNodeFlags.CanBeNullable)) then
-                        Info.addFlag &flags RegexNodeFlags.CanBeNullable
-                        Info.addFlag &flags RegexNodeFlags.IsAlwaysNullable
+                    if flags.HasFlag(RegexNodeFlags.IsAlwaysNullableFlag) then
+                        Info.removeFlag &flags RegexNodeFlags.CanBeNullableFlag
+                        Info.removeFlag &flags RegexNodeFlags.IsAlwaysNullableFlag
+                    else if not (flags.HasFlag(RegexNodeFlags.CanBeNullableFlag)) then
+                        Info.addFlag &flags RegexNodeFlags.CanBeNullableFlag
+                        Info.addFlag &flags RegexNodeFlags.IsAlwaysNullableFlag
 
                     RegexNode.Not(inner, RegexNodeInfo<BDD>( Flags = flags, Startset = Unchecked.defaultof<BDD>, InitialStartset = Uninitialized))
                     :: acc

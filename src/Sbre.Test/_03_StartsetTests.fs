@@ -208,7 +208,7 @@ let ``startsetChars of bdd 2 - merged span``() =
 let ``initialstartset prefix 01``() =
     let matcher = Regex(@"⊤*have⊤*")
     let flags = Common.getRawFlags matcher
-    Assert.Equal(Flag.Prefix ||| Flag.CanSkip, flags)
+    Assert.Equal(Flag.PrefixFlag ||| Flag.CanSkipFlag, flags)
 
 
 

@@ -23,6 +23,7 @@ let inline tryJumpToStartset (c:RegexCache<uint64>)(loc:byref<Location>) (node:R
                 else c.TryNextStartsetLocationArrayReversed(&loc,arr)
             elif arr.Length = 1 && loopEnd.Length = 1 then
                 c.TryNextStartsetLocation(&loc,c.Solver.Or(arr[0],loopEnd[0]))
+                ValueSome loc.Position
             // elif arr.Length = 1 then
             //     c.TryNextStartsetLocation(loc,arr[0])
             else

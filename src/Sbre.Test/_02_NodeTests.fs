@@ -316,7 +316,7 @@ let ``flags 3``() =
         // let flags = Flags.inferNode matcher.RawPattern
         // let info = Cache.mkInfoOfOr (matcher.Cache, nodes)
         let flags = Flags.inferNode matcher.RawPattern
-        Assert.Equal(Flag.CanBeNullable ||| Flag.IsAlwaysNullable ||| Flag.ContainsEpsilon, flags)
+        Assert.Equal(Flag.CanBeNullableFlag ||| Flag.IsAlwaysNullableFlag ||| Flag.ContainsEpsilonFlag, flags)
     | _ -> Assert.True(false, "wrong node type")
 
 
@@ -327,7 +327,7 @@ let ``flags 4``() =
 
     match matcher.RawPattern with
     | Types.Not(nodes, info) ->
-        Assert.Equal(Flag.CanBeNullable ||| Flag.IsAlwaysNullable ||| Flag.CanSkip ||| Flag.Prefix, info.Flags)
+        Assert.Equal(Flag.CanBeNullableFlag ||| Flag.IsAlwaysNullableFlag ||| Flag.CanSkipFlag ||| Flag.PrefixFlag, info.Flags)
     | _ -> Assert.True(false, "wrong node type")
 
 
@@ -337,21 +337,21 @@ let ``flags 4``() =
 let ``flags prefix 1``() =
     let matcher = Regex(@"have⊤*").UInt64Matcher
     let info = matcher.RawPattern.TryGetInfo.Value
-    Assert.Equal(Flag.Prefix, info.Flags)
+    Assert.Equal(Flag.PrefixFlag, info.Flags)
 
 
 [<Fact>]
 let ``flags prefix 2``() =
     let matcher = Regex(@"⊤*have⊤*").UInt64Matcher
     let info = matcher.RawPattern.TryGetInfo.Value
-    Assert.Equal(Flag.Prefix ||| Flag.CanSkip, info.Flags)
+    Assert.Equal(Flag.PrefixFlag ||| Flag.CanSkipFlag, info.Flags)
 
 
 [<Fact>]
 let ``flags prefix 3``() =
     let matcher = Regex(@"~(⊤*\n\n⊤*)\n&⊤*have⊤*").UInt64Matcher
     let info = matcher.RawPattern.TryGetInfo.Value
-    Assert.Equal(Flag.Prefix ||| Flag.CanSkip, info.Flags)
+    Assert.Equal(Flag.PrefixFlag ||| Flag.CanSkipFlag, info.Flags)
 
 
 

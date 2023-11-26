@@ -174,7 +174,6 @@ module RegexNode =
 
     let deriveActiveBranch(
         toplevelOr:byref<RegexNode<_>>,
-        toplevelOrInfo:byref<RegexNodeInfo<_> voption>,
         locationPredicate,
         loc:byref<Location>,
         cache:RegexCache<TSet>,
@@ -192,17 +191,16 @@ module RegexNode =
         //     | _ -> isNullable (cache, &loc, toplevelOr)
         // else
 
-        let mutable isNullablePos = false
+        let mutable isFinalNullable = false
         if refEq cache.False updated then
-            isNullablePos <-
-                match toplevelOrInfo with
+            isFinalNullable <-
+                match toplevelOr.TryGetInfo with
                 | ValueSome info ->
                     info.CanBeNullable
                     && (info.IsAlwaysNullable || isNullable (cache, &loc, toplevelOr))
                 | _ -> isNullable (cache, &loc, toplevelOr)
         toplevelOr <- updated
-        toplevelOrInfo <- toplevelOr.TryGetInfo
-        isNullablePos
+        isFinalNullable
 
     let deriveInitialBranch(
         _currentActiveBranch:byref<RegexNode<_>>,
@@ -231,23 +229,17 @@ module RegexNode =
             if refEq _currentActiveBranch cache.False then
                 _currentActiveBranch <- deriv
 
-            else if refEq _currentActiveBranch deriv || isAlwaysNullable (_currentActiveBranch) then
-                ()
-            else
-                match
-                    cache.Builder.SubsumptionCache.TryGetValue(struct (_currentActiveBranch, deriv))
-                with
-                | true, v ->
-                    if v then
-                        ()
-                    else
-                        _currentActiveBranch <- cache.Builder.mkOr [| deriv; _currentActiveBranch |]
+            let isSubsumed =
+                refEq _currentActiveBranch deriv ||
+                isAlwaysNullable (_currentActiveBranch) ||
+                match cache.Builder.SubsumptionCache.TryGetValue(struct (_currentActiveBranch, deriv)) with
+                | true, subsumed -> subsumed
+                | _ -> cache.Builder.trySubsumeTopLevelOr (_currentActiveBranch, deriv)
 
-                | _ ->
-                if cache.Builder.trySubsumeTopLevelOr (_currentActiveBranch, deriv) then
-                    ()
-                else
-                    _currentActiveBranch <- cache.Builder.mkOr [| deriv; _currentActiveBranch |]
+            if not isSubsumed then
+                _currentActiveBranch <- cache.Builder.mkOr [| deriv; _currentActiveBranch |]
+
+
 
 
     let matchEnd
@@ -271,7 +263,6 @@ module RegexNode =
         let _startsetPredicate = cache.GetInitialStartsetPredicate
         let _builder = cache.Builder
         let _initialInfo = _initialWithoutDotstar.TryGetInfo
-        let mutable toplevelOrInfo = toplevelOr.TryGetInfo
 
         while not foundmatch do
             if Location.isFinal loc then
@@ -279,22 +270,20 @@ module RegexNode =
             else
                 let mt_id = cache.MintermId(loc)
                 let locationPredicate = cache.MintermById(mt_id)
-                // let locationPredicate = cache.MintermForLocation(loc)
                 // current active branches
                 if not (refEq toplevelOr cache.False) then
                     let updated =
-                        match getCachedTransition (locationPredicate, toplevelOrInfo) with
+                        match getCachedTransition (locationPredicate, toplevelOr.TryGetInfo) with
                         | ValueSome v -> v
                         | _ -> createDerivative (cache, &loc, locationPredicate, toplevelOr)
 
-                    let isNullablePos =
+                    let isFinalNullable =
                         deriveActiveBranch(
-                            &toplevelOr, &toplevelOrInfo,
+                            &toplevelOr,
                             locationPredicate,&loc,cache,updated)
-                    if isNullablePos then
+                    if isFinalNullable then
                         currentMax <- ValueSome loc.Position
-                        if currentMax.IsSome then
-                            foundmatch <- true
+                        foundmatch <- true
 
                 // create implicit dotstar derivative only if startset matches
                 if
@@ -312,7 +301,7 @@ module RegexNode =
                     loc.Position <- Location.nextPosition loc
                     // check nullability
                     if
-                        canBeNullableV (toplevelOrInfo,toplevelOr)
+                        canBeNullableV (toplevelOr.TryGetInfo,toplevelOr)
                     then
                         if isAlwaysNullable toplevelOr || isNullable (cache, &loc, toplevelOr) then
                             currentMax <- (ValueSome loc.Position)
@@ -332,9 +321,9 @@ module RegexNode =
                             cache.TryNextStartsetLocationArray(&loc,cache.GetInitialStartsetPrefix().Span)
 
                         // jump mid-regex
-                        match toplevelOrInfo with
+                        match toplevelOr.TryGetInfo with
                         | ValueSome i ->
-                            if i.Flags.HasFlag(Flag.CanSkip) then
+                            if i.Flags.HasFlag(Flag.CanSkipFlag) then
                                 loc.Position <- tryJumpToStartset cache &loc toplevelOr
                         | ValueNone -> ()
 

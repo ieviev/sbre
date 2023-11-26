@@ -238,9 +238,9 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 info =
                     RegexNodeInfo<'t>(
                         Flags =
-                            (RegexNodeFlags.IsAlwaysNullable
-                             ||| RegexNodeFlags.CanBeNullable
-                             ||| RegexNodeFlags.CanSkip),
+                            (RegexNodeFlags.IsAlwaysNullableFlag
+                             ||| RegexNodeFlags.CanBeNullableFlag
+                             ||| RegexNodeFlags.CanSkipFlag),
                         Startset = solver.Full,
                         InitialStartset = Uninitialized
                     )
@@ -279,7 +279,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 lazy
                     let info =
                         RegexNodeInfo<'t>(
-                            Flags = RegexNodeFlags.CanBeNullable, //||| RegexNodeFlags.ContainsLookaround
+                            Flags = RegexNodeFlags.CanBeNullableFlag, //||| RegexNodeFlags.ContainsLookaround
                             Startset = Unchecked.defaultof<_>,
                             InitialStartset = Uninitialized
                         )
@@ -298,7 +298,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 lazy
                     let info =
                         RegexNodeInfo<'t>(
-                            Flags = RegexNodeFlags.CanBeNullable, //||| RegexNodeFlags.ContainsLookaround
+                            Flags = RegexNodeFlags.CanBeNullableFlag, //||| RegexNodeFlags.ContainsLookaround
                             Startset = solver.Full,
                             InitialStartset = Uninitialized
                         )
@@ -316,7 +316,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 lazy
                     let info =
                         RegexNodeInfo<'t>(
-                            Flags = RegexNodeFlags.CanBeNullable,
+                            Flags = RegexNodeFlags.CanBeNullableFlag,
                             Startset = solver.Full,
                             InitialStartset = Uninitialized
                         )
@@ -354,7 +354,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                     let info =
                         RegexNodeInfo<'t>(
                             Flags =
-                                (RegexNodeFlags.CanBeNullable ||| RegexNodeFlags.ContainsLookaround),
+                                (RegexNodeFlags.CanBeNullableFlag ||| RegexNodeFlags.ContainsLookaroundFlag),
                             Startset = Unchecked.defaultof<_>,
                             InitialStartset = Uninitialized
                         )
@@ -394,7 +394,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 lazy
                     let info =
                         RegexNodeInfo<'t>(
-                            Flags = (RegexNodeFlags.CanBeNullable ||| RegexNodeFlags.None),
+                            Flags = (RegexNodeFlags.CanBeNullableFlag ||| RegexNodeFlags.None),
                             Startset = Unchecked.defaultof<_>,
                             InitialStartset = Uninitialized
                         )

@@ -38,10 +38,8 @@ let dbgSbre() =
         t.Patterns
         |> Seq.head
     t.Setup()
-    // for i = 0 to 1 do
     // for i = 0 to 1000 do
-    for i = 0 to 1000 do
-        t.MatchWithConj() |> ignore
+    //     t.NoDfaSbre() |> ignore
 
 
 let dbgNonb() =

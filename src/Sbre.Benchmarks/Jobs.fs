@@ -539,7 +539,8 @@ type SbreDebugSearch(patterns: string list, input: string) =
     let inputText = input
 
 
-    member val CombinedRegex: Regex = Unchecked.defaultof<_> with get, set
+    member val RegexEngine: Regex = Unchecked.defaultof<_> with get, set
+    member val Matcher: RegexMatcher<uint64> = Unchecked.defaultof<_> with get, set
 
     member this.Patterns: System.Collections.Generic.IEnumerable<string> = patterns
 
@@ -549,11 +550,16 @@ type SbreDebugSearch(patterns: string list, input: string) =
     [<GlobalSetup>]
     member this.Setup() =
         let combinedRegex = this.Pattern
-        this.CombinedRegex <- Regex(combinedRegex)
+        this.RegexEngine <- Regex(combinedRegex)
+        this.Matcher <- this.RegexEngine.Matcher :?> RegexMatcher<uint64>
+
+    // [<Benchmark>]
+    // member this.NoDfaSbre() =
+    //     this.RegexEngine.Count(inputText)
 
     [<Benchmark>]
-    member this.MatchWithConj() =
-        this.CombinedRegex.Count(inputText)
+    member this.DfaSbre() =
+        this.Matcher.DfaCount(inputText)
 
 
 [<MemoryDiagnoser(false)>]

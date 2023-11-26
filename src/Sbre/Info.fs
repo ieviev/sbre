@@ -32,7 +32,7 @@ module Flag =
         sourceFlags.HasFlag(arg)
 
     let inline getContainsFlags(sourceFlags: RegexNodeFlags) =
-        (RegexNodeFlags.ContainsEpsilon ||| RegexNodeFlags.ContainsLookaround)
+        (RegexNodeFlags.ContainsEpsilonFlag ||| RegexNodeFlags.ContainsLookaroundFlag)
         &&& sourceFlags
 
     /// bitwise or for multiple flags
@@ -54,13 +54,13 @@ let inline invertFlag (flags: byref<RegexNodeFlags>) (flagsToInvert: RegexNodeFl
 // Patterns
 [<return: Struct>]
 let (|CanNotBeNullable|_|)(x: RegexNodeInfo<'t>) =
-    match x.Flags.HasFlag(RegexNodeFlags.CanBeNullable) with
+    match x.Flags.HasFlag(RegexNodeFlags.CanBeNullableFlag) with
     | false -> ValueSome()
     | _ -> ValueNone
 
 [<return: Struct>]
 let (|IsAlwaysNullable|_|)(x: RegexNodeInfo<'t>) =
-    match x.Flags.HasFlag(RegexNodeFlags.IsAlwaysNullable) with
+    match x.Flags.HasFlag(RegexNodeFlags.IsAlwaysNullableFlag) with
     | true -> ValueSome()
     | _ -> ValueNone
 
@@ -77,13 +77,13 @@ let (|NodeIsAlwaysNullable|_|)(x: RegexNode<'t>) =
 
 [<return: Struct>]
 let (|CanBeNullable|_|)(x: RegexNodeInfo<'t>) =
-    match x.Flags.HasFlag(RegexNodeFlags.CanBeNullable) with
+    match x.Flags.HasFlag(RegexNodeFlags.CanBeNullableFlag) with
     | true -> ValueSome()
     | _ -> ValueNone
 
 [<return: Struct>]
 let (|ContainsLookaround|_|)(x: RegexNodeInfo<'t>) =
-    match x.Flags.HasFlag(RegexNodeFlags.ContainsLookaround) with
+    match x.Flags.HasFlag(RegexNodeFlags.ContainsLookaroundFlag) with
     | true -> ValueSome()
     | _ -> ValueNone
 
@@ -421,10 +421,10 @@ module rec Flags =
     let rec inferLoop(R, lower, upper) =
         match (R, lower, upper) with
         | _, 0, Int32.MaxValue ->
-            RegexNodeFlags.CanBeNullable
-            |> Flag.withFlag RegexNodeFlags.IsAlwaysNullable
-            |> Flag.withFlag RegexNodeFlags.CanSkip
-        | _, 0, _ -> RegexNodeFlags.CanBeNullable |> Flag.withFlag RegexNodeFlags.IsAlwaysNullable
+            RegexNodeFlags.CanBeNullableFlag
+            |> Flag.withFlag RegexNodeFlags.IsAlwaysNullableFlag
+            |> Flag.withFlag RegexNodeFlags.CanSkipFlag
+        | _, 0, _ -> RegexNodeFlags.CanBeNullableFlag |> Flag.withFlag RegexNodeFlags.IsAlwaysNullableFlag
         | _ -> inferNode R
 
     let inferAnd(xs: seq<RegexNode<'t>>) : RegexNodeFlags =
@@ -433,9 +433,9 @@ module rec Flags =
         |> Seq.reduce (fun b f ->
             let orflags =
                 (b ||| f) &&& (
-                    Flag.ContainsEpsilon ||| Flag.ContainsLookaround)
+                    Flag.ContainsEpsilonFlag ||| Flag.ContainsLookaroundFlag)
             let andFlags =
-                b &&& f &&& (Flag.CanSkip ||| Flag.Prefix ||| Flag.CanBeNullable ||| Flag.IsAlwaysNullable)
+                b &&& f &&& (Flag.CanSkipFlag ||| Flag.PrefixFlag ||| Flag.CanBeNullableFlag ||| Flag.IsAlwaysNullableFlag)
 
             orflags ||| andFlags
         )
@@ -444,13 +444,13 @@ module rec Flags =
     let inferConcat (head: RegexNode<'t>) (tail: RegexNode<'t>) =
         let h1 = inferNodeOptimized head
         let t1 = inferNodeOptimized tail
-        let orFlags = h1 ||| t1 &&& (Flag.ContainsEpsilon ||| Flag.ContainsLookaround)
-        let andFlags = h1 &&& t1 &&& (Flag.IsAlwaysNullable||| Flag.CanBeNullable)
+        let orFlags = h1 ||| t1 &&& (Flag.ContainsEpsilonFlag ||| Flag.ContainsLookaroundFlag)
+        let andFlags = h1 &&& t1 &&& (Flag.IsAlwaysNullableFlag||| Flag.CanBeNullableFlag)
         let prefixFlag =
-            let canSkipHead = h1.HasFlag Flag.CanSkip
+            let canSkipHead = h1.HasFlag Flag.CanSkipFlag
             match head, tail with
-            | Singleton _, (Singleton _ | Concat(head = Singleton _)) -> Flag.Prefix
-            | _ -> (h1 &&& (Flag.Prefix ||| Flag.CanSkip)) ||| (t1 &&& Flag.Prefix)
+            | Singleton _, (Singleton _ | Concat(head = Singleton _)) -> Flag.PrefixFlag
+            | _ -> (h1 &&& (Flag.PrefixFlag ||| Flag.CanSkipFlag)) ||| (t1 &&& Flag.PrefixFlag)
 
         prefixFlag ||| andFlags ||| orFlags
 
@@ -459,24 +459,24 @@ module rec Flags =
     let inferNodeOptimized(node: RegexNode<'t>) : RegexNodeFlags =
         match node with
         | Concat(info = info) -> info.Flags
-        | Epsilon -> Flag.CanBeNullable ||| Flag.IsAlwaysNullable ||| Flag.ContainsEpsilon
+        | Epsilon -> Flag.CanBeNullableFlag ||| Flag.IsAlwaysNullableFlag ||| Flag.ContainsEpsilonFlag
         | Or(nodes, info) -> info.Flags
         | Singleton foo -> Flag.None
         | Loop(node, low, up, info) -> info.Flags
         | And(nodes, info) -> info.Flags
         | Not(node, info) -> info.Flags
-        | LookAround(node, lookBack, negate) -> Flag.CanBeNullable ||| Flag.ContainsLookaround
+        | LookAround(node, lookBack, negate) -> Flag.CanBeNullableFlag ||| Flag.ContainsLookaroundFlag
 
 
     let inferNot(inner: RegexNode<'t>) =
         let innerInfo = inferNodeOptimized inner
         // not nullable => always nullable
         let nullableFlags =
-            if not (innerInfo.HasFlag(RegexNodeFlags.CanBeNullable)) then
-                Flag.IsAlwaysNullable ||| Flag.CanBeNullable
+            if not (innerInfo.HasFlag(RegexNodeFlags.CanBeNullableFlag)) then
+                Flag.IsAlwaysNullableFlag ||| Flag.CanBeNullableFlag
             else Flag.None
         let otherFlags =
-            innerInfo &&& (Flag.ContainsEpsilon ||| Flag.ContainsLookaround ||| Flag.CanSkip ||| Flag.Prefix)
+            innerInfo &&& (Flag.ContainsEpsilonFlag ||| Flag.ContainsLookaroundFlag ||| Flag.CanSkipFlag ||| Flag.PrefixFlag)
         nullableFlags ||| otherFlags
 
 
@@ -486,9 +486,9 @@ module rec Flags =
         |> Seq.reduce (fun b f ->
             let orflags =
                 (b ||| f) &&& (
-                    Flag.CanBeNullable ||| Flag.IsAlwaysNullable ||| Flag.ContainsEpsilon ||| Flag.ContainsLookaround)
+                    Flag.CanBeNullableFlag ||| Flag.IsAlwaysNullableFlag ||| Flag.ContainsEpsilonFlag ||| Flag.ContainsLookaroundFlag)
             let andFlags =
-                b &&& f &&& (Flag.CanSkip ||| Flag.Prefix)
+                b &&& f &&& (Flag.CanSkipFlag ||| Flag.PrefixFlag)
 
             orflags ||| andFlags
         )
@@ -497,14 +497,14 @@ module rec Flags =
     let rec inferNode(node: RegexNode<'t>) =
         match node with
         | Epsilon ->
-            RegexNodeFlags.CanBeNullable
-            |> Flag.withFlag RegexNodeFlags.IsAlwaysNullable
-            |> Flag.withFlag RegexNodeFlags.ContainsEpsilon
+            RegexNodeFlags.CanBeNullableFlag
+            |> Flag.withFlag RegexNodeFlags.IsAlwaysNullableFlag
+            |> Flag.withFlag RegexNodeFlags.ContainsEpsilonFlag
         | Singleton _ -> RegexNodeFlags.None
         | Not(inner, info) -> inferNot inner
         // not nullable
         | Or(xs, info) -> inferOr xs
-        | LookAround _ -> RegexNodeFlags.ContainsLookaround ||| RegexNodeFlags.CanBeNullable
+        | LookAround _ -> RegexNodeFlags.ContainsLookaroundFlag ||| RegexNodeFlags.CanBeNullableFlag
 
         | Loop(node, low, up, info) -> inferLoop (node, low, up)
 
@@ -555,7 +555,7 @@ module Node =
     let inline canBeNullable(node: RegexNode<'t>) =
         match node with
         | Or(info = info) | Loop(info = info) | And(info = info) | Not(info = info) | Concat(info = info) ->
-            info.Flags.HasFlag(Flag.CanBeNullable)
+            info.Flags.HasFlag(Flag.CanBeNullableFlag)
         | Singleton _ -> false
         | LookAround _ -> true
         | Epsilon -> true

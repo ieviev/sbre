@@ -56,12 +56,25 @@ type InitialStartset<'t> =
 [<Flags>]
 type RegexNodeFlags =
     | None = 0uy
-    | CanBeNullable = 1uy
-    | IsAlwaysNullable = 2uy
-    | ContainsLookaround = 4uy
-    | ContainsEpsilon = 8uy
-    | CanSkip = 16uy
-    | Prefix = 32uy
+    | CanBeNullableFlag = 1uy
+    | IsAlwaysNullableFlag = 2uy
+    | ContainsLookaroundFlag = 4uy
+    | ContainsEpsilonFlag = 8uy
+    | CanSkipFlag = 16uy
+    | PrefixFlag = 32uy
+    // todo: fixed length
+    // todo: can be subsumed
+    // todo: singleton loop
+
+[<AutoOpen>]
+module RegexNodeFlagsExtensions =
+    type RegexNodeFlags with
+        member this.IsAlwaysNullable = byte (this &&& RegexNodeFlags.IsAlwaysNullableFlag) <> 0uy
+        member this.CanBeNullable = byte (this &&& RegexNodeFlags.CanBeNullableFlag) <> 0uy
+        member this.CanSkip = byte (this &&& RegexNodeFlags.CanSkipFlag) <> 0uy
+        member this.HasPrefix = byte (this &&& RegexNodeFlags.PrefixFlag) <> 0uy
+        member this.ContainsLookaround = byte (this &&& RegexNodeFlags.ContainsLookaroundFlag) <> 0uy
+
 
 type Transition<'tset when 'tset :> IEquatable<'tset> and 'tset: equality > = {
     mutable Set : 'tset
@@ -78,28 +91,28 @@ type RegexNodeInfo<'tset when 'tset :> IEquatable<'tset> and 'tset: equality >()
     member val Subsumes: Dictionary<RegexNode<'tset>,bool> = Dictionary() with get, set
 
     member inline this.IsAlwaysNullable =
-        this.Flags.HasFlag(RegexNodeFlags.IsAlwaysNullable)
+        this.Flags.HasFlag(RegexNodeFlags.IsAlwaysNullableFlag)
         // (this.Flags &&& RegexNodeFlags.IsAlwaysNullable) <> RegexNodeFlags.None
 
     member inline this.CanBeNullable =
-        this.Flags.HasFlag(RegexNodeFlags.CanBeNullable)
+        this.Flags.HasFlag(RegexNodeFlags.CanBeNullableFlag)
         // (this.Flags &&& RegexNodeFlags.CanBeNullable) <> RegexNodeFlags.None
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.CanSkip() =
-        this.Flags.HasFlag(RegexNodeFlags.CanSkip)
+        this.Flags.HasFlag(RegexNodeFlags.CanSkipFlag)
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.CanNotBeNullable() =
-        (this.Flags &&& RegexNodeFlags.IsAlwaysNullable) = RegexNodeFlags.None
+        (this.Flags &&& RegexNodeFlags.IsAlwaysNullableFlag) = RegexNodeFlags.None
 
     member inline this.ContainsLookaround =
-        this.Flags.HasFlag(RegexNodeFlags.ContainsLookaround)
+        this.Flags.HasFlag(RegexNodeFlags.ContainsLookaroundFlag)
 
     member inline this.ContainsEpsilon =
-        (this.Flags &&& RegexNodeFlags.ContainsEpsilon) = RegexNodeFlags.None
+        (this.Flags &&& RegexNodeFlags.ContainsEpsilonFlag) = RegexNodeFlags.None
 
-    member inline this.HasPrefix = this.Flags.HasFlag(RegexNodeFlags.Prefix)
+    member inline this.HasPrefix = this.Flags.HasFlag(RegexNodeFlags.PrefixFlag)
 
 
 [<ReferenceEquality>]
@@ -232,22 +245,22 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
         | Or(info = info) | Loop(info = info) | And(info = info) | Not(info = info) | Concat(info = info) ->
             info.Flags
         | Epsilon ->
-            RegexNodeFlags.CanBeNullable ||| RegexNodeFlags.IsAlwaysNullable ||| RegexNodeFlags.ContainsEpsilon
+            RegexNodeFlags.CanBeNullableFlag ||| RegexNodeFlags.IsAlwaysNullableFlag ||| RegexNodeFlags.ContainsEpsilonFlag
         | Singleton foo -> RegexNodeFlags.None
         | LookAround(node, lookBack, negate) ->
-            RegexNodeFlags.CanBeNullable ||| RegexNodeFlags.ContainsLookaround
+            RegexNodeFlags.CanBeNullableFlag ||| RegexNodeFlags.ContainsLookaroundFlag
 
     member this.CanBeNullable =
-        this.GetFlags().HasFlag(RegexNodeFlags.CanBeNullable)
+        this.GetFlags().HasFlag(RegexNodeFlags.CanBeNullableFlag)
     member this.CanNotBeNullable =
-        not (this.GetFlags().HasFlag(RegexNodeFlags.CanBeNullable))
+        not (this.GetFlags().HasFlag(RegexNodeFlags.CanBeNullableFlag))
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.CanSkip() =
-        this.GetFlags().HasFlag(RegexNodeFlags.CanSkip)
+        this.GetFlags().HasFlag(RegexNodeFlags.CanSkipFlag)
 
     member this.HasPrefix =
-        this.GetFlags().HasFlag(RegexNodeFlags.Prefix)
+        this.GetFlags().HasFlag(RegexNodeFlags.PrefixFlag)
     member this.Startset =
         match this with
         | Or(info = info) | Loop(info = info) | And(info = info) | Not(info = info) | Concat(info = info) ->
@@ -255,7 +268,7 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
         | Singleton p -> p
         | _ -> Unchecked.defaultof<_>
     member this.ContainsLookaround =
-        this.GetFlags().HasFlag(RegexNodeFlags.ContainsLookaround)
+        this.GetFlags().HasFlag(RegexNodeFlags.ContainsLookaroundFlag)
 
     member this.IsAlwaysNullable =
         match this with

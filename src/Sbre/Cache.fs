@@ -30,7 +30,7 @@ type RegexCache< 't
         _reversePattern: RegexNode<TSet>,
         _builder: RegexBuilder<TSet>,
         _optimizations: RegexFindOptimizations
-    ) =
+    ) as cache =
     let classifier =
         if typeof<TSet> = typeof<TSet> then
             ((box _solver) :?> UInt64Solver)._classifier
@@ -63,12 +63,32 @@ type RegexCache< 't
             // TODO: unoptimzed regex
             ([|_solver.Full|].AsMemory())
 
+    let _getMintermStartsetChars (minterm:TSet) =
+        match _cachedStartsets.TryGetValue(minterm) with
+        | true, v -> v
+        | _ ->
+            let newSpan =
+                StartsetHelpers.getMergedIndexOfSpan (
+                    _solver,
+                    predStartsets,
+                    minterms,
+                    minterm
+                )
+            _cachedStartsets.Add(minterm, (newSpan))
+            newSpan
+
+    let initialSearchValues = _getMintermStartsetChars _initialStartset.Span[0]
+
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.Minterms() = minterms
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.GetInitialStartsetPrefix() = _initialStartset
+
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    member this.GetInitialSearchValues() = initialSearchValues
+
     member this.GetInitialStartsetPredicate = _startsetPredicate
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
@@ -78,24 +98,32 @@ type RegexCache< 't
     member this.MintermStartsets() = predStartsets
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    member this.MintermIndexOfSpan(startset: TSet) =
-        match _cachedStartsets.TryGetValue(startset) with
-        | true, v -> v
-        | _ ->
-            let newSpan =
-                StartsetHelpers.getMergedIndexOfSpan (
-                    _solver,
-                    predStartsets,
-                    minterms,
-                    startset
-                )
+    member this.MintermStartsetChars(startset: TSet) = _getMintermStartsetChars startset
 
-            _cachedStartsets.Add(startset, (newSpan))
-            newSpan
+    member this.TryNextStartsetLocationInitial(loc: byref<Location>, setChars: SearchValues<char>) : unit =
+        // let currpos = loc.Position
+        // match loc.Reversed with
+        // | false ->
+        let slice = loc.Input.Slice(loc.Position)
+        let sharedIndex = slice.IndexOfAny(setChars)
+        if sharedIndex = -1 then
+            loc.Position <- Location.final loc
+        else
+            loc.Position <- loc.Position + sharedIndex
+        // | true ->
+        //     let slice = loc.Input.Slice(0, currpos)
+        //
+        //     let sharedIndex =
+        //             slice.LastIndexOfAny(setChars)
+        //
+        //     if sharedIndex = -1 then
+        //         loc.Position <- Location.final loc
+        //     else
+        //         loc.Position <- sharedIndex + 1
 
-    member this.TryNextStartsetLocation(loc: inref<Location>, set: TSet) =
+    member this.TryNextStartsetLocation(loc: byref<Location>, set: TSet) : unit =
 
-        let setChars = this.MintermIndexOfSpan(set)
+        let setChars = this.MintermStartsetChars(set)
         let isInverted = _solver.isElemOfSet (set,minterms[0])
         let currpos = loc.Position
 
@@ -110,9 +138,9 @@ type RegexCache< 't
                     slice.IndexOfAny(setChars)
 
             if sharedIndex = -1 then
-                ValueNone
+                loc.Position <- Location.final loc
             else
-                ValueSome(currpos + sharedIndex)
+                loc.Position <- currpos + sharedIndex
         | true ->
             let slice = loc.Input.Slice(0, currpos)
 
@@ -123,9 +151,11 @@ type RegexCache< 't
                     slice.LastIndexOfAny(setChars)
 
             if sharedIndex = -1 then
-                ValueNone
+                loc.Position <- Location.final loc
             else
-                ValueSome(sharedIndex + 1)
+                loc.Position <- sharedIndex + 1
+
+
 
     /// skip till a prefix of minterms matches
     member this.TryNextStartsetLocationArray(loc: byref<Location>, setSpan: ReadOnlySpan<TSet>) =
@@ -135,7 +165,7 @@ type RegexCache< 't
         // let mutable result = ValueNone
 
         /// vectorize the search for the first character
-        let firstSetChars = this.MintermIndexOfSpan(setSpan[0])
+        let firstSetChars = this.MintermStartsetChars(setSpan[0])
         let isInverted = Solver.elemOfSet setSpan[0] minterms[0]
         let tailPrefixSpan = setSpan.Slice(1)
 
@@ -202,7 +232,7 @@ type RegexCache< 't
         // let setSpan = prefix.AsSpan()
 
         /// vectorize the search for the first character
-        let firstSetChars = this.MintermIndexOfSpan(setSpan[0])
+        let firstSetChars = this.MintermStartsetChars(setSpan[0])
         // let isInverted = _solver.isElemOfSet(setSpan[0],minterms[0])
         let isInverted = Solver.elemOfSet setSpan[0] minterms[0]
         let tailPrefixSpan = setSpan.Slice(1)
@@ -274,7 +304,7 @@ type RegexCache< 't
 
 
         /// vectorize the search for the first minterm
-        let firstSetChars = this.MintermIndexOfSpan(mergedPrefix)
+        let firstSetChars = this.MintermStartsetChars(mergedPrefix)
 
         /// '.' to ^\n -> it's easier to invert large sets
         // let isInverted = _solver.isElemOfSet(mergedPrefix,minterms[0])
