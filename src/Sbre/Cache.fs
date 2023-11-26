@@ -3,6 +3,7 @@ namespace Sbre
 open System
 open System.Buffers
 open System.Collections.Generic
+open System.Numerics
 open System.Runtime.CompilerServices
 open System.Text.RuntimeRegexCopy
 open System.Text.RuntimeRegexCopy.Symbolic
@@ -44,6 +45,10 @@ type RegexCache< 't
     let _ascii = classifier.Ascii
     let _nonAscii = classifier.NonAscii
     let minterms: TSet[] = _solver.GetMinterms()
+
+
+
+
 
     let mintermBdds =
         (minterms |> Array.map (fun v -> _solver.ConvertToBDD(v, _charsetSolver)))
@@ -366,6 +371,21 @@ type RegexCache< 't
         if loc.Reversed then
             pos <- pos - 1
         this.Classify(loc.Input[pos])
+
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    member this.MintermId(loc: Location) : _ =
+        let mutable pos = loc.Position
+        if loc.Reversed then
+            pos <- pos - 1
+        let c = loc.Input[pos]
+        let i = int c
+        match i < 128 with
+        | true -> _ascii[i]
+        | false -> _nonAscii.Find(i)
+
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    member this.MintermById(id: int) =
+        minterms[ id ]
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.Classify(c: char) =

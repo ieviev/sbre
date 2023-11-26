@@ -1,7 +1,9 @@
 namespace Sbre
 
 open System
+open System.Collections.Generic
 open System.Globalization
+open System.Numerics
 open System.Runtime.CompilerServices
 open System.Text.RuntimeRegexCopy.Symbolic
 open System.Text.RuntimeRegexCopy
@@ -34,6 +36,11 @@ type GenericRegexMatcher() =
     abstract member Match: input:string -> MatchResult
     abstract member Count: input:string -> int
 
+type MatchingState(node:RegexNode<TSet>) =
+    member val Id = -1 with get,set
+    member val Node = node with get,set
+
+    //
 
 
 [<Sealed>]
@@ -46,8 +53,20 @@ type RegexMatcher<'t
         initialNode:RegexNode<uint64>,
         rawNode:RegexNode<uint64>,
         reverseNode:RegexNode<uint64>,
-        _cache:RegexCache<uint64>) =
+        _cache:RegexCache<uint64>) as m =
     inherit GenericRegexMatcher()
+
+    let InitialDfaStateCapacity = 1024
+    let _stateCache = Dictionary<RegexNode<TSet>,MatchingState>() // TODO: dictionary with char kind
+    let _stateArray = Array.zeroCreate<MatchingState> InitialDfaStateCapacity
+    let _stateFlagsArray = Array.zeroCreate<RegexNodeFlags> InitialDfaStateCapacity
+    let _minterms = _cache.Minterms()
+    let _mintermsLog = BitOperations.Log2((uint64)_minterms.Length) + 1
+    let _dfaDelta: int[] =
+        Array.init (1024 <<< _mintermsLog) (fun _ -> -1 )
+
+    do m.GetOrCreateState(_cache.False) |> ignore // 0
+
 
     override this.IsMatch(input: string) =
         let mutable currPos = 0
@@ -163,6 +182,98 @@ type RegexMatcher<'t
 
         counter
 
+
+    member this.GetOrCreateState(node: RegexNode<TSet>) : MatchingState =
+        match _stateCache.TryGetValue(node) with
+        | true , v -> v
+        | _ ->
+            let state = MatchingState(node)
+            _stateCache.Add(node,state)
+            state.Id <- _stateCache.Count
+            // TODO: grow state space if needed
+            if _stateArray.Length = state.Id then
+                failwith "TODO: resize DFA"
+            _stateArray[state.Id] <- state
+            _stateFlagsArray[state.Id] <- node.GetFlags()
+            state
+
+
+    member this.GetDeltaOffset (stateId:int, mintermId:int) =
+        (stateId <<< _mintermsLog) ||| mintermId;
+    member this.TryTakeTransition(stateId: int, mintermId: int) : MatchingState =
+        let dfaOffset = this.GetDeltaOffset(stateId, mintermId)
+        let nextStateId = _dfaDelta[dfaOffset]
+
+        match nextStateId with
+        | n ->
+            failwith "todo"
+
+        // if (matcher.TryCreateNewTransition(matcher.GetState(state.DfaStateId), mintermId, dfaOffset, checkThreshold: true, out MatchingState<TSet>? nextState))
+        //         {
+        //             // We were able to create a new DFA transition to some state. Move to it and
+        //             // return that we're still operating as a DFA and can keep going.
+        //             state.DfaStateId = nextState.Id;
+        //             return true;
+        //         }
+        //
+        //         return false;
+
+        // TSet minterm = GetMintermFromId(mintermId);
+        //             uint nextCharKind = GetPositionKind(mintermId);
+        //             targetState = GetOrCreateState(sourceState.Next(_builder, minterm, nextCharKind), nextCharKind);
+        //             Volatile.Write(ref _dfaDelta[offset], targetState.Id);
+
+        // f (checkThreshold && _stateCache.Count >= SymbolicRegexThresholds.NfaThreshold)
+        //             {
+        //                 nextState = null;
+        //                 return false;
+        //             }
+
+
+
+    member this.FindEndPosition((cache: RegexCache<TSet>),
+        (loc: byref<Location>),
+        (initialNode: RegexNode<TSet>),
+        (toplevelOr: byref<RegexNode<TSet>>)) =
+
+        let mutable currentMax = ValueNone
+        let mutable foundmatch = false
+
+        // initial node
+        let _initialWithoutDotstar =
+            if _cache.IsImplicitDotStarred initialNode then
+                _cache.InitialPatternWithoutDotstar
+            else
+                toplevelOr <- initialNode
+                initialNode
+
+        let _startsetPredicate = _cache.GetInitialStartsetPredicate
+        let _builder = _cache.Builder
+        let _initialInfo = _initialWithoutDotstar.TryGetInfo
+        let mutable toplevelOrInfo = toplevelOr.TryGetInfo
+        let mutable currStateId = 0
+
+        while not foundmatch do
+            let flags = _stateFlagsArray[currStateId]
+            if Location.isFinal loc then
+                foundmatch <- true
+            else
+                let mt_id = _cache.MintermId(loc)
+                let locationPredicate = _cache.MintermById(mt_id)
+
+                // check dead end and nullability
+                // ---
+
+
+
+
+                // try take transition
+                // if (pos >= length || !TStateHandler.TryTakeTransition(this, ref state, positionId))
+
+
+                foundmatch <- true
+        let a = 1
+        ()
 
 
     /// return just the positions of matches without allocating the result
@@ -290,6 +401,10 @@ module Helpers =
                     _builder = uintbuilder,
                     _optimizations = optimizations
                 )
+
+#if DEBUG
+            Debug.debuggerSolver <- Some solver
+#endif
             RegexMatcher<uint64>(trueStarredNode,rawNode,reverseNode,cache) //:> GenericRegexMatcher
         | _ -> failwith "sbre does not support bitvectors over 64"
 

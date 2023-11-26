@@ -1,6 +1,7 @@
 module internal Sbre.Info
 
 open System
+open System.Runtime.InteropServices
 open System.Text.RuntimeRegexCopy.Symbolic
 open Sbre.Types
 open Pat
@@ -391,7 +392,7 @@ module rec Startset =
 #if OPTIMIZE
             [| startNode |]
             // |> Array.map (fun v -> v.ToString())
-            |> Array.map (fun v -> v.ToStringHelper())
+            |> Array.map (fun v -> v.ToString())
             |> String.concat "\n"
             |> failwithf "cannot optimize initial startset:\n%A"
 #endif
@@ -401,9 +402,16 @@ module rec Startset =
                 InitialStartset.Unoptimized
             else
                 let arr = loopterminatorPrefix.ToArray()
-                InitialStartset.MintermArrayPrefix(arr.AsMemory(), arr)
+                InitialStartset.MintermArrayPrefix(arr.AsMemory(), [||].AsMemory())
         else
-            InitialStartset.MintermArrayPrefix(acc.ToArray().AsMemory(), loopterminatorPrefix.ToArray())
+            // if acc.Count = loopterminatorPrefix.Count then
+            //     let sp1 = Memory(acc.ToArray())
+            //     let sp2 = Memory(loopterminatorPrefix.ToArray())
+            //     let merged = mergePrefixesArr _solver sp1 sp2
+            //     InitialStartset.MintermArrayPrefix(merged, [||].AsMemory())
+            // else
+
+            InitialStartset.MintermArrayPrefix(acc.ToArray().AsMemory(), loopterminatorPrefix.ToArray().AsMemory())
 
 
 
@@ -420,60 +428,32 @@ module rec Flags =
         | _ -> inferNode R
 
     let inferAnd(xs: seq<RegexNode<'t>>) : RegexNodeFlags =
-        // todo: can be optimized
-        let inner = xs |> Seq.map inferNodeOptimized |> Seq.toArray
+        xs
+        |> Seq.map inferNodeOptimized
+        |> Seq.reduce (fun b f ->
+            let orflags =
+                (b ||| f) &&& (
+                    Flag.ContainsEpsilon ||| Flag.ContainsLookaround)
+            let andFlags =
+                b &&& f &&& (Flag.CanSkip ||| Flag.Prefix ||| Flag.CanBeNullable ||| Flag.IsAlwaysNullable)
 
-        let allCanBeNull = inner |> Array.forall (fun v -> v.HasFlag(Flag.CanBeNullable))
+            orflags ||| andFlags
+        )
 
-        let allCanSkip = inner |> Array.forall (fun v -> v.HasFlag(Flag.CanSkip))
-
-        let allAlwaysNull = inner |> Array.forall (Flag.hasFlag Flag.IsAlwaysNullable)
-
-        let isPrefix =
-            inner |> Array.exists (Flag.hasFlag Flag.Prefix)
-            && inner
-               |> Array.forall (fun v -> Flag.hasFlag Flag.CanSkip v || Flag.hasFlag Flag.Prefix v)
-
-        let newFlags =
-            inner
-            |> Array.map Flag.getContainsFlags
-            |> Flag.mergeFlags
-            |> Flag.withFlagIf allCanBeNull Flag.CanBeNullable
-            |> Flag.withFlagIf allAlwaysNull Flag.IsAlwaysNullable
-            |> Flag.withFlagIf allCanSkip Flag.CanSkip
-            |> Flag.withFlagIf isPrefix Flag.Prefix
-
-
-        newFlags
 
     let inferConcat (head: RegexNode<'t>) (tail: RegexNode<'t>) =
-
-        // todo: can be optimized
-        let h1 = inferNodeOptimized head //|> Seq.toArray
-        let t1 = inferNodeOptimized tail //|> Seq.toArray
-
-        let allCanBeNull = h1.HasFlag(Flag.CanBeNullable) && t1.HasFlag(Flag.CanBeNullable)
-
-        let allAlwaysNull = h1.HasFlag(Flag.IsAlwaysNullable) && t1.HasFlag(Flag.IsAlwaysNullable)
-
-        let canSkipHead = h1 |> Flag.hasFlag Flag.CanSkip
-
-        let isPrefix =
+        let h1 = inferNodeOptimized head
+        let t1 = inferNodeOptimized tail
+        let orFlags = h1 ||| t1 &&& (Flag.ContainsEpsilon ||| Flag.ContainsLookaround)
+        let andFlags = h1 &&& t1 &&& (Flag.IsAlwaysNullable||| Flag.CanBeNullable)
+        let prefixFlag =
+            let canSkipHead = h1.HasFlag Flag.CanSkip
             match head, tail with
-            | Singleton _, (Singleton _ | Concat(head = Singleton _)) -> true
-            | _, Concat(info = info) when canSkipHead && info.Flags.HasFlag(Flag.Prefix) -> true
-            | _ -> false
+            | Singleton _, (Singleton _ | Concat(head = Singleton _)) -> Flag.Prefix
+            | _ -> (h1 &&& (Flag.Prefix ||| Flag.CanSkip)) ||| (t1 &&& Flag.Prefix)
 
-        let newFlags =
-            seq {h1 ; t1}
-            |> Seq.map Flag.getContainsFlags
-            |> Flag.mergeFlags
-            |> Flag.withFlagIf allCanBeNull Flag.CanBeNullable
-            |> Flag.withFlagIf allAlwaysNull Flag.IsAlwaysNullable
-            |> Flag.withFlagIf canSkipHead Flag.CanSkip
-            |> Flag.withFlagIf isPrefix Flag.Prefix
+        prefixFlag ||| andFlags ||| orFlags
 
-        newFlags
 
 
     let inferNodeOptimized(node: RegexNode<'t>) : RegexNodeFlags =
@@ -491,43 +471,28 @@ module rec Flags =
     let inferNot(inner: RegexNode<'t>) =
         let innerInfo = inferNodeOptimized inner
         // not nullable => always nullable
-        let isAlwaysNullable =
-            if innerInfo.HasFlag(RegexNodeFlags.IsAlwaysNullable) then false
-            elif innerInfo.HasFlag(RegexNodeFlags.CanBeNullable) then false
-            else true
+        let nullableFlags =
+            if not (innerInfo.HasFlag(RegexNodeFlags.CanBeNullable)) then
+                Flag.IsAlwaysNullable ||| Flag.CanBeNullable
+            else Flag.None
+        let otherFlags =
+            innerInfo &&& (Flag.ContainsEpsilon ||| Flag.ContainsLookaround ||| Flag.CanSkip ||| Flag.Prefix)
+        nullableFlags ||| otherFlags
 
-        let merged =
-            Flag.None
-            |> Flag.withFlagIf isAlwaysNullable (Flag.IsAlwaysNullable ||| Flag.CanBeNullable)
-            |> Flag.withFlagIf
-                (Flag.hasFlag (Flag.CanBeNullable ||| Flag.ContainsLookaround) innerInfo)
-                Flag.CanBeNullable
-            |> Flag.withFlagIf
-                (Flag.hasFlag Flag.ContainsLookaround innerInfo)
-                Flag.ContainsLookaround
-            |> Flag.withFlagIf (Flag.hasFlag Flag.ContainsEpsilon innerInfo) Flag.ContainsEpsilon
-            |> Flag.withFlagIf (Flag.hasFlag Flag.CanSkip innerInfo) Flag.CanSkip
-
-        merged
 
     let rec inferOr(xs: seq<RegexNode<'t>>) : RegexNodeFlags =
-        let inner = xs |> Seq.map inferNodeOptimized |> Seq.toArray
+        xs
+        |> Seq.map inferNodeOptimized
+        |> Seq.reduce (fun b f ->
+            let orflags =
+                (b ||| f) &&& (
+                    Flag.CanBeNullable ||| Flag.IsAlwaysNullable ||| Flag.ContainsEpsilon ||| Flag.ContainsLookaround)
+            let andFlags =
+                b &&& f &&& (Flag.CanSkip ||| Flag.Prefix)
 
-        let existsCanBeNull = inner |> Array.exists (fun v -> v.HasFlag(Flag.CanBeNullable))
+            orflags ||| andFlags
+        )
 
-        let allCanSkip = inner |> Array.forall (fun v -> v.HasFlag(Flag.CanSkip))
-
-        let existsAlwaysNull = inner |> Array.exists (Flag.hasFlag Flag.IsAlwaysNullable)
-
-        let newFlags =
-            inner
-            |> Seq.map Flag.getContainsFlags
-            |> Flag.mergeFlags
-            |> Flag.withFlagIf existsCanBeNull Flag.CanBeNullable
-            |> Flag.withFlagIf existsAlwaysNull Flag.IsAlwaysNullable
-            |> Flag.withFlagIf allCanSkip Flag.CanSkip
-
-        newFlags
 
     let rec inferNode(node: RegexNode<'t>) =
         match node with

@@ -103,6 +103,7 @@ type RegexNodeInfo<'tset when 'tset :> IEquatable<'tset> and 'tset: equality >()
 
 
 [<ReferenceEquality>]
+[<DebuggerDisplay("{ToString()}")>]
 type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
     | Concat of  // RE.RE
         head: RegexNode<'tset> *
@@ -140,6 +141,79 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
         | LookAround _ -> "-"
         | Concat(info = info) -> solver.PrettyPrint(info.Startset, css)
         | Epsilon -> "-"
+
+
+    override this.ToString() =
+        if Debug.debuggerSolver.IsNone then "NO INFO" else
+        let _solver = (box Debug.debuggerSolver.Value) :?> ISolver<'tset>
+
+        let paren str = $"({str})"
+
+        let tostr(v) =
+            if v = _solver.Full then
+                "⊤"
+            elif _solver.IsEmpty(v) then
+                "⊥"
+            else
+                match _solver.PrettyPrint(v, debugcharSetSolver) with
+                | @"[^\n]" -> "."
+                | c when c.Length > 12 -> "φ" // dont expand massive sets
+                | c -> c
+
+        match this with
+        | Singleton v -> tostr v
+        | Or(items, _) ->
+            let setItems: string list =
+                if not (obj.ReferenceEquals(items, null)) then
+                    items |> Seq.map (fun v ->  v.ToString() ) |> Seq.toList
+                else
+                    []
+
+            let combinedList = setItems
+
+            combinedList |> String.concat "|" |> paren
+        | And(items, _) ->
+            let setItems: string list =
+                if not (obj.ReferenceEquals(items, null)) then
+                    items |> Seq.map string |> Seq.toList
+                else
+                    []
+
+            setItems |> String.concat "&" |> paren
+        | Not(items, info) ->
+            let inner = items.ToString()
+
+            $"~({inner})"
+        | Loop(body, lower, upper, info) ->
+            let inner =  body.ToString()
+
+            let isStar = lower = 0 && upper = Int32.MaxValue
+
+            let inner = $"{inner}"
+
+            let loopCount =
+                if isStar then "*"
+                elif lower = 1 && upper = Int32.MaxValue then "+"
+                elif lower = 0 && upper = 1 then "?"
+                else $"{{{lower},{upper}}}"
+
+            match isStar with
+            | true -> $"{inner}*"
+            | false -> inner + loopCount
+
+        | LookAround(body, lookBack, negate) ->
+            let inner = body.ToString()
+
+            match lookBack, negate with
+            // | true, true when this.isFull body.Head -> "\\A"
+            // | false, true when this.isFull body.Head -> "\\z"
+            | false, true -> $"(?!{inner})"
+            | false, false -> $"(?={inner})"
+            | true, true -> $"(?<!{inner})"
+            | true, false -> $"(?<={inner})"
+
+        | Concat(h, t, info) ->  h.ToString() + t.ToString()
+        | Epsilon -> "ε"
 #endif
 
 
@@ -167,7 +241,9 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
         this.GetFlags().HasFlag(RegexNodeFlags.CanBeNullable)
     member this.CanNotBeNullable =
         not (this.GetFlags().HasFlag(RegexNodeFlags.CanBeNullable))
-    member this.CanSkip =
+
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    member this.CanSkip() =
         this.GetFlags().HasFlag(RegexNodeFlags.CanSkip)
 
     member this.HasPrefix =

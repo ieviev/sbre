@@ -151,6 +151,7 @@ let rec isSubSequence (bigger: RegexNode<uint64>) (smaller: RegexNode<uint64>): 
         | Some v -> ValueSome v
         | _ -> ValueNone
     | Concat(head = head1; tail = tail1), Concat(head = head2; tail = tail2) ->
+        if obj.ReferenceEquals(head1, head2) then isSubSequence tail1 smaller else
         match head1, head2 with
         | _, Singleton head2 -> ValueNone
         | SingletonStarLoop(head1), SingletonStarLoop(head2) ->
@@ -167,13 +168,18 @@ let rec isSubSequence (bigger: RegexNode<uint64>) (smaller: RegexNode<uint64>): 
             else
                 ValueNone
         | Or(nodes= headNodes), SingletonStarLoop(lpred) ->
-            failwith "todo"
             if setIsSubsumedSingle headNodes smaller then
                 ValueSome smaller
             else
                 ValueNone
         | _ ->
             ValueNone
+    | Or(nodes = nodes), Concat(head = head2; tail = tail2) ->
+        if setIsSubsumedSingle nodes smaller then
+            ValueSome smaller
+        else
+            ValueNone
+
     | _, n when n.IsAlwaysNullable -> ValueSome smaller
     // | _, Epsilon -> ValueSome (smaller)
     | Loop _, _

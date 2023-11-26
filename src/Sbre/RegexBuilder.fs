@@ -213,7 +213,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 // System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode x ^^^ System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode y
         }
 
-    let _andSubsumptionCache: Dictionary<struct (RegexNode<uint64> * RegexNode<uint64>), bool> =
+    let _subsumptionCache: Dictionary<struct (RegexNode<uint64> * RegexNode<uint64>), bool> =
         Dictionary(_subsumptionCacheComparer)
 
     let _orCache: Dictionary<RegexNode< 't >[], RegexNode< 't >> =
@@ -422,7 +422,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
     member this.PrefixCache = _prefixCache
     // member this.DerivativeCache = _derivativeCache
     // member this.Startset2Cache = _startset2Cache
-    member this.AndSubsumptionCache = _andSubsumptionCache
+    member this.SubsumptionCache = _subsumptionCache
 
 
     // [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
@@ -637,7 +637,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                         ()
 #if OPTIMIZE
                 if not found then
-                    failwith $"unoptimized:\n{existing.ToStringHelper()}\n{newnode.ToStringHelper()}"
+                    failwith $"unoptimized:\n{existing.ToString()}\n{newnode.ToString()}"
 #endif
                 found
 
@@ -690,11 +690,12 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             else
                 failwith "unoptimized"
 #endif
+
             found
 
         | _ -> false
         |> (fun v ->
-            _andSubsumptionCache.Add(struct (existing, newnode), v)
+            _subsumptionCache.Add(struct (existing, newnode), v)
             v
         )
 
@@ -883,15 +884,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 | _ when refEq _uniques._trueStar inner -> _uniques._false // ~(⊤*) -> ⊥
                 | Epsilon -> _uniques._truePlus // ~(ε) -> ⊤+
                 | _ ->
-                    let mutable flags = Flags.inferNode inner
-
-                    if flags.HasFlag(RegexNodeFlags.IsAlwaysNullable) then
-                        removeFlag &flags RegexNodeFlags.CanBeNullable
-                        removeFlag &flags RegexNodeFlags.IsAlwaysNullable
-                    else if not (flags.HasFlag(RegexNodeFlags.CanBeNullable)) then
-                        addFlag &flags RegexNodeFlags.CanBeNullable
-                        addFlag &flags RegexNodeFlags.IsAlwaysNullable
-
+                    let mutable flags = Flags.inferNot inner
                     Not(inner, this.CreateInfo(flags, inner.Startset))
 
             let key = inner

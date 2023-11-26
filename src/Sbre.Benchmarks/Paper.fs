@@ -140,8 +140,8 @@ type DebugSbre3() =
         // Permutations.permuteConjInLine ["Huck";"Finn"; "Tom"; "Saw" ]
         // Permutations.permuteConjInParagraph ["Huck";"Finn"; "Tom"; "Saw" ]
         // Permutations.permuteConjInParagraph ["Huck";]
-        // Permutations.permuteConjInLine ["t.*hat"; "a.*nd"; "t.*he";"w.*as"]
-        Permutations.permuteConjInLine ["th.*at"; "an.*d"; "th.*e";"wa.*s"]
+        Permutations.permuteConjInLine ["t.*hat"; "a.*nd"; "t.*he";"w.*as"]
+        // Permutations.permuteConjInLine ["th.*at"; "an.*d"; "th.*e";"wa.*s"]
     ], fullInput)
 
 

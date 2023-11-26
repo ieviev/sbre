@@ -8,7 +8,7 @@
     <OutputType>Library</OutputType>
     <NoWarn>9</NoWarn>
     <!-- dont warn unused -->
-    <NoWarn>FS1182</NoWarn>
+<!--    <NoWarn>FS1182</NoWarn>-->
     <!--  opt-in warnings   -->
     <WarnOn>21</WarnOn>
     <!--  binding executed out of order   -->

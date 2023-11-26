@@ -153,7 +153,7 @@ module RegexNode =
             result
         | _ -> result
 
-    let inline getTransitionInfo2(pred: ^t, info: RegexNodeInfo< ^t > voption) =
+    let inline getCachedTransition(pred: ^t, info: RegexNodeInfo< ^t > voption) =
         let mutable result = ValueNone
         match info with
         | ValueSome info ->
@@ -172,26 +172,83 @@ module RegexNode =
         | _ -> ()
         result
 
-    // let inline getTransitionInfo2 (solver:ISolver<^t>) (pred: ^t) (node: RegexNode<^t>) =
-    //     let mutable result = ValueNone
-    //
-    //     match node with
-    //     | Or(info = info)
-    //     | Loop(info = info)
-    //     | And(info = info)
-    //     | Not(info = info)
-    //     | Concat(info = info) ->
-    //         // use mutable e = info.Transitions.GetEnumerator()
-    //         let mutable e =
-    //             CollectionsMarshal.AsSpan(info.Transitions).GetEnumerator()
-    //         let mutable looping = true
-    //         while looping && e.MoveNext() do
-    //             // if solver.isElemOfSet(pred,e.Current.Set) then
-    //             if Solver.elemOfSet pred e.Current.Set then
-    //                 looping <- false
-    //                 result <- ValueSome(e.Current.Node)
-    //         result
-    //     | _ -> result
+    let deriveActiveBranch(
+        toplevelOr:byref<RegexNode<_>>,
+        toplevelOrInfo:byref<RegexNodeInfo<_> voption>,
+        locationPredicate,
+        loc:byref<Location>,
+        cache:RegexCache<TSet>,
+        updated:RegexNode<_>
+        ) : bool =
+        // let updated =
+        //     match getTransitionInfo2 (locationPredicate, toplevelOrInfo) with
+        //     | ValueSome v -> v
+        //     | _ -> createDerivative (cache, &loc, locationPredicate, toplevelOr)
+        // if refEq toplevelOr updated then
+        //     match toplevelOrInfo with
+        //     | ValueSome info ->
+        //         info.CanBeNullable
+        //         && (info.IsAlwaysNullable || isNullable (cache, &loc, toplevelOr))
+        //     | _ -> isNullable (cache, &loc, toplevelOr)
+        // else
+
+        let mutable isNullablePos = false
+        if refEq cache.False updated then
+            isNullablePos <-
+                match toplevelOrInfo with
+                | ValueSome info ->
+                    info.CanBeNullable
+                    && (info.IsAlwaysNullable || isNullable (cache, &loc, toplevelOr))
+                | _ -> isNullable (cache, &loc, toplevelOr)
+        toplevelOr <- updated
+        toplevelOrInfo <- toplevelOr.TryGetInfo
+        isNullablePos
+
+    let deriveInitialBranch(
+        _currentActiveBranch:byref<RegexNode<_>>,
+        _initialNode:RegexNode<_>,
+        _initialInfo:RegexNodeInfo<_> voption,
+        locationPredicate,
+        loc:byref<Location>,
+        cache:RegexCache<TSet>,
+        foundmatch:byref<bool>
+        ) =
+        let deriv =
+            match getCachedTransition (locationPredicate, _initialInfo) with
+            | ValueSome v -> v
+            | _ ->
+                createDerivative (
+                    cache,
+                    &loc,
+                    locationPredicate,
+                    _initialNode
+                )
+
+        if refEq deriv cache.False then
+            if isAlwaysNullable _initialNode then
+                foundmatch <- true
+        else
+            if refEq _currentActiveBranch cache.False then
+                _currentActiveBranch <- deriv
+
+            else if refEq _currentActiveBranch deriv || isAlwaysNullable (_currentActiveBranch) then
+                ()
+            else
+                match
+                    cache.Builder.SubsumptionCache.TryGetValue(struct (_currentActiveBranch, deriv))
+                with
+                | true, v ->
+                    if v then
+                        ()
+                    else
+                        _currentActiveBranch <- cache.Builder.mkOr [| deriv; _currentActiveBranch |]
+
+                | _ ->
+                if cache.Builder.trySubsumeTopLevelOr (_currentActiveBranch, deriv) then
+                    ()
+                else
+                    _currentActiveBranch <- cache.Builder.mkOr [| deriv; _currentActiveBranch |]
+
 
     let matchEnd
         (cache: RegexCache<TSet>)
@@ -220,88 +277,36 @@ module RegexNode =
             if Location.isFinal loc then
                 foundmatch <- true
             else
-                let locationPredicate = cache.MintermForLocation(loc)
-
-
-
+                let mt_id = cache.MintermId(loc)
+                let locationPredicate = cache.MintermById(mt_id)
+                // let locationPredicate = cache.MintermForLocation(loc)
                 // current active branches
                 if not (refEq toplevelOr cache.False) then
                     let updated =
-                        match getTransitionInfo2 (locationPredicate, toplevelOrInfo) with
+                        match getCachedTransition (locationPredicate, toplevelOrInfo) with
                         | ValueSome v -> v
                         | _ -> createDerivative (cache, &loc, locationPredicate, toplevelOr)
 
-                    if refEq cache.False updated then
-                        let isNullable =
-                            isNullable (cache, &loc, toplevelOr)
-                            // match topLevelOrInfo with
-                            // | ValueSome info ->
-                            //     info.CanBeNullable
-                            //     && (info.IsAlwaysNullable || isNullable (cache, &loc, toplevelOr))
-                            // | _ -> isNullable (cache, &loc, toplevelOr)
-
-                        if isNullable then
-                            currentMax <- ValueSome loc.Position
-
-                            if currentMax.IsSome then
-                                foundmatch <- true
-                    toplevelOr <- updated
-
-                    toplevelOrInfo <- toplevelOr.TryGetInfo
-
+                    let isNullablePos =
+                        deriveActiveBranch(
+                            &toplevelOr, &toplevelOrInfo,
+                            locationPredicate,&loc,cache,updated)
+                    if isNullablePos then
+                        currentMax <- ValueSome loc.Position
+                        if currentMax.IsSome then
+                            foundmatch <- true
 
                 // create implicit dotstar derivative only if startset matches
                 if
                     Solver.elemOfSet _startsetPredicate locationPredicate
-                    // todo: require implicit star?
                     && cache.IsImplicitDotStarred initialNode
                     && currentMax.IsNone
                 then
-                    let deriv =
-                        match getTransitionInfo2 (locationPredicate, _initialInfo) with
-                        | ValueSome v -> v
-                        | _ ->
-                            createDerivative (
-                                cache,
-                                &loc,
-                                locationPredicate,
-                                _initialWithoutDotstar
-                            )
-
-                    if refEq deriv cache.False then
-                        if isAlwaysNullableV (_initialInfo, initialNode) then
-                            foundmatch <- true
-                    else
-                        if refEq toplevelOr cache.False then
-                            toplevelOr <- deriv
-                            toplevelOrInfo <- toplevelOr.TryGetInfo
-                        else if refEq toplevelOr deriv || isAlwaysNullableV (toplevelOrInfo, toplevelOr) then
-                            ()
-                        else
-                            match
-                                _builder.AndSubsumptionCache.TryGetValue(struct (toplevelOr, deriv))
-                            with
-                            | true, v ->
-                                if v then
-                                    ()
-                                else
-#if OPTIMIZE
-                                    failwith $"unoptimized:\n{toplevelOr.ToStringHelper()}\n{deriv}"
-#endif
-                                    toplevelOr <- _builder.mkOr [| deriv; toplevelOr |]
-                                    toplevelOrInfo <- toplevelOr.TryGetInfo
-                            | _ ->
-
-                            if cache.Builder.trySubsumeTopLevelOr (toplevelOr, deriv) then
-                                ()
-                            else
-#if OPTIMIZE
-                                failwith $"unoptimized:\n{_toplevelOr.ToStringHelper()}\n{deriv}"
-#endif
-                                // failwith $"unoptimized:\n{_toplevelOr.ToStringHelper()}\n{deriv}"
-                                toplevelOr <- _builder.mkOr [| deriv; toplevelOr |]
-                                toplevelOrInfo <- toplevelOr.TryGetInfo
-
+                    deriveInitialBranch(
+                            &toplevelOr,
+                            _initialWithoutDotstar,
+                            _initialInfo,
+                            locationPredicate,&loc,cache, &foundmatch)
 
                 if not foundmatch then
                     loc.Position <- Location.nextPosition loc
@@ -315,25 +320,24 @@ module RegexNode =
                     // won't try to jump further if final
                     if
                         Location.isFinal loc
-                        ||
-                        (not (cache.IsImplicitDotStarred initialNode)
-                            &&
-                         refEq toplevelOr cache.False)
+                        || (not (cache.IsImplicitDotStarred initialNode) && refEq toplevelOr cache.False)
                     then
                         foundmatch <- true
                     else if
                         // check if some input can be skipped
                         Solver.notElemOfSet _startsetPredicate (cache.MintermForLocation(loc))
-
                     then
-
                         // jump from initial state
                         if refEq toplevelOr cache.False then
                             cache.TryNextStartsetLocationArray(&loc,cache.GetInitialStartsetPrefix().Span)
 
                         // jump mid-regex
-                        elif toplevelOr.CanSkip then
-                            loc.Position <- tryJumpToStartset cache &loc toplevelOr
+                        match toplevelOrInfo with
+                        | ValueSome i ->
+                            if i.Flags.HasFlag(Flag.CanSkip) then
+                                loc.Position <- tryJumpToStartset cache &loc toplevelOr
+                        | ValueNone -> ()
+
 
 
         if foundmatch then
