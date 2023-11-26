@@ -6,4 +6,5 @@ open Sbre.Test
 
 
 // let r = _09_DfaTests.``dfa end 01``()
+// let r = _09_DfaTests.``dfa all ends equal 02``()
 let r = _09_DfaTests.``dfa all ends equal 02``()

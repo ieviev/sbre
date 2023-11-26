@@ -201,14 +201,12 @@ module rec Startset =
         shorter
 
 
-    /// can't be used during-match as it would skip newlines in .*
     let rec inferInitialStartset (_solver: ISolver<'t>) (startNode: RegexNode<'t>) =
         let mutable acc = ResizeArray()
         let loopterminatorPrefix = ResizeArray()
         let mutable uninitialized = true
         let mutable cannotOptimizeYet = false
         let mutable curr = startNode
-        // let mutable loopTerminator = _solver.Empty
 
         let getPrefix node =
             match inferInitialStartset _solver node with

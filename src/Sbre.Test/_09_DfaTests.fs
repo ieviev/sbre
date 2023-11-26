@@ -13,7 +13,7 @@ let dfaFindMatchEnd (pat:string) (input:string) =
     let initial = matcher.RawPattern
     let mutable _toplevelOr = matcher.Cache.False
     let mutable loc = Pat.Location.create input 0
-    matcher.FindEndPosition(cache, &loc, initial,  &_toplevelOr)
+    matcher.DfaEndPosition(cache, &loc, initial,  &_toplevelOr)
 
 let dfaFindAllEnds (pat:string) (input:string) =
     let regex = Regex(pat)

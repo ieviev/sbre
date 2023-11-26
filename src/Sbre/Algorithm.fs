@@ -268,8 +268,9 @@ module RegexNode =
             if Location.isFinal loc then
                 foundmatch <- true
             else
-                let mt_id = cache.MintermId(loc)
-                let locationPredicate = cache.MintermById(mt_id)
+                // let mt_id = cache.MintermId(&loc)
+                // let locationPredicate = cache.MintermById(mt_id)
+                let locationPredicate = cache.MintermForLocation(loc)
                 // current active branches
                 if not (refEq toplevelOr cache.False) then
                     let updated =
@@ -318,7 +319,8 @@ module RegexNode =
                     then
                         // jump from initial state
                         if refEq toplevelOr cache.False then
-                            cache.TryNextStartsetLocationArray(&loc,cache.GetInitialStartsetPrefix().Span)
+                            let chars = cache.GetInitialSearchValues()
+                            cache.TryNextStartsetLocationArray(&loc,cache.GetInitialStartsetPrefix().Span,chars)
 
                         // jump mid-regex
                         match toplevelOr.TryGetInfo with

@@ -87,6 +87,8 @@ type RegexNodeInfo<'tset when 'tset :> IEquatable<'tset> and 'tset: equality >()
     member val Flags: RegexNodeFlags = RegexNodeFlags.None with get, set
     member val Startset: 'tset = Unchecked.defaultof<'tset> with get, set
     member val InitialStartset: InitialStartset<'tset> = InitialStartset.Uninitialized with get, set
+    member val SkipPrefix: Memory<'tset>*Memory<'tset> = Unchecked.defaultof<_> with get, set
+    member val SkipToChars: SearchValues<char> = Unchecked.defaultof<_> with get, set
     member val Transitions: ResizeArray<Transition<'tset>> = ResizeArray() with get, set
     member val Subsumes: Dictionary<RegexNode<'tset>,bool> = Dictionary() with get, set
 

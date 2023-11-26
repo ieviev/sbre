@@ -374,7 +374,8 @@ let ``skip position test 1``() =
     let arr = matcher.Cache.GetInitialStartsetPrefix()
     let result =
         let arr = arr.Span
-        matcher.Cache.TryNextStartsetLocationArray(&loc, arr)
+        let chars = matcher.Cache.MintermStartsetChars(arr[0])
+        matcher.Cache.TryNextStartsetLocationArray(&loc, arr,chars)
     Assert.Equal(loc.Position, 7) // aa Twa |Tw
 
 

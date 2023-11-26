@@ -137,11 +137,15 @@ type DebugSbre3() =
     inherit Jobs.SbreDebugSearch([
 
 
-        // Permutations.permuteConjInLine ["Huck";"Finn"; "Tom"; "Saw" ]
-        // Permutations.permuteConjInParagraph ["Huck";"Finn"; "Tom"; "Saw" ]
-        // Permutations.permuteConjInParagraph ["Huck";]
+        Permutations.permuteConjInLine ["Huck";"Finn"; "Tom"; "Saw" ]
         Permutations.permuteConjInLine ["t.*hat"; "a.*nd"; "t.*he";"w.*as"]
+        Permutations.permuteConjInParagraph ["Huck";"Finn"; "Tom"; "Saw" ]
+        Permutations.permuteConjInParagraph ["Huck";]
+        // "Twain"
+
         // Permutations.permuteConjInLine ["th.*at"; "an.*d"; "th.*e";"wa.*s"]
+        // Permutations.permuteAltInLine [@"whi[a-z]*h";@"cou[a-z]*d"; @"the[a-z]*e" ]
+        Permutations.permuteConjInLine [@"whi[a-z]*h";@"cou[a-z]*d"; @"the[a-z]*e" ]
     ], fullInput)
 
 

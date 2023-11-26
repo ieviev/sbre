@@ -30,7 +30,7 @@ type RegexCache< 't
         _reversePattern: RegexNode<TSet>,
         _builder: RegexBuilder<TSet>,
         _optimizations: RegexFindOptimizations
-    ) as cache =
+    ) =
     let classifier =
         if typeof<TSet> = typeof<TSet> then
             ((box _solver) :?> UInt64Solver)._classifier
@@ -99,8 +99,7 @@ type RegexCache< 't
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.MintermStartsetChars(startset: TSet) = _getMintermStartsetChars startset
-
-    member this.TryNextStartsetLocationInitial(loc: byref<Location>, setChars: SearchValues<char>) : unit =
+    member this.SkipIndexOfAny(loc: byref<Location>, setChars: SearchValues<char>) : unit =
         // let currpos = loc.Position
         // match loc.Reversed with
         // | false ->
@@ -120,6 +119,70 @@ type RegexCache< 't
         //         loc.Position <- Location.final loc
         //     else
         //         loc.Position <- sharedIndex + 1
+
+    member this.SkipIndexOfAnyPrefix(loc: byref<Location>, setChars: SearchValues<char>, setPrefix: ReadOnlySpan<TSet>, termPrefix: ReadOnlySpan<TSet>) : unit =
+
+        let mutable skipping = true
+
+        while skipping do
+            let slice = loc.Input.Slice(loc.Position)
+            let sharedIndex = slice.IndexOfAny(setChars)
+            if sharedIndex = -1 then
+                loc.Position <- Location.final loc
+            else
+                loc.Position <- loc.Position + sharedIndex
+                let currpos = loc.Position
+
+                //
+                if currpos + setPrefix.Length > (loc.Input.Length - 1) then
+                    skipping <- false
+                else
+
+                let nextLocMinterm =
+                    this.Classify(loc.Input[loc.Position])
+
+                let mutable canTerminateLoop , looping =
+                    if termPrefix.Length = 0 then
+                        -1, true
+                    else
+                        let termMatch =
+                            // _solver.isElemOfSet(termSpan[0],nextLocMinterm)
+                            (Solver.elemOfSet termPrefix[0] nextLocMinterm)
+                        (if termMatch then 0 else -1), termPrefix.Length <> 1
+
+                let mutable i = 1
+                let mutable stopSearch = true
+
+                while looping && i < setPrefix.Length do
+                    let nextLocMinterm =
+                        if loc.Reversed then
+                            this.Classify(loc.Input[loc.Position - i - 1])
+                        else
+                            this.Classify(loc.Input[loc.Position + i])
+
+                    match (Solver.elemOfSet setPrefix[i] nextLocMinterm) with
+                    | false ->
+                        stopSearch <- false
+                        looping <- false
+                        loc.Position <- loc.Position + 1
+                    | true ->
+                        i <- i + 1
+
+                    if canTerminateLoop >= 0 && i < termPrefix.Length
+                       then
+                           match (Solver.elemOfSet termPrefix[i] nextLocMinterm) with
+                           | true ->
+                               canTerminateLoop <- i
+                               if i = termPrefix.Length - 1 then
+                                  looping <- false
+                                  stopSearch <- true
+                           | false -> canTerminateLoop <- -1
+
+                if stopSearch then
+                    skipping <- false
+                    loc.Position <- (currpos)
+
+
 
     member this.TryNextStartsetLocation(loc: byref<Location>, set: TSet) : unit =
 
@@ -158,14 +221,14 @@ type RegexCache< 't
 
 
     /// skip till a prefix of minterms matches
-    member this.TryNextStartsetLocationArray(loc: byref<Location>, setSpan: ReadOnlySpan<TSet>) =
+    member this.TryNextStartsetLocationArray(loc: byref<Location>, setSpan: ReadOnlySpan<TSet>, searchValues:SearchValues<char>) =
         // assert not loc.Reversed
         let inputSpan = loc.Input
         let mutable skipping = true
         // let mutable result = ValueNone
 
         /// vectorize the search for the first character
-        let firstSetChars = this.MintermStartsetChars(setSpan[0])
+        let firstSetChars = searchValues // this.MintermStartsetChars(setSpan[0])
         let isInverted = Solver.elemOfSet setSpan[0] minterms[0]
         let tailPrefixSpan = setSpan.Slice(1)
 
@@ -403,11 +466,12 @@ type RegexCache< 't
         this.Classify(loc.Input[pos])
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    member this.MintermId(loc: Location) : _ =
-        let mutable pos = loc.Position
-        if loc.Reversed then
-            pos <- pos - 1
-        let c = loc.Input[pos]
+    member this.MintermId(loc: inref<Location>) : _ =
+        let c =
+            if not loc.Reversed then
+                loc.Input[loc.Position]
+            else
+                loc.Input[loc.Position - 1]
         let i = int c
         match i < 128 with
         | true -> _ascii[i]

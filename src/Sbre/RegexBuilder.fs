@@ -1003,6 +1003,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
         // | _ ->
         RegexNodeInfo<'t>(Flags = flags, Startset = startset, InitialStartset = Uninitialized)
 
+
         // _regexInfoCache.Add(struct (flags, startset), v)
 
 

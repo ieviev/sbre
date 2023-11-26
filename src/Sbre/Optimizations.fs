@@ -5,7 +5,7 @@ open Sbre.Pat
 open System
 
 
-let inline tryJumpToStartset (c:RegexCache<uint64>)(loc:byref<Location>) (node:RegexNode<uint64>) : int32 =
+let tryJumpToStartset (c:RegexCache<uint64>)(loc:byref<Location>) (node:RegexNode<uint64>) : int32 =
 
 
     let prefix : InitialStartset<_> =
@@ -18,7 +18,8 @@ let inline tryJumpToStartset (c:RegexCache<uint64>)(loc:byref<Location>) (node:R
         let commonStartsetLocation =
             if refEq c.InitialPatternWithoutDotstar node || loopEnd.Length = 0 then
                 if not loc.Reversed then
-                    c.TryNextStartsetLocationArray(&loc,arr)
+                    let chars = c.MintermStartsetChars(arr[0])
+                    c.TryNextStartsetLocationArray(&loc,arr, chars)
                     ValueSome loc.Position
                 else c.TryNextStartsetLocationArrayReversed(&loc,arr)
             elif arr.Length = 1 && loopEnd.Length = 1 then
@@ -38,5 +39,26 @@ let inline tryJumpToStartset (c:RegexCache<uint64>)(loc:byref<Location>) (node:R
         // TODO: does occur
         loc.Position
 
+let tryJumpToStartset2 (c:RegexCache<uint64>)(loc:byref<Location>) (node:RegexNode<uint64>) : unit =
 
+    match c.Builder.GetInitializedPrefix(node) with
+    | InitialStartset.MintermArrayPrefix(arr,loopEnd) ->
+        let arr = arr.Span
+        let loopEnd = loopEnd.Span
+
+        let commonStartsetLocation =
+            if loopEnd.Length = 0 then
+                let chars = c.MintermStartsetChars(arr[0])
+                c.TryNextStartsetLocationArray(&loc,arr, chars)
+                ValueSome loc.Position
+            // elif arr.Length = 1 then
+            //     let chars = c.MintermStartsetChars(arr[0] ||| loopEnd[0])
+            //     c.SkipIndexOfAny(&loc,chars)
+            //     ValueSome loc.Position
+            else c.TryNextStartsetLocationArrayWithLoopTerminator(&loc,arr,loopEnd)
+        match commonStartsetLocation with
+        | ValueNone ->
+            loc.Position <- Location.final loc
+        | ValueSome newPos -> loc.Position <- newPos
+    | _ -> ()
 
