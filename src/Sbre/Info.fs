@@ -487,7 +487,6 @@ module rec Flags =
                     Flag.CanBeNullableFlag ||| Flag.IsAlwaysNullableFlag ||| Flag.ContainsEpsilonFlag ||| Flag.ContainsLookaroundFlag)
             let andFlags =
                 b &&& f &&& (Flag.CanSkipFlag ||| Flag.PrefixFlag)
-
             orflags ||| andFlags
         )
 

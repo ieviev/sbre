@@ -58,6 +58,17 @@ let ``dfa all ends 01`` () =
 
 
 [<Fact>]
+let ``dfa all ends 02`` () =
+    let ends =
+        dfaFindAllEnds
+            @"Huck[a-zA-Z]+|Saw[a-zA-Z]+"
+            BenchmarkTests.twain_input[15671655..] //[..100_000]
+    let expectedEnds = [|40003|]
+    Assert.Equal<int>(expectedEnds, (ends.ToArray()[..4]))
+
+
+
+[<Fact>]
 let ``dfa all ends equal 01`` () =
     let matcher = getMatcher (Permutations.permuteConjInLine ["t.*hat"; "a.*nd"; "t.*he";"w.*as"])
     let input = BenchmarkTests.twain_input[..100_000]

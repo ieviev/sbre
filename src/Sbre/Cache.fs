@@ -258,6 +258,8 @@ type RegexCache< 't
                     slice.IndexOfAnyExcept(firstSetChars)
 
             if sharedIndex = -1 then
+                // if sharedIndex = -1 then
+                //     loc.Position <- Location.final loc
                 skipping <- false
             else
                 let potential = loc.Position + sharedIndex

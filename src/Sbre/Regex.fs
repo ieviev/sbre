@@ -28,14 +28,14 @@ type MatchPosition = { Index: int; Length: int }
 
 [<AbstractClass>]
 type GenericRegexMatcher() =
-    abstract member IsMatch: input:string -> bool
-    abstract member FindMatchEnd: input:string -> int voption
-    abstract member Replace: input:string -> replacement:string -> string
-    abstract member Matches: input:string -> MatchResult seq
-    abstract member MatchPositions: input:string -> MatchPosition seq
-    abstract member MatchText: input:string -> string option
-    abstract member Match: input:string -> MatchResult
-    abstract member Count: input:string -> int
+    abstract member IsMatch: input:ReadOnlySpan<char> -> bool
+    abstract member FindMatchEnd: input:ReadOnlySpan<char> -> int voption
+    abstract member Replace: input:ReadOnlySpan<char> * replacement:ReadOnlySpan<char> -> string
+    abstract member Matches: input:ReadOnlySpan<char> -> MatchResult seq
+    abstract member MatchPositions: input:ReadOnlySpan<char> -> MatchPosition seq
+    abstract member MatchText: input:ReadOnlySpan<char> -> string option
+    abstract member Match: input:ReadOnlySpan<char> -> MatchResult
+    abstract member Count: input:ReadOnlySpan<char> -> int
 
 [<Flags>]
 type MatchingStateFlags =
@@ -110,7 +110,7 @@ type RegexMatcher<'t
     let _stateArray = Array.zeroCreate<MatchingState> InitialDfaStateCapacity
     let _stateFlagsArray = Array.zeroCreate<MatchingStateFlags> InitialDfaStateCapacity
     let _minterms = _cache.Minterms()
-    let _mintermsLog = BitOperations.Log2((uint64)_minterms.Length) + 1
+    let _mintermsLog = BitOperations.Log2(uint64 _minterms.Length) + 1
     let _startsetPredicate = _cache.GetInitialStartsetPredicate
     let _initialInfo = initialNode.TryGetInfo
     let _dfaDelta: int[] =
@@ -121,22 +121,22 @@ type RegexMatcher<'t
 
 
 
-    override this.IsMatch(input: string) =
+    override this.IsMatch(input) =
         let mutable currPos = 0
-        let mutable startLocation = Location.create input currPos
+        let mutable startLocation = Location.createSpan input currPos
         let mutable _toplevelOr = _cache.False
         match RegexNode.matchEnd _cache &startLocation dotStarredNode &_toplevelOr with
         | ValueNone -> false
         | ValueSome _ -> true
 
-    override this.FindMatchEnd(input: string) =
+    override this.FindMatchEnd(input) =
         let mutable currPos = 0
         let mutable _toplevelOr = _cache.False
-        let mutable startLocation = Location.create input currPos
+        let mutable startLocation = Location.createSpan input currPos
         RegexNode.matchEnd _cache &startLocation dotStarredNode &_toplevelOr
 
 
-    override this.Match(input: string) : MatchResult =
+    override this.Match(input) : MatchResult =
         let firstMatch =
             this.MatchPositions(input) |> Seq.tryHead
         match firstMatch with
@@ -150,14 +150,14 @@ type RegexMatcher<'t
         | Some result ->
             {
                 Success = true
-                Value = input[result.Index .. result.Index + result.Length - 1]
+                Value = input.Slice(result.Index,result.Length).ToString()
                 Index = result.Index
                 Length = result.Length
             }
 
     /// replace all occurrences in string
-    override this.Replace(input: string) (replacement: string) =
-        let sb = System.Text.StringBuilder(input)
+    override this.Replace(input,replacement) =
+        let sb = System.Text.StringBuilder(input.ToString())
         let mutable offset = 0
         for result in this.MatchPositions(input) do
             let start = offset + result.Index
@@ -166,21 +166,22 @@ type RegexMatcher<'t
         sb.ToString()
 
     /// return all matches on input
-    override this.Matches(input: string) =
-        this.MatchPositions(input)
-        |> Seq.map (fun result ->
-            {
+    override this.Matches(input) =
+        let mr = ResizeArray()
+        for result in this.MatchPositions(input) do
+            mr.Add({
                 Success = true
-                Value = input[result.Index .. result.Index + result.Length - 1]
+                Value = input.Slice(result.Index,result.Length).ToString()
                 Index = result.Index
                 Length = result.Length
-            }
-        )
+            })
+        mr
+
 
     /// used internally
-    override this.MatchText(input: string) =
+    override this.MatchText(input) =
         let mutable startPos = 0
-        let mutable location = Location.create input startPos
+        let mutable location = Location.createSpan input startPos
         let mutable _toplevelOr = _cache.False
 
         match RegexNode.matchEnd _cache &location dotStarredNode &_toplevelOr with
@@ -196,25 +197,23 @@ type RegexMatcher<'t
             | ValueNone ->
                 failwith
                     $"match succeeded left to right but not right to left:\nmatch end: {endPos}\nreverse pattern: {reverseNode}"
-            | ValueSome start -> Some(input[start .. endPos - 1])
+            | ValueSome start ->
+                let s = input.Slice(start,endPos - start).ToString()
+                Some(s)
 
 
     /// counts the number of matches
-    override this.Count(input: string) =
+    override this.Count(input) =
+        if true then this.DfaCount(input) else
         let mutable currPos = 0
-        let mutable location = Location.create input 0
+        let mutable location = Location.createSpan input 0
         let mutable looping = true
         let mutable counter = 0
         let _cache : RegexCache<_>  = this.Cache
         let mutable _toplevelOr = _cache.False
         let chars = _cache.GetInitialSearchValues()
-        let inputSpan = input.AsSpan()
+
         let initialPrefix = _cache.GetInitialStartsetPrefix()
-            // match _cache.GetInitialStartsetPrefix() with
-            // | InitialStartset.MintermArrayPrefix(arr, loopEnd) ->
-            //     arr
-            // | _ ->
-            //     ([|_cache.Solver.Full|].AsMemory())
 
         while looping do
             // use prefix optimizations
@@ -224,7 +223,7 @@ type RegexMatcher<'t
             | ValueNone -> looping <- false
             | ValueSome(endPos: int) ->
                 counter <- counter + 1
-                if endPos < inputSpan.Length then
+                if endPos < input.Length then
                     _toplevelOr <- _cache.False
                     if endPos = location.Position then
                         location.Position <- location.Position + 1
@@ -236,7 +235,7 @@ type RegexMatcher<'t
         counter
 
 
-    member this.GetOrCreateState(node: RegexNode<TSet>) : MatchingState =
+    member private this.GetOrCreateState(node: RegexNode<TSet>) : MatchingState =
         match _stateCache.TryGetValue(node) with
         | true , v -> v
         | _ ->
@@ -257,11 +256,11 @@ type RegexMatcher<'t
             state
 
 
-    member this.GetDeltaOffset (stateId:int, mintermId:int) =
+    member private this.GetDeltaOffset (stateId:int, mintermId:int) =
         (stateId <<< _mintermsLog) ||| mintermId
 
 
-    member this.TryCreateNextDerivative(
+    member private this.TryCreateNextDerivative(
         locPred: TSet, loc:inref<Location>, activeBranch:inref<MatchingState>) : RegexNode<TSet> =
 
         let flags : MatchingStateFlags = _stateFlagsArray[activeBranch.Id]
@@ -353,11 +352,11 @@ type RegexMatcher<'t
 
 
     /// end position with DFA
-    member this.DfaEndPosition((cache: RegexCache<TSet>),
-        (loc: byref<Location>),
-        (initialNode: RegexNode<TSet>),
-        (toplevelOr: inref<RegexNode<TSet>>)) =
-
+    member this.DfaEndPosition(cache: RegexCache<TSet>,
+        loc: byref<Location>,
+        initialNode: RegexNode<TSet>,
+        toplevelOr: inref<RegexNode<TSet>>) =
+        assert (loc.Position > -1)
         let mutable foundmatch = false
         let mutable currentStateId = 1
         let mutable currentMax = -2
@@ -365,18 +364,16 @@ type RegexMatcher<'t
         let _initialPrefix = cache.GetInitialStartsetPrefix().Span
 
         while not foundmatch do
-            // let dbg = _stateArray[currentStateId].Node.ToString()
             let flags = _stateFlagsArray[currentStateId]
             let state = _stateArray[currentStateId]
 
-            if flags.IsInitial  then
-                if currentMax > 0  then
+            if flags.IsInitial then
+                if currentMax > 0 then
                     foundmatch <- true
                 else
                     cache.TryNextStartsetLocationArray(&loc,_initialPrefix,_initialSearchValues)
-             elif flags.CanSkip then
-
-                match (state.Node).TryGetInfo with
+            elif flags.CanSkip then
+                match state.Node.TryGetInfo with
                 | ValueSome i ->
                     // todo : tradeoffs between these
                     if not (i.SkipToChars.Contains(loc.Input[loc.Position])) then
@@ -389,42 +386,40 @@ type RegexMatcher<'t
                 | _ -> ()
 
 
-            if flags.CanBeNullable then
-                // set nullability after skipping
-                if flags.IsAlwaysNullable || RegexNode.isNullable(_cache,&loc,(state.Node)) then
-                    currentMax <- loc.Position
+            // set max nullability after skipping
+            if flags.CanBeNullable && (flags.IsAlwaysNullable || RegexNode.isNullable(_cache,&loc,state.Node)) then
+                currentMax <- loc.Position
 
-
-            if Location.isFinal loc then
-                foundmatch <- true
-            else
-                let mt_id = _cache.MintermId(&loc)
-                // check dead end and nullability
-                // ---
-                let _ =  this.TryTakeTransition(&currentStateId, mt_id, &loc)
-
-                // try take transition
-                // if (pos >= length || !TStateHandler.TryTakeTransition(this, ref state, positionId))
+            if loc.Position < loc.Input.Length then
+                let _ =  this.TryTakeTransition(&currentStateId, _cache.MintermId(&loc), &loc)
                 loc.Position <- Location.nextPosition loc
+            else
+                foundmatch <- true
 
         if foundmatch then
-            match currentMax with
-            | n when n <> loc.Position ->
-                if RegexNode.isNullable (cache, &loc, _stateArray[currentStateId].Node) then
-                    currentMax <- loc.Position
-            | _ ->
-                if initialNode.IsAlwaysNullable then
-                    currentMax <- loc.Position
+            if loc.Position > Location.final loc then
+                loc.Position <- Location.final loc
+            if currentMax < loc.Position &&
+               RegexNode.isNullable (cache, &loc, _stateArray[currentStateId].Node) then
+                currentMax <- loc.Position
+            elif initialNode.IsAlwaysNullable then
+                currentMax <- loc.Position
         currentMax
 
     member this.DfaMatchEnds(input:ReadOnlySpan<char>) =
         let mutable loc = Location.createSpan input 0
         let mutable toplevelOr = _cache.False
         let eps = ResizeArray()
-        let mutable ep = 0
-        while (ep <- this.DfaEndPosition(_cache, &loc, initialNode, &toplevelOr); ep > -1) do
-            eps.Add ep
-            loc.Position <- ep + 1
+        let mutable looping = true
+        while (looping) do
+            match this.DfaEndPosition(_cache, &loc, initialNode, &toplevelOr) with
+            | -2 ->
+                looping <- false // failed match
+            | ep ->
+                if loc.Position = loc.Input.Length then
+                    looping <- false
+                eps.Add ep
+                loc.Position <- ep + 1
         eps
 
     member this.DfaCount(input:ReadOnlySpan<char>) =
@@ -432,14 +427,15 @@ type RegexMatcher<'t
         let mutable toplevelOr = _cache.False
         let mutable counter = 0
         let mutable ep = 0
-        while (ep <- this.DfaEndPosition(_cache, &loc, initialNode, &toplevelOr); ep > -1) do
+        while (ep > -1) do
+            ep <- this.DfaEndPosition(_cache, &loc, initialNode, &toplevelOr)
             counter <- counter + 1
             loc.Position <- ep + 1
         counter
 
 
     /// return just the positions of matches without allocating the result
-    override this.MatchPositions(input: string) =
+    override this.MatchPositions(input) =
 
         let mutable looping = true
         let mutable _toplevelOr = _cache.False
@@ -447,7 +443,7 @@ type RegexMatcher<'t
         let initialPrefix = _cache.GetInitialStartsetPrefix()
 
         let mutable currMatchStart = 0
-        let mutable location = Location.create input 0
+        let mutable location = Location.createSpan input 0
         let matchPositions = ResizeArray()
         let chars = _cache.GetInitialSearchValues()
         while looping do
@@ -474,7 +470,7 @@ type RegexMatcher<'t
                     let startIdx = max currMatchStart start
                     let response: MatchPosition = {
                         Index = startIdx
-                        Length = (endPos) - startIdx
+                        Length = endPos - startIdx
                     }
                     matchPositions.Add response
                 // continue
@@ -577,36 +573,22 @@ type Regex(pattern: string, [<Optional; DefaultParameterValue(false)>] experimen
             RegexOptions.ExplicitCapture ||| RegexOptions.NonBacktracking,
             CultureInfo.InvariantCulture
         )
-    let charsetSolver = System.Text.RuntimeRegexCopy.Symbolic.CharSetSolver()
-    // builder from .net runtime
-    let bddBuilder = SymbolicRegexBuilder<BDD>(charsetSolver, charsetSolver)
-    let converter = RegexNodeConverter(bddBuilder, null)
-    let bddBuilder2 = RegexBuilder(converter, charsetSolver, charsetSolver)
+    let charsetSolver = CharSetSolver()
+    let runtimeBddBuilder = SymbolicRegexBuilder<BDD>(charsetSolver, charsetSolver)
+    let converter = RegexNodeConverter(runtimeBddBuilder, null)
+    let regexBuilder = RegexBuilder(converter, charsetSolver, charsetSolver)
 
     let symbolicBddnode: RegexNode<BDD> =
         RegexNodeConverter.convertToSymbolicRegexNode (
             charsetSolver,
-            bddBuilder,
-            bddBuilder2,
+            runtimeBddBuilder,
+            regexBuilder,
             regexTree.Root
         )
-    let implicitTrueStar = bddBuilder2.trueStar
-
+    let implicitTrueStar = regexBuilder.trueStar
     let trueStarPattern: RegexNode<BDD> =
-        match symbolicBddnode with
-        | Concat(head, tail, info) -> Concat(implicitTrueStar, Concat(head, tail, info), info)
-        | Singleton pred as node ->
-            Concat(implicitTrueStar, node, Info.defaultInfo() charsetSolver)
-        | And(xs, info) as node -> Concat(implicitTrueStar, node, info)
-        | Or(xs, info) as node -> Concat(implicitTrueStar, node, info)
-        | Loop(xs, low, up, info) as node -> Concat(implicitTrueStar, node, info)
-        | LookAround(xs, low, up) as node ->
-            Concat(implicitTrueStar, node, Info.defaultInfo() charsetSolver)
-        | Epsilon -> implicitTrueStar
-        | Not(xs, info) as node ->
-            let negflags = Info.Flags.inferNode xs
-            Concat(implicitTrueStar, node, bddBuilder2.CreateInfo(negflags, charsetSolver.Full))
-    let minterms = trueStarPattern |> Minterms.compute bddBuilder
+        regexBuilder.mkConcat2(implicitTrueStar, symbolicBddnode)
+    let minterms = trueStarPattern |> Minterms.compute runtimeBddBuilder
     let matcher =
         Helpers.createMatcher(minterms,charsetSolver,converter,trueStarPattern,symbolicBddnode,regexTree)
 
@@ -623,17 +605,16 @@ type Regex(pattern: string, [<Optional; DefaultParameterValue(false)>] experimen
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     override this.Matches(input) = matcher.Matches(input)
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    override this.Replace(input) (replacement) = matcher.Replace (input) replacement
+    override this.Replace (input,replacement) = matcher.Replace(input,replacement)
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     override this.Match(input) = matcher.Match(input)
 
     member this.Matcher : GenericRegexMatcher = matcher
+#if DEBUG
     member this.UInt64Matcher : RegexMatcher<uint64> = matcher :?> RegexMatcher<uint64>
     member this.UInt16Matcher : RegexMatcher<uint16> = matcher :?> RegexMatcher<uint16>
-    member this.ByteMatcher : RegexMatcher<byte> =
-        matcher :?> RegexMatcher<byte>
-
-
+    member this.ByteMatcher : RegexMatcher<byte> = matcher :?> RegexMatcher<byte>
+#endif
 
 
 

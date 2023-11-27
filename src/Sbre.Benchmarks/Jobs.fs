@@ -1390,7 +1390,15 @@ type TestAllEnginesAllPatternsWithCompileTime(patterns: (string) list, input: st
 
     [<Benchmark(Description = "Sbre")>]
     member this.Sbre() =
-        Regex(this.Pattern).Count(inputText)
+        // Regex(this.Pattern).Count(inputText)
+        use cts = new CancellationTokenSource()
+        cts.CancelAfter(millisecondsDelay = 10_000)
+        let tsk =
+            System.Threading.Tasks.Task.Factory.StartNew((fun v ->
+                Regex(this.Pattern).Count(inputText)
+            ))
+        tsk.Wait(cts.Token)
+
 
 
 

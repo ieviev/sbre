@@ -4,7 +4,7 @@ module Sbre.Test._07_ComparisonTests
 open Sbre
 open Xunit
 
-let testSameAsRuntime pattern input =
+let testSameAsRuntime (pattern:string) (input:string) =
     let mymatcher = Regex(pattern)
     let runtime = System.Text.RegularExpressions.Regex(pattern)
     let result = mymatcher.IsMatch(input)
