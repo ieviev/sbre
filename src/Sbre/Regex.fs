@@ -379,11 +379,13 @@ type RegexMatcher<'t
                 match (state.Node).TryGetInfo with
                 | ValueSome i ->
                     // todo : tradeoffs between these
-                    if not flags.HasPrefix then
+                    if not (i.SkipToChars.Contains(loc.Input[loc.Position])) then
                         cache.SkipIndexOfAny(&loc,i.SkipToChars)
-                    else
-                        // has prefix of at least 2 chars
-                        Optimizations.tryJumpToStartset2 cache &loc (state.Node)
+                        // if not flags.HasPrefix then
+                        //     cache.SkipIndexOfAny(&loc,i.SkipToChars)
+                        // else
+                        //     // has prefix of at least 2 chars
+                        //     Optimizations.tryJumpToStartset2 cache &loc (state.Node)
                 | _ -> ()
 
 

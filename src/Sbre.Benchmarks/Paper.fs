@@ -145,7 +145,6 @@ type DebugSbre3() =
 
         // Permutations.permuteConjInLine ["th.*at"; "an.*d"; "th.*e";"wa.*s"]
         // Permutations.permuteAltInLine [@"whi[a-z]*h";@"cou[a-z]*d"; @"the[a-z]*e" ]
-        Permutations.permuteConjInLine [@"whi[a-z]*h";@"cou[a-z]*d"; @"the[a-z]*e" ]
     ], fullInput)
 
 
