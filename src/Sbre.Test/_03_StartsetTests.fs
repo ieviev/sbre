@@ -19,7 +19,7 @@ module Helpers =
 
 [<Fact>]
 let ``startset generation 1``() =
-    let matcher = Regex(@"⊤*Huck⊤*").UInt64Matcher
+    let matcher = Regex(@"⊤*Huck⊤*").TSetMatcher
     let c = matcher.Cache
     let ss1 = Info.Startset.inferStartset (c.Solver) (c.InitialPatternWithoutDotstar)
     let ss1pretty = c.PrettyPrintMinterm(ss1)
@@ -29,7 +29,7 @@ let ``startset generation 1``() =
 [<Fact>]
 let ``startset generation 2``() =
 
-    let matcher = Regex(@"⊤*(Huck|Finn)⊤*").UInt64Matcher
+    let matcher = Regex(@"⊤*(Huck|Finn)⊤*").TSetMatcher
     let c = matcher.Cache
     let ss1 = Info.Startset.inferStartset (c.Solver) (c.InitialPatternWithoutDotstar)
     let ss1pretty = c.PrettyPrintMinterm(ss1)
@@ -40,7 +40,7 @@ let ``startset generation 2``() =
 [<Fact>]
 let ``startset generation 3``() =
 
-    let matcher = Regex(@"\n\n~(⊤*\n\n⊤*)\n&⊤*English⊤*&⊤*King⊤*&⊤*Paris⊤*").UInt64Matcher
+    let matcher = Regex(@"\n\n~(⊤*\n\n⊤*)\n&⊤*English⊤*&⊤*King⊤*&⊤*Paris⊤*").TSetMatcher
     let c = matcher.Cache
     let ss1 = Info.Startset.inferStartset (c.Solver) (c.InitialPatternWithoutDotstar)
     let ss1pretty = c.PrettyPrintMinterm(ss1)
@@ -50,7 +50,7 @@ let ``startset generation 3``() =
 
 [<Fact>]
 let ``startset generation 4``() =
-    let matcher = Regex(@"(b|)*").UInt64Matcher
+    let matcher = Regex(@"(b|)*").TSetMatcher
     let c = matcher.Cache
     let ss1 = Info.Startset.inferStartset (c.Solver) (c.InitialPatternWithoutDotstar)
     let ss1pretty = c.PrettyPrintMinterm(ss1)
@@ -59,7 +59,7 @@ let ``startset generation 4``() =
 
 [<Fact>]
 let ``startset generation 5``() =
-    let matcher = Regex(@"(a|ab)*").UInt64Matcher
+    let matcher = Regex(@"(a|ab)*").TSetMatcher
     let c = matcher.Cache
     let ss1 = Info.Startset.inferStartset (c.Solver) (c.InitialPatternWithoutDotstar)
     let ss1pretty = c.PrettyPrintMinterm(ss1)
@@ -70,7 +70,7 @@ let ``startset generation 5``() =
 [<Fact>]
 let ``startset generation 6``() =
 
-    let matcher = Regex(@"⊤*Finn⊤*&⊤*Huck⊤*").UInt64Matcher
+    let matcher = Regex(@"⊤*Finn⊤*&⊤*Huck⊤*").TSetMatcher
     let c = matcher.Cache
     let ss1 = Info.Startset.inferStartset (c.Solver) (c.InitialPatternWithoutDotstar)
     let ss1pretty = c.PrettyPrintMinterm(ss1)
@@ -80,7 +80,7 @@ let ``startset generation 6``() =
 [<Fact>]
 let ``startset generation 7``() =
 
-    let matcher = Regex(@"(.+\n)+\n").UInt64Matcher
+    let matcher = Regex(@"(.+\n)+\n").TSetMatcher
     let c = matcher.Cache
     let ss1 = Info.Startset.inferStartset (c.Solver) (matcher.ImplicitPattern)
     let ss1pretty = c.PrettyPrintMinterm(ss1)
@@ -89,7 +89,7 @@ let ``startset generation 7``() =
 [<Fact>]
 let ``startset generation 8``() =
 
-    let matcher = Regex(@"([a-ci]*|⊤*i[a-ci]*)c").UInt64Matcher
+    let matcher = Regex(@"([a-ci]*|⊤*i[a-ci]*)c").TSetMatcher
     let c = matcher.Cache
     let ss1 = Info.Startset.inferStartset (c.Solver) (matcher.RawPattern)
     let ss1pretty = c.PrettyPrintMinterm(ss1)
@@ -98,7 +98,7 @@ let ``startset generation 8``() =
 [<Fact>]
 let ``startset generation 9``() =
 
-    let matcher = Regex(@"⊤*[a-z]*a[a-z]*⊤*").UInt64Matcher
+    let matcher = Regex(@"⊤*[a-z]*a[a-z]*⊤*").TSetMatcher
     let c = matcher.Cache
     let ss1 = Info.Startset.inferStartset (c.Solver) (matcher.RawPattern)
     let ss1pretty = c.PrettyPrintMinterm(ss1)
@@ -107,7 +107,7 @@ let ``startset generation 9``() =
 [<Fact>]
 let ``startset generation 10``() =
 
-    let matcher = Regex(@"⊤*[a-z]*a[a-z]*⊤*").UInt64Matcher
+    let matcher = Regex(@"⊤*[a-z]*a[a-z]*⊤*").TSetMatcher
     let c = matcher.Cache
     let ss1 = Info.Startset.inferStartset (c.Solver) (matcher.ReversePattern)
     let ss1pretty = c.PrettyPrintMinterm(ss1)
@@ -132,7 +132,7 @@ let ``startset generation 10``() =
 
 [<Fact>]
 let ``reverse startset generation 1``() =
-    let matcher = Regex(@"\n\n~(⊤*\n\n⊤*)\n&⊤*English⊤*&⊤*King⊤*&⊤*Paris⊤*").UInt64Matcher
+    let matcher = Regex(@"\n\n~(⊤*\n\n⊤*)\n&⊤*English⊤*&⊤*King⊤*&⊤*Paris⊤*").TSetMatcher
     let c = matcher.Cache
     let patstr = c.PrettyPrintNode matcher.ReversePattern
     let ss1 = Info.Startset.inferStartset (c.Solver) (matcher.ReversePattern)
@@ -169,7 +169,7 @@ let ``reverse startset generation 1``() =
 
 [<Fact>]
 let ``startsetChars of bdd 1``() =
-    let matcher = Regex(@"⊤*Finn⊤*&⊤*Huck⊤*").UInt64Matcher
+    let matcher = Regex(@"⊤*Finn⊤*&⊤*Huck⊤*").TSetMatcher
     let bdds = matcher.Cache.MintermBdds()
     let startsetChars =
         bdds[1..] |> Array.map (fun v -> StartsetHelpers.bddToStartsetChars (v))
@@ -183,7 +183,7 @@ let ``startsetChars of bdd 1``() =
 
 [<Fact>]
 let ``startsetChars of bdd 2 - merged span``() =
-    let matcher = Regex(@"⊤*Finn⊤*&⊤*Huck⊤*").UInt64Matcher
+    let matcher = Regex(@"⊤*Finn⊤*&⊤*Huck⊤*").TSetMatcher
     let c = matcher.Cache
     let bdds = c.MintermBdds()
 
@@ -227,7 +227,7 @@ let ``initialstartset prefix 01``() =
 
 [<Fact>]
 let ``initialstartset prefix 03``() =
-    let matcher = Regex("THE.*LIFE").UInt64Matcher
+    let matcher = Regex("THE.*LIFE").TSetMatcher
 
     let initialStart =
         Info.Startset.inferInitialStartset matcher.Cache.Solver matcher.RawPattern
@@ -240,7 +240,7 @@ let ``initialstartset prefix 03``() =
 
 [<Fact>]
 let ``initialstartset prefix 04``() =
-    let matcher = Regex("⊤*have⊤*&⊤*there⊤*&.*").UInt64Matcher
+    let matcher = Regex("⊤*have⊤*&⊤*there⊤*&.*").TSetMatcher
     let initialStart =
         Info.Startset.inferInitialStartset matcher.Cache.Solver matcher.RawPattern
     match initialStart with
@@ -254,7 +254,7 @@ let ``initialstartset prefix 04``() =
 
 [<Fact>]
 let ``initialstartset prefix 05``() =
-    let matcher = Regex("⊤*have⊤*&⊤*there⊤*&.*").UInt64Matcher
+    let matcher = Regex("⊤*have⊤*&⊤*there⊤*&.*").TSetMatcher
     let initialStart =
         Info.Startset.inferInitialStartset matcher.Cache.Solver matcher.ReversePattern
     match initialStart with
@@ -268,7 +268,7 @@ let ``initialstartset prefix 05``() =
 
 [<Fact>]
 let ``initialstartset prefix 06``() =
-    let matcher = Regex(@"lethargy.*air").UInt64Matcher
+    let matcher = Regex(@"lethargy.*air").TSetMatcher
     let initialStart =
         Info.Startset.inferInitialStartset matcher.Cache.Solver matcher.ReversePattern
     match initialStart with
@@ -283,7 +283,7 @@ let ``initialstartset prefix 06``() =
 
 [<Fact>]
 let ``initialstartset prefix 07``() =
-    let matcher = Regex(@".*have.*there.*|.*there.*have.*").UInt64Matcher
+    let matcher = Regex(@".*have.*there.*|.*there.*have.*").TSetMatcher
     let initialStart =
         Info.Startset.inferInitialStartset matcher.Cache.Solver matcher.RawPattern
     match initialStart with
@@ -299,7 +299,7 @@ let ``initialstartset prefix 07``() =
 
 [<Fact>]
 let ``initialstartset prefix 08``() =
-    let matcher = Regex(@"((.* t[a-z]*e .*|[a-z]*e .*)&.* a[a-z]*d .*)").UInt64Matcher
+    let matcher = Regex(@"((.* t[a-z]*e .*|[a-z]*e .*)&.* a[a-z]*d .*)").TSetMatcher
     let initialStart =
         Info.Startset.inferInitialStartset matcher.Cache.Solver matcher.RawPattern
     match initialStart with
@@ -314,7 +314,7 @@ let ``initialstartset prefix 08``() =
 
 [<Fact>]
 let ``initialstartset prefix 09``() =
-    let matcher = Regex(@"(~(⊤*honor⊤*)&~(⊤*\n\n⊤*)\n)").UInt64Matcher
+    let matcher = Regex(@"(~(⊤*honor⊤*)&~(⊤*\n\n⊤*)\n)").TSetMatcher
     let initialStart =
         Info.Startset.inferInitialStartset matcher.Cache.Solver matcher.RawPattern
     match initialStart with
@@ -327,7 +327,7 @@ let ``initialstartset prefix 09``() =
 
 [<Fact>]
 let ``initialstartset prefix 10``() =
-    let matcher = Regex(@"~(⊤*\n\n⊤*)\n").UInt64Matcher
+    let matcher = Regex(@"~(⊤*\n\n⊤*)\n").TSetMatcher
     let initialStart =
         Info.Startset.inferInitialStartset matcher.Cache.Solver matcher.RawPattern
     match initialStart with
@@ -339,7 +339,7 @@ let ``initialstartset prefix 10``() =
 
 [<Fact>]
 let ``initialstartset prefix 11``() =
-    let matcher = Regex(@"~(⊤*\n\n⊤*)").UInt64Matcher
+    let matcher = Regex(@"~(⊤*\n\n⊤*)").TSetMatcher
     let initialStart =
         Info.Startset.inferInitialStartset matcher.Cache.Solver matcher.RawPattern
     match initialStart with
@@ -352,7 +352,7 @@ let ``initialstartset prefix 11``() =
 
 [<Fact>]
 let ``initialstartset prefix 12``() =
-    let matcher = Regex(@"~(⊤*\n\n⊤*)&⊤*Huck⊤*").UInt64Matcher
+    let matcher = Regex(@"~(⊤*\n\n⊤*)&⊤*Huck⊤*").TSetMatcher
     let initialStart =
         Info.Startset.inferInitialStartset matcher.Cache.Solver matcher.RawPattern
     match initialStart with
@@ -368,7 +368,7 @@ let ``initialstartset prefix 12``() =
 
 [<Fact>]
 let ``skip position test 1``() =
-    let matcher = Regex(@"~(⊤*\n\n⊤*)\n&⊤*Twain⊤*").UInt64Matcher
+    let matcher = Regex(@"~(⊤*\n\n⊤*)\n&⊤*Twain⊤*").TSetMatcher
     let mutable loc = Location.create "aa Twa Twain asd" 0
 
     let arr = matcher.Cache.GetInitialStartsetPrefix()
@@ -384,7 +384,7 @@ let ``skip position test 1``() =
 
 [<Fact>]
 let ``skip position test 2``() =
-    let matcher = Regex(@"lethargy.*").UInt64Matcher
+    let matcher = Regex(@"lethargy.*").TSetMatcher
     let text = ("lethargy, and and the air tainted with\nc")
     let mutable loc =
         Location.create text (text.Length - 4)

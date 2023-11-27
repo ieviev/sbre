@@ -42,7 +42,7 @@ type Location = {
                 let inserted = this.Input.ToString().Insert(this.Position, "|")
                 $"%s{this.Input[this.Position].ToString()}, %s{inserted}, %i{this.Position}"
         else
-            $"%s{this.Input[this.Position].ToString()}, %i{this.Position}"
+            $"%c{this.Input[this.Position]}, %i{this.Position}"
 
 #endif
 
@@ -356,7 +356,6 @@ module Enumerator =
 
 
 type TSet = uint64
+// type TSet = uint32
 // type TSet = uint16
 
-type DerivativeEnumerator() =
-    do ()

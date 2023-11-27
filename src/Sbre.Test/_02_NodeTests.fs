@@ -22,7 +22,7 @@ module Helpers =
 
 let printImplicit (reg:Regex) =
     try
-        let matcher = reg.UInt64Matcher
+        let matcher = reg.TSetMatcher
         let nodes = matcher.ImplicitPattern
         matcher.Cache.PrettyPrintNode nodes
     with
@@ -32,7 +32,7 @@ let printImplicit (reg:Regex) =
                 let nodes = matcher.ImplicitPattern
                 matcher.Cache.PrettyPrintNode nodes
             with e ->
-                let matcher = reg.UInt64Matcher
+                let matcher = reg.TSetMatcher
                 let nodes = matcher.ImplicitPattern
                 matcher.Cache.PrettyPrintNode nodes
 
@@ -93,7 +93,7 @@ let ``pretty printer test 1``() =
 [<Fact>]
 let ``identity true star``() =
 
-    let matcher = Regex(@"[\s\S]*").UInt64Matcher
+    let matcher = Regex(@"[\s\S]*").TSetMatcher
     let cache = matcher.Cache
     let nodes = matcher.RawPattern
 
@@ -108,7 +108,7 @@ let ``identity true star``() =
 [<Fact>]
 let ``identity true star reversed``() =
 
-    let matcher = Regex(@"[\s\S]*").UInt64Matcher
+    let matcher = Regex(@"[\s\S]*").TSetMatcher
     let cache = matcher.Cache
     let nodes = matcher.ReversePattern
 
@@ -198,14 +198,14 @@ let assertConverted (pattern: string) (expected: string) =
 
     let asstr =
         try
-            reg.UInt64Matcher.Cache.PrettyPrintNode reg.UInt64Matcher.RawPattern
+            reg.TSetMatcher.Cache.PrettyPrintNode reg.TSetMatcher.RawPattern
         with
         | e ->
             try
                 reg.UInt16Matcher.Cache.PrettyPrintNode reg.UInt16Matcher.RawPattern
             with
             | e ->
-                reg.UInt64Matcher.Cache.PrettyPrintNode reg.UInt64Matcher.RawPattern
+                reg.UInt16Matcher.Cache.PrettyPrintNode reg.TSetMatcher.RawPattern
 
     Assert.Equal(expected, asstr)
 
@@ -290,7 +290,7 @@ let ``conversion conc ``() = assertConverted "Twain" "Twain"
 
 [<Fact>]
 let ``flags 1``() =
-    let matcher = Regex("(\d⊤*|⊤*\d{2,2}⊤*)").UInt64Matcher
+    let matcher = Regex("(\d⊤*|⊤*\d{2,2}⊤*)").TSetMatcher
     let flags = Flags.inferNode matcher.RawPattern
     Assert.Equal(Flag.None, flags)
 
@@ -309,7 +309,7 @@ let ``flags 1``() =
 
 [<Fact>]
 let ``flags 3``() =
-    let matcher = Regex(@"(.*b|)").UInt64Matcher
+    let matcher = Regex(@"(.*b|)").TSetMatcher
 
     match matcher.RawPattern with
     | Types.Or(nodes, info) ->
@@ -323,7 +323,7 @@ let ``flags 3``() =
 
 [<Fact>]
 let ``flags 4``() =
-    let matcher = Regex(@"~(⊤*Ara⊤*)").UInt64Matcher
+    let matcher = Regex(@"~(⊤*Ara⊤*)").TSetMatcher
 
     match matcher.RawPattern with
     | Types.Not(nodes, info) ->
@@ -335,21 +335,21 @@ let ``flags 4``() =
 
 [<Fact>]
 let ``flags prefix 1``() =
-    let matcher = Regex(@"have⊤*").UInt64Matcher
+    let matcher = Regex(@"have⊤*").TSetMatcher
     let info = matcher.RawPattern.TryGetInfo.Value
     Assert.Equal(Flag.PrefixFlag, info.Flags)
 
 
 [<Fact>]
 let ``flags prefix 2``() =
-    let matcher = Regex(@"⊤*have⊤*").UInt64Matcher
+    let matcher = Regex(@"⊤*have⊤*").TSetMatcher
     let info = matcher.RawPattern.TryGetInfo.Value
     Assert.Equal(Flag.PrefixFlag ||| Flag.CanSkipFlag, info.Flags)
 
 
 [<Fact>]
 let ``flags prefix 3``() =
-    let matcher = Regex(@"~(⊤*\n\n⊤*)\n&⊤*have⊤*").UInt64Matcher
+    let matcher = Regex(@"~(⊤*\n\n⊤*)\n&⊤*have⊤*").TSetMatcher
     let info = matcher.RawPattern.TryGetInfo.Value
     Assert.Equal(Flag.PrefixFlag ||| Flag.CanSkipFlag, info.Flags)
 
@@ -357,7 +357,7 @@ let ``flags prefix 3``() =
 
 [<Fact>]
 let ``reverse unwrap``() =
-    let matcher = Regex("⊤*have⊤*").UInt64Matcher
+    let matcher = Regex("⊤*have⊤*").TSetMatcher
     match matcher.ReversePattern with
     | Concat(Loop(_),t,_) -> Assert.True(true)
     | _ -> failwith "wrong result"

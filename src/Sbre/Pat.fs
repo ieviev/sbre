@@ -138,7 +138,7 @@ let (|AllSameHead|_|) (nodes: HashSet<RegexNode<_>>) =
 
 
 
-let rec isSubSequence (bigger: RegexNode<uint64>) (smaller: RegexNode<uint64>): RegexNode<uint64> voption  =
+let rec isSubSequence (bigger: RegexNode<TSet>) (smaller: RegexNode<TSet>): RegexNode<TSet> voption  =
     match bigger, smaller with
     | Concat(head = SingletonStarLoop(head1); tail = tail1), Or(nodes = xs) ->
         xs
@@ -195,7 +195,7 @@ let rec isSubSequence (bigger: RegexNode<uint64>) (smaller: RegexNode<uint64>): 
         ValueNone
 
 
-let rec setIsSubsumed  (bigger: RegexNode<_> seq) (smaller: RegexNode<_> seq) : bool  =
+let rec setIsSubsumed  (bigger: RegexNode<TSet> seq) (smaller: RegexNode<TSet> seq) : bool  =
     use mutable eSmaller = smaller.GetEnumerator()
     use mutable eBigger = bigger.GetEnumerator()
     let mutable found = false
@@ -208,7 +208,7 @@ let rec setIsSubsumed  (bigger: RegexNode<_> seq) (smaller: RegexNode<_> seq) : 
     found
 
 
-let rec setIsSubsumedSingle (bigger: RegexNode<_> seq) (smaller: RegexNode<_>) : bool  =
+let rec setIsSubsumedSingle (bigger: RegexNode<TSet> seq) (smaller: RegexNode<TSet>) : bool  =
     use mutable eBigger = bigger.GetEnumerator()
     let mutable found = false
     while not found && eBigger.MoveNext() do
@@ -220,7 +220,7 @@ let rec setIsSubsumedSingle (bigger: RegexNode<_> seq) (smaller: RegexNode<_>) :
 
 
 [<return: Struct>]
-let (|TrySubsumeSameTail|_|) (nodes: HashSet<RegexNode<uint64>>) =
+let (|TrySubsumeSameTail|_|) (nodes: HashSet<RegexNode<TSet>>) =
     let arr =
         nodes
         |> Seq.toArray

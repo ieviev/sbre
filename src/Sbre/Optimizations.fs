@@ -5,7 +5,7 @@ open Sbre.Pat
 open System
 
 
-let tryJumpToStartset (c:RegexCache<uint64>)(loc:byref<Location>) (node:RegexNode<uint64>) : int32 =
+let tryJumpToStartset (c:RegexCache<TSet>)(loc:byref<Location>) (node:RegexNode<TSet>) : int32 =
 
 
     let prefix : InitialStartset<_> =
@@ -39,7 +39,7 @@ let tryJumpToStartset (c:RegexCache<uint64>)(loc:byref<Location>) (node:RegexNod
         // TODO: does occur
         loc.Position
 
-let tryJumpToStartset2 (c:RegexCache<uint64>)(loc:byref<Location>) (node:RegexNode<uint64>) : unit =
+let tryJumpToStartset2 (c:RegexCache<TSet>)(loc:byref<Location>) (node:RegexNode<TSet>) : unit =
 
     match c.Builder.GetInitializedPrefix(node) with
     | InitialStartset.MintermArrayPrefix(arr,loopEnd) ->

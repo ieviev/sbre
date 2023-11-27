@@ -99,21 +99,21 @@ type RegexMatcher<'t
         // and 't: equality
         // >
         (
-        dotStarredNode:RegexNode<uint64>,
-        initialNode:RegexNode<uint64>,
-        reverseNode:RegexNode<uint64>,
-        _cache:RegexCache<uint64>) as m =
+        dotStarredNode:RegexNode<TSet>,
+        initialNode:RegexNode<TSet>,
+        reverseNode:RegexNode<TSet>,
+        _cache:RegexCache<TSet>) as m =
     inherit GenericRegexMatcher()
 
     let InitialDfaStateCapacity = 1024
     let _stateCache = Dictionary<RegexNode<TSet>,MatchingState>() // TODO: dictionary with char kind
-    let _stateArray = Array.zeroCreate<MatchingState> InitialDfaStateCapacity
-    let _stateFlagsArray = Array.zeroCreate<MatchingStateFlags> InitialDfaStateCapacity
+    let mutable _stateArray = Array.zeroCreate<MatchingState> InitialDfaStateCapacity
+    let mutable _stateFlagsArray = Array.zeroCreate<MatchingStateFlags> InitialDfaStateCapacity
     let _minterms = _cache.Minterms()
     let _mintermsLog = BitOperations.Log2(uint64 _minterms.Length) + 1
     let _startsetPredicate = _cache.GetInitialStartsetPredicate
     let _initialInfo = initialNode.TryGetInfo
-    let _dfaDelta: int[] =
+    let mutable _dfaDelta: int[] =
         Array.init (1024 <<< _mintermsLog) (fun _ -> 0 ) // 0 : initial state
 
     do
@@ -244,7 +244,14 @@ type RegexMatcher<'t
             state.Id <- _stateCache.Count
             // TODO: grow state space if needed
             if _stateArray.Length = state.Id then
-                failwith "TODO: resize DFA"
+                if _stateArray.Length > 10000 then
+                    failwith "state space blowup!"
+                // failwith "TODO: resize DFA"
+                let newsize = _stateArray.Length * 2
+                Array.Resize(&_stateArray, newsize)
+                Array.Resize(&_dfaDelta, newsize <<< _mintermsLog)
+                Array.Resize(&_stateFlagsArray, newsize);
+
             _stateArray[state.Id] <- state
             _stateFlagsArray[state.Id] <- state.BuildFlags(_cache)
             state.Node.TryGetInfo
@@ -371,6 +378,7 @@ type RegexMatcher<'t
                 if currentMax > 0 then
                     foundmatch <- true
                 else
+                    // cache.Optimizations.TryFindNextStartingPositionLeftToRight(loc.Input,&loc.Position,loc.Position) |> ignore
                     cache.TryNextStartsetLocationArray(&loc,_initialPrefix,_initialSearchValues)
             elif flags.CanSkip then
                 match state.Node.TryGetInfo with
@@ -426,11 +434,16 @@ type RegexMatcher<'t
         let mutable loc = Location.createSpan input 0
         let mutable toplevelOr = _cache.False
         let mutable counter = 0
-        let mutable ep = 0
-        while (ep > -1) do
-            ep <- this.DfaEndPosition(_cache, &loc, initialNode, &toplevelOr)
-            counter <- counter + 1
-            loc.Position <- ep + 1
+        let mutable looping = true
+        while (looping) do
+            match this.DfaEndPosition(_cache, &loc, initialNode, &toplevelOr) with
+            | -2 ->
+                looping <- false // failed match
+            | ep ->
+                if loc.Position = loc.Input.Length then
+                    looping <- false
+                counter <- counter + 1
+                loc.Position <- ep + 1
         counter
 
 
@@ -501,8 +514,8 @@ module Helpers =
 
 
         match minterms.Length with
-        // | n when n < 8 ->
-        //     let solver = UInt8Solver(minterms, charsetSolver)
+        // | n when n < 32 ->
+        //     let solver = UInt32Solver(minterms, charsetSolver)
         //     let uintbuilder = RegexBuilder(converter, solver, charsetSolver)
         //     let trueStarredNode  = (Minterms.transform uintbuilder charsetSolver solver) trueStarPattern
         //     let rawNode = (Minterms.transform uintbuilder charsetSolver solver) symbolicBddnode
@@ -518,25 +531,7 @@ module Helpers =
         //             _builder = uintbuilder,
         //             _optimizations = optimizations
         //         )
-        //     RegexMatcher<byte>(trueStarredNode,rawNode,reverseNode,cache) :> GenericRegexMatcher
-        // | n when n < 16 ->
-        //     let solver = UInt16Solver(minterms, charsetSolver)
-        //     let uintbuilder = RegexBuilder(converter, solver, charsetSolver)
-        //     let trueStarredNode  = (Minterms.transform uintbuilder charsetSolver solver) trueStarPattern
-        //     let rawNode = (Minterms.transform uintbuilder charsetSolver solver) symbolicBddnode
-        //     let optimizations = RegexFindOptimizations(regexTree.Root, RegexOptions.NonBacktracking)
-        //     let reverseNode = RegexNode.rev uintbuilder rawNode
-        //     let cache =
-        //         Sbre.RegexCache(
-        //             solver,
-        //             charsetSolver,
-        //             _implicitDotstarPattern = trueStarredNode,
-        //             _rawPattern = rawNode,
-        //             _reversePattern = reverseNode,
-        //             _builder = uintbuilder,
-        //             _optimizations = optimizations
-        //         )
-        //     RegexMatcher<uint16>(trueStarredNode,rawNode,reverseNode,cache) :> GenericRegexMatcher
+        //     RegexMatcher<uint32>(trueStarredNode,rawNode,reverseNode,cache) :> GenericRegexMatcher
         | n when n < 64 ->
             let solver = UInt64Solver(minterms, charsetSolver)
             let uintbuilder = RegexBuilder(converter, solver, charsetSolver)
@@ -559,7 +554,7 @@ module Helpers =
             Debug.debuggerSolver <- Some solver
 #endif
             RegexMatcher<uint64>(trueStarredNode,rawNode,reverseNode,cache) //:> GenericRegexMatcher
-        | _ -> failwith "sbre does not support bitvectors over 64"
+        | n -> failwith $"bitvector too large, size: {n}"
 
 
 [<Sealed>]
@@ -611,7 +606,7 @@ type Regex(pattern: string, [<Optional; DefaultParameterValue(false)>] experimen
 
     member this.Matcher : GenericRegexMatcher = matcher
 #if DEBUG
-    member this.UInt64Matcher : RegexMatcher<uint64> = matcher :?> RegexMatcher<uint64>
+    member this.TSetMatcher : RegexMatcher<TSet> = matcher :?> RegexMatcher<TSet>
     member this.UInt16Matcher : RegexMatcher<uint16> = matcher :?> RegexMatcher<uint16>
     member this.ByteMatcher : RegexMatcher<byte> = matcher :?> RegexMatcher<byte>
 #endif

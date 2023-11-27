@@ -8,7 +8,7 @@ open Xunit
 
 let dfaFindMatchEnd (pat:string) (input:string) =
     let regex = Regex(pat)
-    let matcher = regex.Matcher :?> RegexMatcher<uint64>
+    let matcher = regex.Matcher :?> RegexMatcher<TSet>
     let cache = matcher.Cache
     let initial = matcher.RawPattern
     let mutable _toplevelOr = matcher.Cache.False
@@ -17,13 +17,13 @@ let dfaFindMatchEnd (pat:string) (input:string) =
 
 let dfaFindAllEnds (pat:string) (input:string) =
     let regex = Regex(pat)
-    let matcher = regex.Matcher :?> RegexMatcher<uint64>
+    let matcher = regex.Matcher :?> RegexMatcher<TSet>
     matcher.DfaMatchEnds(input)
 
 
 let getMatcher (pat:string) =
     let regex = Regex(pat)
-    let matcher = regex.Matcher :?> RegexMatcher<uint64>
+    let matcher = regex.Matcher :?> RegexMatcher<TSet>
     matcher
 
 
@@ -48,6 +48,18 @@ let ``dfa end 03`` () =
     Assert.Equal(34728, endPos)
 
 [<Fact>]
+let ``dfa end 04 - unroll loop`` () =
+    let endPos =
+        dfaFindMatchEnd
+            "[a-q][^u-z]{13}x"
+            BenchmarkTests.twain_input[..20000]
+    Assert.Equal(11549, endPos)
+
+
+// [a-q][^u-z]{13}x
+
+
+[<Fact>]
 let ``dfa all ends 01`` () =
     let ends =
         dfaFindAllEnds
@@ -66,6 +78,25 @@ let ``dfa all ends 02`` () =
     let expectedEnds = [|40003|]
     Assert.Equal<int>(expectedEnds, (ends.ToArray()[..4]))
 
+
+
+[<Fact>]
+let ``dfa all ends 03 - blowup`` () =
+    let ends =
+        dfaFindAllEnds
+            "[a-q][^u-z]{13}x"
+            BenchmarkTests.twain_input
+    let expectedEnds = [|11549; 12956; 14987; 19303; 23996|]
+    Assert.Equal<int>(expectedEnds, (ends.ToArray()[..4]))
+
+
+
+
+[<Fact>]
+let ``dfa count 01`` () =
+    let m = getMatcher @"Huck[a-zA-Z]+|Saw[a-zA-Z]+"
+    let c = m.DfaCount BenchmarkTests.twain_input //[..100_000]
+    Assert.Equal<int>(1, c)
 
 
 [<Fact>]

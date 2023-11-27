@@ -6,6 +6,7 @@ open System.Threading
 open BenchmarkDotNet.Attributes
 open Sbre
 open Sbre.Pat
+open Sbre.Types
 
 
 
@@ -540,7 +541,7 @@ type SbreDebugSearch(patterns: string list, input: string) =
 
 
     member val RegexEngine: Regex = Unchecked.defaultof<_> with get, set
-    member val Matcher: RegexMatcher<uint64> = Unchecked.defaultof<_> with get, set
+    member val Matcher: RegexMatcher<TSet> = Unchecked.defaultof<_> with get, set
 
     member this.Patterns: System.Collections.Generic.IEnumerable<string> = patterns
 
@@ -551,7 +552,7 @@ type SbreDebugSearch(patterns: string list, input: string) =
     member this.Setup() =
         let combinedRegex = this.Pattern
         this.RegexEngine <- Regex(combinedRegex)
-        this.Matcher <- this.RegexEngine.Matcher :?> RegexMatcher<uint64>
+        this.Matcher <- this.RegexEngine.Matcher :?> RegexMatcher<TSet>
 
     // [<Benchmark>]
     // member this.NoDfaSbre() =
@@ -1368,36 +1369,43 @@ type TestAllEnginesAllPatternsWithCompileTime(patterns: (string) list, input: st
     // member val NumOfWords: int = 0 with get, set
     //
     member this.Patterns: System.Collections.Generic.IEnumerable<string> = patterns
+    member val CompiledEngine: Sbre.RegexMatcher<uint64> = Unchecked.defaultof<_> with get, set
 
     [<ParamsSource("Patterns")>]
     member val Pattern: string = "" with get, set
 
     [<GlobalSetup>]
-    member this.Setup() = ()
+    member this.Setup() =
+        let regex = Regex(this.Pattern)
+        let matcher = regex.Matcher :?> RegexMatcher<uint64>
+        this.CompiledEngine <- matcher
+        ()
 
     //
     // [<Benchmark(Description="None")>]
     // member this.None() =
     //     System.Text.RegularExpressions.Regex(this.Pattern, opts_None, TimeSpan.FromSeconds(10)).Count(inputText)
     //
-    // [<Benchmark(Description="NonBacktrack")>]
-    // member this.Symbolic() =
-    //     System.Text.RegularExpressions.Regex(this.Pattern, opts_NonBacktracking, TimeSpan.FromSeconds(10)).Count(inputText)
-    //
-    // [<Benchmark(Description="Compiled")>]
-    // member this.Compiled() =
-    //     System.Text.RegularExpressions.Regex(this.Pattern, opts_Compiled, TimeSpan.FromSeconds(10)).Count(inputText)
+    [<Benchmark(Description="NonBacktrack")>]
+    member this.Symbolic() =
+        System.Text.RegularExpressions.Regex(this.Pattern, opts_NonBacktracking, TimeSpan.FromSeconds(10)).Count(inputText)
+
+    [<Benchmark(Description="Compiled")>]
+    member this.Compiled() =
+        System.Text.RegularExpressions.Regex(this.Pattern, opts_Compiled, TimeSpan.FromSeconds(10)).Count(inputText)
 
     [<Benchmark(Description = "Sbre")>]
     member this.Sbre() =
         // Regex(this.Pattern).Count(inputText)
-        use cts = new CancellationTokenSource()
-        cts.CancelAfter(millisecondsDelay = 10_000)
-        let tsk =
-            System.Threading.Tasks.Task.Factory.StartNew((fun v ->
-                Regex(this.Pattern).Count(inputText)
-            ))
-        tsk.Wait(cts.Token)
+        (Regex(this.Pattern).Matcher :?> RegexMatcher<uint64>).DfaCount(inputText)
+        // this.CompiledEngine.DfaCount(inputText)
+        // use cts = new CancellationTokenSource()
+        // cts.CancelAfter(millisecondsDelay = 10_000)
+        // let tsk =
+        //     System.Threading.Tasks.Task.Factory.StartNew((fun v ->
+        //         Regex(this.Pattern).Count(inputText)
+        //     ))
+        // tsk.Wait(cts.Token)
 
 
 

@@ -51,7 +51,7 @@ let ``identity derivative 2`` () =
 
     let deriv = _04_DerivativeTests.getDerivative (m,"test")
 
-    let req = refEq m.UInt64Matcher.RawPattern deriv
+    let req = refEq m.TSetMatcher.RawPattern deriv
     Assert.True(req)
 
 
@@ -79,10 +79,10 @@ let ``identity and 1`` () =
 let ``identity singleton 1`` () =
     let m = Regex(@".*b|a")
 
-    let deriv = _04_DerivativeTests.getDerivativeT<uint64> (m,"aaab")
+    let deriv = _04_DerivativeTests.getDerivativeT<TSet> (m,"aaab")
 
     let l1 =
-        match m.UInt64Matcher.RawPattern with
+        match m.TSetMatcher.RawPattern with
         | Or(nodes,_) ->
             let conc = nodes |> Seq.find (function | Concat(_) -> true | _ -> false)
             let loop =
@@ -94,7 +94,7 @@ let ``identity singleton 1`` () =
         | _ -> failwith "debug"
 
     let l2 =
-        match m.UInt64Matcher.ReversePattern with
+        match m.TSetMatcher.ReversePattern with
         | Or(nodes,_) ->
             let conc = nodes |> Seq.find (function | Concat(_) -> true | _ -> false)
             let loop =

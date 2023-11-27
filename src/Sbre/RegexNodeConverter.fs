@@ -109,7 +109,24 @@ let convertToSymbolicRegexNode
         | RegexNodeKind.Setloop ->
             let set = node.Str
             let bdd = b.bddFromSetString set
-            b.mkLoop (b.one bdd, node.M, node.N) :: acc
+            // unroll loops
+            if node.M = node.N then
+                let single = b.one bdd
+                let nodes = List.replicate node.M single
+                nodes @ acc
+            elif node.M > 0 then
+                let single = b.one bdd
+                let nodes = List.replicate node.M single
+                let optmax =
+                    match node.N with
+                    | Int32.MaxValue ->
+                        node.N
+                    | _ ->
+                        node.N - node.M
+                let optloop = b.mkLoop (single, 0, optmax)
+                nodes @ [optloop] @ acc
+            else
+                b.mkLoop (b.one bdd, node.M, node.N) :: acc
         | RegexNodeKind.Empty -> acc
         | RegexNodeKind.PositiveLookaround ->
             RegexNode.LookAround(

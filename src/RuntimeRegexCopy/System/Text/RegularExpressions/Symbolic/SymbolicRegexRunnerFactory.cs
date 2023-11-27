@@ -35,8 +35,8 @@ namespace System.Text.RuntimeRegexCopy.Symbolic
             BDD[] minterms = rootNode.ComputeMinterms(bddBuilder);
             _matcher = minterms.Length switch
             {
-                <= 8 => SymbolicRegexMatcher<byte>.Create(regexTree.CaptureCount, regexTree.FindOptimizations,
-                    bddBuilder, rootNode, new UInt8Solver(minterms, charSetSolver), matchTimeout),
+                <= 32 => SymbolicRegexMatcher<uint>.Create(regexTree.CaptureCount, regexTree.FindOptimizations,
+                    bddBuilder, rootNode, new UInt32Solver(minterms, charSetSolver), matchTimeout),
                 <= 64 => SymbolicRegexMatcher<ulong>.Create(regexTree.CaptureCount, regexTree.FindOptimizations,
                     bddBuilder, rootNode, new UInt64Solver(minterms, charSetSolver), matchTimeout),
                 _ => SymbolicRegexMatcher<BitVector>.Create(regexTree.CaptureCount, regexTree.FindOptimizations,
@@ -48,7 +48,7 @@ namespace System.Text.RuntimeRegexCopy.Symbolic
         protected internal override RegexRunner CreateInstance() => 
                 _matcher switch
             {
-                SymbolicRegexMatcher<byte> s => new Runner<byte>(s),
+                SymbolicRegexMatcher<uint> s => new Runner<uint>(s),
                 SymbolicRegexMatcher<ulong> s => new Runner<ulong>(s),
                 _ => new Runner<BitVector>((SymbolicRegexMatcher<BitVector>)_matcher)
             };

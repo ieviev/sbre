@@ -32,14 +32,12 @@ type RegexCache< 't
         _optimizations: RegexFindOptimizations
     ) =
     let classifier =
-        if typeof<TSet> = typeof<TSet> then
+        if typeof<TSet> = typeof<uint64> then
             ((box _solver) :?> UInt64Solver)._classifier
-        elif typeof<TSet> = typeof<byte> then
-            ((box _solver) :?> UInt8Solver)._classifier
-        elif typeof<TSet> = typeof<uint16> then
-            ((box _solver) :?> UInt16Solver).Classifier
+        elif typeof<TSet> = typeof<uint32> then
+            ((box _solver) :?> UInt32Solver)._classifier
         else
-            failwith "todo"
+            failwith "todo invalid solver"
 
 
     let _ascii = classifier.Ascii
@@ -99,26 +97,14 @@ type RegexCache< 't
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.MintermStartsetChars(startset: TSet) = _getMintermStartsetChars startset
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.SkipIndexOfAny(loc: byref<Location>, setChars: SearchValues<char>) : unit =
-        // let currpos = loc.Position
-        // match loc.Reversed with
-        // | false ->
         let slice = loc.Input.Slice(loc.Position)
         let sharedIndex = slice.IndexOfAny(setChars)
+        loc.Position <- loc.Position + sharedIndex
         if sharedIndex = -1 then
             loc.Position <- Location.final loc
-        else
-            loc.Position <- loc.Position + sharedIndex
-        // | true ->
-        //     let slice = loc.Input.Slice(0, currpos)
-        //
-        //     let sharedIndex =
-        //             slice.LastIndexOfAny(setChars)
-        //
-        //     if sharedIndex = -1 then
-        //         loc.Position <- Location.final loc
-        //     else
-        //         loc.Position <- sharedIndex + 1
+
 
     member this.SkipIndexOfAnyPrefix(loc: byref<Location>, setChars: SearchValues<char>, setPrefix: ReadOnlySpan<TSet>, termPrefix: ReadOnlySpan<TSet>) : unit =
 
@@ -225,7 +211,6 @@ type RegexCache< 't
         // assert not loc.Reversed
         let inputSpan = loc.Input
         let mutable skipping = true
-        // let mutable result = ValueNone
 
         /// vectorize the search for the first character
         let firstSetChars = searchValues // this.MintermStartsetChars(setSpan[0])
@@ -258,8 +243,6 @@ type RegexCache< 't
                     slice.IndexOfAnyExcept(firstSetChars)
 
             if sharedIndex = -1 then
-                // if sharedIndex = -1 then
-                //     loc.Position <- Location.final loc
                 skipping <- false
             else
                 let potential = loc.Position + sharedIndex
@@ -273,7 +256,6 @@ type RegexCache< 't
                 let mutable i = 0
                 while couldBe && i < _tailLength do
                     let inputMinterm = this.Classify(inputSpan[potential + 1 + i])
-                    // if _solver.notElemOfSet (inputMinterm,tailPrefixSpan[i]) then
                     if Solver.notElemOfSet inputMinterm tailPrefixSpan[i] then
                         couldBe <- false
                     i <- i + 1

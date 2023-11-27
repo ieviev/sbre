@@ -11,15 +11,15 @@ open Sbre.Types
 open Xunit
 
 let getDerivative(matcher: Regex, input: string) =
-    let cache = matcher.UInt64Matcher.Cache
-    let node = matcher.UInt64Matcher.RawPattern
+    let cache = matcher.TSetMatcher.Cache
+    let node = matcher.TSetMatcher.RawPattern
     let location = (Location.create input 0)
     // let matchCache = RegexMatchCache(cache,node)
     createDerivative (cache, &location, cache.MintermForLocation(location), node)
 
 let getDerivativeT<'t when 't : struct and 't :> IEquatable< 't >
         and 't: equality>(matcher: Regex, input: string) =
-    let matcher = matcher.Matcher :?> RegexMatcher<'t>
+    let matcher = matcher.Matcher :?> RegexMatcher<TSet>
     let cache = matcher.Cache
     let node = matcher.RawPattern
     let location = (Location.create input 0)
@@ -29,7 +29,7 @@ let getDerivativeT<'t when 't : struct and 't :> IEquatable< 't >
 
 
 let testFullDerivative(pattern: string, input: string, expectedDerivative: string) =
-    let matcher = Regex(pattern).UInt64Matcher
+    let matcher = Regex(pattern).TSetMatcher
     let cache = matcher.Cache
     let node = matcher.ImplicitPattern
     let location = (Location.create input 0)
@@ -49,7 +49,7 @@ let testFullDerivativeMultiple(pattern: string, input: string, expectedDerivativ
 
 
 let test2ndDerivative(pattern: string, input: string, expectedDerivative: string) =
-    let matcher = Regex(pattern).UInt64Matcher
+    let matcher = Regex(pattern).TSetMatcher
     let cache = matcher.Cache
     let node = matcher.ImplicitPattern
     let location = (Location.create input 0)
@@ -71,7 +71,7 @@ let test2ndDerivatives(pattern: string, input: string, expectedDerivatives: stri
     let location1 = (Location.create input 1)
     let result =
         try
-            let matcher = Regex(pattern).UInt64Matcher
+            let matcher = Regex(pattern).TSetMatcher
             let cache = matcher.Cache
             let node = matcher.ImplicitPattern
 

@@ -136,8 +136,8 @@ module private BuilderHelpers =
 type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
     (converter: RegexNodeConverter, solver: ISolver< 't >, bcss: CharSetSolver) as b =
     let runtimeBuilder = SymbolicRegexBuilder< 't>(solver, bcss)
-    let getDerivativeCacheComparer() : IEqualityComparer<struct (uint64 * RegexNode<uint64>)> =
-        { new IEqualityComparer<struct (uint64 * RegexNode<uint64>)> with
+    let getDerivativeCacheComparer() : IEqualityComparer<struct (TSet * RegexNode<TSet>)> =
+        { new IEqualityComparer<struct (TSet * RegexNode<TSet>)> with
             [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
             member this.Equals(struct (x1, x2), struct (y1, y2)) = x1 = y1 && refEq x2 y2
 
@@ -186,7 +186,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
         }
 
     let _u64refComparer =
-        { new IEqualityComparer<RegexNode<uint64>> with
+        { new IEqualityComparer<RegexNode<TSet>> with
             [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
             member this.Equals(xs, ys) = refEq xs ys
 
@@ -202,8 +202,8 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
     let _concatCache: Dictionary<struct (RegexNode< 't > * RegexNode< 't >), RegexNode< 't >> =
         Dictionary(_concatCacheComparer)
 
-    let _subsumptionCacheComparer: IEqualityComparer<struct (RegexNode<uint64> * RegexNode<uint64 >)> =
-        { new IEqualityComparer<struct (RegexNode<uint64> * RegexNode<uint64>)> with
+    let _subsumptionCacheComparer: IEqualityComparer<struct (RegexNode<TSet> * RegexNode<TSet >)> =
+        { new IEqualityComparer<struct (RegexNode<TSet> * RegexNode<TSet>)> with
             [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
             member this.Equals(struct (x1, y1), struct (x2, y2)) = refEq x1 x2 && refEq y1 y2
 
@@ -213,7 +213,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 // System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode x ^^^ System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode y
         }
 
-    let _subsumptionCache: Dictionary<struct (RegexNode<uint64> * RegexNode<uint64>), bool> =
+    let _subsumptionCache: Dictionary<struct (RegexNode<TSet> * RegexNode<TSet>), bool> =
         Dictionary(_subsumptionCacheComparer)
 
     let _orCache: Dictionary<RegexNode< 't >[], RegexNode< 't >> =
@@ -585,7 +585,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
         | _ ->
 
             match nodes with
-            | AllSameHead() when typeof<'t> = typeof<uint64>  ->
+            | AllSameHead() when typeof<'t> = typeof<TSet>  ->
                 match nodes |> unbox with
                 | TrySubsumeSameTail (s) -> Seq.singleton (unbox s) //:?> RegexNode<'t> seq
                 | _ -> nodes
@@ -610,7 +610,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
         |> Option.defaultValue nodes
 
 
-    member this.trySubsumeTopLevelOr(struct(existing: RegexNode<uint64>, newnode: RegexNode<uint64>)) : bool =
+    member this.trySubsumeTopLevelOr(struct(existing: RegexNode<TSet>, newnode: RegexNode<TSet>)) : bool =
         match struct (existing, newnode) with
         | Concat(_), And(nodes = nodes2) ->
             nodes2.Contains(existing)
