@@ -49,14 +49,11 @@ let convertToSymbolicRegexNode
                 |> children2Seq
                 |> Seq.map convertSingle
                 |> Seq.map b.mkConcat
-                |> Seq.toArray
-
-            let nodeset = ofSeq children2
             builder.mkOr children2 :: acc
         | RegexNodeKind.Conjunction ->
 
             let children2 =
-                node |> children2Seq |> Seq.map convertSingle |> Seq.map b.mkConcat |> Seq.toArray
+                node |> children2Seq |> Seq.map convertSingle |> Seq.map b.mkConcat
 
             builder.mkAnd children2 :: acc
 
@@ -69,15 +66,7 @@ let convertToSymbolicRegexNode
             else
                 if node.Options.HasFlag(RegexOptions.Negated) then
                     let inner = convertChildren node |> b.mkConcat
-                    let mutable flags = Info.Flags.inferNode inner
-
-                    if flags.HasFlag(RegexNodeFlags.IsAlwaysNullableFlag) then
-                        Info.removeFlag &flags RegexNodeFlags.CanBeNullableFlag
-                        Info.removeFlag &flags RegexNodeFlags.IsAlwaysNullableFlag
-                    else if not (flags.HasFlag(RegexNodeFlags.CanBeNullableFlag)) then
-                        Info.addFlag &flags RegexNodeFlags.CanBeNullableFlag
-                        Info.addFlag &flags RegexNodeFlags.IsAlwaysNullableFlag
-
+                    let flags = Info.Flags.inferNot inner
                     RegexNode.Not(inner, RegexNodeInfo<BDD>( Flags = flags, Startset = Unchecked.defaultof<BDD>, InitialStartset = Uninitialized))
                     :: acc
                 else
@@ -126,7 +115,7 @@ let convertToSymbolicRegexNode
                 let optloop = b.mkLoop (single, 0, optmax)
                 nodes @ [optloop] @ acc
             else
-                b.mkLoop (b.one bdd, node.M, node.N) :: acc
+            b.mkLoop (b.one bdd, node.M, node.N) :: acc
         | RegexNodeKind.Empty -> acc
         | RegexNodeKind.PositiveLookaround ->
             RegexNode.LookAround(

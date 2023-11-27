@@ -238,56 +238,6 @@ let ``conversion neg lookahead ``() = assertConverted "1(?! Sep)" "1(?! Sep)"
 [<Fact>]
 let ``conversion conc ``() = assertConverted "Twain" "Twain"
 
-
-
-
-// [<Fact>]
-// let ``conversion 2`` () =
-//
-//
-//     let regexTree =
-//         ExtendedRegexParser.Parse(
-//             "(310|0[1-9]2|452)",
-//             RegexOptions.ExplicitCapture ||| RegexOptions.NonBacktracking,
-//             CultureInfo.InvariantCulture
-//         )
-//
-//     let symbolicBddnode: RegexNode<BDD> =
-//         RegexNodeConverter.convertToSymbolicRegexNode (debugcharSetSolver, bddBuilder, regexTree.Root)
-//
-//     match symbolicBddnode with
-//     | Types.Or(nodes, _) ->
-//         let nodes =
-//             nodes
-//             |> Seq.map (fun x -> x.ToStringHelper())
-//             |> set
-//
-//         let expected =
-//             ["0[1-9]2"; "310"; "452"]
-//             |> set
-//         let a = 1
-//         equalSeq expected nodes
-//
-//     | _ -> Assert.True(false, "not an or node")
-
-
-
-// [<Fact>]
-// let ``conversion of or 2``() =
-//
-//     let matcher = Regex("(310|0[1-9]2|452)").UInt64Matcher
-//
-//     match matcher.RawPattern with
-//     | Types.Or(nodes, _) ->
-//         let nodes = nodes |> Seq.map (fun x -> x.ToStringHelper()) |> set
-//
-//         let expected = [ "310"; "0[1-9]2"; "452" ] |> set
-//         let a = 1
-//         equalSeq expected nodes
-//
-//     | _ -> Assert.True(false, "not an or node")
-
-
 [<Fact>]
 let ``flags 1``() =
     let matcher = Regex("(\d⊤*|⊤*\d{2,2}⊤*)").TSetMatcher
@@ -295,16 +245,16 @@ let ``flags 1``() =
     Assert.Equal(Flag.None, flags)
 
 
-// [<Fact>]
-// let ``flags 2``() =
-//     let matcher = Regex(@"⊤*English⊤*&⊤*King⊤*&⊤*Paris⊤*&~(⊤*\n\n⊤*)\n").UInt64Matcher
-//
-//     match matcher.RawPattern with
-//     | Types.And(nodes, info) ->
-//         // let flags = Flags.inferNode matcher.RawPattern
-//         let flags = Info.Flags.inferAnd (nodes)
-//         Assert.Equal(Flag.CanSkip ||| Flag.Prefix, flags)
-//     | _ -> Assert.True(false, "wrong node type")
+[<Fact>]
+let ``flags 2``() =
+    let matcher = Regex(@"⊤*English⊤*&⊤*King⊤*&⊤*Paris⊤*&~(⊤*\n\n⊤*)\n").TSetMatcher
+
+    match matcher.RawPattern with
+    | Types.And(nodes, info) ->
+        // let flags = Flags.inferNode matcher.RawPattern
+        let flags = Info.Flags.inferAnd (nodes)
+        Assert.Equal(Flag.CanSkipFlag ||| Flag.PrefixFlag, flags)
+    | _ -> Assert.True(false, "wrong node type")
 
 
 [<Fact>]
