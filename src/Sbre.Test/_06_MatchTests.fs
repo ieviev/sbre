@@ -361,38 +361,26 @@ let ``negation range test 1``() =
     let matcher = Regex(@"~(⊤*\d\d⊤*)")
     let result = matcher.MatchText("Aa11aBaAA")
     Assert.Equal(Some "Aa1", result)
-    ()
-
 
 [<Fact>]
 let ``negation range test 2``() =
     let matcher = Regex(@"~(.*\d\d.*)")
     let result = matcher.MatchText("Aa11aBaAA")
     Assert.Equal(Some "Aa1", result)
-    ()
-
 
 [<Fact>]
 let ``negation startset inference test``() =
     let matcher = Regex(@"a.*&~(.*b.*)b")
-    // let matcher = Matcher(@"~(Lorem⊤*)")
     let result = matcher.MatchText("---a------bbb")
     Assert.Equal(Some "a------b", result)
-
-
 
 
 [<Fact>]
 let ``end with truestar test``() =
     let matcher = Regex("class=\"⊤*")
-    // let matcher = Matcher(@"~(Lorem⊤*)")
     let input = @"class=""dasdasdsdasd"""
     let result = matcher.MatchText(input)
-    // Assert.Equal(Some "a------b", result)
     Assert.Equal(input, result.Value)
-
-
-
 
 
 [<Fact>]
@@ -614,6 +602,16 @@ let ``simple 1``() =
     let result =
         matcher.Matches("dfdff dfgfgg gfgdfg gddfdf") |> Seq.toArray
     Assert.Equal( 4, result.Length )
+
+
+
+
+[<Fact>]
+let ``set star loop test 1``() =
+    let matcher = Regex("a*")
+    let result =
+        matcher.Matches("bbbb") |> Seq.toArray
+    Assert.Equal( 5, result.Length )
 
 
 

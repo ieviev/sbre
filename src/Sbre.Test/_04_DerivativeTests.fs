@@ -262,38 +262,8 @@ let ``derivative concat lookaround``() =
 
 [<Fact>]
 let ``derivative lookback 1``() =
-    let loc =
-        {
-            Input = "-aaaa-"
-            Position = 0
-            Reversed = false
-        }
+    let loc = Location.create "-aaaa-" 0
     testPartDerivativesLoc (@"(.*(?=.*-)&\S.*\S)", loc,  [@"(.*φ&.*(?=.*-))";"(.*(?=.*-)&.*φ)"])
-
-//
-// [<Fact>]
-// let ``derivative lookback 2``() =
-//     let loc =
-//         {
-//             Input = "-aaaa-"
-//             Position = 5
-//             Reversed = true
-//         }
-//     testPartDerivativesLoc (@"((?<=-.*).*)", loc,  [@"(?<=A.*)"])
-//
-//
-//
-// [<Fact>]
-// let ``derivative lookback 3``() =
-//     let loc =
-//         {
-//             Input = "-aaaa-"
-//             Position = 5
-//             Reversed = true
-//         }
-//     testPartDerivativesLoc (@"((?<=-.*).*&\S.*\S)", loc,  [@"(?<=A.*)"])
-
-
 
 [<Fact>]
 let ``subsumption or loop ``() =

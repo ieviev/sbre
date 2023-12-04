@@ -138,39 +138,33 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
     let runtimeBuilder = SymbolicRegexBuilder< 't>(solver, bcss)
     let getDerivativeCacheComparer() : IEqualityComparer<struct (TSet * RegexNode<TSet>)> =
         { new IEqualityComparer<struct (TSet * RegexNode<TSet>)> with
-            [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
             member this.Equals(struct (x1, x2), struct (y1, y2)) = x1 = y1 && refEq x2 y2
 
-            [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
             member this.GetHashCode(struct (x, y)) = int x ^^^ LanguagePrimitives.PhysicalHash y
         }
 
     let _andCacheComparer =
         { new IEqualityComparer<RegexNode<'t>[]> with
-            [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
             member this.Equals(xs, ys) =
                 xs.Length = ys.Length && Array.forall2 refEq xs ys
 
-            [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
             member this.GetHashCode(x) = Enumerator.getSharedHash x
         }
 
     let _orCacheComparer =
         { new IEqualityComparer<RegexNode< 't >[]> with
-            [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
             member this.Equals(xs, ys) =
                 xs.Length = ys.Length && Array.forall2 refEq xs ys
 
-            [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
             member this.GetHashCode(x) = Enumerator.getSharedHash x
         }
 
     let _concatCacheComparer: IEqualityComparer<struct (RegexNode<'t> * RegexNode<'t >)> =
         { new IEqualityComparer<struct (RegexNode<'t> * RegexNode<'t>)> with
-            [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+
             member this.Equals(struct (x1, y1), struct (x2, y2)) = refEq x1 x2 && refEq y1 y2
 
-            [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+
             member this.GetHashCode(struct (x, y)) =
                 LanguagePrimitives.PhysicalHash x ^^^ LanguagePrimitives.PhysicalHash y
         }
@@ -178,19 +172,15 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
 
     let _refComparer =
         { new IEqualityComparer<RegexNode< 't >> with
-            [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
             member this.Equals(xs, ys) = refEq xs ys
 
-            [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
             member this.GetHashCode(x) = LanguagePrimitives.PhysicalHash x
         }
 
     let _u64refComparer =
         { new IEqualityComparer<RegexNode<TSet>> with
-            [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
             member this.Equals(xs, ys) = refEq xs ys
 
-            [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
             member this.GetHashCode(x) = LanguagePrimitives.PhysicalHash x
         }
 
@@ -204,13 +194,9 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
 
     let _subsumptionCacheComparer: IEqualityComparer<struct (RegexNode<TSet> * RegexNode<TSet >)> =
         { new IEqualityComparer<struct (RegexNode<TSet> * RegexNode<TSet>)> with
-            [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
             member this.Equals(struct (x1, y1), struct (x2, y2)) = refEq x1 x2 && refEq y1 y2
-
-            [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
             member this.GetHashCode(struct (x, y)) =
                 LanguagePrimitives.PhysicalHash x ^^^ LanguagePrimitives.PhysicalHash y
-                // System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode x ^^^ System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode y
         }
 
     let _subsumptionCache: Dictionary<struct (RegexNode<TSet> * RegexNode<TSet>), bool> =
@@ -237,10 +223,9 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 up = Int32.MaxValue,
                 info =
                     RegexNodeInfo<'t>(
-                        Flags =
+                        NodeFlags =
                             (RegexNodeFlags.IsAlwaysNullableFlag
-                             ||| RegexNodeFlags.CanBeNullableFlag
-                             ||| RegexNodeFlags.CanSkipFlag),
+                             ||| RegexNodeFlags.CanBeNullableFlag),
                         Startset = solver.Full,
                         InitialStartset = Uninitialized
                     )
@@ -252,7 +237,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 up = Int32.MaxValue,
                 info =
                     RegexNodeInfo<'t>(
-                        Flags = RegexNodeFlags.None,
+                        NodeFlags = RegexNodeFlags.None,
                         Startset = solver.Full,
                         InitialStartset = Uninitialized
                     )
@@ -279,7 +264,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 lazy
                     let info =
                         RegexNodeInfo<'t>(
-                            Flags = RegexNodeFlags.CanBeNullableFlag, //||| RegexNodeFlags.ContainsLookaround
+                            NodeFlags = RegexNodeFlags.CanBeNullableFlag, //||| RegexNodeFlags.ContainsLookaround
                             Startset = Unchecked.defaultof<_>,
                             InitialStartset = Uninitialized
                         )
@@ -298,7 +283,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 lazy
                     let info =
                         RegexNodeInfo<'t>(
-                            Flags = RegexNodeFlags.CanBeNullableFlag, //||| RegexNodeFlags.ContainsLookaround
+                            NodeFlags = RegexNodeFlags.CanBeNullableFlag, //||| RegexNodeFlags.ContainsLookaround
                             Startset = solver.Full,
                             InitialStartset = Uninitialized
                         )
@@ -316,7 +301,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 lazy
                     let info =
                         RegexNodeInfo<'t>(
-                            Flags = RegexNodeFlags.CanBeNullableFlag,
+                            NodeFlags = RegexNodeFlags.CanBeNullableFlag,
                             Startset = solver.Full,
                             InitialStartset = Uninitialized
                         )
@@ -353,7 +338,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 lazy
                     let info =
                         RegexNodeInfo<'t>(
-                            Flags =
+                            NodeFlags =
                                 (RegexNodeFlags.CanBeNullableFlag ||| RegexNodeFlags.ContainsLookaroundFlag),
                             Startset = Unchecked.defaultof<_>,
                             InitialStartset = Uninitialized
@@ -394,7 +379,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 lazy
                     let info =
                         RegexNodeInfo<'t>(
-                            Flags = (RegexNodeFlags.CanBeNullableFlag ||| RegexNodeFlags.None),
+                            NodeFlags = (RegexNodeFlags.CanBeNullableFlag ||| RegexNodeFlags.None),
                             Startset = Unchecked.defaultof<_>,
                             InitialStartset = Uninitialized
                         )
@@ -424,29 +409,6 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
     // member this.Startset2Cache = _startset2Cache
     member this.SubsumptionCache = _subsumptionCache
 
-
-    // [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    // member this.GetPrefixCached(node: RegexNode<'t>) =
-    //     match this.PrefixCache.TryGetValue(node) with
-    //     | true, v -> v
-    //     | _ ->
-    //         let ss2 = Startset.inferInitialStartset (solver) (node)
-    //         this.PrefixCache.Add(node, ss2)
-    //         ss2
-
-    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    member this.GetInitializedPrefix(node: RegexNode<'t>) =
-        match node with
-        | Or(info = info) | Loop(info = info) | And(info = info) | Not(info = info) | Concat(info = info) ->
-            match info.InitialStartset with
-            | InitialStartset.Uninitialized ->
-                let startsetPrefix = Startset.inferInitialStartset (solver) (node)
-                info.InitialStartset <- startsetPrefix
-            | _ -> ()
-            info.InitialStartset
-        | _ -> InitialStartset.Unoptimized
-
-
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.AddTransitionInfo
         (
@@ -469,9 +431,6 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 then
                     info.Transitions.Add({ Set = solver.Full; Node = result })
                 else
-                    if info.CanSkip() then
-                        info.Transitions.Add({ Set = solver.Not node.Startset; Node = node })
-
                     info.Transitions.Add({ Set = pred; Node = result })
 
             | n ->
@@ -750,12 +709,10 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 | _ when nodes.Length = 1 -> nodes[0]
                 | twoormore ->
                     let flags = Flags.inferAnd twoormore
-                    let startset = twoormore |> Startset.inferMergeStartset (solver)
 
                     let mergedInfo =
                         RegexNodeInfo<'t>(
-                            Flags = flags,
-                            Startset = startset,
+                            NodeFlags = flags,
                             InitialStartset = Uninitialized
                         )
 
@@ -852,12 +809,9 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 | twoormore ->
                     let flags = Flags.inferOr twoormore
 
-                    let startset = twoormore |> Startset.inferMergeStartset solver
-
                     let mergedInfo =
                         RegexNodeInfo<'t>(
-                            Flags = flags,
-                            Startset = startset,
+                            NodeFlags = flags,
                             InitialStartset = Uninitialized
                         )
 
@@ -885,7 +839,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 | Epsilon -> _uniques._truePlus // ~(ε) -> ⊤+
                 | _ ->
                     let mutable flags = Flags.inferNot inner
-                    Not(inner, this.CreateInfo(flags, inner.Startset))
+                    Not(inner, this.CreateInfo(flags))
 
             let key = inner
 
@@ -925,10 +879,9 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 | Epsilon -> tail // ()R -> R
                 | _ when refEq head _uniques._false -> _uniques._false // ⊥R -> ⊥
                 | _ ->
-                    let startset = Startset.inferConcatStartset solver head tail
 
                     let flags = Flags.inferConcat head tail
-                    let info = this.CreateInfo(flags, startset)
+                    let info = this.CreateInfo(flags)
                     Concat(head, tail, info)
 
             _concatCache.Add(key, v)
@@ -951,8 +904,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                         | Epsilon -> v
                         | _ ->
                             let flags' = Flags.inferConcat v acc
-                            let startset' = Startset.inferConcatStartset solver v acc
-                            Concat(v, acc, this.CreateInfo(flags', startset'))
+                            Concat(v, acc, this.CreateInfo(flags'))
                     )
                     Epsilon
 
@@ -970,21 +922,18 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                     _uniques._trueStar
                 else
                     let flags = Flags.inferLoop (body, lower, upper)
-                    let startset = Startset.inferLoopStartset solver (body, lower, upper)
-                    RegexNode.Loop(body, lower, upper, info = b.CreateInfo(flags, startset))
+                    RegexNode.Loop(body, lower, upper, info = b.CreateInfo(flags))
 
 
             | _, (x, y) when x > 0 ->
                 let flags = Flags.inferLoop (body, lower, upper)
-                let startset = Startset.inferLoopStartset solver (body, lower, upper)
-                let info = b.CreateInfo(flags, startset)
+                let info = b.CreateInfo(flags)
                 RegexNode.Loop(body, lower, upper, info = info)
 
 
             | _ ->
                 let flags = Flags.inferLoop (body, lower, upper)
-                let startset = Startset.inferLoopStartset solver (body, lower, upper)
-                let info = b.CreateInfo(flags, startset)
+                let info = b.CreateInfo(flags)
                 RegexNode.Loop(body, lower, upper, info = info)
 
         let key = struct (body, lower, upper)
@@ -997,11 +946,11 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             v
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    member this.CreateInfo(flags, startset) : RegexNodeInfo<_> =
+    member this.CreateInfo(flags: RegexNodeFlags) : RegexNodeInfo<_> =
         // match _regexInfoCache.TryGetValue(struct (flags, startset)) with
         // | true, v -> v
         // | _ ->
-        RegexNodeInfo<'t>(Flags = flags, Startset = startset, InitialStartset = Uninitialized)
+        RegexNodeInfo<'t>(NodeFlags = flags)
 
 
         // _regexInfoCache.Add(struct (flags, startset), v)

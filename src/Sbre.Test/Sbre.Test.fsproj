@@ -44,6 +44,7 @@
 
     <ItemGroup>
       <ProjectReference Include="..\Sbre.Benchmarks\Sbre.Benchmarks.fsproj" />
+      <ProjectReference Include="..\RuntimeRegexCopy\RuntimeRegexCopy.csproj" PrivateAssets="all" />
       <ProjectReference Include="..\Sbre\Sbre.fsproj" />
     </ItemGroup>
 

@@ -1,4 +1,4 @@
-#I "../src/Sbre/bin/Release/net7.0"
+#I "../src/Sbre/bin/Release/net8.0"
 #r "RuntimeRegexCopy.dll"
 #r "Sbre.dll"
 #r "nuget: FSharp.Data"
@@ -13,16 +13,6 @@ open System.Globalization
 Environment.CurrentDirectory <- __SOURCE_DIRECTORY__ 
 
 let longSample = __SOURCE_DIRECTORY__ + "/input-text.txt" |> System.IO.File.ReadAllText
-
-
-// let matchConjunction(conjs: string list) =
-//     Matcher(String.Join('&', conjs)).Match(longSample)
-
-// let m1 = matchConjunction [ "THE.*LIFE" ] // "THE TURNING-POINT OF MY LIFE"
-// let m2 = matchConjunction [ "THE.*LIFE"; @".*FIVE.*" ] // "THE FIVE BOONS OF LIFE"
-// let m3 = matchConjunction [ "THE.*"; @"~(⊤*\n)" ] // THE
-// let m4 = matchConjunction [ "THE.*"; @"~(\n⊤*)" ] // "THE ENTIRE GUTENBERG TWAIN FILES"
-
 
 let trimChars = "\r\n .,-\"!?():;'".ToCharArray()
 

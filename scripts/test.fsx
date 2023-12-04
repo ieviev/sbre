@@ -1,8 +1,6 @@
-#I "../src/Sbre/bin/Debug/net7.0"
+#I "../src/Sbre/bin/Debug/net8.0"
 #r "RuntimeRegexCopy.dll"
 #r "Sbre.dll"
-#r "nuget: FSharp.Data"
-
 open System
 open System.Threading
 open Sbre
@@ -10,12 +8,7 @@ open FSharp.Data
 open System.Text.RuntimeRegexCopy
 open System.Globalization
 
-let r2 = @".*\wb"
-
-// let test = Sbre.Matcher("asdasd")
-
 let sampleText = " \n  author={Capp, Bernard Stuart and Capp, Bernard},\n  y"
-
 
 let pattern = // "(?<=\{).*&.*(?=\})&.*(?=[\s\S]* y)&[a-zA-Z ,]*&Capp.*&.*nard&.*Stuart.*&~(.*Berg.*)&~(app.*)&~(.*ar)&.*\p{Ll}"
     String.Join("&",[
@@ -23,35 +16,43 @@ let pattern = // "(?<=\{).*&.*(?=\})&.*(?=[\s\S]* y)&[a-zA-Z ,]*&Capp.*&.*nard&.
         @".*(?=\})"    // } required after match on same line
         @".*(?=[\s\S]* y)" // " y" required after match anywhere in the text
         "[a-zA-Z ,]*"  // only these symbols used in match
-        "Capp.*"       // must start with Capp  
+        "Capp.*"       // must start with Capp
         ".*nard"       // must end with with nard
         ".*Stuart.*"   // must contain Stuart
         "~(.*Berg.*)"  // must not contain Berg
         "~(app.*)"     // must not start with app
         "~(.*ar)"      // must not end with ar
-        @".*\p{Ll}"    // must end with a character in the Ll unicode category 
+        @".*\p{Ll}"    // must end with a character in the Ll unicode category
     ])
-
 let regex = Sbre.Regex(pattern)
-
 let res = regex.Match(sampleText)
+// startsets
 
 
+
+
+
+
+
+
+
+
+// ---
 let s = System.IO.File.ReadAllText(__SOURCE_DIRECTORY__ + "/textsample.txt")
 
-// experimental `&` and `~` parser in Matcher.fs
-let test1a = Matcher("c...&...s").MatchText("raining cats and dogs") // Some "cats"
-let test1b = Matcher(".*rain.*&.*dogs.*").MatchText("raining cats and dogs") // Some "raining cats and dogs"
-let test1c = Matcher("and.*&.*dogs.*").MatchText("raining cats and dogs") // Some "and dogs"
+// experimental `&` and `~` parser in Sbre.Regex.fs
+let test1a = Sbre.Regex("c...&...s").MatchText("raining cats and dogs") // Some "cats"
+let test1b = Sbre.Regex(".*rain.*&.*dogs.*").MatchText("raining cats and dogs") // Some "raining cats and dogs"
+let test1c = Sbre.Regex("and.*&.*dogs.*").MatchText("raining cats and dogs") // Some "and dogs"
 
 // .{0,5} is the maximum distance between 2 constraints
-let test2a = Matcher(".{0,5}&(?<=cats).*&.*(?=dogs)").MatchText("raining cats and dogs") // Some " and "
-let test2b = Matcher(".{0,4}&(?<=cats).*&.*(?=dogs)").MatchText("raining cats and dogs") // None
-let test2c = Matcher(".{0,4}&(?<=cats).*&.*(?=dogs)").MatchText("cats-dogs") // Some "-"
+let test2a = Sbre.Regex(".{0,5}&(?<=cats).*&.*(?=dogs)").MatchText("raining cats and dogs") // Some " and "
+let test2b = Sbre.Regex(".{0,4}&(?<=cats).*&.*(?=dogs)").MatchText("raining cats and dogs") // None
+let test2c = Sbre.Regex(".{0,4}&(?<=cats).*&.*(?=dogs)").MatchText("cats-dogs") // Some "-"
 
 /// find password
 let test3a =
-    Matcher(
+    Sbre.Regex(
         [
             ".{10,16}" // length 10-16
             ".*[A-Z].*" // uppercase
@@ -78,7 +79,7 @@ ncluding versions of Lorem Ipsum.
 // A B C in any order between parentheses, without & every disjunction is dependent on each other
 let test4a =
 
-    let matcher =
+    let regex =
         System.Text.RegularExpressions.Regex(
             [
                 @"\([^ABC]*A[^ABC]*B[^ABC]*C[^ABC]*\)"
@@ -92,28 +93,28 @@ let test4a =
         )
 
     [
-        matcher.Match("(A----B----C)").Value
-        matcher.Match("(B____A____C)").Value
-        matcher.Match("(C    B    A)").Value
+        regex.Match("(A----B----C)").Value
+        regex.Match("(B____A____C)").Value
+        regex.Match("(C    B    A)").Value
     ]
 
 // A B C in any order between parentheses, with & conjunctions can be composed independently
 let test4b =
     // A B C in any order between parentheses
-    let matcher =
-        Matcher([ @"\([^A]*A[^A]*\)"; @"\([^B]*B[^B]*\)"; @"\([^C]*C[^C]*\)" ] |> String.concat "&")
+    let regex =
+        Regex([ @"\([^A]*A[^A]*\)"; @"\([^B]*B[^B]*\)"; @"\([^C]*C[^C]*\)" ] |> String.concat "&")
 
     [
-        matcher.MatchText("(A----B----C)")
-        matcher.MatchText("(B____A____C)")
-        matcher.MatchText("(C    B    A)")
+        regex.Match("(A----B----C)")
+        regex.Match("(B____A____C)")
+        regex.Match("(C    B    A)")
     ]
 
 
 // A B C each twice in any order between parentheses, without & pattern size explodes factorially
 let test5a =
 
-    let matcher =
+    let regex =
         System.Text.RegularExpressions.Regex(
             [
                 // AA positions: 6! / (2!(6-2)!) = 15
@@ -156,25 +157,24 @@ let test5a =
         )
 
     [
-        matcher.Match("(A-A-B-B-C--C)").Value
-        matcher.Match("(B-B-A-C-C--A)").Value
-        matcher.Match("(C-A-A-C-B--B)").Value
-        matcher.Match("(A-B-C-B-A--C)").Value
+        regex.Match("(A-A-B-B-C--C)").Value
+        regex.Match("(B-B-A-C-C--A)").Value
+        regex.Match("(C-A-A-C-B--B)").Value
+        regex.Match("(A-B-C-B-A--C)").Value
     ]
 
-// A B C each twice in any order between parentheses, with & pattern remains short
 let test5b =
-    let matcher =
-        Matcher(
+    let regex =
+        Sbre.Regex(
             [ @"\([^A]*A[^A]*A[^A]*\)"; @"\([^B]*B[^B]*B[^B]*\)"; @"\([^C]*C[^C]*C[^C]*\)" ]
             |> String.concat "&"
         )
 
     [
-        matcher.MatchText("(A-A-B-B-C--C)").Value
-        matcher.MatchText("(B-B-A-C-C--A)").Value
-        matcher.MatchText("(C-A-A-C-B--B)").Value
-        matcher.MatchText("(A-B-C-B-A--C)").Value
+        regex.Match("(A-A-B-B-C--C)").Value
+        regex.Match("(B-B-A-C-C--A)").Value
+        regex.Match("(C-A-A-C-B--B)").Value
+        regex.Match("(A-B-C-B-A--C)").Value
     ]
 
 
@@ -182,7 +182,7 @@ let test5b =
 /// negations with `~`
 
 let password =
-    Matcher(
+    Sbre.Regex(
         [ @".*\d.*"; @".*[a-z].*"; @".*[A-Z].*"; @"~(.*\d\d.*)"; ".{5,6}" ]
         |> String.concat "&"
     )

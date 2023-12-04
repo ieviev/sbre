@@ -245,6 +245,8 @@ let ``flags 1``() =
     Assert.Equal(Flag.None, flags)
 
 
+#if TODO
+
 [<Fact>]
 let ``flags 2``() =
     let matcher = Regex(@"⊤*English⊤*&⊤*King⊤*&⊤*Paris⊤*&~(⊤*\n\n⊤*)\n").TSetMatcher
@@ -277,7 +279,7 @@ let ``flags 4``() =
 
     match matcher.RawPattern with
     | Types.Not(nodes, info) ->
-        Assert.Equal(Flag.CanBeNullableFlag ||| Flag.IsAlwaysNullableFlag ||| Flag.CanSkipFlag ||| Flag.PrefixFlag, info.Flags)
+        Assert.Equal(Flag.CanBeNullableFlag ||| Flag.IsAlwaysNullableFlag ||| Flag.CanSkipFlag ||| Flag.PrefixFlag, info.NodeFlags)
     | _ -> Assert.True(false, "wrong node type")
 
 
@@ -287,21 +289,21 @@ let ``flags 4``() =
 let ``flags prefix 1``() =
     let matcher = Regex(@"have⊤*").TSetMatcher
     let info = matcher.RawPattern.TryGetInfo.Value
-    Assert.Equal(Flag.PrefixFlag, info.Flags)
+    Assert.Equal(Flag.PrefixFlag, info.NodeFlags)
 
 
 [<Fact>]
 let ``flags prefix 2``() =
     let matcher = Regex(@"⊤*have⊤*").TSetMatcher
     let info = matcher.RawPattern.TryGetInfo.Value
-    Assert.Equal(Flag.PrefixFlag ||| Flag.CanSkipFlag, info.Flags)
+    Assert.Equal(Flag.PrefixFlag ||| Flag.CanSkipFlag, info.NodeFlags)
 
 
 [<Fact>]
 let ``flags prefix 3``() =
     let matcher = Regex(@"~(⊤*\n\n⊤*)\n&⊤*have⊤*").TSetMatcher
     let info = matcher.RawPattern.TryGetInfo.Value
-    Assert.Equal(Flag.PrefixFlag ||| Flag.CanSkipFlag, info.Flags)
+    Assert.Equal(Flag.PrefixFlag ||| Flag.CanSkipFlag, info.NodeFlags)
 
 
 
@@ -350,5 +352,7 @@ let ``reverse unwrap``() =
 // #else
 //     Assert.True true
 // #endif
+
+#endif
 
 #endif

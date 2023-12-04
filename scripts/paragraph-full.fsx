@@ -1,4 +1,4 @@
-#I "../src/Sbre.Benchmarks/bin/Release/net7.0"
+#I "../src/Sbre.Benchmarks/bin/Release/net8.0"
 #r "RuntimeRegexCopy.dll"
 #r "Sbre.dll"
 #r "Sbre.Benchmarks.dll"
@@ -42,23 +42,12 @@ interests and degrade the honor of France, all but the dead know
 how to name the two conspirators-in-chief--"
 """
 
+// let rebar_input = 
+//     "/mnt/g/repos/rebar/benchmarks/haystacks/opensubtitles/en-sampled.txt"
+//     |> File.readAllText
 
-let results = 
-    Sbre.Regex(@"~(⊤*\n\n⊤*)").MatchPositions(abc)
-    |> Seq.toArray
-
-
-
-
-let rebar_input = 
-    "/mnt/g/repos/rebar/benchmarks/haystacks/opensubtitles/en-sampled.txt"
-    |> File.readAllText
-
-
-let results =
-    // Sbre.Regex("Sherlock Holmes").Count(rebar_input)
-    // Sbre.Regex("((?i)Sherlock Holmes)").Count(rebar_input)
-    Sbre.Regex("((?i)Sherlock Holmes)").Count(rebar_input)
+// let results =
+//     Sbre.Regex("((?i)Sherlock Holmes)").Count(rebar_input)
 
 
 let longSample = __SOURCE_DIRECTORY__ + "/input-text.txt" |> System.IO.File.ReadAllText
@@ -77,7 +66,6 @@ let viewn n (results: MatchPosition array) =
     |> Seq.iteri (fun idx lens ->
         stdout.WriteLine longSample[lens.Index .. lens.Index + lens.Length]
     )
-
 
 let pgConj words =
     Sbre.Benchmarks.Jobs.Permutations.permuteConjInParagraph words
@@ -275,12 +263,6 @@ let test =
 
 
 let pattern = Permutations.permuteConjInLine [ "Huck"; "Finn"; "Tom" ]
-let pattern = Permutations.permuteAltInLine [ @"(?:(?i)ing to the (?:d[a-z]+)\s)" ]
-
-let pattern =
-    Permutations.permuteAltInLine [ "Huck"; "Finn"; "Tom"; "Sawyer"; "Usually"; "Now"; "Yes" ]
-
-pattern
 
 count1 "Twain"
 count2 "Twain"
@@ -291,7 +273,6 @@ count2 @".*Huck.*&~(.*F.*)"
 // searchParagraph ["Huck"]
 
 let results = search "Twain"
-let results = search ".*Twain.*"
 
 results.Length
 
@@ -394,17 +375,6 @@ let rs = v.TwoStepSearch() |> Seq.length
 
 
 
-let r2 =
-    let pat =
-        Sbre.Benchmarks.Jobs.Permutations.permuteConjInParagraph [ "[a-z]shing"; "from"; "you" ]
-
-    let m = Matcher(pat)
-    m.MatchPositions(longSample) |> Seq.toArray
-
-
-r2 |> viewn 3
-
-r2.Length
 
 // type Combined1() =
 //     inherit
@@ -425,45 +395,6 @@ r2.Length
 //     inherit Sbre.Benchmarks.Jobs.SbreCombinedSearch(patterns, longSample)
 
 let pat1 = @"\n\n~(⊤*\n\n⊤*)\n&⊤*Twain⊤*"
-
-
-let res_1 =
-    Matcher(@"~(⊤*\n\n⊤*)\n&⊤*Huck⊤*&⊤*from⊤*&⊤*you⊤*").MatchPositions(longSample)
-    |> Seq.toArray
-
-
-
-
-
-// let pat2=  permuteWithLoop [ "you"; "Huck"; "from"]
-
-let results =
-    let pat =
-        Sbre.Benchmarks.Jobs.Permutations.permuteConjInParagraph [ "you"; "Huck"; "from" ]
-
-    Matcher(pat).MatchPositions(longSample) |> Seq.toArray
-
-results.Length
-
-let _ =
-    let i = 0
-    [ i .. i + 4 ] |> List.iter (fun v -> view results v |> stdout.WriteLine)
-
-
-
-// --
-
-let twainPgs = Matcher(pat1).MatchPositions(shortSample) |> Seq.toArray
-
-let t2 =
-    Matcher(@"~(⊤*\n\n⊤*)\n&⊤*Huck⊤*&⊤*from⊤*&⊤*you⊤*").MatchPositions(shortSample)
-    |> Seq.toArray
-
-
-
-
-
-
 
 // DEBUG
 // let es =

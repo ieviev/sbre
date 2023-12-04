@@ -1,4 +1,4 @@
-#I "../src/Sbre/bin/Release/net7.0"
+#I "../src/Sbre/bin/Release/net8.0"
 #r "RuntimeRegexCopy.dll"
 #r "Sbre.dll"
 #r "nuget: FSharp.Data"

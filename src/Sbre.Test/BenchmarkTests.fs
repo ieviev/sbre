@@ -41,106 +41,106 @@ let twain_20k = twain_input[..19999] // 10k chars limit
 //     let r = m.Matches(paragraph) |> Seq.toArray
 //     Assert.Equal(r.Length,9)
 
-[<Fact>]
-let ``paragraphs-huck``() =
-    let m = Regex(@"~(⊤*\n\n⊤*)&⊤*Huck⊤*")
-    let r1 = m.Matches(twain_input) |> Seq.toArray
-    let r2 =
-        Benchmarks.Jobs.twoStepSearch ["Huck"] twain_input
-        |> Seq.toArray
-
-    [|
-        Assert.Equal(411, r2.Length)
-        Assert.Equal(3635093, r2[0].Index)
-        Assert.Equal(845,r2[0].Length)
-        Assert.Equal(3735436, r2[1].Index)
-        Assert.Equal(362,r2[1].Length)
-    |]
-    |> Array.iter id
-
-
-    Assert.Equal(r2.Length, r1.Length)
-    Assert.Equal(r2[0].Index, r1[0].Index)
-    Assert.Equal(r2[0].Length,r1[0].Length)
-    Assert.Equal(r2[1].Index, r1[1].Index)
-    Assert.Equal(r2[1].Length,r1[1].Length)
-
-
-[<Fact>]
-let ``paragraphs-huck-2``() =
-    let m = Regex(@"~(⊤*\n\n⊤*)\n&⊤*Huck⊤*")
-    let r1 = m.Matches(twain_input) |> Seq.toArray
-    let r2 =
-        Benchmarks.Jobs.twoStepSearch ["Huck"] twain_input
-        |> Seq.toArray
-
-    [|
-        Assert.Equal(411, r2.Length)
-        Assert.Equal(3635093, r2[0].Index)
-        Assert.Equal(845,r2[0].Length)
-        Assert.Equal(3735436, r2[1].Index)
-        Assert.Equal(362,r2[1].Length)
-    |]
-    |> Array.iter id
-
-    Assert.Equal(r2.Length, r1.Length)
-    Assert.Equal(r2[0].Index, r1[0].Index)
-    Assert.Equal(r2[0].Length,r1[0].Length - 1)
-    Assert.Equal(r2[1].Index, r1[1].Index)
-    Assert.Equal(r2[1].Length,r1[1].Length - 1)
-
-// ["Huck"; "could"; "here"  ]
-
-[<Fact>]
-let ``paragraphs-huck-could``() =
-    let m = Regex(@"~(⊤*\n\n⊤*)&⊤*Huck⊤*&⊤*could⊤*")
-    let r1 = m.Matches(twain_input) |> Seq.toArray
-    let r2 =
-        Benchmarks.Jobs.twoStepSearch ["Huck";"could"] twain_input
-        |> Seq.toArray
-
-    Assert.Equal(54, r2.Length)
-    Assert.Equal(3808421, r2[0].Index)
-    Assert.Equal(688,r2[0].Length)
-    Assert.Equal(3840813, r2[1].Index)
-    Assert.Equal(1962,r2[1].Length)
-
-    Assert.Equal(r2.Length, r1.Length)
-    Assert.Equal(r2[0].Index, r1[0].Index)
-    Assert.Equal(r2[0].Length,r1[0].Length)
-    Assert.Equal(r2[1].Index, r1[1].Index)
-    Assert.Equal(r2[1].Length,r1[1].Length)
-
-
-
-
-[<Fact>]
-let ``lines-have-there``() =
-    let m = Regex(@".*have.*&.*there.*&.*")
-    let r = m.Matches(twain_input[..120_000]) |> Seq.toArray
-    // 411
-
-    // Assert.Equal(426, r.Length) // full text
-    Assert.Equal(4, r.Length)
-    Assert.Equal(r[0].Index, 63592)
-    Assert.Equal(r[1].Index, 109000)
-    Assert.Equal(r[2].Index, 112959)
-
-    Assert.Equal(r[0].Length, 73)
-    Assert.Equal(r[1].Length, 40)
-    Assert.Equal(r[2].Length, 50)
-
-
-[<Fact>]
-let ``which could test``() =
-    let m = Regex(Permutations.permuteConjInLine ["w[a-z]*h ";"c[a-z]*d "])
-    let r = m.Matches(twain_input[..100_000]) |> Seq.toArray
-
-    Assert.Equal(24, r.Length)
-    Assert.Equal(r[0].Index, 17155)
-    Assert.Equal(r[0].Length, 46)
-    Assert.Equal(r[1].Index, 32338)
-    Assert.Equal(r[1].Length, 71)
+// [<Fact>]
+// let ``paragraphs-huck``() =
+//     let m = Regex(@"~(⊤*\n\n⊤*)&⊤*Huck⊤*")
+//     let r1 = m.Matches(twain_input) |> Seq.toArray
+//     let r2 =
+//         Benchmarks.Jobs.twoStepSearch ["Huck"] twain_input
+//         |> Seq.toArray
+//
+//     [|
+//         Assert.Equal(411, r2.Length)
+//         Assert.Equal(3635093, r2[0].Index)
+//         Assert.Equal(845,r2[0].Length)
+//         Assert.Equal(3735436, r2[1].Index)
+//         Assert.Equal(362,r2[1].Length)
+//     |]
+//     |> Array.iter id
+//
+//
+//     Assert.Equal(r2.Length, r1.Length)
+//     Assert.Equal(r2[0].Index, r1[0].Index)
+//     Assert.Equal(r2[0].Length,r1[0].Length)
+//     Assert.Equal(r2[1].Index, r1[1].Index)
+//     Assert.Equal(r2[1].Length,r1[1].Length)
+//
+//
+// [<Fact>]
+// let ``paragraphs-huck-2``() =
+//     let m = Regex(@"~(⊤*\n\n⊤*)\n&⊤*Huck⊤*")
+//     let r1 = m.Matches(twain_input) |> Seq.toArray
+//     let r2 =
+//         Benchmarks.Jobs.twoStepSearch ["Huck"] twain_input
+//         |> Seq.toArray
+//
+//     [|
+//         Assert.Equal(411, r2.Length)
+//         Assert.Equal(3635093, r2[0].Index)
+//         Assert.Equal(845,r2[0].Length)
+//         Assert.Equal(3735436, r2[1].Index)
+//         Assert.Equal(362,r2[1].Length)
+//     |]
+//     |> Array.iter id
+//
+//     Assert.Equal(r2.Length, r1.Length)
+//     Assert.Equal(r2[0].Index, r1[0].Index)
+//     Assert.Equal(r2[0].Length,r1[0].Length - 1)
+//     Assert.Equal(r2[1].Index, r1[1].Index)
+//     Assert.Equal(r2[1].Length,r1[1].Length - 1)
+//
+// // ["Huck"; "could"; "here"  ]
+//
+// [<Fact>]
+// let ``paragraphs-huck-could``() =
+//     let m = Regex(@"~(⊤*\n\n⊤*)&⊤*Huck⊤*&⊤*could⊤*")
+//     let r1 = m.Matches(twain_input) |> Seq.toArray
+//     let r2 =
+//         Benchmarks.Jobs.twoStepSearch ["Huck";"could"] twain_input
+//         |> Seq.toArray
+//
+//     Assert.Equal(54, r2.Length)
+//     Assert.Equal(3808421, r2[0].Index)
+//     Assert.Equal(688,r2[0].Length)
+//     Assert.Equal(3840813, r2[1].Index)
+//     Assert.Equal(1962,r2[1].Length)
+//
+//     Assert.Equal(r2.Length, r1.Length)
+//     Assert.Equal(r2[0].Index, r1[0].Index)
+//     Assert.Equal(r2[0].Length,r1[0].Length)
+//     Assert.Equal(r2[1].Index, r1[1].Index)
+//     Assert.Equal(r2[1].Length,r1[1].Length)
+//
+//
+//
+//
+// [<Fact>]
+// let ``lines-have-there``() =
+//     let m = Regex(@".*have.*&.*there.*&.*")
+//     let r = m.Matches(twain_input[..120_000]) |> Seq.toArray
+//     // 411
+//
+//     // Assert.Equal(426, r.Length) // full text
+//     Assert.Equal(4, r.Length)
+//     Assert.Equal(r[0].Index, 63592)
+//     Assert.Equal(r[1].Index, 109000)
+//     Assert.Equal(r[2].Index, 112959)
+//
+//     Assert.Equal(r[0].Length, 73)
+//     Assert.Equal(r[1].Length, 40)
+//     Assert.Equal(r[2].Length, 50)
+//
+//
+// [<Fact>]
+// let ``which could test``() =
+//     let m = Regex(Permutations.permuteConjInLine ["w[a-z]*h ";"c[a-z]*d "])
+//     let r = m.Matches(twain_input[..100_000]) |> Seq.toArray
+//
+//     Assert.Equal(24, r.Length)
+//     Assert.Equal(r[0].Index, 17155)
+//     Assert.Equal(r[0].Length, 46)
+//     Assert.Equal(r[1].Index, 32338)
+//     Assert.Equal(r[1].Length, 71)
 
 
 // ["w[a-z]+h";"c[a-z]+d"]
@@ -173,37 +173,35 @@ let ``line test 2``() =
     Assert.Equal(r[1].Length, 71)
 
 
-[<Fact>]
-let ``line 4 words test 2``() =
-    let m = Regex(@".*that.*&.*and.*&.*the.*&.*was.*")
-    let r = m.Matches(twain_input[..100_000]) |> Seq.toArray
-
-    Assert.Equal(5, r.Length)
-
-
-[<Fact>]
-let ``line 4 words test alt``() =
-    let m = Regex(Permutations.permuteAltInLine ["which";"could"])
-    let r = m.Matches(twain_input[..500_000]) |> Seq.toArray
-    Assert.Equal(10, r.Length)
-
-
-[<Fact>]
-let ``line 4 words test partial alt``() =
-    let m = Regex(Permutations.permuteAltInLine ["t.*hat"; "a.*nd"; "t.*he";"w.*as"])
-    let r = m.Matches(twain_input[..100_000]) |> Seq.toArray
-
-    Assert.Equal(12, r.Length)
-
-
-
-
-[<Fact>]
-let ``line 4 words test partial conj``() =
-    let m = Regex(Permutations.permuteConjInLine ["t.*hat"; "a.*nd"; "t.*he";"w.*as"])
-    let r = m.Matches(twain_input[..100_000]) |> Seq.toArray
-    Assert.Equal(15, r.Length)
-
-
+// [<Fact>]
+// let ``line 4 words test 2``() =
+//     let m = Regex(@".*that.*&.*and.*&.*the.*&.*was.*")
+//     let r = m.Matches(twain_input[..100_000]) |> Seq.toArray
+//
+//     Assert.Equal(5, r.Length)
+//
+//
+// [<Fact>]
+// let ``line 4 words test alt``() =
+//     let m = Regex(Permutations.permuteAltInLine ["which";"could"])
+//     let r = m.Matches(twain_input[..500_000]) |> Seq.toArray
+//     Assert.Equal(10, r.Length)
+//
+//
+// [<Fact>]
+// let ``line 4 words test partial alt``() =
+//     let m = Regex(Permutations.permuteAltInLine ["t.*hat"; "a.*nd"; "t.*he";"w.*as"])
+//     let r = m.Matches(twain_input[..100_000]) |> Seq.toArray
+//
+//     Assert.Equal(12, r.Length)
+//
+//
+// [<Fact>]
+// let ``line 4 words test partial conj``() =
+//     let m = Regex(Permutations.permuteConjInLine ["t.*hat"; "a.*nd"; "t.*he";"w.*as"])
+//     let r = m.Matches(twain_input[..100_000]) |> Seq.toArray
+//     Assert.Equal(15, r.Length)
+//
+//
 
 

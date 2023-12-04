@@ -1,5 +1,7 @@
 module Sbre.Test.Common
 
+#if DEBUG
+
 open System
 open Sbre
 open Sbre.Algorithm
@@ -9,14 +11,14 @@ open Sbre.Types
 let getRawFlags(reg: Regex) =
     try
         let matcher = reg.ByteMatcher
-        matcher.RawPattern.TryGetInfo.Value.Flags
+        matcher.RawPattern.TryGetInfo.Value.NodeFlags
     with e ->
         try
             let matcher = reg.UInt16Matcher
-            matcher.RawPattern.TryGetInfo.Value.Flags
+            matcher.RawPattern.TryGetInfo.Value.NodeFlags
         with e ->
             let matcher = reg.TSetMatcher
-            matcher.RawPattern.TryGetInfo.Value.Flags
+            matcher.RawPattern.TryGetInfo.Value.NodeFlags
 
 
 let getDerImpl (reg: Regex) (input: string) =
@@ -94,3 +96,4 @@ let getRawPattern<'t when 't: struct and 't :> IEquatable<'t> and 't: equality>(
     let matcher = matcher.Matcher :?> RegexMatcher<TSet>
     matcher.RawPattern :> obj
 
+#endif

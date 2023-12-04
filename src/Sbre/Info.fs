@@ -54,13 +54,13 @@ let inline invertFlag (flags: byref<RegexNodeFlags>) (flagsToInvert: RegexNodeFl
 // Patterns
 [<return: Struct>]
 let (|CanNotBeNullable|_|)(x: RegexNodeInfo<'t>) =
-    match x.Flags.HasFlag(RegexNodeFlags.CanBeNullableFlag) with
+    match x.NodeFlags.HasFlag(RegexNodeFlags.CanBeNullableFlag) with
     | false -> ValueSome()
     | _ -> ValueNone
 
 [<return: Struct>]
 let (|IsAlwaysNullable|_|)(x: RegexNodeInfo<'t>) =
-    match x.Flags.HasFlag(RegexNodeFlags.IsAlwaysNullableFlag) with
+    match x.NodeFlags.HasFlag(RegexNodeFlags.IsAlwaysNullableFlag) with
     | true -> ValueSome()
     | _ -> ValueNone
 
@@ -77,351 +77,22 @@ let (|NodeIsAlwaysNullable|_|)(x: RegexNode<'t>) =
 
 [<return: Struct>]
 let (|CanBeNullable|_|)(x: RegexNodeInfo<'t>) =
-    match x.Flags.HasFlag(RegexNodeFlags.CanBeNullableFlag) with
+    match x.NodeFlags.HasFlag(RegexNodeFlags.CanBeNullableFlag) with
     | true -> ValueSome()
     | _ -> ValueNone
 
 [<return: Struct>]
 let (|ContainsLookaround|_|)(x: RegexNodeInfo<'t>) =
-    match x.Flags.HasFlag(RegexNodeFlags.ContainsLookaroundFlag) with
+    match x.NodeFlags.HasFlag(RegexNodeFlags.ContainsLookaroundFlag) with
     | true -> ValueSome()
     | _ -> ValueNone
 
-
-module rec Startset =
-    let inline inferMergeStartset (_solver: ISolver<'t>) (nodes: seq<RegexNode<'t>>) =
-        // todo: small optimization possible here
-        Solver.mapOr _solver (inferStartset _solver) nodes
-
-    let rec inferConcatStartset (_solver: ISolver<'t>) (head: RegexNode<'t>) (tail: RegexNode<'t>) =
-        match head with
-        | Loop(node = Singleton pred; low = 0; up = Int32.MaxValue) ->
-            let tailStartset = inferStartset _solver tail
-            let invertedPred = _solver.Not(pred)
-            _solver.Or(invertedPred, tailStartset)
-        | Loop(node = node; low = low; up = up) ->
-            let inner = inferStartset _solver node
-
-            match low with
-            | 0 -> _solver.Full // TODO: optimize
-            | _ -> inner
-        | Singleton pred -> pred
-        | Or(xs, info) ->
-            use mutable e = xs.GetEnumerator()
-
-            if info.CanNotBeNullable() then
-                Solver.mergeOrWithEnumerator _solver (inferStartset _solver) &e
-            else
-                let headss = Solver.mergeOrWithEnumerator _solver (inferStartset _solver) &e
-                _solver.Or(headss, tail.Startset)
-        | Not(node, info) ->
-            let tailStartset = inferStartset _solver tail
-            let headStartset = inferStartset _solver node
-            let merged = _solver.Or(headStartset, tailStartset)
-            merged
-        | LookAround _ -> _solver.Full
-        | Epsilon -> inferStartset _solver tail
-        | And(xs, info) ->
-            use mutable e = xs.GetEnumerator()
-
-            if info.CanNotBeNullable() then
-                Solver.mergeOrWithEnumerator _solver (inferStartset _solver) &e
-            else
-                let headss = Solver.mergeOrWithEnumerator _solver (inferStartset _solver) &e
-                _solver.Or(headss, tail.Startset)
-
-
-        | Concat(chead, ctail, info) -> inferConcatStartset _solver chead ctail
-
-    let inline inferLoopStartset (_solver: ISolver<'t>) struct (R, low, up) =
-        match (R, low, up) with
-        | Concat _, 0, Int32.MaxValue -> _solver.Full
-        | _ ->
-            let bodyStartset = inferStartset _solver R
-
-            match low, up with
-            | 0, Int32.MaxValue -> _solver.Not(bodyStartset)
-            | _ -> bodyStartset
-
-    let rec inferStartset (_solver: ISolver<'t>) (node: RegexNode<'t>) =
-        match node with
-        | Epsilon -> _solver.Full
-        | Singleton pred -> pred
-        // TODO: how to optimize (a|ab)*
-        | Loop(Concat _, low, up, info) -> _solver.Full
-        | Loop(loopBody, low, up, info) ->
-            let bodyStartset = inferStartset _solver loopBody
-
-            match low, up with
-            | 0, Int32.MaxValue -> _solver.Not(bodyStartset)
-            | _ -> bodyStartset
-
-        | Or(xs, info) ->
-            use mutable e = xs.GetEnumerator()
-            Solver.mergeOrWithEnumerator _solver (inferStartset _solver) &e
-
-        | Not(inner, info) -> inferStartset _solver inner
-        | LookAround(node = body; lookBack = false) -> _solver.Full // TODO: optimize
-        | LookAround(lookBack = true) -> _solver.Full
-        | Concat(h, t, info) -> inferConcatStartset _solver h t
-        | And(xs, info) ->
-            use mutable e = xs.GetEnumerator()
-            Solver.mergeOrWithEnumerator _solver (inferStartset _solver) &e
-
-
-    let mergePrefixes
-        (_solver: ISolver<'t>)
-        (prefix1: ResizeArray<'t>)
-        (prefix2: Memory<'t>)
-        =
-        // initialize if needed
-        if prefix1.Count = 0 then
-            while prefix1.Count < prefix2.Length do
-                prefix1.Add(_solver.Empty)
-
-        // shorten to shared prefix
-        if prefix1.Count > prefix2.Length then
-            while prefix1.Count > prefix2.Length do
-                prefix1.RemoveAt(prefix1.Count - 1)
-
-        for i = 0 to prefix1.Count - 1 do
-            let ss = prefix2.Span[i]
-            prefix1[i] <- _solver.Or(ss, prefix1[i])
-
-
-    let mergePrefixesArr (_solver: ISolver<'t>) (prefix1: Memory<'t>) (prefix2: Memory<'t>) =
-        let longer, shorter =
-            match prefix1.Length < prefix2.Length with
-            | true -> prefix2, prefix1
-            | _ -> prefix1, prefix2
-
-        for i = 0 to shorter.Length - 1 do
-            shorter.Span[i] <- _solver.Or(longer.Span[i], shorter.Span[i])
-
-        shorter
-
-
-    let rec inferInitialStartset (_solver: ISolver<'t>) (startNode: RegexNode<'t>) =
-        let mutable acc = ResizeArray()
-        let loopterminatorPrefix = ResizeArray()
-        let mutable uninitialized = true
-        let mutable cannotOptimizeYet = false
-        let mutable curr = startNode
-
-        let getPrefix node =
-            match inferInitialStartset _solver node with
-            | MintermArrayPrefix(arr, loopEnd) -> (arr, loopEnd)
-            | _ -> failwithf "todo"
-
-        while not (obj.ReferenceEquals(null, curr)) do
-            match curr with
-            | Loop(node = Singleton pred; info = info) when uninitialized ->
-                if not (_solver.IsFull(pred)) then
-                    loopterminatorPrefix.Clear()
-                    loopterminatorPrefix.Add(_solver.Not(pred))
-                    acc.Add(_solver.Not(pred))
-
-                curr <- Unchecked.defaultof<_>
-            | Concat(Not(node = node; info = info), tail, info2) when
-                uninitialized && info.HasPrefix
-                ->
-                // 1.20
-                match getPrefix node, getPrefix tail with
-                | (arr1, loopEnd1), (arr2, loopEnd2) ->
-                    let merged = mergePrefixesArr _solver arr1 arr2
-                    mergePrefixes _solver acc merged
-                    ()
-
-                curr <- Unchecked.defaultof<_>
-            | Not(node = node; info = info) when uninitialized && info.HasPrefix ->
-                match inferInitialStartset _solver node with
-                | MintermArrayPrefix(arr, loopEnd) ->
-                    while acc.Count < arr.Length do
-                        acc.Add(_solver.Empty)
-
-                    for i = 0 to arr.Length - 1 do
-                        let ss = arr.Span[i]
-                        acc[i] <- _solver.Or(ss, acc[i])
-                | _ -> ()
-
-                curr <- Unchecked.defaultof<_>
-            | Concat(Loop(node = Singleton pred; low = 0; up = Int32.MaxValue), t, info) ->
-                if not uninitialized then
-                    curr <- Unchecked.defaultof<_>
-                else
-                    if not (_solver.IsFull(pred)) then
-                        if loopterminatorPrefix.Count = 1 then
-                            loopterminatorPrefix[0] <-
-                                _solver.Or(loopterminatorPrefix[0], _solver.Not(pred))
-                        else
-                            loopterminatorPrefix.Clear()
-                            loopterminatorPrefix.Add(_solver.Not(pred))
-
-                    curr <- t
-
-            | Singleton pred ->
-                acc.Add(pred)
-                curr <- Unchecked.defaultof<_>
-            // TODO: \n\n~(⊤*\n\n⊤*)\n\n&
-
-            // ~(⊤*\n\n⊤*)\n
-            // | Concat(head=Not(_) as head; tail=tail) when head.HasPrefix ->
-            //     curr <- head
-
-            | LookAround _
-            | Not _ -> curr <- Unchecked.defaultof<_> // ignore
-            | Concat(Singleton pred, t, info) ->
-                acc.Add(pred)
-                curr <- t
-            // top level or optimizations
-            | Or(xs, info) ->
-                use mutable e = xs.GetEnumerator()
-
-                while e.MoveNext() do
-                    match e.Current with
-                    // if there's something else to match
-                    // negations apply only after a match has started
-                    | Not(node = neg)
-                    | Concat(head = Not(node = neg)) -> ()
-                    // loopTerminator <- _solver.Or(loopTerminator,_solver.Not(neg.Startset))
-                    | Loop(node = Singleton pred; low = 0; up = Int32.MaxValue) ->
-                        // ignore true-stars, add \n terminator for dot-stars
-                        if not (_solver.IsFull(pred)) then
-                            if loopterminatorPrefix.Count = 1 then
-                                loopterminatorPrefix[0] <-
-                                    _solver.Or(loopterminatorPrefix[0], _solver.Not(pred))
-                            else
-                                loopterminatorPrefix.Clear()
-                                loopterminatorPrefix.Add(_solver.Not(pred))
-                    // ()
-                    | LookAround _ -> () // ignore
-                    | Loop _ -> cannotOptimizeYet <- true
-                    | Concat _
-                    | Or(_)
-                    | And(_) ->
-                        match inferInitialStartset _solver e.Current with
-                        | MintermArrayPrefix(arr, innerLoopTerminator) ->
-                            if innerLoopTerminator.Length > 0 then
-                                mergePrefixes _solver loopterminatorPrefix innerLoopTerminator
-
-                            mergePrefixes _solver acc arr
-                        | InitialStartset.Unoptimized ->
-                            cannotOptimizeYet <- true
-                        | InitialStartset.Uninitialized -> failwith "todo"
-                    | Singleton pred ->
-                        mergePrefixes _solver acc ([|pred|].AsMemory())
-                    | Epsilon ->
-                        mergePrefixes _solver acc ([||].AsMemory())
-
-                curr <- Unchecked.defaultof<_>
-            // and
-            | And(xs, info) ->
-                use mutable e = xs.GetEnumerator()
-
-                while e.MoveNext() do
-                    match e.Current with
-                    // if there's something else to match
-                    // negations apply only after a match has started
-                    | Not(node = neg)
-                    | Concat(head = Not(node = neg)) ->
-                        match inferInitialStartset _solver e.Current with
-                        | MintermArrayPrefix(arr, _) ->
-                            // add negation to stop loops
-                            mergePrefixes _solver loopterminatorPrefix arr
-
-                        | _ -> ()
-
-                    | Loop(node = node; low = low; up = up) ->
-                        // ignore true-stars, add \n terminator for dot-stars
-                        match node, low, up with
-                        | Singleton pred, 0, Int32.MaxValue ->
-                            if not (_solver.IsFull(pred)) then
-                                mergePrefixes _solver loopterminatorPrefix ([| _solver.Not(pred) |].AsMemory())
-                        | _ -> cannotOptimizeYet <- true
-                    // ()
-                    | LookAround(_) -> () // ignore
-                    | Concat(_)
-                    | Or(_)
-                    | And(_) ->
-                        match inferInitialStartset _solver e.Current with
-                        | MintermArrayPrefix(prefix = arr; loopTerminator = innerLoopTerminator) ->
-                            if innerLoopTerminator.Length > 0 then
-                                mergePrefixes _solver loopterminatorPrefix innerLoopTerminator
-
-                            mergePrefixes _solver acc arr
-
-                        | InitialStartset.Unoptimized -> cannotOptimizeYet <- true
-                        | InitialStartset.Uninitialized -> failwith "todo"
-                    | _ -> cannotOptimizeYet <- true
-
-                // only negations in AND
-                if acc.Count = 0 then
-                    e.Reset()
-                    let merged = Solver.mergeOrWithEnumerator _solver (fun v -> v.Startset) &e
-                    acc.Add(merged)
-
-                curr <- Unchecked.defaultof<_>
-            | Concat(head, tail, info) ->
-                if uninitialized then
-                    acc.Add(curr.Startset)
-
-                match head with
-                // \d{2,2}
-                | Loop(Singleton pred, low, up, regexNodeInfo) ->
-                    mergePrefixes _solver acc ((Array.init low (fun v -> pred)).AsMemory())
-                    curr <- Unchecked.defaultof<_>
-
-                | _ ->
-
-                curr <- Unchecked.defaultof<_>
-            // failwith $"todo1 {head} {tail}"
-            | Epsilon -> curr <- Unchecked.defaultof<_>
-            | Loop(node, low, up, info) ->
-                // ending ⊤* not optimized-
-                if uninitialized then
-                    acc.Add(node.Startset)
-
-                curr <- Unchecked.defaultof<_>
-
-
-            uninitialized <- false
-
-        if cannotOptimizeYet then
-#if OPTIMIZE
-            [| startNode |]
-            // |> Array.map (fun v -> v.ToString())
-            |> Array.map (fun v -> v.ToString())
-            |> String.concat "\n"
-            |> failwithf "cannot optimize initial startset:\n%A"
-#endif
-            InitialStartset.Unoptimized
-        elif acc.Count = 0 then
-            if loopterminatorPrefix.Count = 0 then
-                InitialStartset.Unoptimized
-            else
-                let arr = loopterminatorPrefix.ToArray()
-                InitialStartset.MintermArrayPrefix(arr.AsMemory(), [||].AsMemory())
-        else
-            // if acc.Count = loopterminatorPrefix.Count then
-            //     let sp1 = Memory(acc.ToArray())
-            //     let sp2 = Memory(loopterminatorPrefix.ToArray())
-            //     let merged = mergePrefixesArr _solver sp1 sp2
-            //     InitialStartset.MintermArrayPrefix(merged, [||].AsMemory())
-            // else
-
-            InitialStartset.MintermArrayPrefix(acc.ToArray().AsMemory(), loopterminatorPrefix.ToArray().AsMemory())
-
-
-
-
 module rec Flags =
-
     let rec inferLoop(R, lower, upper) =
         match (R, lower, upper) with
         | _, 0, Int32.MaxValue ->
             RegexNodeFlags.CanBeNullableFlag
             |> Flag.withFlag RegexNodeFlags.IsAlwaysNullableFlag
-            |> Flag.withFlag RegexNodeFlags.CanSkipFlag
         | _, 0, _ -> RegexNodeFlags.CanBeNullableFlag |> Flag.withFlag RegexNodeFlags.IsAlwaysNullableFlag
         | _ -> inferNode R
 
@@ -433,7 +104,7 @@ module rec Flags =
                 (b ||| f) &&& (
                     Flag.ContainsEpsilonFlag ||| Flag.ContainsLookaroundFlag)
             let andFlags =
-                b &&& f &&& (Flag.CanSkipFlag ||| Flag.PrefixFlag ||| Flag.CanBeNullableFlag ||| Flag.IsAlwaysNullableFlag)
+                b &&& f &&& (Flag.CanBeNullableFlag ||| Flag.IsAlwaysNullableFlag)
 
             orflags ||| andFlags
         )
@@ -444,25 +115,20 @@ module rec Flags =
         let t1 = inferNodeOptimized tail
         let orFlags = h1 ||| t1 &&& (Flag.ContainsEpsilonFlag ||| Flag.ContainsLookaroundFlag)
         let andFlags = h1 &&& t1 &&& (Flag.IsAlwaysNullableFlag||| Flag.CanBeNullableFlag)
-        let prefixFlag =
-            let canSkipHead = h1.HasFlag Flag.CanSkipFlag
-            match head, tail with
-            | Singleton _, (Singleton _ | Concat(head = Singleton _)) -> Flag.PrefixFlag
-            | _ -> (h1 &&& (Flag.PrefixFlag ||| Flag.CanSkipFlag)) ||| (t1 &&& Flag.PrefixFlag)
 
-        prefixFlag ||| andFlags ||| orFlags
+        andFlags ||| orFlags
 
 
 
     let inferNodeOptimized(node: RegexNode<'t>) : RegexNodeFlags =
         match node with
-        | Concat(info = info) -> info.Flags
+        | Concat(info = info) -> info.NodeFlags
         | Epsilon -> Flag.CanBeNullableFlag ||| Flag.IsAlwaysNullableFlag ||| Flag.ContainsEpsilonFlag
-        | Or(nodes, info) -> info.Flags
+        | Or(nodes, info) -> info.NodeFlags
         | Singleton foo -> Flag.None
-        | Loop(node, low, up, info) -> info.Flags
-        | And(nodes, info) -> info.Flags
-        | Not(node, info) -> info.Flags
+        | Loop(node, low, up, info) -> info.NodeFlags
+        | And(nodes, info) -> info.NodeFlags
+        | Not(node, info) -> info.NodeFlags
         | LookAround(node, lookBack, negate) -> Flag.CanBeNullableFlag ||| Flag.ContainsLookaroundFlag
 
 
@@ -474,7 +140,7 @@ module rec Flags =
                 Flag.IsAlwaysNullableFlag ||| Flag.CanBeNullableFlag
             else Flag.None
         let otherFlags =
-            innerInfo &&& (Flag.ContainsEpsilonFlag ||| Flag.ContainsLookaroundFlag ||| Flag.CanSkipFlag ||| Flag.PrefixFlag)
+            innerInfo &&& (Flag.ContainsEpsilonFlag ||| Flag.ContainsLookaroundFlag)
         nullableFlags ||| otherFlags
 
 
@@ -485,9 +151,7 @@ module rec Flags =
             let orflags =
                 (b ||| f) &&& (
                     Flag.CanBeNullableFlag ||| Flag.IsAlwaysNullableFlag ||| Flag.ContainsEpsilonFlag ||| Flag.ContainsLookaroundFlag)
-            let andFlags =
-                b &&& f &&& (Flag.CanSkipFlag ||| Flag.PrefixFlag)
-            orflags ||| andFlags
+            orflags
         )
 
 
@@ -511,8 +175,7 @@ module rec Flags =
 
 
 let defaultInfo()(solver: ISolver<'t>) : RegexNodeInfo<'t> = RegexNodeInfo<'t>(
-    Flags = Flag.None,
-    Startset = solver.Full,
+    NodeFlags = Flag.None,
     InitialStartset = Uninitialized
 )
 
@@ -525,9 +188,7 @@ let convertLoop
     : RegexNodeInfo<'t>
     =
     RegexNodeInfo<'t>(
-        Flags = info.Flags,
-        Startset = Startset.inferStartset solver xs,
-        InitialStartset = Uninitialized
+        NodeFlags = info.NodeFlags
     )
 
 
@@ -552,7 +213,7 @@ module Node =
     let inline canBeNullable(node: RegexNode<'t>) =
         match node with
         | Or(info = info) | Loop(info = info) | And(info = info) | Not(info = info) | Concat(info = info) ->
-            info.Flags.HasFlag(Flag.CanBeNullableFlag)
+            info.NodeFlags.HasFlag(Flag.CanBeNullableFlag)
         | Singleton _ -> false
         | LookAround _ -> true
         | Epsilon -> true
@@ -563,15 +224,16 @@ module Node =
         | ValueNone -> canBeNullable node
 
     let inline canSkip(node: RegexNode<'t>) =
-        match node with
-        | Or(info = info) -> info.CanSkip()
-        | Singleton _ -> false
-        | Loop(info = info) -> info.CanSkip()
-        | And(info = info) -> info.CanSkip()
-        | Not(info = info) -> info.CanSkip()
-        | LookAround _ -> false
-        | Concat(info = info) -> info.CanSkip()
-        | Epsilon -> false
+        false // TODO!
+        // match node with
+        // | Or(info = info) -> info.CanSkip()
+        // | Singleton _ -> false
+        // | Loop(info = info) -> info.CanSkip()
+        // | And(info = info) -> info.CanSkip()
+        // | Not(info = info) -> info.CanSkip()
+        // | LookAround _ -> false
+        // | Concat(info = info) -> info.CanSkip()
+        // | Epsilon -> false
 
     let inline containsLookaround(node: RegexNode<'t>) =
         match node with

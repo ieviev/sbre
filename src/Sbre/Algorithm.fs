@@ -249,7 +249,6 @@ module RegexNode =
         (toplevelOr: byref<RegexNode<TSet>>)
         : int voption
         =
-        let mutable currentMax = ValueNone
         let mutable foundmatch = false
 
         // initial node
@@ -263,13 +262,26 @@ module RegexNode =
         let _startsetPredicate = cache.GetInitialStartsetPredicate
         let _builder = cache.Builder
         let _initialInfo = _initialWithoutDotstar.TryGetInfo
+        let _initialAlwaysNullable = isAlwaysNullable initialNode
+        let _createNewBranches =
+            not _initialAlwaysNullable &&
+            cache.IsImplicitDotStarred initialNode
+
+        if cache.IsImplicitDotStarred initialNode && _initialAlwaysNullable then
+            toplevelOr <- _initialWithoutDotstar
+
+        let mutable currentMax =
+            // compute initial nullability
+            match _initialAlwaysNullable with
+            | true ->
+                ValueSome (loc.Position)
+            | _ ->
+                ValueNone
 
         while not foundmatch do
             if Location.isFinal loc then
                 foundmatch <- true
             else
-                // let mt_id = cache.MintermId(&loc)
-                // let locationPredicate = cache.MintermById(mt_id)
                 let locationPredicate = cache.MintermForLocation(loc)
                 // current active branches
                 if not (refEq toplevelOr cache.False) then
@@ -289,7 +301,7 @@ module RegexNode =
                 // create implicit dotstar derivative only if startset matches
                 if
                     Solver.elemOfSet _startsetPredicate locationPredicate
-                    && cache.IsImplicitDotStarred initialNode
+                    && _createNewBranches
                     && currentMax.IsNone
                 then
                     deriveInitialBranch(
@@ -325,8 +337,9 @@ module RegexNode =
                         // jump mid-regex
                         match toplevelOr.TryGetInfo with
                         | ValueSome i ->
-                            if i.Flags.HasFlag(Flag.CanSkipFlag) then
-                                loc.Position <- tryJumpToStartset cache &loc toplevelOr
+                            failwith "todo can skip"
+                            // if i.NodeFlags.HasFlag(Flag.CanSkipFlag) then
+                            //     loc.Position <- tryJumpToStartset cache &loc toplevelOr
                         | ValueNone -> ()
 
 

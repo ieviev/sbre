@@ -15,6 +15,12 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Sbre.Benchmarks", "src\Sbre
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "libsbre", "src\libsbre\libsbre.fsproj", "{77EB7C52-33DC-43D8-8ABE-D7E893B65758}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "scripts", "scripts", "{8C12992D-CC7F-4037-95D3-B70705D87459}"
+	ProjectSection(SolutionItems) = preProject
+		scripts\test.fsx = scripts\test.fsx
+		scripts\tmp.fsx = scripts\tmp.fsx
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU

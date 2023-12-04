@@ -43,14 +43,14 @@ let dbgSbre() =
         t.DfaSbre() |> ignore
 
 
-let dbgNonb() =
+// let dbgNonb() =
 
-    let t = Paper.TestNonbacktrackingByte()
-    t.Setup()
-    for i = 1 to 1 do
-        let c = t.Symbolic()
-        stdout.WriteLine $"GOT {c}"
-        ()
+//     let t = Paper.TestNonbacktrackingByte()
+//     t.Setup()
+//     for i = 1 to 1 do
+//         let c = t.Symbolic()
+//         stdout.WriteLine $"GOT {c}"
+//         ()
 
 
 
@@ -149,7 +149,7 @@ let main argv =
     // lines
     | "paper-lines-1" -> BenchmarkRunner.Run(typeof<Paper.Lines1>,config) |> ignore
     | "paper-lines-2" -> BenchmarkRunner.Run(typeof<Paper.Lines2>,config) |> ignore
-    | "solver-u8" -> BenchmarkRunner.Run(typeof<Paper.TestNonbacktrackingByte>,config) |> ignore
+    // | "solver-u8" -> BenchmarkRunner.Run(typeof<Paper.TestNonbacktrackingByte>,config) |> ignore
 
 
 

@@ -83,7 +83,7 @@ let inline (|LoopKind|) struct(x:int,y:int) =
     | 0, 0 -> LoopKind.EmptyLoop
     | 1, 1 -> LoopKind.Single
     | 0, Int32.MaxValue -> LoopKind.Star
-    | 0, 1 -> LoopKind.Plus
+    | 1, Int32.MaxValue -> LoopKind.Plus
     | _,_ -> LoopKind.Normal
 
 let rec loopSubsumesBranch (solver:ISolver<'t>) (largePred: 't) (node:RegexNode<'t>) =
@@ -118,6 +118,13 @@ let (|SingletonStarLoop|_|) (node: RegexNode<_>) =
     match node with
     | Loop(node=Singleton pred;low=0;up=Int32.MaxValue) -> ValueSome(pred)
     | _ -> ValueNone
+
+[<return: Struct>]
+let (|ZeroboundSetLoop|_|) (node: RegexNode<_>) =
+    match node with
+    | Loop(node=Singleton pred;low=0;) -> ValueSome(pred)
+    | _ -> ValueNone
+
 
 [<return: Struct>]
 let (|AllSameHead|_|) (nodes: HashSet<RegexNode<_>>) =

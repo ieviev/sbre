@@ -67,7 +67,7 @@ let convertToSymbolicRegexNode
                 if node.Options.HasFlag(RegexOptions.Negated) then
                     let inner = convertChildren node |> b.mkConcat
                     let flags = Info.Flags.inferNot inner
-                    RegexNode.Not(inner, RegexNodeInfo<BDD>( Flags = flags, Startset = Unchecked.defaultof<BDD>, InitialStartset = Uninitialized))
+                    RegexNode.Not(inner, RegexNodeInfo<BDD>( NodeFlags = flags, Startset = Unchecked.defaultof<BDD>, InitialStartset = Uninitialized))
                     :: acc
                 else
                     convertChildren node
@@ -99,22 +99,23 @@ let convertToSymbolicRegexNode
             let set = node.Str
             let bdd = b.bddFromSetString set
             // unroll loops
-            if node.M = node.N then
-                let single = b.one bdd
-                let nodes = List.replicate node.M single
-                nodes @ acc
-            elif node.M > 0 then
-                let single = b.one bdd
-                let nodes = List.replicate node.M single
-                let optmax =
-                    match node.N with
-                    | Int32.MaxValue ->
-                        node.N
-                    | _ ->
-                        node.N - node.M
-                let optloop = b.mkLoop (single, 0, optmax)
-                nodes @ [optloop] @ acc
-            else
+            // if node.M = node.N then
+            //     let single = b.one bdd
+            //     let nodes = List.replicate node.M single
+            //     nodes @ acc
+            // elif node.M > 0 then
+            //     let single = b.one bdd
+            //     let nodes = List.replicate node.M single
+            //     let optmax =
+            //         match node.N with
+            //         | Int32.MaxValue ->
+            //             node.N
+            //         | _ ->
+            //             node.N - node.M
+            //     let optloop = b.mkLoop (single, 0, optmax)
+            //     nodes @ [optloop] @ acc
+            // else
+
             b.mkLoop (b.one bdd, node.M, node.N) :: acc
         | RegexNodeKind.Empty -> acc
         | RegexNodeKind.PositiveLookaround ->

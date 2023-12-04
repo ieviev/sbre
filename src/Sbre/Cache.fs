@@ -34,8 +34,8 @@ type RegexCache< 't
     let classifier =
         if typeof<TSet> = typeof<uint64> then
             ((box _solver) :?> UInt64Solver)._classifier
-        elif typeof<TSet> = typeof<uint32> then
-            ((box _solver) :?> UInt32Solver)._classifier
+        // elif typeof<TSet> = typeof<uint32> then
+        //     ((box _solver) :?> UInt32Solver)._classifier
         else
             failwith "todo invalid solver"
 
@@ -53,11 +53,13 @@ type RegexCache< 't
 
     let predStartsets = StartsetHelpers.startsetsFromMintermArray mintermBdds
     let mutable _cachedStartsets: Dictionary<TSet, SearchValues<char>> = Dictionary()
-    let mutable _startsetPredicate = Startset.inferStartset _solver _rawPattern
+
+    // TODO!
+    let mutable _startsetPredicate = _solver.Full // Startset.inferStartset _solver _rawPattern
     let mutable _initialStartset =
-        match Startset.inferInitialStartset _solver _rawPattern with
-        | InitialStartset.MintermArrayPrefix(arr, _) -> arr
-        | _ ->
+        // match Startset.inferInitialStartset _solver _rawPattern with
+        // | InitialStartset.MintermArrayPrefix(arr, _) -> arr
+        // | _ ->
             // TODO: unoptimzed regex
             ([|_solver.Full|].AsMemory())
 
@@ -492,6 +494,15 @@ type RegexCache< 't
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.IsImplicitDotStarred(node: RegexNode<TSet>) : bool =
         obj.ReferenceEquals(node, _implicitDotstarPattern)
+
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    member this.GenerateSampleInput(node: RegexNode<TSet>) : bool =
+        obj.ReferenceEquals(node, _implicitDotstarPattern)
+
+
+
+
+
 
 #if DEBUG
     member cache.PrettyPrintMinterm(xs: _) : string = cache.Solver.PrettyPrint(xs, _charsetSolver)

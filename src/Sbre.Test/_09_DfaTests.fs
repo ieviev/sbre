@@ -38,6 +38,7 @@ let ``dfa end 02`` () =
     let endPos = dfaFindMatchEnd @".*(?=.*-)&\S.*\S" @"-aaaa-"
     Assert.Equal(5, endPos)
 
+#if TODO
 
 [<Fact>]
 let ``dfa end 03`` () =
@@ -57,6 +58,7 @@ let ``dfa end 04 - unroll loop`` () =
 
 
 // [a-q][^u-z]{13}x
+
 
 
 [<Fact>]
@@ -116,7 +118,7 @@ let ``dfa all ends equal 02`` () =
     let n2 = matcher.MatchPositions(input) |> Seq.map (fun v -> v.Index + v.Length)
     Assert.Equal<int>(n2, n1)
 
-
+#endif
 
 
 

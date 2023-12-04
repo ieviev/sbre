@@ -1492,9 +1492,11 @@ type TestAllEnginesSeparate(defaultRegex: string, sbreRegex: string, input: stri
         with get, set
 
     member val NonBack_Regex: System.Text.RegularExpressions.Regex =
+    // member val NonBack_Regex: System.Text.RuntimeRegexCopy.Regex =
             // try System.Text.RegularExpressions.Regex(defaultRegex, opts_NonBacktracking, TimeSpan.FromSeconds(90))
             // with e -> Unchecked.defaultof<_>
-        System.Text.RegularExpressions.Regex(defaultRegex, opts_NonBacktracking, TimeSpan.FromSeconds(90))
+        null
+        // System.Text.RegularExpressions.Regex(defaultRegex, opts_NonBacktracking, TimeSpan.FromSeconds(90))
         with get, set
 
 
@@ -1508,31 +1510,35 @@ type TestAllEnginesSeparate(defaultRegex: string, sbreRegex: string, input: stri
     [<GlobalSetup>]
     member this.Setup() =
         this.Compiled_Regex <- System.Text.RegularExpressions.Regex(defaultRegex, opts_Compiled, TimeSpan.FromSeconds(90))
-        this.NonBack_Regex <- System.Text.RegularExpressions.Regex(defaultRegex, opts_NonBacktracking, TimeSpan.FromSeconds(90))
         this.None_Regex <- System.Text.RegularExpressions.Regex(defaultRegex, opts_None, TimeSpan.FromSeconds(90))
         this.NonBack_Regex <- System.Text.RegularExpressions.Regex(defaultRegex, opts_NonBacktracking, TimeSpan.FromSeconds(90))
+        // this.NonBack_Regex <- System.Text.RuntimeRegexCopy.Regex(defaultRegex, System.Text.RuntimeRegexCopy.RegexOptions.NonBacktracking, TimeSpan.FromSeconds(90))
 
 
-    // [<Benchmark(Description = "NonBacktrack: .*R1.*R2.*|.*R2.*R1.*")>]
-    // member this.Symbolic() =
-    //     this.NonBack_Regex.Count(inputText)
+    [<Benchmark(Description = "NonBacktrack: .*R1.*R2.*|.*R2.*R1.*")>]
+    member this.Symbolic() =
+        this.NonBack_Regex.Count(inputText)
+    //     System.Text.RuntimeRegexCopy.Regex(
+    //         defaultRegex,
+    //         System.Text.RuntimeRegexCopy.RegexOptions.NonBacktracking,
+    //         TimeSpan.FromSeconds(90)).Count(inputText)
+    // // //
     // //
-    //
-    // [<Benchmark(Description="None: .*R1.*R2.*|.*R2.*R1.*")>]
-    // member this.None() =
-    //     this.None_Regex.Count(inputText)
-    //
-    // [<Benchmark(Description="Compiled: .*R1.*R2.*|.*R2.*R1.*")>]
-    // member this.Compiled() =
-    //     this.Compiled_Regex.Count(inputText)
+    // // [<Benchmark(Description="None: .*R1.*R2.*|.*R2.*R1.*")>]
+    // // member this.None() =
+    // //     this.None_Regex.Count(inputText)
+    // //
+    // // [<Benchmark(Description="Compiled: .*R1.*R2.*|.*R2.*R1.*")>]
+    // // member this.Compiled() =
+    // //     this.Compiled_Regex.Count(inputText)
 
     [<Benchmark(Description="Sbre: .*R1.*R2.*|.*R2.*R1.*")>]
     member this.SbreAlt() =
         this.SbreAlt_Regex.Count(inputText)
 
-    [<Benchmark(Description = "Sbre: .*R1.*&.*R2.*")>]
-    member this.Sbre() =
-        this.Sbre_Regex.Count(inputText)
+    // [<Benchmark(Description = "Sbre: .*R1.*&.*R2.*")>]
+    // member this.Sbre() =
+    //     this.Sbre_Regex.Count(inputText)
 
 
 [<MemoryDiagnoser(false)>]
@@ -1583,26 +1589,26 @@ type TestAllEnginesCount(defaultRegex: string, sbreRegex: string, input: string)
         this.Sbre_Regex.Count(inputText)
 
 
-[<MemoryDiagnoser(false)>]
-[<ShortRunJob>]
-[<AbstractClass>]
-[<HideColumns([| "" |])>]
-type TestOnlyNonBacktracking(pattern: string, input: string) =
-    do AppContext.SetData("REGEX_NONBACKTRACKING_MAX_AUTOMATA_SIZE", 1_000_000)
-    let inputText = input
+// [<MemoryDiagnoser(false)>]
+// [<ShortRunJob>]
+// [<AbstractClass>]
+// [<HideColumns([| "" |])>]
+// type TestOnlyNonBacktracking(pattern: string, input: string) =
+//     do AppContext.SetData("REGEX_NONBACKTRACKING_MAX_AUTOMATA_SIZE", 1_000_000)
+//     let inputText = input
 
-    let opts_NonBacktracking =
-        Text.RuntimeRegexCopy.RegexOptions.NonBacktracking
-        ||| Text.RuntimeRegexCopy.RegexOptions.ExplicitCapture
+//     let opts_NonBacktracking =
+//         Text.RuntimeRegexCopy.RegexOptions.NonBacktracking
+//         ||| Text.RuntimeRegexCopy.RegexOptions.ExplicitCapture
 
-    member val NonBack_Regex: System.Text.RuntimeRegexCopy.Regex =
-        System.Text.RuntimeRegexCopy.Regex(pattern, opts_NonBacktracking) with get, set
-
-
-    [<GlobalSetup>]
-    member this.Setup() = ()
+//     member val NonBack_Regex: System.Text.RuntimeRegexCopy.Regex =
+//         System.Text.RuntimeRegexCopy.Regex(pattern, opts_NonBacktracking) with get, set
 
 
-    [<Benchmark(Description = "NonBacktrack")>]
-    member this.Symbolic() =
-        this.NonBack_Regex.Count(inputText)
+//     [<GlobalSetup>]
+//     member this.Setup() = ()
+
+
+//     [<Benchmark(Description = "NonBacktrack")>]
+//     member this.Symbolic() =
+//         this.NonBack_Regex.Count(inputText)

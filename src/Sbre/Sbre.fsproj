@@ -8,9 +8,9 @@
     <OutputType>Library</OutputType>
     <NoWarn>9</NoWarn>
     <!-- dont warn unused -->
-<!--    <NoWarn>FS1182</NoWarn>-->
-    <!--  opt-in warnings   -->
-    <WarnOn>21</WarnOn>
+    <!--    <NoWarn>FS1182</NoWarn>-->
+    <!--  allow embedded IL  -->
+    <NoWarn>42</NoWarn>
     <!--  binding executed out of order   -->
     <WarnOn>21</WarnOn>
     <!--    warn heap allocations    -->
@@ -23,7 +23,7 @@
     <WarnOn>1182</WarnOn>
     <!--    implicit conversion -->
     <WarnOn>3387</WarnOn>
-<!--        <DefineConstants>$(DefineConstants);OPTIMIZE</DefineConstants>-->
+    <!--        <DefineConstants>$(DefineConstants);OPTIMIZE</DefineConstants>-->
   </PropertyGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Sbre.Test" />
@@ -47,13 +47,21 @@
     <PackageOutputPath>./nupkg</PackageOutputPath>
     <Authors>ieviev</Authors>
     <Title>$(ProjectName)</Title>
-    <Version>0.0.14</Version>
+    <Version>0.0.18</Version>
   </PropertyGroup>
   <ItemGroup>
-    <!-- <Reference Include="RuntimeRegexCopy">
-      <HintPath>../RuntimeRegexCopy/bin/Release/net7.0/RuntimeRegexCopy.dll</HintPath>
+    <!-- <Reference Include="RuntimeRegexCopy" Condition="'$(Configuration)'=='Release'">
+      <HintPath>../RuntimeRegexCopy/bin/Release/net8.0/RuntimeRegexCopy.dll</HintPath>
     </Reference> -->
+<!--    <ProjectReference Include="..\RuntimeRegexCopy\RuntimeRegexCopy.csproj" PrivateAssets="all" />-->
     <ProjectReference Include="..\RuntimeRegexCopy\RuntimeRegexCopy.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="$(MSBuildThisFileDirectory)../RuntimeRegexCopy/bin/Release/net8.0/RuntimeRegexCopy.dll">
+      <Pack>true</Pack>
+      <PackageCopyToOutput>true</PackageCopyToOutput>
+      <PackagePath>lib/$(TargetFramework)/</PackagePath>
+    </Content>
   </ItemGroup>
   <ItemGroup>
     <PackageReference Update="FSharp.Core" Version="7.0.*" />
