@@ -1,0 +1,131 @@
+{
+  "mainAssemblyName": "Sbre.BrowserWasm.dll",
+  "assemblyRootFolder": "managed",
+  "debugLevel": 0,
+  "assets": [
+    {
+      "behavior": "assembly",
+      "name": "FSharp.Core.dll"
+    },
+    {
+      "behavior": "assembly",
+      "name": "RuntimeRegexCopy.dll"
+    },
+    {
+      "behavior": "assembly",
+      "name": "Sbre.BrowserWasm.dll"
+    },
+    {
+      "behavior": "assembly",
+      "name": "Sbre.dll"
+    },
+    {
+      "behavior": "assembly",
+      "name": "System.Collections.Concurrent.dll"
+    },
+    {
+      "behavior": "assembly",
+      "name": "System.Collections.dll"
+    },
+    {
+      "behavior": "assembly",
+      "name": "System.Collections.Immutable.dll"
+    },
+    {
+      "behavior": "assembly",
+      "name": "System.Linq.dll"
+    },
+    {
+      "behavior": "assembly",
+      "name": "System.Private.CoreLib.dll"
+    },
+    {
+      "behavior": "assembly",
+      "name": "System.Private.Uri.dll"
+    },
+    {
+      "behavior": "assembly",
+      "name": "System.Runtime.InteropServices.JavaScript.dll"
+    },
+    {
+      "behavior": "assembly",
+      "name": "System.Text.RegularExpressions.dll"
+    },
+    {
+      "culture": "cs",
+      "behavior": "resource",
+      "name": "FSharp.Core.resources.dll"
+    },
+    {
+      "culture": "de",
+      "behavior": "resource",
+      "name": "FSharp.Core.resources.dll"
+    },
+    {
+      "culture": "es",
+      "behavior": "resource",
+      "name": "FSharp.Core.resources.dll"
+    },
+    {
+      "culture": "fr",
+      "behavior": "resource",
+      "name": "FSharp.Core.resources.dll"
+    },
+    {
+      "culture": "it",
+      "behavior": "resource",
+      "name": "FSharp.Core.resources.dll"
+    },
+    {
+      "culture": "ja",
+      "behavior": "resource",
+      "name": "FSharp.Core.resources.dll"
+    },
+    {
+      "culture": "ko",
+      "behavior": "resource",
+      "name": "FSharp.Core.resources.dll"
+    },
+    {
+      "culture": "pl",
+      "behavior": "resource",
+      "name": "FSharp.Core.resources.dll"
+    },
+    {
+      "culture": "pt-BR",
+      "behavior": "resource",
+      "name": "FSharp.Core.resources.dll"
+    },
+    {
+      "culture": "ru",
+      "behavior": "resource",
+      "name": "FSharp.Core.resources.dll"
+    },
+    {
+      "culture": "tr",
+      "behavior": "resource",
+      "name": "FSharp.Core.resources.dll"
+    },
+    {
+      "culture": "zh-Hans",
+      "behavior": "resource",
+      "name": "FSharp.Core.resources.dll"
+    },
+    {
+      "culture": "zh-Hant",
+      "behavior": "resource",
+      "name": "FSharp.Core.resources.dll"
+    },
+    {
+      "virtualPath": "runtimeconfig.bin",
+      "behavior": "vfs",
+      "name": "supportFiles/0_runtimeconfig.bin"
+    },
+    {
+      "behavior": "dotnetwasm",
+      "name": "dotnet.wasm"
+    }
+  ],
+  "remoteSources": [],
+  "pthreadPoolSize": 0
+}
