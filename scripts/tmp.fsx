@@ -40,15 +40,15 @@ type SimpleRegexNode =
     | Lookbehind        of node: SimpleRegexNode
     | NegLookahead      of node: SimpleRegexNode
     | NegLookbehind     of node: SimpleRegexNode
-    
-        
+
+
 
 
 // (ab|cd)
 
 // (a{0,9} | a{0,10}) ==> a{0,10}
 
-// [abc] 
+// [abc]
 // [a-z]
 
 // [a-q][^u-z]{13}x
@@ -57,17 +57,17 @@ type SimpleRegexNode =
 let char1 = int 'u', int 'z' // exclude (117, 122) from 60k chars
 
 // trying to match [^u-z] symbolically
-let match1 (someChar:char) = 
+let match1 (someChar:char) =
     let charCode = int someChar // get the char code/ minterm
-    let minterm = 
-        if charCode < 117 && charCode > 122 then 
-            1 
+    let minterm =
+        if charCode < 117 && charCode > 122 then
+            1
         else 0
     if minterm = 1 then true else false
 
 // trying to match [^u-z] in a regular dfa
-let match2 (someChar:char) = 
-    let charCode = int someChar // get the char code 
+let match2 (someChar:char) =
+    let charCode = int someChar // get the char code
     if charCode = 0 then true
     elif charCode = 1 then true
     elif charCode = 2 then true
@@ -82,33 +82,33 @@ let match2 (someChar:char) =
 
 
 
-// a{5,5} = a{5} ==> aaaaa 
+// a{5,5} = a{5} ==> aaaaa
 
-let pat2 = Epsilon |> Encode.Auto.toString |> File.writeTo "/home/ian/Desktop/temp-disk/encoded-samples/epsilon.json"
-let pat2 = 
-    (Or(
-        [
-            Concat(Singleton("a"), Singleton("b"))
-            Concat(Singleton("c"), Singleton("d"))
-        ]
-    ) : SimpleRegexNode )
-    |> Encode.Auto.toString |> File.writeTo "/home/ian/Desktop/temp-disk/encoded-samples/(ab|cd).json"
-
-let pat3 = 
-    (Loop(Concat(Singleton("a"), Singleton("b")) , 1, 2 ) : SimpleRegexNode )
-    |> Encode.Auto.toString |> File.writeTo "/home/ian/Desktop/temp-disk/encoded-samples/(ab){1,2}.json"
-
-let pat4 = 
-    (Loop(Concat(Singleton("a"), Singleton("b")) , 2, 2 ) : SimpleRegexNode )
-    |> Encode.Auto.toString |> File.writeTo "/home/ian/Desktop/temp-disk/encoded-samples/(ab){2}.json"
-
-let pat5 = 
-    (Loop(Concat(Singleton("a"), Singleton("b")) , 0, Int32.MaxValue ) : SimpleRegexNode )
-    |> Encode.Auto.toString |> File.writeTo "/home/ian/Desktop/temp-disk/encoded-samples/(ab)*.json"
-
-let pat6 = 
-    (And([Concat(Singleton "ab", Singleton("cd")); Concat(Singleton "a", Singleton("c")) ]) : SimpleRegexNode )
-    |> Encode.Auto.toString |> File.writeTo "/home/ian/Desktop/temp-disk/encoded-samples/([ab][cd]&ac).json"
+// let pat2 = Epsilon |> Encode.Auto.toString |> File.writeTo "/home/ian/Desktop/temp-disk/encoded-samples/epsilon.json"
+// let pat2 =
+//     (Or(
+//         [
+//             Concat(Singleton("a"), Singleton("b"))
+//             Concat(Singleton("c"), Singleton("d"))
+//         ]
+//     ) : SimpleRegexNode )
+//     |> Encode.Auto.toString |> File.writeTo "/home/ian/Desktop/temp-disk/encoded-samples/(ab|cd).json"
+//
+// let pat3 =
+//     (Loop(Concat(Singleton("a"), Singleton("b")) , 1, 2 ) : SimpleRegexNode )
+//     |> Encode.Auto.toString |> File.writeTo "/home/ian/Desktop/temp-disk/encoded-samples/(ab){1,2}.json"
+//
+// let pat4 =
+//     (Loop(Concat(Singleton("a"), Singleton("b")) , 2, 2 ) : SimpleRegexNode )
+//     |> Encode.Auto.toString |> File.writeTo "/home/ian/Desktop/temp-disk/encoded-samples/(ab){2}.json"
+//
+// let pat5 =
+//     (Loop(Concat(Singleton("a"), Singleton("b")) , 0, Int32.MaxValue ) : SimpleRegexNode )
+//     |> Encode.Auto.toString |> File.writeTo "/home/ian/Desktop/temp-disk/encoded-samples/(ab)*.json"
+//
+// let pat6 =
+//     (And([Concat(Singleton "ab", Singleton("cd")); Concat(Singleton "a", Singleton("c")) ]) : SimpleRegexNode )
+//     |> Encode.Auto.toString |> File.writeTo "/home/ian/Desktop/temp-disk/encoded-samples/([ab][cd]&ac).json"
 
 
 let encoded = Encode.Auto.toString (pat1)
@@ -119,7 +119,6 @@ let jsonValue2 = System.Text.Json.JsonDocument.Parse jsonString
 
 let jsonRoot = jsonValue2.RootElement
 
-jsonRoot.
 jsonRoot[1]
 
 
@@ -137,7 +136,7 @@ jsonRoot[1]
 
 let ex2 = Regex("[ab]b")
 
-"abc" => "1a1b1c"
+// "abc" => "1a1b1c"
 
 // 1. concat (OK)
 // 2. char classes -> ([abc] to "abc".characterClass)

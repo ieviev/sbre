@@ -119,6 +119,7 @@ let main argv =
     // standard benchmarks
     | "twain-1" -> BenchmarkRunner.Run(typeof<Paper.Twain_1>,config) |> ignore
     | "twain" -> BenchmarkRunner.Run(typeof<Paper.TwainRegexes>,config) |> ignore
+    | "count" -> BenchmarkRunner.Run(typeof<Paper.CounterRegexes>,config) |> ignore
 
 
     // words in paragraph

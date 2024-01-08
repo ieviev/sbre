@@ -23,27 +23,26 @@ module Helpers =
 let printImplicit (reg:Regex) =
     try
         let matcher = reg.TSetMatcher
-        let nodes = matcher.ImplicitPattern
+        let nodes = matcher.InitialPattern
         matcher.Cache.PrettyPrintNode nodes
     with
         e ->
             try
                 let matcher = reg.UInt16Matcher
-                let nodes = matcher.ImplicitPattern
+                let nodes = matcher.InitialPattern
                 matcher.Cache.PrettyPrintNode nodes
             with e ->
                 let matcher = reg.TSetMatcher
-                let nodes = matcher.ImplicitPattern
+                let nodes = matcher.InitialPattern
                 matcher.Cache.PrettyPrintNode nodes
 
-let printNode (reg:RegexMatcher<'t>, node:RegexNode<'t>) =
+let printNode (reg:RegexMatcher<_>, node:RegexNode<_>) =
     try
         let matcher = reg
         let nodes = node
         matcher.Cache.PrettyPrintNode nodes
     with
-        e ->
-            failwith "a"
+        e -> failwith "failed to print node"
 
 
 [<Fact>]

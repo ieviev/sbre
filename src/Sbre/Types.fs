@@ -79,13 +79,14 @@ type RegexStateFlags =
     | CanSkipFlag = 16uy
     | HasPrefixFlag = 32uy
     | ContainsLookaroundFlag = 64uy
+    | HasCounterFlag = 128uy
     // todo: fixed length
     // todo: can be subsumed
     // todo: singleton loop
 
 [<AutoOpen>]
 module RegexStateFlagsExtensions =
-    type RegexStateFlags with
+    type Sbre.Types.RegexStateFlags with
         member this.IsInitial = (# "and" this RegexStateFlags.InitialFlag : int32 #) = 0
         member this.IsDeadend = (# "and" this RegexStateFlags.DeadendFlag : int32 #) = 0
         member this.IsAlwaysNullable = (# "and" this RegexStateFlags.AlwaysNullableFlag : int32 #) = 0
@@ -93,6 +94,8 @@ module RegexStateFlagsExtensions =
         member this.ContainsLookaround = (# "and" this RegexStateFlags.ContainsLookaroundFlag : int32 #) = 0
         member this.CanSkip = (# "and" this RegexStateFlags.CanSkipFlag : int32 #) = 0
         member this.HasPrefix = (# "and" this RegexStateFlags.HasPrefixFlag : int32 #) = 0
+        [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+        member this.HasCounter = (# "and" this RegexStateFlags.HasCounterFlag : int32 #) = 0
 
 
 
@@ -106,8 +109,8 @@ type RegexNodeInfo<'tset when 'tset :> IEquatable<'tset> and 'tset: equality >()
 
     member val NodeFlags: RegexNodeFlags = RegexNodeFlags.None with get, set
     member val InitialStartset: InitialStartset<'tset> = InitialStartset.Uninitialized with get, set
-    member val SkipPrefix: Memory<'tset>*Memory<'tset> = Unchecked.defaultof<_> with get, set
-    member val SkipToChars: SearchValues<char> = Unchecked.defaultof<_> with get, set
+    // member val SkipPrefix: Memory<'tset>*Memory<'tset> = Unchecked.defaultof<_> with get, set
+    // member val SkipToChars: SearchValues<char> = Unchecked.defaultof<_> with get, set
     member val Transitions: ResizeArray<Transition<'tset>> = ResizeArray() with get, set
     member val Subsumes: Dictionary<RegexNode<'tset>,bool> = Dictionary() with get, set
 
@@ -158,6 +161,12 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
         node: RegexNode<'tset> *  // anchors
         lookBack: bool *
         negate: bool
+    // optimized cases
+
+    // | Star of  (* RE* *) node: RegexNode<'tset> * info: RegexNodeInfo<'tset>
+
+
+
 
 #if DEBUG
     override this.ToString() =
@@ -231,6 +240,7 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
 
         | Concat(h, t, info) ->  h.ToString() + t.ToString()
         | Epsilon -> "ε"
+        // | Star(node, low, up, info) -> $"{node.ToString()}*"
 #endif
 
 
@@ -246,7 +256,7 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.GetFlags() =
         match this with
-        | Or(info = info) | Loop(info = info) | And(info = info) | Not(info = info) | Concat(info = info) ->
+        | Or(info = info) | Loop(info = info) | And(info = info) | Not(info = info) | Concat(info = info)  ->
             info.NodeFlags
         | Epsilon ->
             RegexNodeFlags.CanBeNullableFlag ||| RegexNodeFlags.IsAlwaysNullableFlag ||| RegexNodeFlags.ContainsEpsilonFlag
@@ -329,6 +339,15 @@ module Common =
         while forall && e.MoveNext()  do
             forall <- f e.Current
         forall
+
+
+    let inline tryFindV ([<InlineIfLambda>] f) (coll: seq<_>) =
+        use mutable e = coll.GetEnumerator()
+        let mutable found = ValueNone
+        while found.IsNone  && e.MoveNext() do
+            found <- f e.Current
+        found
+
 
 
 type NodeSet<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =

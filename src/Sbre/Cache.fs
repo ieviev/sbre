@@ -54,14 +54,15 @@ type RegexCache< 't
     let predStartsets = StartsetHelpers.startsetsFromMintermArray mintermBdds
     let mutable _cachedStartsets: Dictionary<TSet, SearchValues<char>> = Dictionary()
 
-    // TODO!
-    let mutable _startsetPredicate = _solver.Full // Startset.inferStartset _solver _rawPattern
-    let mutable _initialStartset =
-        // match Startset.inferInitialStartset _solver _rawPattern with
-        // | InitialStartset.MintermArrayPrefix(arr, _) -> arr
-        // | _ ->
-            // TODO: unoptimzed regex
-            ([|_solver.Full|].AsMemory())
+    // let mutable _startsetPredicate : TSet =
+    //     failwith "TODO"
+    //     _solver.Full // Startset.inferStartset _solver _rawPattern
+    // let mutable _initialStartset =
+    //     // match Startset.inferInitialStartset _solver _rawPattern with
+    //     // | InitialStartset.MintermArrayPrefix(arr, _) -> arr
+    //     // | _ ->
+    //         // TODO: unoptimzed regex
+    //         ([|_solver.Full|].AsMemory())
 
     let _getMintermStartsetChars (minterm:TSet) =
         match _cachedStartsets.TryGetValue(minterm) with
@@ -77,19 +78,18 @@ type RegexCache< 't
             _cachedStartsets.Add(minterm, (newSpan))
             newSpan
 
-    let initialSearchValues = _getMintermStartsetChars _initialStartset.Span[0]
+    // let initialSearchValues = _getMintermStartsetChars _initialStartset.Span[0]
 
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.Minterms() = minterms
 
-    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    member this.GetInitialStartsetPrefix() = _initialStartset
-
-    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    member this.GetInitialSearchValues() = initialSearchValues
-
-    member this.GetInitialStartsetPredicate = _startsetPredicate
+    // [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    // member this.GetInitialStartsetPrefix() = _initialStartset
+    //
+    // [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    // member this.GetInitialSearchValues() = initialSearchValues
+    // member this.GetInitialStartsetPredicate : TSet = _startsetPredicate
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.MintermBdds() = mintermBdds
@@ -101,6 +101,7 @@ type RegexCache< 't
     member this.MintermStartsetChars(startset: TSet) = _getMintermStartsetChars startset
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.SkipIndexOfAny(loc: byref<Location>, setChars: SearchValues<char>) : unit =
+        if isNull setChars then () else
         let slice = loc.Input.Slice(loc.Position)
         let sharedIndex = slice.IndexOfAny(setChars)
         loc.Position <- loc.Position + sharedIndex

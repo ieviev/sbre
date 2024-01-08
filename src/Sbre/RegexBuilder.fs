@@ -3,6 +3,7 @@ namespace Sbre
 open System
 open System.Buffers
 open System.Collections.Generic
+open System.Collections.Immutable
 open System.Globalization
 open System.Runtime.CompilerServices
 open System.Runtime.InteropServices
@@ -503,7 +504,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
 
 
     member this.trySubsumeOr(nodes: HashSet<RegexNode< 't >>) : RegexNode< 't > seq =
-
+        let mutable result = ValueNone
         let starLoops =
             nodes
             |> Seq.choose (fun v ->
@@ -512,6 +513,18 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 | _ -> None
             )
             |> Seq.toArray
+
+        // ((ab)*|⊤*(ab)*) ==> (ab)*
+        // (⊤*~(⊤*\n\n⊤*)|~(⊤*\n\n⊤*))
+        if nodes |> Seq.forall (_.IsAlwaysNullable)  then
+            match tryFindV (function TrueStarredConcat solver (tail) as currNode -> ValueSome (currNode, tail) | _ -> ValueNone) nodes with
+            | ValueSome (currNode,tail) ->
+                if (nodes.Count = 2 && nodes.Contains(tail) ) then
+                    result <- ValueSome (Seq.singleton currNode)
+                else ()
+            | _ -> ()
+
+        if result.IsSome then result.Value else
 
         match starLoops.Length > 0 with
         | true ->

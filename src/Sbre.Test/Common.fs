@@ -27,20 +27,20 @@ let getDerImpl (reg: Regex) (input: string) =
     try
         let matcher = reg.TSetMatcher
         let cache = matcher.Cache
-        let node = matcher.ImplicitPattern
+        let node = matcher.InitialPattern
         let der1 = createDerivative (cache, &location, cache.MintermForLocation(location), node)
         cache.PrettyPrintNode der1
     with e ->
         try
             let matcher = reg.ByteMatcher
             let cache = matcher.Cache
-            let node = matcher.ImplicitPattern
+            let node = matcher.InitialPattern
             let der1 = createDerivative (cache, &location, cache.MintermForLocation(location), node)
             cache.PrettyPrintNode der1
         with e ->
             let matcher = reg.UInt16Matcher
             let cache = matcher.Cache
-            let node = matcher.ImplicitPattern
+            let node = matcher.InitialPattern
             let der1 = createDerivative (cache, &location, cache.MintermForLocation(location), node)
             cache.PrettyPrintNode der1
 

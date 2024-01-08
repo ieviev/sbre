@@ -1,6 +1,7 @@
 namespace Sbre
 
 open System
+open System.Buffers
 open System.Collections.Generic
 open System.Globalization
 open System.Numerics
@@ -37,32 +38,52 @@ type GenericRegexMatcher() =
     abstract member Match: input:ReadOnlySpan<char> -> MatchResult
     abstract member Count: input:ReadOnlySpan<char> -> int
 
+[<Flags>]
+type MatchingStateFlags =
+    | None = 0uy
+    | InitialFlag = 1uy
+    | DeadendFlag = 2uy
+    | AlwaysNullableFlag = 4uy
+    | CanBeNullableFlag = 8uy
+    | CanSkipFlag = 16uy
+    | HasPrefixFlag = 32uy
+    | ContainsLookaroundFlag = 64uy
+    | HasCounter = 128uy
 
+[<AutoOpen>]
+module MatchingStateFlagsExtensions =
+    type MatchingStateFlags with
+        member this.IsInitial = byte (this &&& MatchingStateFlags.InitialFlag) <> 0uy
+        member this.IsDeadend = byte (this &&& MatchingStateFlags.DeadendFlag) <> 0uy
+        member this.IsAlwaysNullable = byte (this &&& MatchingStateFlags.AlwaysNullableFlag) <> 0uy
+        member this.CanBeNullable = byte (this &&& MatchingStateFlags.CanBeNullableFlag) <> 0uy
+        member this.ContainsLookaround = byte (this &&& MatchingStateFlags.ContainsLookaroundFlag) <> 0uy
+        member this.CanSkip = byte (this &&& MatchingStateFlags.CanSkipFlag) <> 0uy
+        member this.HasPrefix = byte (this &&& MatchingStateFlags.HasPrefixFlag) <> 0uy
 
 
 type MatchingState(node:RegexNode<TSet>) =
     member val Id = -1 with get,set
     member val Node = node with get,set
+    member val Startset : TSet voption = ValueNone with get,set
 
     member this.BuildFlags(c:RegexCache<TSet>) =
-        let mutable flags = RegexStateFlags.None
-        if obj.ReferenceEquals(c.False, node) then
-            flags <- flags ||| RegexStateFlags.InitialFlag
+        let mutable flags = MatchingStateFlags.None
+        // if obj.ReferenceEquals(c.False, node) then
+        //     flags <- flags ||| MatchingStateFlags.InitialFlag
         let nodeFlags = node.GetFlags()
         if nodeFlags.IsAlwaysNullable then
-            flags <- flags ||| RegexStateFlags.AlwaysNullableFlag
+            flags <- flags ||| MatchingStateFlags.AlwaysNullableFlag
         if nodeFlags.CanBeNullable then
-            flags <- flags ||| RegexStateFlags.CanBeNullableFlag
+            flags <- flags ||| MatchingStateFlags.CanBeNullableFlag
 
         if nodeFlags.ContainsLookaround then
-            flags <- flags ||| RegexStateFlags.ContainsLookaroundFlag
+            flags <- flags ||| MatchingStateFlags.ContainsLookaroundFlag
         // TODO: could be optimized
         if c.InitialPatternWithoutDotstar.ContainsLookaround then
-            flags <- flags ||| RegexStateFlags.ContainsLookaroundFlag
-
+            flags <- flags ||| MatchingStateFlags.ContainsLookaroundFlag
         // if nodeFlags.CanSkip && not flags.ContainsLookaround  then
-        //     flags <- flags ||| RegexStateFlags.CanSkipFlag
-        // TODO!
+        //     flags <- flags ||| MatchingStateFlags.CanSkipFlag
         // if nodeFlags.HasPrefix then
         //     match c.Builder.GetInitializedPrefix(node) with
         //     | MintermArrayPrefix(prefix, _) ->
@@ -70,37 +91,8 @@ type MatchingState(node:RegexNode<TSet>) =
         //             flags <- flags ||| MatchingStateFlags.HasPrefixFlag
         //     | _ -> ()
 
-        this.ComputeStartset(c)
-
         flags
 
-    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    member this.ComputeStartset(cache: RegexCache<_>) : unit =
-
-        match node.TryGetInfo with
-        | ValueSome info when (not info.ContainsLookaround) ->
-            let derivatives =
-                cache.Minterms()
-                |> Array.map (fun mt ->
-                     let mutable tmploc = Location.create "_" 0
-                     mt,Algorithm.createDerivative(
-                            cache, &tmploc, mt, node)
-                )
-
-            let skipStartset =
-                derivatives
-                |> Seq.choose (fun (ts,der) ->
-                    if refEq (node) (der) then None else Some ts
-                )
-                |> Seq.fold (|||) cache.Solver.Empty
-            let fullss = cache.Solver.Full
-            if skipStartset <> cache.Solver.Full then
-                ()
-            info.Startset <- skipStartset
-
-            ()
-            // info.IsPostInitialized <- true
-        | _ -> ()
 
 
 
@@ -116,21 +108,23 @@ type RegexMatcher<'t
         reverseNode:RegexNode<TSet>,
         _cache:RegexCache<TSet>) as m =
     inherit GenericRegexMatcher()
+    // INITIALIZE
 
     let InitialDfaStateCapacity = 1024
     let _stateCache = Dictionary<RegexNode<TSet>,MatchingState>() // TODO: dictionary with char kind
     let mutable _stateArray = Array.zeroCreate<MatchingState> InitialDfaStateCapacity
-    let mutable _stateFlagsArray = Array.zeroCreate<RegexStateFlags> InitialDfaStateCapacity
+    let mutable _stateFlagsArray = Array.zeroCreate<MatchingStateFlags> InitialDfaStateCapacity
     let _minterms = _cache.Minterms()
     let _mintermsLog = BitOperations.Log2(uint64 _minterms.Length) + 1
-    let _startsetPredicate = _cache.GetInitialStartsetPredicate
+    // let _startsetPredicate = _cache.GetInitialStartsetPredicate
     let _initialInfo = initialNode.TryGetInfo
     let mutable _dfaDelta: int[] =
         Array.init (1024 <<< _mintermsLog) (fun _ -> 0 ) // 0 : initial state
 
     do
-        m.GetOrCreateState(dotStarredNode) |> ignore // 0
-
+        // initial state: 1
+        m.GetOrCreateState(dotStarredNode) |> ignore
+        // --
 
 
     override this.IsMatch(input) =
@@ -215,9 +209,144 @@ type RegexMatcher<'t
 
 
     /// counts the number of matches
-    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    override this.Count(input) = this.DfaCount(input)
+    override this.Count(input) =
+        if true then this.DfaCount(input) else
+        let mutable currPos = 0
+        let mutable location = Location.createSpan input 0
+        let mutable looping = true
+        let mutable counter = 0
+        let _cache : RegexCache<_>  = this.Cache
+        let mutable _toplevelOr = _cache.False
+        failwith "todo prefix optimizations"
+        // let chars = _cache.GetInitialSearchValues()
+        //
+        // let initialPrefix = _cache.GetInitialStartsetPrefix()
 
+        while looping do
+            // use prefix optimizations
+
+            // _cache.TryNextStartsetLocationArray(&location,initialPrefix.Span,chars)
+            match RegexNode.matchEnd _cache &location dotStarredNode &_toplevelOr with
+            | ValueNone -> looping <- false
+            | ValueSome(endPos: int) ->
+                counter <- counter + 1
+                if endPos < input.Length then
+                    _toplevelOr <- _cache.False
+                    if endPos = location.Position then
+                        location.Position <- location.Position + 1
+                    else
+                        location.Position <- endPos
+                else
+                    looping <- false
+
+        counter
+
+
+    member this.GetOrCreateInitialStartset(state:MatchingState) : TSet =
+        match state.Startset with
+        | ValueSome ss -> ss
+        | ValueNone ->
+            if _stateFlagsArray[1].ContainsLookaround then
+                let ss = _cache.Solver.Full
+                state.Startset <- ValueSome ss
+                ss
+            else
+            let minterms = _cache.Minterms()
+            let derivatives =
+                minterms
+                |> Array.map (fun minterm ->
+                    let temp_location = Location.getDefault()
+                    this.TryCreateNextDerivative(
+                        minterm,
+                        &temp_location,
+                        &state)
+                )
+
+            // debug pretty minterms
+            // let prettyMinterms =
+            //     Seq.zip minterms derivatives
+            //     |> Seq.map (fun (mt,d) ->
+            //         $"{_cache.PrettyPrintMinterm(mt)} : {_cache.PrettyPrintNode(d)}"
+            //     )
+            //     |> String.concat "\n"
+            //
+            // let startsetPredicateStr =
+            //     Seq.zip minterms derivatives
+            //     |> Seq.where (fun (mt,d) ->
+            //         not (refEq d state.Node) && not (refEq d _cache.False)
+            //     )
+            //     |> Seq.map (fun (mt,d) ->
+            //         $"{_cache.PrettyPrintMinterm(mt)} : {_cache.PrettyPrintNode(d)}"
+            //     )
+            //     |> String.concat "\n"
+
+            // TODO: check for sequences
+            let startsetPredicate =
+                Seq.zip minterms derivatives
+                |> Seq.where (fun (_,d) -> not (refEq d state.Node) && not (refEq d _cache.False) )
+                |> Seq.map fst
+                |> Seq.fold (|||) _cache.Solver.Empty
+
+            // invert empty startset (nothing to skip to)
+            if startsetPredicate = _cache.Solver.Empty then
+                state.Startset <- ValueSome _cache.Solver.Full
+                _cache.Solver.Full
+            else
+                state.Startset <- ValueSome startsetPredicate
+                startsetPredicate
+
+    member this.GetOrCreateStartset(state:MatchingState) =
+        match state.Startset with
+        | ValueSome ss -> ss
+        | ValueNone ->
+            if _stateFlagsArray[1].ContainsLookaround then
+                let ss = _cache.Solver.Full
+                state.Startset <- ValueSome ss
+                ss
+            else
+            let minterms = _cache.Minterms()
+            let derivatives =
+                minterms
+                |> Array.map (fun minterm ->
+                    let temp_location = Location.getDefault()
+                    this.TryCreateNextDerivative(
+                        minterm,
+                        &temp_location,
+                        &state)
+                )
+
+            // debug pretty minterms
+            // let prettyMinterms =
+            //     Seq.zip minterms derivatives
+            //     |> Seq.map (fun (mt,d) ->
+            //         $"{_cache.PrettyPrintMinterm(mt)} : {_cache.PrettyPrintNode(d)}"
+            //     )
+            //     |> String.concat "\n"
+            //
+            // let startsetPredicateStr =
+            //     Seq.zip minterms derivatives
+            //     |> Seq.where (fun (mt,d) ->
+            //         not (refEq d _cache.False)
+            //     )
+            //     |> Seq.map (fun (mt,d) ->
+            //         $"{_cache.PrettyPrintMinterm(mt)} : {_cache.PrettyPrintNode(d)}"
+            //     )
+            //     |> String.concat "\n"
+
+            // TODO: check for sequences
+            let startsetPredicate =
+                Seq.zip minterms derivatives
+                |> Seq.where (fun (_,d) -> not (refEq d _cache.False) )
+                |> Seq.map fst
+                |> Seq.fold (|||) _cache.Solver.Empty
+
+            // invert empty startset (nothing to skip to)
+            if startsetPredicate = _cache.Solver.Empty then
+                state.Startset <- ValueSome _cache.Solver.Full
+                _cache.Solver.Full
+            else
+                state.Startset <- ValueSome startsetPredicate
+                startsetPredicate
 
     member private this.GetOrCreateState(node: RegexNode<TSet>) : MatchingState =
         match _stateCache.TryGetValue(node) with
@@ -230,6 +359,7 @@ type RegexMatcher<'t
             if _stateArray.Length = state.Id then
                 if _stateArray.Length > 50000 then
                     failwith "state space blowup!"
+                // failwith "TODO: resize DFA"
                 let newsize = _stateArray.Length * 2
                 Array.Resize(&_stateArray, newsize)
                 Array.Resize(&_dfaDelta, newsize <<< _mintermsLog)
@@ -237,23 +367,35 @@ type RegexMatcher<'t
 
             _stateArray[state.Id] <- state
             _stateFlagsArray[state.Id] <- state.BuildFlags(_cache)
-            state.Node.TryGetInfo
-            |> ValueOption.iter (fun info ->
-                if obj.ReferenceEquals(null,info.SkipToChars) then
-                    info.SkipToChars <- _cache.MintermStartsetChars(info.Startset)
-            )
+            if refEq dotStarredNode node then
+                _stateFlagsArray[state.Id] <- _stateFlagsArray[state.Id] ||| MatchingStateFlags.InitialFlag
+                let _ = this.GetOrCreateInitialStartset(state)
+                ()
+            else
+                let _ = this.GetOrCreateStartset(state)
+                ()
+            // state.Node.TryGetInfo
+            // |> ValueOption.iter (fun info ->
+            //     if obj.ReferenceEquals(null,info.SkipToChars) then
+            //         info.SkipToChars <- _cache.MintermStartsetChars(info.Startset)
+            // )
+
             state
 
 
     member private this.GetDeltaOffset (stateId:int, mintermId:int) =
         (stateId <<< _mintermsLog) ||| mintermId
 
+#if DEBUG
+    member this.GetStateAndFlagsById (stateId:int) =
+        _stateArray[stateId], _stateFlagsArray[stateId]
+#endif
 
     member private this.TryCreateNextDerivative(
         locPred: TSet, loc:inref<Location>, activeBranch:inref<MatchingState>) : RegexNode<TSet> =
 
-        let flags : RegexStateFlags = _stateFlagsArray[activeBranch.Id]
-        //
+        let flags : MatchingStateFlags = _stateFlagsArray[activeBranch.Id]
+
         // let initialDerivative =
         //     if
         //         Solver.elemOfSet _startsetPredicate locPred
@@ -266,27 +408,21 @@ type RegexMatcher<'t
         //         deriv
         //     else _cache.False
 
-        let activeDerivative =
-            match flags with
-            | RegexStateFlags.InitialFlag -> activeBranch.Node
-            | _ ->
-                match RegexNode.getCachedTransition (locPred, activeBranch.Node.TryGetInfo) with
-                | ValueSome v -> v
-                | _ -> createDerivative (_cache, &loc, locPred, activeBranch.Node)
+        match RegexNode.getCachedTransition (locPred, activeBranch.Node.TryGetInfo) with
+        | ValueSome v -> v
+        | _ -> createDerivative (_cache, &loc, locPred, activeBranch.Node)
 
-        let newActiveNode =
-            if refEq dotStarredNode activeDerivative then _cache.False else
-                ()
-                failwith "TODO"
-
-                // let isSubsumed =
-                //     match _cache.Builder.SubsumptionCache.TryGetValue(struct (activeDerivative, initialDerivative)) with
-                //     | true, subsumed -> subsumed
-                //     | _ -> _cache.Builder.trySubsumeTopLevelOr (activeDerivative, initialDerivative)
-                // if isSubsumed then activeDerivative else
-                //     _cache.Builder.mkOr [| activeDerivative; initialDerivative |]
-
-        newActiveNode
+        //
+        // let newActiveNode =
+        //     if refEq initialNode activeDerivative then _cache.False else
+        //     if refEq _cache.False initialDerivative then activeDerivative else
+        //     if refEq _cache.False activeDerivative then initialDerivative else
+        //         let isSubsumed =
+        //             match _cache.Builder.SubsumptionCache.TryGetValue(struct (activeDerivative, initialDerivative)) with
+        //             | true, subsumed -> subsumed
+        //             | _ -> _cache.Builder.trySubsumeTopLevelOr (activeDerivative, initialDerivative)
+        //         if isSubsumed then activeDerivative else
+        //             _cache.Builder.mkOr [| activeDerivative; initialDerivative |]
 
     member this.TryTakeTransition(currentState: byref<int>, mintermId: int, loc:inref<Location>) : bool =
         let dfaOffset = this.GetDeltaOffset(currentState, mintermId)
@@ -304,6 +440,7 @@ type RegexMatcher<'t
             let minterm = _cache.MintermById(mintermId)
 
             let sourceState = _stateArray[currentState]
+
             let targetDerivative =
                 this.TryCreateNextDerivative(minterm,&loc,&sourceState)
             let targetState = this.GetOrCreateState(targetDerivative)
@@ -312,70 +449,56 @@ type RegexMatcher<'t
         true
 
 
-    member this.SkipToNextPosition(
-        cache: RegexCache<TSet>,
-        stateNode:RegexNode<TSet>,
-        loc:byref<Location>,
-        _initialSearchValues,
-        _initialPrefix,
-        flags:RegexStateFlags) =
-
-        match flags with
-        | RegexStateFlags.InitialFlag ->
-            if not flags.HasPrefix then
-                cache.SkipIndexOfAny(&loc,_initialSearchValues)
-            else
-                cache.TryNextStartsetLocationArray(&loc,_initialPrefix,_initialSearchValues)
-        | RegexStateFlags.CanSkipFlag ->
-            match stateNode.TryGetInfo with
-            | ValueSome i ->
-                // don't skip if valid position
-                if not (i.SkipToChars.Contains(loc.Input[loc.Position])) then
-                    // todo: tradeoffs between these two
-                    // if not flags.HasPrefix then
-                    //     cache.SkipIndexOfAny(&loc,i.SkipToChars)
-                    // else
-                    Optimizations.tryJumpToStartset2 cache &loc stateNode
-            | _ -> ()
-        | _ -> ()
+    // member this.SkipToNextPosition(
+    //     cache: RegexCache<TSet>,
+    //     stateNode:RegexNode<TSet>,
+    //     loc:byref<Location>,
+    //     _initialSearchValues,
+    //     _initialPrefix,
+    //     flags:MatchingStateFlags) =
+    //
+    //     match flags with
+    //     | MatchingStateFlags.InitialFlag ->
+    //         if not flags.HasPrefix then
+    //             cache.SkipIndexOfAny(&loc,_initialSearchValues)
+    //         else
+    //             cache.TryNextStartsetLocationArray(&loc,_initialPrefix,_initialSearchValues)
+    //     | MatchingStateFlags.CanSkipFlag ->
+    //         match stateNode.TryGetInfo with
+    //         | ValueSome i ->
+    //             // don't skip if valid position
+    //             if not (i.SkipToChars.Contains(loc.Input[loc.Position])) then
+    //                 // todo: tradeoffs between these two
+    //                 // if not flags.HasPrefix then
+    //                 //     cache.SkipIndexOfAny(&loc,i.SkipToChars)
+    //                 // else
+    //                 Optimizations.tryJumpToStartset2 cache &loc stateNode
+    //         | _ -> ()
+    //     | _ -> ()
 
 
     /// end position with DFA
     member this.DfaEndPosition(cache: RegexCache<TSet>,
         loc: byref<Location>,
-        initialNode: RegexNode<TSet>,
-        toplevelOr: inref<RegexNode<TSet>>) =
+        activeNode: inref<RegexNode<TSet>>) =
         assert (loc.Position > -1)
         let mutable foundmatch = false
         let mutable currentStateId = 1
         let mutable currentMax = -2
-        let _initialSearchValues = cache.GetInitialSearchValues()
-        let _initialPrefix = cache.GetInitialStartsetPrefix().Span
+        // let _initialSearchValues = cache.GetInitialSearchValues()
+        // let _initialPrefix = cache.GetInitialStartsetPrefix().Span
 
         while not foundmatch do
             let flags = _stateFlagsArray[currentStateId]
             let state = _stateArray[currentStateId]
 
-            if flags.IsInitial then
-                if currentMax > 0 then
+            if flags.CanSkip || flags.IsInitial then
+                if flags.IsInitial && currentMax > 0 then
                     foundmatch <- true
                 else
-                    // cache.Optimizations.TryFindNextStartingPositionLeftToRight(loc.Input,&loc.Position,loc.Position) |> ignore
-                    // cache.TryNextStartsetLocationArray(&loc,_initialPrefix,_initialSearchValues)
-                    ()
-            // elif flags.CanSkip then
-            //     match state.Node.TryGetInfo with
-            //     | ValueSome i ->
-            //         // todo : tradeoffs between these
-            //         if not (i.SkipToChars.Contains(loc.Input[loc.Position])) then
-            //             cache.SkipIndexOfAny(&loc,i.SkipToChars)
-            //             // if not flags.HasPrefix then
-            //             //     cache.SkipIndexOfAny(&loc,i.SkipToChars)
-            //             // else
-            //             //     // has prefix of at least 2 chars
-            //             //     Optimizations.tryJumpToStartset2 cache &loc (state.Node)
-            //     | _ -> ()
-
+                    // TODO: .net optimizations
+                    let ss = this.GetOrCreateStartset(state)
+                    cache.TryNextStartsetLocation(&loc, ss)
 
             // set max nullability after skipping
             if flags.CanBeNullable && (flags.IsAlwaysNullable || RegexNode.isNullable(_cache,&loc,state.Node)) then
@@ -399,11 +522,11 @@ type RegexMatcher<'t
 
     member this.DfaMatchEnds(input:ReadOnlySpan<char>) =
         let mutable loc = Location.createSpan input 0
-        let mutable toplevelOr = _cache.False
+        let mutable toplevelOr = dotStarredNode
         let eps = ResizeArray()
         let mutable looping = true
-        while (looping) do
-            match this.DfaEndPosition(_cache, &loc, initialNode, &toplevelOr) with
+        while looping do
+            match this.DfaEndPosition(_cache, &loc, &toplevelOr) with
             | -2 ->
                 looping <- false // failed match
             | ep ->
@@ -415,11 +538,11 @@ type RegexMatcher<'t
 
     member this.DfaCount(input:ReadOnlySpan<char>) =
         let mutable loc = Location.createSpan input 0
-        let mutable toplevelOr = _cache.False
+        let mutable toplevelOr = dotStarredNode
         let mutable counter = 0
         let mutable looping = true
-        while (looping) do
-            match this.DfaEndPosition(_cache, &loc, initialNode, &toplevelOr) with
+        while looping do
+            match this.DfaEndPosition(_cache, &loc, &toplevelOr) with
             | -2 ->
                 looping <- false // failed match
             | ep ->
@@ -436,15 +559,19 @@ type RegexMatcher<'t
         let mutable looping = true
         let mutable _toplevelOr = _cache.False
 
-        let initialPrefix = _cache.GetInitialStartsetPrefix()
+        // let initialPrefix = _cache.GetInitialStartsetPrefix()
+        let _initialFlags = _stateFlagsArray[1]
 
         let mutable currMatchStart = 0
         let mutable location = Location.createSpan input 0
         let matchPositions = ResizeArray()
-        let chars = _cache.GetInitialSearchValues()
+        let initialStartset = this.GetOrCreateInitialStartset(_stateArray[1])
+        // let chars = _cache.GetInitialSearchValues()
         while looping do
             location.Position <- currMatchStart
-            _cache.TryNextStartsetLocationArray(&location,initialPrefix.Span,chars)
+
+            _cache.TryNextStartsetLocation(&location, initialStartset)
+
             match RegexNode.matchEnd _cache &location dotStarredNode &_toplevelOr with
             | ValueNone -> looping <- false
             | ValueSome(endPos: int) ->
@@ -482,7 +609,7 @@ type RegexMatcher<'t
 
 
     // accessors
-    member this.ImplicitPattern = dotStarredNode
+    member this.InitialPattern = dotStarredNode
 
     member this.RawPattern = initialNode
 

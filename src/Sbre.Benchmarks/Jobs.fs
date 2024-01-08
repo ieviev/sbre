@@ -1385,19 +1385,20 @@ type TestAllEnginesAllPatternsWithCompileTime(patterns: (string) list, input: st
     // [<Benchmark(Description="None")>]
     // member this.None() =
     //     System.Text.RegularExpressions.Regex(this.Pattern, opts_None, TimeSpan.FromSeconds(10)).Count(inputText)
-    //
-    [<Benchmark(Description="NonBacktrack")>]
-    member this.Symbolic() =
-        System.Text.RegularExpressions.Regex(this.Pattern, opts_NonBacktracking, TimeSpan.FromSeconds(10)).Count(inputText)
 
-    [<Benchmark(Description="Compiled")>]
-    member this.Compiled() =
-        System.Text.RegularExpressions.Regex(this.Pattern, opts_Compiled, TimeSpan.FromSeconds(10)).Count(inputText)
+    // [<Benchmark(Description="NonBacktrack")>]
+    // member this.Symbolic() =
+    //     System.Text.RegularExpressions.Regex(this.Pattern, opts_NonBacktracking, TimeSpan.FromSeconds(10)).Count(inputText)
+    //
+    // [<Benchmark(Description="Compiled")>]
+    // member this.Compiled() =
+    //     System.Text.RegularExpressions.Regex(this.Pattern, opts_Compiled, TimeSpan.FromSeconds(10)).Count(inputText)
 
     [<Benchmark(Description = "Sbre")>]
     member this.Sbre() =
         // Regex(this.Pattern).Count(inputText)
-        (Regex(this.Pattern).Matcher :?> RegexMatcher<uint64>).DfaCount(inputText)
+        // (Regex(this.Pattern).Matcher :?> RegexMatcher<uint64>).DfaCount(inputText)
+        this.CompiledEngine.Count(inputText)
         // this.CompiledEngine.DfaCount(inputText)
         // use cts = new CancellationTokenSource()
         // cts.CancelAfter(millisecondsDelay = 10_000)

@@ -1,6 +1,8 @@
+/// patterns, helpers
 module rec Sbre.Pat
 
 open System.Collections.Generic
+open System.Collections.Immutable
 open System.Runtime.CompilerServices
 open System.Text.RuntimeRegexCopy.Symbolic
 open Sbre.Types
@@ -120,6 +122,19 @@ let (|SingletonStarLoop|_|) (node: RegexNode<_>) =
     | _ -> ValueNone
 
 [<return: Struct>]
+let (|TrueStar|_|) (solver: ISolver<_>) (node: RegexNode<_>) =
+    match node with
+    | Loop(node=Singleton pred;low=0;up=Int32.MaxValue) when solver.IsFull(pred) -> ValueSome()
+    | _ -> ValueNone
+
+[<return: Struct>]
+let (|TrueStarredConcat|_|) (solver: ISolver<_>) (node: RegexNode<_>) =
+    match node with
+    | Concat(head=TrueStar solver; tail=tail) -> ValueSome(tail)
+    | _ -> ValueNone
+
+
+[<return: Struct>]
 let (|ZeroboundSetLoop|_|) (node: RegexNode<_>) =
     match node with
     | Loop(node=Singleton pred;low=0;) -> ValueSome(pred)
@@ -127,9 +142,8 @@ let (|ZeroboundSetLoop|_|) (node: RegexNode<_>) =
 
 
 [<return: Struct>]
-let (|AllSameHead|_|) (nodes: HashSet<RegexNode<_>>) =
+let (|AllSameHead|_|) (nodes: seq<RegexNode<_>>) =
     let mutable allsame = true
-    let tails = ResizeArray()
     nodes
     |> Seq.pairwise
     |> Seq.iter (fun (prev, v) ->
@@ -252,6 +266,7 @@ let (|TrySubsumeSameTail|_|) (nodes: HashSet<RegexNode<TSet>>) =
 
 
 module Location =
+    let getDefault() : Location = { Input = ReadOnlySpan.Empty; Reversed = false; Position = 0 }
     let inline create (str: string) (p: int32) : Location = { Input = str.AsSpan(); Position = p; Reversed = false }
     let inline createSpan (str: ReadOnlySpan<char>) (p: int32) : Location = { Input = str; Position = p; Reversed = false }
     let inline clone (loc:inref<Location>) : Location =

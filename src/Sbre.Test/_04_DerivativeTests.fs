@@ -31,7 +31,7 @@ let getDerivativeT<'t when 't : struct and 't :> IEquatable< 't >
 let testFullDerivative(pattern: string, input: string, expectedDerivative: string) =
     let matcher = Regex(pattern).TSetMatcher
     let cache = matcher.Cache
-    let node = matcher.ImplicitPattern
+    let node = matcher.InitialPattern
     let location = (Location.create input 0)
 
     let result =
@@ -51,7 +51,7 @@ let testFullDerivativeMultiple(pattern: string, input: string, expectedDerivativ
 let test2ndDerivative(pattern: string, input: string, expectedDerivative: string) =
     let matcher = Regex(pattern).TSetMatcher
     let cache = matcher.Cache
-    let node = matcher.ImplicitPattern
+    let node = matcher.InitialPattern
     let location = (Location.create input 0)
     let location1 = (Location.create input 1)
 
@@ -73,7 +73,7 @@ let test2ndDerivatives(pattern: string, input: string, expectedDerivatives: stri
         try
             let matcher = Regex(pattern).TSetMatcher
             let cache = matcher.Cache
-            let node = matcher.ImplicitPattern
+            let node = matcher.InitialPattern
 
             let der1 = createDerivative (cache, &location, cache.MintermForLocation(location), node)
             let der2 = createDerivative (cache, &location1, cache.MintermForLocation(location1), der1)
@@ -83,14 +83,14 @@ let test2ndDerivatives(pattern: string, input: string, expectedDerivatives: stri
                 try
                     let matcher = Regex(pattern).ByteMatcher
                     let cache = matcher.Cache
-                    let node = matcher.ImplicitPattern
+                    let node = matcher.InitialPattern
                     let der1 = createDerivative (cache, &location, cache.MintermForLocation(location), node)
                     let der2 = createDerivative (cache, &location1, cache.MintermForLocation(location1), der1)
                     cache.PrettyPrintNode der2
                 with e ->
                     let matcher = Regex(pattern).UInt16Matcher
                     let cache = matcher.Cache
-                    let node = matcher.ImplicitPattern
+                    let node = matcher.InitialPattern
                     let der1 = createDerivative (cache, &location, cache.MintermForLocation(location), node)
                     let der2 = createDerivative (cache, &location1, cache.MintermForLocation(location1), der1)
                     cache.PrettyPrintNode der2

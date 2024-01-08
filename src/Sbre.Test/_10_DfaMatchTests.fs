@@ -1,19 +1,20 @@
 [<Xunit.Collection("Sequential")>]
-module Sbre.Test._09_DfaTests
+module Sbre.Test._10_DfaMatchTests
 
 open Sbre
 open Sbre.Benchmarks.Jobs
 open Sbre.Types
 open Xunit
 
+#if DEBUG
+
 let dfaFindMatchEnd (pat:string) (input:string) =
     let regex = Regex(pat)
     let matcher = regex.Matcher :?> RegexMatcher<TSet>
     let cache = matcher.Cache
-    let initial = matcher.RawPattern
-    let mutable _toplevelOr = matcher.Cache.False
+    let mutable _toplevelOr = matcher.InitialPattern
     let mutable loc = Pat.Location.create input 0
-    matcher.DfaEndPosition(cache, &loc, initial,  &_toplevelOr)
+    matcher.DfaEndPosition(cache, &loc, &_toplevelOr)
 
 let dfaFindAllEnds (pat:string) (input:string) =
     let regex = Regex(pat)
@@ -135,3 +136,4 @@ let ``dfa all ends equal 02`` () =
 
 
 
+#endif

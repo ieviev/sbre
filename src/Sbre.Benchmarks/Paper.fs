@@ -358,6 +358,22 @@ type TwainRegexes() =
         )
 
 
+type CounterRegexes() =
+    inherit
+        Jobs.TestAllEnginesAllPatternsWithCompileTime(
+            [
+               "[a-q][^u-z]{13}x"
+               ".{0,2}(Tom|Sawyer|Huckleberry|Finn)"
+               ".{2,4}(Tom|Sawyer|Huckleberry|Finn)"
+               "Tom.{10,25}river|river.{10,25}Tom"
+               "\s[a-zA-Z]{0,12}ing\s"
+               """["'][^"']{0,30}[?!\.]["']"""
+            ],
+            fullInput
+        )
+
+
+
 let paragraphWords = ["Huck"; "Finn"; "Tom"; "Sawyer"; "Usually"; ]
 
 type ParagraphRegexes() =

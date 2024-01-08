@@ -259,7 +259,8 @@ module RegexNode =
                 toplevelOr <- initialNode
                 initialNode
 
-        let _startsetPredicate = cache.GetInitialStartsetPredicate
+        // todo: predicate optimization
+        let _startsetPredicate : TSet = cache.Solver.Full //.GetInitialStartsetPredicate
         let _builder = cache.Builder
         let _initialInfo = _initialWithoutDotstar.TryGetInfo
         let _initialAlwaysNullable = isAlwaysNullable initialNode
@@ -331,8 +332,9 @@ module RegexNode =
                     then
                         // jump from initial state
                         if refEq toplevelOr cache.False then
-                            let chars = cache.GetInitialSearchValues()
-                            cache.TryNextStartsetLocationArray(&loc,cache.GetInitialStartsetPrefix().Span,chars)
+                            failwith "todo: predicate optimization"
+                            // let chars = cache.GetInitialSearchValues()
+                            // cache.TryNextStartsetLocationArray(&loc,cache.GetInitialStartsetPrefix().Span,chars)
 
                         // jump mid-regex
                         match toplevelOr.TryGetInfo with
@@ -364,7 +366,6 @@ let rec createDerivative
     )
     : RegexNode<TSet>
     =
-    // let Der newNode = createDerivative (c, &loc, loc_pred, newNode) //
     match RegexNode.getTransitionInfo (loc_pred, node) with
     | ValueSome n -> n
     | _ ->
@@ -441,6 +442,7 @@ let rec createDerivative
                     if refEq c.Builder.uniques._false S' then
                         R'S
                     else
+                        // optimization: (a*|⊤*a*) ==> ⊤*a*
                         let newConcat =
                             c.Builder.mkOr (
                                 seq {
