@@ -358,9 +358,9 @@ type TwainRegexes() =
         )
 
 
-type CounterRegexes() =
+type CounterCompileTimeRegexes() =
     inherit
-        Jobs.TestAllEnginesAllPatternsWithCompileTime(
+        Jobs.TestSbreAllPatternsWithCompileTime(
             [
                "[a-q][^u-z]{13}x"
                ".{0,2}(Tom|Sawyer|Huckleberry|Finn)"
@@ -368,6 +368,30 @@ type CounterRegexes() =
                "Tom.{10,25}river|river.{10,25}Tom"
                "\s[a-zA-Z]{0,12}ing\s"
                """["'][^"']{0,30}[?!\.]["']"""
+            ],
+            fullInput
+        )
+
+type CounterMatchTimeRegexes() =
+    inherit
+        Jobs.TestSbreAllPatternsMatchOnly(
+            [
+               "[a-q][^u-z]{13}x"
+               ".{0,2}(Tom|Sawyer|Huckleberry|Finn)"
+               ".{2,4}(Tom|Sawyer|Huckleberry|Finn)"
+               "Tom.{10,25}river|river.{10,25}Tom"
+               "\s[a-zA-Z]{0,12}ing\s"
+               """["'][^"']{0,30}[?!\.]["']"""
+            ],
+            fullInput
+        )
+
+type SampleRegexes() =
+    inherit
+        Jobs.TestSbreAllPatternsMatchOnly(
+            [
+               @"[a-z][a-z]shing"
+               @"[a-z][a-z]sh(?=ing)"
             ],
             fullInput
         )

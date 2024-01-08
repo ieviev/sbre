@@ -174,7 +174,7 @@ type RegexCache< 't
 
 
     member this.TryNextStartsetLocation(loc: byref<Location>, set: TSet) : unit =
-
+        if _solver.IsEmpty(set) then () else
         let setChars = this.MintermStartsetChars(set)
         let isInverted = _solver.isElemOfSet (set,minterms[0])
         let currpos = loc.Position

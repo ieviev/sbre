@@ -33,14 +33,18 @@ let dbgSample() =
 
 let dbgSbre() =
 
-    let t = Paper.DebugSbre3()
-    t.Pattern <-
-        t.Patterns
-        |> Seq.head
-    t.Setup()
-    for i = 0 to 1000 do
-        // t.NoDfaSbre() |> ignore
-        t.DfaSbre() |> ignore
+    // let t = Paper.DebugSbre3()
+    let t = Paper.CounterMatchTimeRegexes()
+    // t.Pattern <-
+    //     t.Patterns
+    //     |> Seq.take 3
+    //     |> Seq.head
+
+    for p in t.Patterns |> Seq.take 3 do
+        t.Setup()
+        t.Pattern <- p
+        for i = 0 to 200 do
+            t.Sbre() |> ignore
 
 
 // let dbgNonb() =
@@ -62,7 +66,7 @@ let dbgSbre() =
 let main argv =
 
 #if DEBUG
-    dbgSbre()
+    // dbgSbre()
 #endif
     // dbgSbre()
     // dbgNonb()
@@ -119,7 +123,9 @@ let main argv =
     // standard benchmarks
     | "twain-1" -> BenchmarkRunner.Run(typeof<Paper.Twain_1>,config) |> ignore
     | "twain" -> BenchmarkRunner.Run(typeof<Paper.TwainRegexes>,config) |> ignore
-    | "count" -> BenchmarkRunner.Run(typeof<Paper.CounterRegexes>,config) |> ignore
+    | "count-c" -> BenchmarkRunner.Run(typeof<Paper.CounterCompileTimeRegexes>,config) |> ignore
+    | "count-m" -> BenchmarkRunner.Run(typeof<Paper.CounterMatchTimeRegexes>,config) |> ignore
+    | "s" -> BenchmarkRunner.Run(typeof<Paper.SampleRegexes>,config) |> ignore
 
 
     // words in paragraph

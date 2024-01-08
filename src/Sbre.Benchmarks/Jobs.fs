@@ -1362,7 +1362,6 @@ type TestAllEnginesAllPatternsWithCompileTime(patterns: (string) list, input: st
         ||| Text.RegularExpressions.RegexOptions.ExplicitCapture
 
     member val Counts: int list = (patterns |> List.indexed |> List.map (fun v -> fst v + 1)) with get, set
-    // member val Counts: int list = [7] with get, set
 
     // [<Params(1,2,3,4,5,6,7)>]
     // [<ParamsSource("Counts")>]
@@ -1382,9 +1381,9 @@ type TestAllEnginesAllPatternsWithCompileTime(patterns: (string) list, input: st
         ()
 
     //
-    // [<Benchmark(Description="None")>]
-    // member this.None() =
-    //     System.Text.RegularExpressions.Regex(this.Pattern, opts_None, TimeSpan.FromSeconds(10)).Count(inputText)
+    [<Benchmark(Description="None")>]
+    member this.None() =
+        System.Text.RegularExpressions.Regex(this.Pattern, opts_None, TimeSpan.FromSeconds(10)).Count(inputText)
 
     // [<Benchmark(Description="NonBacktrack")>]
     // member this.Symbolic() =
@@ -1408,6 +1407,47 @@ type TestAllEnginesAllPatternsWithCompileTime(patterns: (string) list, input: st
         //     ))
         // tsk.Wait(cts.Token)
 
+
+
+[<MemoryDiagnoser(false)>]
+[<ShortRunJob>]
+[<AbstractClass>]
+[<HideColumns([| "" |])>]
+type TestSbreAllPatternsWithCompileTime(patterns: (string) list, input: string) =
+    let inputText = input
+    member this.Patterns: System.Collections.Generic.IEnumerable<string> = patterns
+    member val CompiledEngine: Sbre.RegexMatcher<uint64> = Unchecked.defaultof<_> with get, set
+    [<ParamsSource("Patterns")>]
+    member val Pattern: string = "" with get, set
+
+    [<GlobalSetup>]
+    member this.Setup() = ()
+
+    [<Benchmark(Description = "Sbre")>]
+    member this.Sbre() =
+        Sbre.Regex(this.Pattern).Count(inputText)
+
+[<MemoryDiagnoser(false)>]
+[<ShortRunJob>]
+[<AbstractClass>]
+[<HideColumns([| "" |])>]
+type TestSbreAllPatternsMatchOnly(patterns: (string) list, input: string) =
+    let inputText = input
+    member this.Patterns: System.Collections.Generic.IEnumerable<string> = patterns
+    member val CompiledEngine: Sbre.RegexMatcher<uint64> = Unchecked.defaultof<_> with get, set
+    [<ParamsSource("Patterns")>]
+    member val Pattern: string = "" with get, set
+
+    [<GlobalSetup>]
+    member this.Setup() =
+        let regex = Regex(this.Pattern)
+        let matcher = regex.Matcher :?> RegexMatcher<uint64>
+        this.CompiledEngine <- matcher
+        ()
+
+    [<Benchmark(Description = "Sbre")>]
+    member this.Sbre() =
+        this.CompiledEngine.Count(inputText)
 
 
 

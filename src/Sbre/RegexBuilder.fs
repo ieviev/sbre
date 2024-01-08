@@ -82,8 +82,6 @@ module internal StartsetHelpers =
         let mutable totalLen = 0
 
         let shouldInvert = Solver.elemOfSet startset uintMinterms[0]
-        // let shouldInvert = _solver.isElemOfSet (startset,uintMinterms[0])
-
         if shouldInvert then
             for i = 1 to predStartsetArray.Length - 1 do
                 let pureMt = uintMinterms[i]
@@ -694,7 +692,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
 
                 // todo: careful in case of epsilon here
                 // ~(.*) -> always false (?)
-                | Not(node, info) when info.CanNotBeNullable() && info.ContainsEpsilon ->
+                | Not(node, info) when info.CanNotBeNullable() && info.DoesNotContainEpsilon ->
                     enumerating <- false
                     status <- MkAndFlags.IsFalse
                 | Epsilon ->
@@ -841,7 +839,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
 
     member this.mkNot(inner: RegexNode< 't >) =
         // short-circuit
-        if inner.IsAlwaysNullable && inner.ContainsEpsilon then
+        if inner.IsAlwaysNullable && inner.DoesNotContainEpsilon then
             _uniques._false
         else
 

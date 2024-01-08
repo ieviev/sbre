@@ -1,7 +1,6 @@
 #I "../src/Sbre/bin/Debug/net8.0"
 #r "RuntimeRegexCopy.dll"
 #r "Sbre.dll"
-
 #r "nuget: Thoth.Json.Net"
 
 open System
@@ -11,6 +10,10 @@ open FSharp.Data
 open Sbre
 open Sbre.Pat
 open Thoth.Json.Net
+
+
+
+// let twain_full =
 
 
 let engine = Regex("ab|cd")

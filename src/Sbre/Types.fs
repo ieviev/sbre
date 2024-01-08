@@ -68,18 +68,18 @@ module RegexNodeFlagsExtensions =
         member this.CanBeNullable = byte (this &&& RegexNodeFlags.CanBeNullableFlag) <> 0uy
         member this.ContainsLookaround = byte (this &&& RegexNodeFlags.ContainsLookaroundFlag) <> 0uy
 
-
+//
 [<Flags>]
 type RegexStateFlags =
-    | None = 0uy
-    | InitialFlag = 1uy
-    | DeadendFlag = 2uy
-    | AlwaysNullableFlag = 4uy
-    | CanBeNullableFlag = 8uy
-    | CanSkipFlag = 16uy
-    | HasPrefixFlag = 32uy
-    | ContainsLookaroundFlag = 64uy
-    | HasCounterFlag = 128uy
+    | None = 0
+    | InitialFlag = 1
+    | AlwaysNullableFlag = 2
+    | CanBeNullableFlag = 4
+    | CanSkipFlag = 8
+    | HasPrefixFlag = 16
+    | ContainsLookaroundFlag = 32
+    | HasCounterFlag = 64
+    | UseDotnetOptimizations = 128
     // todo: fixed length
     // todo: can be subsumed
     // todo: singleton loop
@@ -87,15 +87,27 @@ type RegexStateFlags =
 [<AutoOpen>]
 module RegexStateFlagsExtensions =
     type Sbre.Types.RegexStateFlags with
-        member this.IsInitial = (# "and" this RegexStateFlags.InitialFlag : int32 #) = 0
-        member this.IsDeadend = (# "and" this RegexStateFlags.DeadendFlag : int32 #) = 0
-        member this.IsAlwaysNullable = (# "and" this RegexStateFlags.AlwaysNullableFlag : int32 #) = 0
-        member this.CanBeNullable = (# "and" this RegexStateFlags.CanBeNullableFlag : int32 #) = 0
-        member this.ContainsLookaround = (# "and" this RegexStateFlags.ContainsLookaroundFlag : int32 #) = 0
-        member this.CanSkip = (# "and" this RegexStateFlags.CanSkipFlag : int32 #) = 0
-        member this.HasPrefix = (# "and" this RegexStateFlags.HasPrefixFlag : int32 #) = 0
         [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-        member this.HasCounter = (# "and" this RegexStateFlags.HasCounterFlag : int32 #) = 0
+        member this.IsInitial =
+            // (# "and" this RegexStateFlags.InitialFlag : RegexStateFlags #) <> RegexStateFlags.None
+            // this &&& RegexStateFlags.InitialFlag <> RegexStateFlags.None
+            // faster???
+            this &&& RegexStateFlags.InitialFlag = RegexStateFlags.InitialFlag
+        // [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+        // member this.IsDeadend =
+        //     this &&& RegexStateFlags.DeadendFlag = RegexStateFlags.DeadendFlag
+        [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+        member this.IsAlwaysNullable = this &&& RegexStateFlags.AlwaysNullableFlag = RegexStateFlags.AlwaysNullableFlag
+        [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+        member this.CanBeNullable = this &&& RegexStateFlags.CanBeNullableFlag = RegexStateFlags.CanBeNullableFlag
+        [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+        member this.ContainsLookaround = this &&& RegexStateFlags.ContainsLookaroundFlag = RegexStateFlags.ContainsLookaroundFlag
+        [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+        member this.CanSkip = this &&& RegexStateFlags.CanSkipFlag = RegexStateFlags.CanSkipFlag
+        [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+        member this.HasPrefix = this &&& RegexStateFlags.HasPrefixFlag = RegexStateFlags.HasPrefixFlag
+        [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+        member this.HasCounter = this &&& RegexStateFlags.HasCounterFlag = RegexStateFlags.HasCounterFlag
 
 
 
@@ -120,17 +132,18 @@ type RegexNodeInfo<'tset when 'tset :> IEquatable<'tset> and 'tset: equality >()
     member val StateFlags: 'tset = Unchecked.defaultof<'tset> with get, set
 
     member inline this.IsAlwaysNullable =
-        this.NodeFlags.HasFlag(RegexNodeFlags.IsAlwaysNullableFlag)
+
+        this.NodeFlags &&& RegexNodeFlags.IsAlwaysNullableFlag = RegexNodeFlags.IsAlwaysNullableFlag
         // (this.Flags &&& RegexNodeFlags.IsAlwaysNullable) <> RegexNodeFlags.None
     member inline this.CanBeNullable =
-        this.NodeFlags.HasFlag(RegexNodeFlags.CanBeNullableFlag)
+        this.NodeFlags &&& RegexNodeFlags.CanBeNullableFlag = RegexNodeFlags.CanBeNullableFlag
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.CanNotBeNullable() =
-        (this.NodeFlags &&& RegexNodeFlags.IsAlwaysNullableFlag) = RegexNodeFlags.None
+         (this.NodeFlags &&& RegexNodeFlags.IsAlwaysNullableFlag) = RegexNodeFlags.None
     member inline this.ContainsLookaround =
-        this.NodeFlags.HasFlag(RegexNodeFlags.ContainsLookaroundFlag)
-    member inline this.ContainsEpsilon =
+        this.NodeFlags &&& RegexNodeFlags.ContainsLookaroundFlag = RegexNodeFlags.ContainsLookaroundFlag
+    member inline this.DoesNotContainEpsilon =
         (this.NodeFlags &&& RegexNodeFlags.ContainsEpsilonFlag) = RegexNodeFlags.None
 
 
@@ -279,11 +292,11 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
         | LookAround _ -> false
         | Epsilon -> false
 
-    member this.ContainsEpsilon =
+    member this.DoesNotContainEpsilon =
         match this with
         | Or(info = info) | Loop(info = info) | And(info = info) | Not(info = info) | Concat(info = info) ->
-            info.ContainsEpsilon
-        | Singleton _ -> false
+            info.DoesNotContainEpsilon
+        | Singleton _ -> true
         | LookAround _ -> true
         | Epsilon -> false
 
@@ -366,4 +379,35 @@ module Enumerator =
 type TSet = uint64
 // type TSet = uint32
 // type TSet = uint16
+
+
+// CSA
+// 218:5
+[<Sealed>]
+type CountingSet() =
+    let _initial = LinkedList([0])
+    // offset: o, elem N
+    member val Offset: int = 0 with get, set
+    // queue : l,
+    member val Queue: LinkedList<int> = LinkedList(Seq.singleton 0) with get, set
+    member this.Incr() =
+        this.Offset <- this.Offset + 1
+
+    member this.Insert(n : int) =
+        if this.Offset - this.Queue.Last.Value > 0 then
+            this.Queue.AddLast(n) |> ignore
+    member this.Max() = this.Offset - this.Queue.First.Value
+    member this.Min() = this.Offset - this.Queue.Last.Value
+    member this.Reset(n : int) =
+        this.Offset <- n
+        this.Queue.Clear()
+        this.Queue.AddFirst(n) |> ignore
+
+
+
+
+
+
+
+
 

@@ -128,9 +128,23 @@ let (|TrueStar|_|) (solver: ISolver<_>) (node: RegexNode<_>) =
     | _ -> ValueNone
 
 [<return: Struct>]
+let (|BoundedLoop|_|) (node: RegexNode<_>) =
+    match node with
+    | Concat(head=Loop(node=Singleton pred;low=low;up=up); tail=tail) when up <> Int32.MaxValue -> ValueSome()
+    | _ -> ValueNone
+
+
+[<return: Struct>]
 let (|TrueStarredConcat|_|) (solver: ISolver<_>) (node: RegexNode<_>) =
     match node with
     | Concat(head=TrueStar solver; tail=tail) -> ValueSome(tail)
+    | _ -> ValueNone
+
+
+[<return: Struct>]
+let (|CounterNode|_|) (node: RegexNode<_>) =
+    match node with
+    | (BoundedLoop as loop) | Concat(head=(BoundedLoop) as loop; tail=_)  -> ValueSome(loop)
     | _ -> ValueNone
 
 

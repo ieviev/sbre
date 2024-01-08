@@ -39,7 +39,6 @@ let ``dfa end 02`` () =
     let endPos = dfaFindMatchEnd @".*(?=.*-)&\S.*\S" @"-aaaa-"
     Assert.Equal(5, endPos)
 
-#if TODO
 
 [<Fact>]
 let ``dfa end 03`` () =
@@ -57,6 +56,18 @@ let ``dfa end 04 - unroll loop`` () =
             BenchmarkTests.twain_input[..20000]
     Assert.Equal(11549, endPos)
 
+
+// [<Fact>]
+// let ``dfa end 05 - unroll loop`` () =
+//     let endPos =
+//         dfaFindMatchEnd
+//             // "[a-z]shing"
+//             "(?i)Twain"
+//             BenchmarkTests.twain_input[..20000]
+//     Assert.Equal(11549, endPos)
+
+
+#if TODO
 
 // [a-q][^u-z]{13}x
 

@@ -26,6 +26,7 @@
         <Compile Include="BenchmarkTests.fs" />
         <Compile Include="_09_DfaNodeTests.fs" />
         <Compile Include="_10_DfaMatchTests.fs" />
+        <Compile Include="_11_CountingSetTests.fs" />
         <Compile Include="Program.fs" />
     </ItemGroup>
 
