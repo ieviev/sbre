@@ -244,18 +244,18 @@ let ``flags 1``() =
     Assert.Equal(Flag.None, flags)
 
 
-#if TODO
 
-[<Fact>]
-let ``flags 2``() =
-    let matcher = Regex(@"⊤*English⊤*&⊤*King⊤*&⊤*Paris⊤*&~(⊤*\n\n⊤*)\n").TSetMatcher
 
-    match matcher.RawPattern with
-    | Types.And(nodes, info) ->
-        // let flags = Flags.inferNode matcher.RawPattern
-        let flags = Info.Flags.inferAnd (nodes)
-        Assert.Equal(Flag.CanSkipFlag ||| Flag.PrefixFlag, flags)
-    | _ -> Assert.True(false, "wrong node type")
+// [<Fact>]
+// let ``flags 2``() =
+//     let matcher = Regex(@"⊤*English⊤*&⊤*King⊤*&⊤*Paris⊤*&~(⊤*\n\n⊤*)\n").TSetMatcher
+//
+//     match matcher.RawPattern with
+//     | Types.And(nodes, info) ->
+//         // let flags = Flags.inferNode matcher.RawPattern
+//         let flags = Info.Flags.inferAnd (nodes)
+//         Assert.Equal(Flag.CanSkipFlag ||| Flag.PrefixFlag, flags)
+//     | _ -> Assert.True(false, "wrong node type")
 
 
 [<Fact>]
@@ -271,17 +271,19 @@ let ``flags 3``() =
     | _ -> Assert.True(false, "wrong node type")
 
 
+//
+// [<Fact>]
+// let ``flags 4``() =
+//     let matcher = Regex(@"~(⊤*Ara⊤*)").TSetMatcher
+//
+//     match matcher.RawPattern with
+//     | Types.Not(nodes, info) ->
+//         Assert.Equal(Flag.CanBeNullableFlag ||| Flag.IsAlwaysNullableFlag ||| Flag.CanSkipFlag ||| Flag.PrefixFlag, info.NodeFlags)
+//     | _ -> Assert.True(false, "wrong node type")
 
-[<Fact>]
-let ``flags 4``() =
-    let matcher = Regex(@"~(⊤*Ara⊤*)").TSetMatcher
-
-    match matcher.RawPattern with
-    | Types.Not(nodes, info) ->
-        Assert.Equal(Flag.CanBeNullableFlag ||| Flag.IsAlwaysNullableFlag ||| Flag.CanSkipFlag ||| Flag.PrefixFlag, info.NodeFlags)
-    | _ -> Assert.True(false, "wrong node type")
 
 
+#if TODO
 
 
 [<Fact>]

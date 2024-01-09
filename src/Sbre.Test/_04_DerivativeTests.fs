@@ -6,6 +6,7 @@ module Sbre.Test._04_DerivativeTests
 open System
 open Sbre
 open Sbre.Algorithm
+open Sbre.Info
 open Sbre.Pat
 open Sbre.Types
 open Xunit
@@ -14,17 +15,25 @@ let getDerivative(matcher: Regex, input: string) =
     let cache = matcher.TSetMatcher.Cache
     let node = matcher.TSetMatcher.RawPattern
     let location = (Location.create input 0)
+    let state = RegexState()
     // let matchCache = RegexMatchCache(cache,node)
-    createDerivative (cache, &location, cache.MintermForLocation(location), node)
+    createDerivative (cache, state, &location, cache.MintermForLocation(location), node)
 
 let getDerivativeT<'t when 't : struct and 't :> IEquatable< 't >
         and 't: equality>(matcher: Regex, input: string) =
     let matcher = matcher.Matcher :?> RegexMatcher<TSet>
     let cache = matcher.Cache
     let node = matcher.RawPattern
+    let state = RegexState()
     let location = (Location.create input 0)
-    createDerivative (cache, &location, cache.MintermForLocation(location), node)
+    createDerivative (cache, state, &location, cache.MintermForLocation(location), node)
 
+let getNodeDerivative(matcher: Regex, state:RegexState, node: RegexNode<TSet>, input: string) =
+    let matcher = matcher.Matcher :?> RegexMatcher<TSet>
+    let cache = matcher.Cache
+    // let node = matcher.RawPattern
+    let location = (Location.create input 0)
+    createDerivative (cache, state, &location, cache.MintermForLocation(location), node)
 
 
 
@@ -32,10 +41,11 @@ let testFullDerivative(pattern: string, input: string, expectedDerivative: strin
     let matcher = Regex(pattern).TSetMatcher
     let cache = matcher.Cache
     let node = matcher.InitialPattern
+    let state = RegexState()
     let location = (Location.create input 0)
 
     let result =
-        createDerivative (cache, &location, cache.MintermForLocation(location), node)
+        createDerivative (cache, state, &location, cache.MintermForLocation(location), node)
         |> (fun v -> cache.PrettyPrintNode v)
 
     Assert.Equal(expectedDerivative, result)
@@ -52,12 +62,13 @@ let test2ndDerivative(pattern: string, input: string, expectedDerivative: string
     let matcher = Regex(pattern).TSetMatcher
     let cache = matcher.Cache
     let node = matcher.InitialPattern
+    let state = RegexState()
     let location = (Location.create input 0)
     let location1 = (Location.create input 1)
 
-    let der1 = createDerivative (cache, &location, cache.MintermForLocation(location), node)
+    let der1 = createDerivative (cache, state, &location, cache.MintermForLocation(location), node)
 
-    let der2 = createDerivative (cache, &location1, cache.MintermForLocation(location1), der1)
+    let der2 = createDerivative (cache, state, &location1, cache.MintermForLocation(location1), der1)
 
     let result = der2 |> (fun v -> cache.PrettyPrintNode v)
 
@@ -69,14 +80,15 @@ let test2ndDerivatives(pattern: string, input: string, expectedDerivatives: stri
 
     let location = (Location.create input 0)
     let location1 = (Location.create input 1)
+    let state = RegexState()
     let result =
         try
             let matcher = Regex(pattern).TSetMatcher
             let cache = matcher.Cache
             let node = matcher.InitialPattern
 
-            let der1 = createDerivative (cache, &location, cache.MintermForLocation(location), node)
-            let der2 = createDerivative (cache, &location1, cache.MintermForLocation(location1), der1)
+            let der1 = createDerivative (cache, state, &location, cache.MintermForLocation(location), node)
+            let der2 = createDerivative (cache, state, &location1, cache.MintermForLocation(location1), der1)
             cache.PrettyPrintNode der2
         with
             e ->
@@ -84,15 +96,15 @@ let test2ndDerivatives(pattern: string, input: string, expectedDerivatives: stri
                     let matcher = Regex(pattern).ByteMatcher
                     let cache = matcher.Cache
                     let node = matcher.InitialPattern
-                    let der1 = createDerivative (cache, &location, cache.MintermForLocation(location), node)
-                    let der2 = createDerivative (cache, &location1, cache.MintermForLocation(location1), der1)
+                    let der1 = createDerivative (cache, state, &location, cache.MintermForLocation(location), node)
+                    let der2 = createDerivative (cache, state, &location1, cache.MintermForLocation(location1), der1)
                     cache.PrettyPrintNode der2
                 with e ->
                     let matcher = Regex(pattern).UInt16Matcher
                     let cache = matcher.Cache
                     let node = matcher.InitialPattern
-                    let der1 = createDerivative (cache, &location, cache.MintermForLocation(location), node)
-                    let der2 = createDerivative (cache, &location1, cache.MintermForLocation(location1), der1)
+                    let der1 = createDerivative (cache, state, &location, cache.MintermForLocation(location), node)
+                    let der2 = createDerivative (cache, state, &location1, cache.MintermForLocation(location1), der1)
                     cache.PrettyPrintNode der2
 
 
@@ -298,40 +310,12 @@ let ``subsumption or loop limited 1``() =
     test2ndDerivatives (
         "[a-z]{0,10}y",
         "ccccc",
-        [ @"(⊤*[a-z]{0,10}y|[a-z]{0,9}y)"; @"([a-z]{0,9}y|⊤*[a-z]{0,10}y)" ]
+        // [ @"(⊤*[a-z]{0,10}y|[a-z]{0,9}y)"; @"([a-z]{0,9}y|⊤*[a-z]{0,10}y)" ]
+        // CsA
+        [ @"(⊤*[a-z]{0,10}y|[a-z]{0,10}y)";]
     )
 
 
-
-// [<Fact>]
-// let ``subsumption big ``() =
-//     testPartDerivatives (@"((.*t.*hat.*|.*hat.*)&.*w.*as.*&.*a.*nd.*)", "t", [""])
-//
-
-
-
-// [<Fact>]
-// let ``derivative or subsumption`` () = testPartDerivative (@"(aaa|[\s\S]*)", "aaa", @"⊤*")
-
-// [<Fact>]
-// let ``derivative and 1`` () = testPartDerivative (@"⊤*B&⊤*A⊤*", "BHBA", @"(⊤*A⊤*&(|⊤*B))")
-//
-//
-// [<Fact>]
-// let ``derivative and 2`` () =
-//     testPartDerivative (
-//         @"[\s\S]*French&[\s\S]*English[\s\S]*",
-//         "French, English _______",
-//         @"(⊤*English⊤*&(rench|⊤*French))")
-//
-//
-// [<Fact>]
-// let ``derivative and 3`` () =
-//     testPartDerivativeFromLocation (
-//         @"(.*rain.*|.*)&(.*dogs.*|ogs.*)",
-//         "raining cats and dogs", 16,
-//         @"(.*dogs.*&(.*|.*rain.*))")
-//
 
 
 [<Fact>] // implies set eats a node it shouldnt
@@ -397,3 +381,50 @@ let ``matchend test 4``() =
 
 
 #endif
+
+
+[<Fact>]
+let ``deriv flags 1``() =
+    let regex = Regex("a{1,3}b")
+    let matcher = regex.TSetMatcher
+    let state = RegexState()
+    let d1 = getNodeDerivative(regex, state, matcher.InitialPattern,"a")
+    let flags = d1.GetFlags()
+    // (⊤*⟨a{1,3}b⟩|⟨a{1,3}b⟩)
+    Assert.Equal(Flag.HasCounterFlag, flags)
+    let counter = state.ActiveCounters.Values |> Seq.head
+    Assert.Equal(counter.Offset, 1)
+    // assertPatternIn
+
+
+[<Fact>]
+let ``deriv flags 2``() =
+    let regex = Regex("a{1,3}b")
+    let matcher = regex.TSetMatcher
+    let state = RegexState()
+    let d1 = getNodeDerivative(regex, state, matcher.InitialPattern,"a")
+    let counter = state.ActiveCounters.Values |> Seq.head
+    let d2 = getNodeDerivative(regex, state, d1, "a")
+    Assert.Equal(counter.Offset, 2)
+    let d3 = getNodeDerivative(regex, state, d2, "a")
+    Assert.Equal(counter.Offset, 3)
+    let d4 = getNodeDerivative(regex, state, d3, "b")
+    Assert.Equal(counter.Offset, 0)
+    Common.assertPatternIn ["(⊤*⟨a{1,3}b⟩|ε)"; "(ε|⊤*⟨a{1,3}b⟩)"] d4
+
+[<Fact>]
+let ``deriv flags 3``() =
+    let regex = Regex(@"\d{2}$")
+    let matcher = regex.TSetMatcher
+    let state = RegexState()
+    let d1 = getNodeDerivative(regex, state, matcher.InitialPattern,"1")
+    let counter =
+        state.ActiveCounters.Values |> Seq.head
+    let d2 = getNodeDerivative(regex, state, d1, "2")
+    Assert.Equal(counter.Offset, 2)
+    let d3 = getNodeDerivative(regex, state, d2, "a")
+    Assert.Equal(counter.Offset, 3)
+    let d4 = getNodeDerivative(regex, state, d3, "b")
+    Assert.Equal(counter.Offset, 0)
+    Common.assertPatternIn ["(⊤*⟨a{1,3}b⟩|ε)"; "(ε|⊤*⟨a{1,3}b⟩)"] d4
+

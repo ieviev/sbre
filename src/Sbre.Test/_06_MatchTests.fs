@@ -161,9 +161,42 @@ let ``lookarounds test 9``() =
     Assert.Equal(Some "0.0.0.0", result)
 
 
+open Sbre.Test.Common
 
 [<Fact>]
-let ``caching lookarounds test``() =
+let ``caching lookarounds test 1``() =
+    let matcher =
+        Regex(
+            """1300\d{6}$"""
+        ).TSetMatcher
+    let cache = matcher.Cache
+    let mutable _toplevelOr = matcher.InitialPattern
+    let mutable loc = Pat.Location.create "1300333444" 0
+    let result = matcher.DfaEndPosition(cache, &loc, &_toplevelOr)
+    Assert.Equal(10, result)
+
+    // let result = matcher.DebugDfaAllDerivatives("1300333444", printRegexState matcher)
+
+    // let result = matcher.FindMatchEnd("1300333444")
+    // Assert.Equal(ValueSome 10, result)
+    ()
+
+
+[<Fact>]
+let ``caching lookarounds test 2``() =
+
+    let matcher =
+        Regex(
+            """(^1300\d{6}$)|(^1800|1900|1902\d{6}$)|(^0[2|3|7|8]{1}[0-9]{8}$)|(^13\d{4}$)|(^04\d{2,3}\d{6}$)"""
+        ).TSetMatcher
+    let cache = matcher.Cache
+    let mutable _toplevelOr = matcher.InitialPattern
+    let mutable loc = Pat.Location.create "1300333444" 0
+    let result = matcher.DfaEndPosition(cache, &loc, &_toplevelOr)
+    Assert.Equal(10, result)
+
+[<Fact>]
+let ``caching lookarounds test 3``() =
     let matcher =
         Regex(
             """(^1300\d{6}$)|(^1800|1900|1902\d{6}$)|(^0[2|3|7|8]{1}[0-9]{8}$)|(^13\d{4}$)|(^04\d{2,3}\d{6}$)"""

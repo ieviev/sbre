@@ -133,6 +133,7 @@ module RegexNode =
         | And(info = info)
         | Not(info = info)
         | Concat(info = info) ->
+            if info.NodeFlags.HasCounter then ValueNone else
             let mutable e = CollectionsMarshal.AsSpan(info.Transitions)
             //.GetEnumerator()
             // use mutable e = info.Transitions.GetEnumerator()
@@ -209,6 +210,7 @@ module RegexNode =
         locationPredicate,
         loc:byref<Location>,
         cache:RegexCache<TSet>,
+        state: RegexState,
         foundmatch:byref<bool>
         ) =
         let deriv =
@@ -217,6 +219,7 @@ module RegexNode =
             | _ ->
                 createDerivative (
                     cache,
+                    state,
                     &loc,
                     locationPredicate,
                     _initialNode
@@ -259,6 +262,7 @@ module RegexNode =
                 toplevelOr <- initialNode
                 initialNode
 
+        let _state = RegexState()
         // todo: predicate optimization
         let _startsetPredicate : TSet = cache.Solver.Full //.GetInitialStartsetPredicate
         let _builder = cache.Builder
@@ -289,7 +293,7 @@ module RegexNode =
                     let updated =
                         match getCachedTransition (locationPredicate, toplevelOr.TryGetInfo) with
                         | ValueSome v -> v
-                        | _ -> createDerivative (cache, &loc, locationPredicate, toplevelOr)
+                        | _ -> createDerivative (cache, _state, &loc, locationPredicate, toplevelOr)
 
                     let isFinalNullable =
                         deriveActiveBranch(
@@ -309,7 +313,7 @@ module RegexNode =
                             &toplevelOr,
                             _initialWithoutDotstar,
                             _initialInfo,
-                            locationPredicate,&loc,cache, &foundmatch)
+                            locationPredicate,&loc,cache, _state, &foundmatch)
 
                 if not foundmatch then
                     loc.Position <- Location.nextPosition loc
@@ -359,13 +363,15 @@ module RegexNode =
 
 let rec createDerivative
     (
-        c: RegexCache<TSet>,
+        cache: RegexCache<TSet>,
+        state : RegexState,
         loc: inref<Location>,
         loc_pred: TSet,
         node: RegexNode<TSet>
     )
     : RegexNode<TSet>
     =
+
     match RegexNode.getTransitionInfo (loc_pred, node) with
     | ValueSome n -> n
     | _ ->
@@ -373,38 +379,42 @@ let rec createDerivative
             match node with
             // Derx (R) = ⊥ if R ∈ ANC or R = ()
             | LookAround _
-            | Epsilon -> c.False
+            | Epsilon -> cache.False
             // Der s⟨i⟩ (ψ) = if si ∈ [[ψ]] then () else ⊥
             | Singleton pred ->
                 // if c.Solver.isElemOfSet(pred,loc_pred) then Epsilon else c.False
-                if Solver.elemOfSet pred loc_pred then Epsilon else c.False
+                if Solver.elemOfSet pred loc_pred then Epsilon else cache.False
 
             // Derx (R{m, n}) =
             // if m=0 or Null ∀(R)=true or Nullx (R)=false
             // then Derx (R)·R{m −1, n −1}
             // else Derx (R·R{m −1, n −1})
             | Loop(R, low, up, info) ->
+
+                // CSA
+                let a = 1
                 let inline decr x =
                     if x = Int32.MaxValue || x = 0 then x else x - 1
 
                 let case1 =
                     low = 0
                     || info.IsAlwaysNullable = true
-                    || not (RegexNode.isNullable (c, &loc, R))
+                    || not (RegexNode.isNullable (cache, &loc, R))
 
                 match case1 with
                 | true ->
                     // Derx (R)·R{m −1, n −1, l}
-                    let derR = createDerivative (c, &loc, loc_pred, R)
-                    c.Builder.mkConcat2 (derR, c.Builder.mkLoop (R, decr low, decr up))
+                    let derR = createDerivative (cache, state, &loc, loc_pred, R)
+                    cache.Builder.mkConcat2 (derR, cache.Builder.mkLoop (R, decr low, decr up))
 
                 | false ->
                     // Derx (R·R{m −1, n −1, l})
                     createDerivative (
-                        c,
+                        cache,
+                        state,
                         &loc,
                         loc_pred,
-                        c.Builder.mkConcat2 (R, c.Builder.mkLoop (R, decr low, decr up))
+                        cache.Builder.mkConcat2 (R, cache.Builder.mkLoop (R, decr low, decr up))
                     )
 
 
@@ -415,8 +425,8 @@ let rec createDerivative
                 // xs |> Seq.map derR
                 let derivatives = ResizeArray()
                 for n in xs do
-                    derivatives.Add (createDerivative (c, &loc, loc_pred, n))
-                derivatives |> c.Builder.mkOr
+                    derivatives.Add (createDerivative (cache, state,&loc, loc_pred, n))
+                derivatives |> cache.Builder.mkOr
 
             // Derx (R & S) = Derx (R) & Derx (S)
             | And(xs, info) as head ->
@@ -424,27 +434,65 @@ let rec createDerivative
                 // xs |> Seq.map derR |> c.Builder.mkAnd
                 let derivatives = ResizeArray()
                 for n in xs do
-                    derivatives.Add (createDerivative (c, &loc, loc_pred, n))
-                c.Builder.mkAnd(derivatives)
+                    derivatives.Add (createDerivative (cache, state,&loc, loc_pred, n))
+                cache.Builder.mkAnd(derivatives)
 
             // Derx(~R) = ~Derx (R)
             | Not(inner, info) ->
-                let derR = createDerivative (c, &loc, loc_pred, inner)
-                c.Builder.mkNot (derR)
+                let derR = createDerivative (cache, state,&loc, loc_pred, inner)
+                cache.Builder.mkNot (derR)
             // Derx (R·S) = if Nullx (R) then Derx (R)·S|Derx (S) else Derx (R)·S
             | Concat(head, tail, info) ->
-                let R' = createDerivative (c, &loc, loc_pred, head)
-                let R'S = c.Builder.mkConcat2 (R', tail)
+                // CsA
+                if info.NodeFlags.HasCounter then
 
-                if RegexNode.isNullable (c, &loc, head) then
-                    let S' = createDerivative (c, &loc, loc_pred, tail)
+                    match head with
+                    | Loop(headBody, headLow, headUp, headInfo) ->
+                        if loc.Position = 9 then
+                            ()
+                        let counter = state.GetOrInitializeCounter(node)
 
-                    if refEq c.Builder.uniques._false S' then
+                        let condDer1 =
+                            createDerivative (cache, state,&loc, loc_pred, headBody)
+                        let condDer2 =
+                            if not (refEq cache.False condDer1) && counter.CanIncr() then
+                                counter.Incr()
+                                node
+                                // if counter.CanIncr() then node else Epsilon
+                            else
+                                condDer1
+
+                        let conc1 = cache.Builder.mkConcat2(condDer1, condDer2)
+
+
+
+                        let condDer3 =
+                            if counter.CanExit() then
+                                tail
+                                // createDerivative (cache, state,&loc, loc_pred, tail)
+                            else cache.False
+
+                        if refEq cache.False conc1 then
+                            counter.Reset(0)
+
+                        let union = cache.Builder.mkOr(seq {conc1; condDer3})
+                        // exit x; incr x ==> exit1
+                        union
+                    | _ -> failwith "invalid counter loop"
+                else
+
+                let R' = createDerivative (cache, state,&loc, loc_pred, head)
+                let R'S = cache.Builder.mkConcat2 (R', tail)
+
+                if RegexNode.isNullable (cache, &loc, head) then
+                    let S' = createDerivative (cache, state,&loc, loc_pred, tail)
+
+                    if refEq cache.Builder.uniques._false S' then
                         R'S
                     else
                         // optimization: (a*|⊤*a*) ==> ⊤*a*
                         let newConcat =
-                            c.Builder.mkOr (
+                            cache.Builder.mkOr (
                                 seq {
                                     R'S
                                     S'
@@ -455,7 +503,7 @@ let rec createDerivative
                 else
                     R'S
 
-        if not (containsLookaround node) then
-            c.Builder.AddTransitionInfo(loc_pred, node, result)
+        if not (containsLookaround node) && not node.HasCounter then
+            cache.Builder.AddTransitionInfo(loc_pred, node, result)
 
         result

@@ -8,6 +8,9 @@ open System.Runtime.CompilerServices
 open System.Text.RuntimeRegexCopy.Symbolic
 open System.Diagnostics
 
+// module Constants =
+//     let [<Literal>] COUNTING_SET_THRESHOLD = 2
+
 
 #if DEBUG
 [<AutoOpen>]
@@ -60,6 +63,7 @@ type RegexNodeFlags =
     | IsAlwaysNullableFlag = 2uy
     | ContainsLookaroundFlag = 4uy
     | ContainsEpsilonFlag = 8uy
+    | HasCounterFlag = 16uy
 
 [<AutoOpen>]
 module RegexNodeFlagsExtensions =
@@ -67,6 +71,7 @@ module RegexNodeFlagsExtensions =
         member this.IsAlwaysNullable = byte (this &&& RegexNodeFlags.IsAlwaysNullableFlag) <> 0uy
         member this.CanBeNullable = byte (this &&& RegexNodeFlags.CanBeNullableFlag) <> 0uy
         member this.ContainsLookaround = byte (this &&& RegexNodeFlags.ContainsLookaroundFlag) <> 0uy
+        member this.HasCounter = (this &&& RegexNodeFlags.HasCounterFlag) = RegexNodeFlags.HasCounterFlag
 
 //
 [<Flags>]
@@ -240,6 +245,8 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
             | true -> $"{inner}*"
             | false -> inner + loopCount
 
+
+
         | LookAround(body, lookBack, negate) ->
             let inner = body.ToString()
 
@@ -251,7 +258,11 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
             | true, true -> $"(?<!{inner})"
             | true, false -> $"(?<={inner})"
 
-        | Concat(h, t, info) ->  h.ToString() + t.ToString()
+        | Concat(h, t, info) ->
+            let body = h.ToString() + t.ToString()
+            if info.NodeFlags.HasCounter then
+                $"⟨{body}⟩"
+            else body
         | Epsilon -> "ε"
         // | Star(node, low, up, info) -> $"{node.ToString()}*"
 #endif
@@ -283,6 +294,9 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
         not (this.GetFlags().HasFlag(RegexNodeFlags.CanBeNullableFlag))
     member this.ContainsLookaround =
         this.GetFlags().HasFlag(RegexNodeFlags.ContainsLookaroundFlag)
+
+    member this.HasCounter =
+        this.GetFlags().HasFlag(RegexNodeFlags.HasCounterFlag)
 
     member this.IsAlwaysNullable =
         match this with
@@ -384,27 +398,46 @@ type TSet = uint64
 // CSA
 // 218:5
 [<Sealed>]
-type CountingSet() =
-    let _initial = LinkedList([0])
+type CountingSet(lowerbound: int, upperbound: int) =
     // offset: o, elem N
     member val Offset: int = 0 with get, set
-    // queue : l,
+    // queue : l, strictly increasing natural numbers, Sc = o - n
     member val Queue: LinkedList<int> = LinkedList(Seq.singleton 0) with get, set
+    member private this.Max = this.Offset - this.Queue.First.Value
+    member private this.Min = this.Offset - this.Queue.Last.Value
+    member private this.TryRemoveFirst() =
+        if this.Max > upperbound && not (obj.ReferenceEquals(this.Queue.First.Next,null)) then
+            this.Queue.RemoveFirst()
+    member this.CanExit() : bool = this.Max >= lowerbound
+    member this.CanIncr() : bool =
+        this.TryRemoveFirst()
+        this.Min < upperbound
     member this.Incr() =
         this.Offset <- this.Offset + 1
-
-    member this.Insert(n : int) =
-        if this.Offset - this.Queue.Last.Value > 0 then
-            this.Queue.AddLast(n) |> ignore
-    member this.Max() = this.Offset - this.Queue.First.Value
-    member this.Min() = this.Offset - this.Queue.Last.Value
+    member this.Incr0() =
+        this.Incr()
+        this.Queue.AddLast(this.Offset) |> ignore
     member this.Reset(n : int) =
         this.Offset <- n
         this.Queue.Clear()
         this.Queue.AddFirst(n) |> ignore
 
 
+// statefulness
+type RegexState() =
+    member val ActiveCounters: Dictionary<RegexNode<TSet>,CountingSet> = Dictionary() with get, set
 
+    member this.GetOrInitializeCounter(node:RegexNode<TSet>) =
+        match this.ActiveCounters.TryGetValue(node) with
+        | true, v -> v
+        | _ ->
+            match node with
+            | Concat(Loop(low=low;up=up), tail, regexNodeInfo) ->
+                let cs = CountingSet(low,up)
+                this.ActiveCounters.Add(node,cs)
+                cs
+            | _ ->
+                failwith $"todo: initialize counter: {node.ToString()}"
 
 
 

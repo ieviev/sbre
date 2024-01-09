@@ -89,12 +89,21 @@ let (|ContainsLookaround|_|)(x: RegexNodeInfo<'t>) =
 
 module rec Flags =
     let rec inferLoop(R, lower, upper) =
-        match (R, lower, upper) with
-        | _, 0, Int32.MaxValue ->
-            RegexNodeFlags.CanBeNullableFlag
-            |> Flag.withFlag RegexNodeFlags.IsAlwaysNullableFlag
-        | _, 0, _ -> RegexNodeFlags.CanBeNullableFlag |> Flag.withFlag RegexNodeFlags.IsAlwaysNullableFlag
-        | _ -> inferNode R
+        let hasCounterFlag =
+            RegexNodeFlags.None
+            // match R, upper with
+            // // TODO: more monadic regexes
+            // // decide counter threshold
+            // | (Singleton _, upper) when
+            //     upper <> Int32.MaxValue && upper > 1 -> RegexNodeFlags.HasCounterFlag
+            // | _ -> RegexNodeFlags.None
+
+        let nullableLoopFlag =
+            match lower with
+            | 0 -> RegexNodeFlags.CanBeNullableFlag ||| RegexNodeFlags.IsAlwaysNullableFlag
+            | _ -> RegexNodeFlags.None
+
+        inferNodeOptimized R ||| nullableLoopFlag ||| hasCounterFlag
 
     let inferAnd(xs: seq<RegexNode<'t>>) : RegexNodeFlags =
         xs
@@ -102,7 +111,7 @@ module rec Flags =
         |> Seq.reduce (fun b f ->
             let orflags =
                 (b ||| f) &&& (
-                    Flag.ContainsEpsilonFlag ||| Flag.ContainsLookaroundFlag)
+                    Flag.ContainsEpsilonFlag ||| Flag.ContainsLookaroundFlag ||| Flag.HasCounterFlag)
             let andFlags =
                 b &&& f &&& (Flag.CanBeNullableFlag ||| Flag.IsAlwaysNullableFlag)
 
@@ -115,8 +124,9 @@ module rec Flags =
         let t1 = inferNodeOptimized tail
         let orFlags = h1 ||| t1 &&& (Flag.ContainsEpsilonFlag ||| Flag.ContainsLookaroundFlag)
         let andFlags = h1 &&& t1 &&& (Flag.IsAlwaysNullableFlag||| Flag.CanBeNullableFlag)
+        let startsWithCounter = h1 &&& Flag.HasCounterFlag
 
-        andFlags ||| orFlags
+        andFlags ||| orFlags ||| startsWithCounter
 
 
 
@@ -150,7 +160,7 @@ module rec Flags =
         |> Seq.reduce (fun b f ->
             let orflags =
                 (b ||| f) &&& (
-                    Flag.CanBeNullableFlag ||| Flag.IsAlwaysNullableFlag ||| Flag.ContainsEpsilonFlag ||| Flag.ContainsLookaroundFlag)
+                    Flag.CanBeNullableFlag ||| Flag.IsAlwaysNullableFlag ||| Flag.ContainsEpsilonFlag ||| Flag.ContainsLookaroundFlag ||| Flag.HasCounterFlag)
             orflags
         )
 
