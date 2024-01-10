@@ -4,6 +4,7 @@ open System
 open System.Buffers
 open System.Collections.Immutable
 open System.Runtime.InteropServices
+open Sbre.CountingSet
 open Sbre.Info
 open Sbre.Optimizations
 open Sbre.Pat
@@ -56,7 +57,7 @@ module RegexNode =
         | Epsilon -> Epsilon
 
 
-    let rec isNullable(cache: RegexCache<_>, loc: inref<Location>, node: RegexNode<_>) : bool =
+    let rec isNullable(cache: RegexCache<_>, state:RegexState, loc: inref<Location>, node: RegexNode<_>) : bool =
 
         // short-circuit
         if canNotBeNullable node then
@@ -75,21 +76,41 @@ module RegexNode =
             use mutable e = xs.GetEnumerator()
             let mutable found = false
             while not found && e.MoveNext() do
-                found <- isNullable (cache, &loc, e.Current)
+                found <- isNullable (cache, state, &loc, e.Current)
             found
         // Nullx (R) and Nullx (S)
         | And(xs, info) ->
             use mutable e = xs.GetEnumerator()
             let mutable forall = true
             while forall && e.MoveNext() do
-                forall <- isNullable (cache, &loc, e.Current)
+                forall <- isNullable (cache, state, &loc, e.Current)
             forall
         // Nullx (R{m, n}) = m = 0 or Nullx (R)
-        | Loop(R, low, _, info) -> low = 0 || (isNullable (cache, &loc, R))
+        | Loop(R, low, _, info) -> low = 0 || (isNullable (cache,state, &loc, R))
         // not(Nullx (R))
-        | Not(node, info) -> not (isNullable (cache, &loc, node))
+        | Not(inner, info) ->
+            if info.NodeFlags.IsCounter then
+                failwith "counter nullability"
+                // match state.CounterCanExit(node) with
+                // | ValueSome(true) -> not (isNullable (cache,state, &loc, inner))
+                // | ValueSome(false) -> true
+                // | _ -> not (isNullable (cache,state, &loc, inner))
+            else
+                not (isNullable (cache,state, &loc, inner))
         // Nullx (R) and Nullx (S)
-        | Concat(head, tail, _) -> isNullable (cache, &loc, head) && isNullable (cache, &loc, tail)
+        | Concat(head, tail, info) ->
+            if info.NodeFlags.IsAlwaysNullable then true else
+            if info.NodeFlags.IsCounter then
+                let counter = state.TryGetCounter(node)
+                match counter with
+                | ValueNone -> false
+                | ValueSome counter ->
+                let canExit = counter.CanExit()
+                match canExit with
+                | true -> isNullable (cache,state, &loc, tail)
+                | false -> false
+            else
+                isNullable (cache,state, &loc, head) && isNullable (cache,state, &loc, tail)
         | LookAround(body, lookBack, negate) ->
             let mutable _tlo = cache.False
             match lookBack, negate with
@@ -135,13 +156,10 @@ module RegexNode =
         | Concat(info = info) ->
             if info.NodeFlags.HasCounter then ValueNone else
             let mutable e = CollectionsMarshal.AsSpan(info.Transitions)
-            //.GetEnumerator()
-            // use mutable e = info.Transitions.GetEnumerator()
+
             let mutable looping = true
             let mutable i = 0
 
-
-            // while looping && e.MoveNext() do
             while looping && i < e.Length do
                 let curr = e[i]
 
@@ -175,75 +193,22 @@ module RegexNode =
 
     let deriveActiveBranch(
         toplevelOr:byref<RegexNode<_>>,
+        state:RegexState,
         locationPredicate,
         loc:byref<Location>,
         cache:RegexCache<TSet>,
         updated:RegexNode<_>
         ) : bool =
-        // let updated =
-        //     match getTransitionInfo2 (locationPredicate, toplevelOrInfo) with
-        //     | ValueSome v -> v
-        //     | _ -> createDerivative (cache, &loc, locationPredicate, toplevelOr)
-        // if refEq toplevelOr updated then
-        //     match toplevelOrInfo with
-        //     | ValueSome info ->
-        //         info.CanBeNullable
-        //         && (info.IsAlwaysNullable || isNullable (cache, &loc, toplevelOr))
-        //     | _ -> isNullable (cache, &loc, toplevelOr)
-        // else
-
         let mutable isFinalNullable = false
         if refEq cache.False updated then
             isFinalNullable <-
                 match toplevelOr.TryGetInfo with
                 | ValueSome info ->
                     info.CanBeNullable
-                    && (info.IsAlwaysNullable || isNullable (cache, &loc, toplevelOr))
-                | _ -> isNullable (cache, &loc, toplevelOr)
+                    && (info.IsAlwaysNullable || isNullable (cache,state, &loc, toplevelOr))
+                | _ -> isNullable (cache, state, &loc, toplevelOr)
         toplevelOr <- updated
         isFinalNullable
-
-    let deriveInitialBranch(
-        _currentActiveBranch:byref<RegexNode<_>>,
-        _initialNode:RegexNode<_>,
-        _initialInfo:RegexNodeInfo<_> voption,
-        locationPredicate,
-        loc:byref<Location>,
-        cache:RegexCache<TSet>,
-        state: RegexState,
-        foundmatch:byref<bool>
-        ) =
-        let deriv =
-            match getCachedTransition (locationPredicate, _initialInfo) with
-            | ValueSome v -> v
-            | _ ->
-                createDerivative (
-                    cache,
-                    state,
-                    &loc,
-                    locationPredicate,
-                    _initialNode
-                )
-
-        if refEq deriv cache.False then
-            if isAlwaysNullable _initialNode then
-                foundmatch <- true
-        else
-            if refEq _currentActiveBranch cache.False then
-                _currentActiveBranch <- deriv
-
-            let isSubsumed =
-                refEq _currentActiveBranch deriv ||
-                isAlwaysNullable (_currentActiveBranch) ||
-                match cache.Builder.SubsumptionCache.TryGetValue(struct (_currentActiveBranch, deriv)) with
-                | true, subsumed -> subsumed
-                | _ -> cache.Builder.trySubsumeTopLevelOr (_currentActiveBranch, deriv)
-
-            if not isSubsumed then
-                _currentActiveBranch <- cache.Builder.mkOr [| deriv; _currentActiveBranch |]
-
-
-
 
     let matchEnd
         (cache: RegexCache<TSet>)
@@ -253,33 +218,17 @@ module RegexNode =
         : int voption
         =
         let mutable foundmatch = false
-
-        // initial node
-        let _initialWithoutDotstar =
-            if cache.IsImplicitDotStarred initialNode then
-                cache.InitialPatternWithoutDotstar
-            else
-                toplevelOr <- initialNode
-                initialNode
-
-        let _state = RegexState()
-        // todo: predicate optimization
-        let _startsetPredicate : TSet = cache.Solver.Full //.GetInitialStartsetPredicate
+        let _state = RegexState(cache.NumOfMinterms())
+        let _startsetPredicate : TSet = cache.Solver.Full
         let _builder = cache.Builder
-        let _initialInfo = _initialWithoutDotstar.TryGetInfo
         let _initialAlwaysNullable = isAlwaysNullable initialNode
-        let _createNewBranches =
-            not _initialAlwaysNullable &&
-            cache.IsImplicitDotStarred initialNode
-
-        if cache.IsImplicitDotStarred initialNode && _initialAlwaysNullable then
-            toplevelOr <- _initialWithoutDotstar
+        toplevelOr <- initialNode
 
         let mutable currentMax =
             // compute initial nullability
             match _initialAlwaysNullable with
             | true ->
-                ValueSome (loc.Position)
+                ValueSome loc.Position
             | _ ->
                 ValueNone
 
@@ -287,33 +236,21 @@ module RegexNode =
             if Location.isFinal loc then
                 foundmatch <- true
             else
-                let locationPredicate = cache.MintermForLocation(loc)
+                let loc_pred = cache.MintermForLocation(loc)
+
+
+
                 // current active branches
                 if not (refEq toplevelOr cache.False) then
-                    let updated =
-                        match getCachedTransition (locationPredicate, toplevelOr.TryGetInfo) with
-                        | ValueSome v -> v
-                        | _ -> createDerivative (cache, _state, &loc, locationPredicate, toplevelOr)
-
+                    let updated = createDerivative (cache, _state, &loc, loc_pred, toplevelOr)
                     let isFinalNullable =
                         deriveActiveBranch(
                             &toplevelOr,
-                            locationPredicate,&loc,cache,updated)
+                            _state,
+                            loc_pred,&loc,cache,updated)
                     if isFinalNullable then
                         currentMax <- ValueSome loc.Position
                         foundmatch <- true
-
-                // create implicit dotstar derivative only if startset matches
-                if
-                    Solver.elemOfSet _startsetPredicate locationPredicate
-                    && _createNewBranches
-                    && currentMax.IsNone
-                then
-                    deriveInitialBranch(
-                            &toplevelOr,
-                            _initialWithoutDotstar,
-                            _initialInfo,
-                            locationPredicate,&loc,cache, _state, &foundmatch)
 
                 if not foundmatch then
                     loc.Position <- Location.nextPosition loc
@@ -321,9 +258,10 @@ module RegexNode =
                     if
                         canBeNullableV (toplevelOr.TryGetInfo,toplevelOr)
                     then
-                        if isAlwaysNullable toplevelOr || isNullable (cache, &loc, toplevelOr) then
+                        if isAlwaysNullable toplevelOr || isNullable (cache, _state, &loc, toplevelOr) then
                             currentMax <- (ValueSome loc.Position)
 
+                    CountingSet.stepCounters _state loc_pred
                     // won't try to jump further if final
                     if
                         Location.isFinal loc
@@ -339,7 +277,6 @@ module RegexNode =
                             failwith "todo: predicate optimization"
                             // let chars = cache.GetInitialSearchValues()
                             // cache.TryNextStartsetLocationArray(&loc,cache.GetInitialStartsetPrefix().Span,chars)
-
                         // jump mid-regex
                         match toplevelOr.TryGetInfo with
                         | ValueSome i ->
@@ -351,15 +288,62 @@ module RegexNode =
 
 
         if foundmatch then
-            match currentMax with
-            | ValueSome(n) when n <> loc.Position ->
-                if isNullable (cache, &loc, toplevelOr) then
-                    currentMax <- (ValueSome loc.Position)
-            | _ ->
-                if _initialWithoutDotstar.IsAlwaysNullable then
-                    currentMax <- (ValueSome loc.Position)
+            if isNullable (cache, _state, &loc, toplevelOr) then
+                currentMax <- (ValueSome loc.Position)
 
         currentMax
+
+
+
+let rec createCounterDerivative
+    (
+        cache: RegexCache<TSet>,
+        state : RegexState,
+        loc: inref<Location>,
+        loc_pred: TSet,
+        node: RegexNode<TSet>
+    )
+    : RegexNode<TSet> =
+        match node with
+        | Concat(head, tail, info) ->
+            match head with
+            | Loop(Singleton pred, headLow, headUp, headInfo) ->
+                match Solver.elemOfSet loc_pred pred with
+                | false ->
+                    state.RemoveCounter(node) |> ignore
+                    cache.False
+                | true ->
+
+                let counter = state.GetOrInitializeCounter(node)
+                let counterState = counter.GetState()
+                let offset = counter.Offset
+
+                match counterState with
+                | CounterState.Fail -> cache.False
+                | CounterState.CanIncr ->
+                    let headDerivative =
+                        createDerivative (cache, state,&loc, loc_pred, Singleton pred)
+                    if refEq headDerivative cache.False then
+                        // counter.Reset()
+                        cache.False
+                    else
+                        node
+                | CounterState.CanExit ->
+                    let deriv = createDerivative (cache, state,&loc, loc_pred, tail)
+                    // let deriv = tail
+                    deriv
+                | CounterState.CanIncrExit ->
+                    // let deriv = tail
+                    let deriv = createDerivative (cache, state,&loc, loc_pred, tail)
+                    cache.Builder.mkOr(seq { node; deriv })
+            | _ ->
+                failwith "??"
+        | _ ->
+            failwith "other counter"
+
+
+
+
 
 let rec createDerivative
     (
@@ -372,10 +356,13 @@ let rec createDerivative
     : RegexNode<TSet>
     =
 
-    match RegexNode.getTransitionInfo (loc_pred, node) with
-    | ValueSome n -> n
-    | _ ->
         let result =
+
+            let info = node.GetFlags()
+            if info.IsCounter then
+                createCounterDerivative(cache,state,&loc,loc_pred,node)
+            else
+
             match node with
             // Derx (R) = ⊥ if R ∈ ANC or R = ()
             | LookAround _
@@ -399,7 +386,7 @@ let rec createDerivative
                 let case1 =
                     low = 0
                     || info.IsAlwaysNullable = true
-                    || not (RegexNode.isNullable (cache, &loc, R))
+                    || not (RegexNode.isNullable (cache, state, &loc, R))
 
                 match case1 with
                 | true ->
@@ -421,8 +408,6 @@ let rec createDerivative
 
             // Derx (R | S) = Derx (R) | Derx (S)
             | Or(xs, info) ->
-                // let derR x = createDerivative (c, loc, loc_pred, x)
-                // xs |> Seq.map derR
                 let derivatives = ResizeArray()
                 for n in xs do
                     derivatives.Add (createDerivative (cache, state,&loc, loc_pred, n))
@@ -430,8 +415,6 @@ let rec createDerivative
 
             // Derx (R & S) = Derx (R) & Derx (S)
             | And(xs, info) as head ->
-                // let derR x = createDerivative (c, loc, loc_pred, x)
-                // xs |> Seq.map derR |> c.Builder.mkAnd
                 let derivatives = ResizeArray()
                 for n in xs do
                     derivatives.Add (createDerivative (cache, state,&loc, loc_pred, n))
@@ -443,67 +426,20 @@ let rec createDerivative
                 cache.Builder.mkNot (derR)
             // Derx (R·S) = if Nullx (R) then Derx (R)·S|Derx (S) else Derx (R)·S
             | Concat(head, tail, info) ->
-                // CsA
-                if info.NodeFlags.HasCounter then
-
-                    match head with
-                    | Loop(headBody, headLow, headUp, headInfo) ->
-                        if loc.Position = 9 then
-                            ()
-                        let counter = state.GetOrInitializeCounter(node)
-
-                        let condDer1 =
-                            createDerivative (cache, state,&loc, loc_pred, headBody)
-                        let condDer2 =
-                            if not (refEq cache.False condDer1) && counter.CanIncr() then
-                                counter.Incr()
-                                node
-                                // if counter.CanIncr() then node else Epsilon
-                            else
-                                condDer1
-
-                        let conc1 = cache.Builder.mkConcat2(condDer1, condDer2)
-
-
-
-                        let condDer3 =
-                            if counter.CanExit() then
-                                tail
-                                // createDerivative (cache, state,&loc, loc_pred, tail)
-                            else cache.False
-
-                        if refEq cache.False conc1 then
-                            counter.Reset(0)
-
-                        let union = cache.Builder.mkOr(seq {conc1; condDer3})
-                        // exit x; incr x ==> exit1
-                        union
-                    | _ -> failwith "invalid counter loop"
-                else
 
                 let R' = createDerivative (cache, state,&loc, loc_pred, head)
                 let R'S = cache.Builder.mkConcat2 (R', tail)
 
-                if RegexNode.isNullable (cache, &loc, head) then
+                if RegexNode.isNullable (cache, state, &loc, head) then
                     let S' = createDerivative (cache, state,&loc, loc_pred, tail)
-
                     if refEq cache.Builder.uniques._false S' then
                         R'S
                     else
-                        // optimization: (a*|⊤*a*) ==> ⊤*a*
-                        let newConcat =
-                            cache.Builder.mkOr (
-                                seq {
-                                    R'S
-                                    S'
-                                }
-                            )
-
-                        newConcat
+                        cache.Builder.mkOr ( seq { R'S ;S' } )
                 else
                     R'S
 
-        if not (containsLookaround node) && not node.HasCounter then
-            cache.Builder.AddTransitionInfo(loc_pred, node, result)
+        // if not (containsLookaround node) && not node.HasCounter then
+        //     cache.Builder.AddTransitionInfo(loc_pred, node, result)
 
         result

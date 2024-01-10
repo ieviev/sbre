@@ -1,20 +1,31 @@
 [<Xunit.Collection("Sequential")>]
-module Sbre.Test._03_StartsetTests
+module Sbre.Test._03_NullabilityTests
 
-
-#if DEBUG
 
 open System
 open System.Text.RuntimeRegexCopy.Symbolic
 open Sbre
+open Sbre.CountingSet
 open Sbre.Info
 open Sbre.Pat
 open Sbre.Types
 open Xunit
+open Common
 
 module Helpers =
     let charSetSolver = System.Text.RuntimeRegexCopy.Symbolic.CharSetSolver()
     let bddBuilder = SymbolicRegexBuilder<BDD>(charSetSolver, charSetSolver)
+
+
+[<Fact>]
+let ``nullable 01``() =
+    let regex = Regex(".{2}c")
+    let matcher = regex.TSetMatcher
+    let state = RegexState(matcher.Cache.NumOfMinterms())
+    let loc = Location.create "" 0
+    let node = matcher.RawPattern
+    let nullable = Algorithm.RegexNode.isNullable(matcher.Cache,state,&loc,node)
+    assertFalse nullable
 
 
 #if TODO
@@ -405,5 +416,4 @@ let ``skip position test 2``() =
 
 
 
-#endif
 #endif

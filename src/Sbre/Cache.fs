@@ -83,6 +83,7 @@ type RegexCache< 't
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.Minterms() = minterms
+    member this.NumOfMinterms() = minterms.Length
 
     // [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     // member this.GetInitialStartsetPrefix() = _initialStartset

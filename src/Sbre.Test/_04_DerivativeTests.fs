@@ -1,11 +1,14 @@
 [<Xunit.Collection("Sequential")>]
 module Sbre.Test._04_DerivativeTests
 
+open Common
+
 #if DEBUG
 
 open System
 open Sbre
 open Sbre.Algorithm
+open Sbre.CountingSet
 open Sbre.Info
 open Sbre.Pat
 open Sbre.Types
@@ -15,7 +18,7 @@ let getDerivative(matcher: Regex, input: string) =
     let cache = matcher.TSetMatcher.Cache
     let node = matcher.TSetMatcher.RawPattern
     let location = (Location.create input 0)
-    let state = RegexState()
+    let state = RegexState(cache.NumOfMinterms())
     // let matchCache = RegexMatchCache(cache,node)
     createDerivative (cache, state, &location, cache.MintermForLocation(location), node)
 
@@ -24,16 +27,18 @@ let getDerivativeT<'t when 't : struct and 't :> IEquatable< 't >
     let matcher = matcher.Matcher :?> RegexMatcher<TSet>
     let cache = matcher.Cache
     let node = matcher.RawPattern
-    let state = RegexState()
+    let state = RegexState(cache.NumOfMinterms())
     let location = (Location.create input 0)
     createDerivative (cache, state, &location, cache.MintermForLocation(location), node)
 
 let getNodeDerivative(matcher: Regex, state:RegexState, node: RegexNode<TSet>, input: string) =
     let matcher = matcher.Matcher :?> RegexMatcher<TSet>
     let cache = matcher.Cache
-    // let node = matcher.RawPattern
     let location = (Location.create input 0)
-    createDerivative (cache, state, &location, cache.MintermForLocation(location), node)
+    let minterm = cache.MintermForLocation(location)
+    CountingSet.stepCounters state minterm
+    let deriv = createDerivative (cache, state, &location, minterm, node)
+    deriv
 
 
 
@@ -41,7 +46,7 @@ let testFullDerivative(pattern: string, input: string, expectedDerivative: strin
     let matcher = Regex(pattern).TSetMatcher
     let cache = matcher.Cache
     let node = matcher.InitialPattern
-    let state = RegexState()
+    let state = RegexState(cache.NumOfMinterms())
     let location = (Location.create input 0)
 
     let result =
@@ -53,7 +58,7 @@ let testFullDerivative(pattern: string, input: string, expectedDerivative: strin
 
 let testFullDerivativeMultiple(pattern: string, input: string, expectedDerivatives: string list) =
     let matcher = Regex(pattern)
-    let result = Common.getDerImpl matcher input
+    let result = Common.der1s matcher input
 
     Assert.Contains(result, expectedDerivatives)
 
@@ -62,7 +67,7 @@ let test2ndDerivative(pattern: string, input: string, expectedDerivative: string
     let matcher = Regex(pattern).TSetMatcher
     let cache = matcher.Cache
     let node = matcher.InitialPattern
-    let state = RegexState()
+    let state = RegexState(cache.NumOfMinterms())
     let location = (Location.create input 0)
     let location1 = (Location.create input 1)
 
@@ -80,12 +85,13 @@ let test2ndDerivatives(pattern: string, input: string, expectedDerivatives: stri
 
     let location = (Location.create input 0)
     let location1 = (Location.create input 1)
-    let state = RegexState()
+
     let result =
         try
             let matcher = Regex(pattern).TSetMatcher
             let cache = matcher.Cache
             let node = matcher.InitialPattern
+            let state = RegexState(cache.NumOfMinterms())
 
             let der1 = createDerivative (cache, state, &location, cache.MintermForLocation(location), node)
             let der2 = createDerivative (cache, state, &location1, cache.MintermForLocation(location1), der1)
@@ -96,6 +102,7 @@ let test2ndDerivatives(pattern: string, input: string, expectedDerivatives: stri
                     let matcher = Regex(pattern).ByteMatcher
                     let cache = matcher.Cache
                     let node = matcher.InitialPattern
+                    let state = RegexState(cache.NumOfMinterms())
                     let der1 = createDerivative (cache, state, &location, cache.MintermForLocation(location), node)
                     let der2 = createDerivative (cache, state, &location1, cache.MintermForLocation(location1), der1)
                     cache.PrettyPrintNode der2
@@ -103,6 +110,7 @@ let test2ndDerivatives(pattern: string, input: string, expectedDerivatives: stri
                     let matcher = Regex(pattern).UInt16Matcher
                     let cache = matcher.Cache
                     let node = matcher.InitialPattern
+                    let state = RegexState(cache.NumOfMinterms())
                     let der1 = createDerivative (cache, state, &location, cache.MintermForLocation(location), node)
                     let der2 = createDerivative (cache, state, &location1, cache.MintermForLocation(location1), der1)
                     cache.PrettyPrintNode der2
@@ -118,7 +126,7 @@ let test2ndDerivatives(pattern: string, input: string, expectedDerivatives: stri
 
 let testRawDerivative(pattern: string, input: string, expectedDerivative: string) =
     let matcher = Regex(pattern)
-    let result = Common.getDer1 matcher input
+    let result = der1 matcher input true
     Assert.Equal(expectedDerivative, result)
 
 
@@ -127,7 +135,7 @@ let testRawDerivative(pattern: string, input: string, expectedDerivative: string
 let testPartDerivative(pattern: string, input: string, expectedDerivative: string) =
     let matcher = Regex(pattern)
     let location = (Location.create input 0)
-    let result = Common.getDerLoc matcher location
+    let result = Common.der1rawlocs matcher location
 
 
     Assert.Equal(expectedDerivative, result)
@@ -135,7 +143,7 @@ let testPartDerivative(pattern: string, input: string, expectedDerivative: strin
 
 let testPartDerivatives(pattern: string, input: string, expectedDerivatives: string list) =
     let matcher = Regex(pattern)
-    let prettyResult = Common.getDer1 matcher input
+    let prettyResult = Common.der1 matcher input true
     Assert.Contains(prettyResult , expectedDerivatives)
 
 
@@ -151,7 +159,7 @@ let testPartDerivativeFromLocation
     =
     let matcher = Regex(pattern)
     let location = (Location.create input position)
-    let prettyResult = Common.getDerLoc matcher location
+    let prettyResult = Common.der1rawlocs matcher location
     Assert.Equal(expectedDerivative, prettyResult)
 
 
@@ -165,7 +173,7 @@ let testPartDerivativeFromLocationMultiple
     =
     let matcher = Regex(pattern)
     let location = (Location.create input position)
-    let prettyResult = Common.getDerLoc matcher location
+    let prettyResult = Common.der1rawlocs matcher location
 
     Assert.Contains(prettyResult, expectedDerivatives)
 
@@ -177,7 +185,7 @@ let testPartDerivativesLoc
     )
     =
     let matcher = Regex(pattern)
-    let result = Common.getDerLoc matcher loc
+    let result = Common.der1rawlocs matcher loc
 
     Assert.Contains(result, expectedDerivatives)
 
@@ -312,7 +320,8 @@ let ``subsumption or loop limited 1``() =
         "ccccc",
         // [ @"(⊤*[a-z]{0,10}y|[a-z]{0,9}y)"; @"([a-z]{0,9}y|⊤*[a-z]{0,10}y)" ]
         // CsA
-        [ @"(⊤*[a-z]{0,10}y|[a-z]{0,10}y)";]
+        // [ @"(⊤*[a-z]{0,10}y|[a-z]{0,10}y)"; "([a-z]{0,10}y|⊤*[a-z]{0,10}y)"]
+        [ "⊤*[a-z]{0,10}y" ]
     )
 
 
@@ -387,44 +396,186 @@ let ``matchend test 4``() =
 let ``deriv flags 1``() =
     let regex = Regex("a{1,3}b")
     let matcher = regex.TSetMatcher
-    let state = RegexState()
+    let state = RegexState(matcher.Cache.NumOfMinterms())
     let d1 = getNodeDerivative(regex, state, matcher.InitialPattern,"a")
     let flags = d1.GetFlags()
-    // (⊤*⟨a{1,3}b⟩|⟨a{1,3}b⟩)
     Assert.Equal(Flag.HasCounterFlag, flags)
-    let counter = state.ActiveCounters.Values |> Seq.head
-    Assert.Equal(counter.Offset, 1)
-    // assertPatternIn
+
+
+// [<Fact>]
+// let ``counter debug``() =
+//     let regex = Regex("a{1,3}b{1,3}a")
+//     let result = assertCounterStates regex "aaa" [
+//         CounterState.CanIncr
+//         CounterState.CanIncr
+//         CounterState.CanIncr
+//     ]
+//     assertAlternation [ "ε" ] result.Node
+//
+
+
+//
+// [<Fact>]
+// let ``counter 01``() =
+//     let regex = Regex(".{2}c")
+//     let result = assertCounterStates regex "__c" [
+//         // --
+//         [ CounterState.CanIncr, 0 ]
+//         [ CounterState.CanExit, 1 ]
+//         [  ]
+//     ]
+//     assertAlternation [ "ε" ] result.Node
+//
+//
+//
+// [<Fact>]
+// let ``counter 02``() =
+//     let regex = Regex(".{2}c$")
+//     let result = assertCounterStates regex "__c" [
+//         [ CounterState.CanIncr, 0 ]
+//         [ CounterState.CanExit, 1 ]
+//         [ CounterState.CanExit, 1 ]
+//         [  ]
+//     ]
+//     assertAlternation [ "(?!⊤)"; @"(?=\n)" ] result.Node
+// //
+// [<Fact>]
+// let ``counter 03``() =
+//     let regex = Regex(".{2}(?=c)")
+//     let result = assertCounterStates regex "__c" [
+//         [CounterState.CanIncr, 0]
+//         [CounterState.CanExit, 1]
+//     ]
+//     assertEqual result.IsNullable true
+//
+// [<Fact>]
+// let ``counter 04``() =
+//     let regex = Regex(".{2}(?<=c.*)")
+//     let result = assertCounterStates regex "c_c" [
+//         [CounterState.CanIncr, 0]
+//         [CounterState.CanExit, 1]
+//     ]
+//     assertEqual result.IsNullable true
+//
+// //
+// [<Fact>]
+// let ``counter 05``() =
+//     let regex = Regex("⊤*\d{2}⊤*")
+//     let result = assertCounterStates regex "a11a" [
+//         [CounterState.CanIncr, 0]
+//         [CounterState.CanIncr, 0]
+//         [CounterState.CanExit, 1]
+//     ]
+//     assertEqual result.IsNullable true
+
+//
+// [<Fact>]
+// let ``counter 06``() =
+//     let regex = Regex("~(⊤*\d{2}⊤*)")
+//     let result = assertCounterStates regex "a11b" [
+//         CounterState.CanIncr
+//         CounterState.CanIncr
+//         CounterState.CanIncr
+//         CounterState.CanIncrExit
+//     ]
+//     assertEqual result.IsNullable false
+//
+// [<Fact>]
+// let ``counter 08``() =
+//     let regex = Regex("~(.*[a-z]{3}1)")
+//     let result = assertCounterStates regex "__aaaaa1__" [
+//         CounterState.CanIncr // 0
+//         CounterState.CanIncr // 0
+//         CounterState.CanIncr // 1
+//         CounterState.CanIncr // 2
+//         CounterState.CanIncr // 3
+//         CounterState.CanIncrExit // 4 - 1
+//         CounterState.CanIncrExit // 5 - 2
+//     ]
+//     assertEqual result.IsNullable true
+//
+//
+// [<Fact>]
+// let ``counter 09``() =
+//     let regex = Regex(".*\d{2}c")
+//     let result = assertCounterStates regex "__111c__" [
+//         CounterState.CanIncr // 0
+//         CounterState.CanIncr // 0
+//         CounterState.CanIncr // 1
+//         CounterState.CanIncr // 2
+//         CounterState.CanIncrExit // 3
+//         CounterState.CanIncrExit
+//     ]
+//     assertEqual result.IsNullable true
+
+//
+// [<Fact>]
+// let ``counter 10``() =
+//     let regex = Regex("\d\d")
+//     let result = assertCounterStates regex "11" [
+//         CounterState.CanIncr
+//         CounterState.CanIncr
+//     ]
+//     assertEqual result.IsNullable true
+//
+//
+//
+//
+// [<Fact>]
+// let ``counter 11``() =
+//     let regex = Regex("~(⊤*\d\d⊤*)")
+//     let result = assertCounterStates regex "_11_" [
+//         CounterState.CanIncr
+//         CounterState.CanIncr
+//     ]
+//     assertEqual result.IsNullable true
+//
+// [<Fact>]
+// let ``counter 12``() =
+//     let regex = Regex("~(⊤*\d\d⊤*)")
+//     let result = assertCounterStates regex "_11_" [
+//         CounterState.CanIncr
+//         CounterState.CanIncr
+//         CounterState.CanIncr
+//     ]
+//     assertEqual result.IsNullable false
+//
+//
+// [<Fact>]
+// let ``counter 13``() =
+//     let regex = Regex("~(⊤*\d\d⊤*)")
+//     let result = assertCounterStates regex "1__11__" [
+//         CounterState.CanIncr
+//         CounterState.CanIncr
+//     ]
+//     assertEqual result.IsNullable true
+//
+
 
 
 [<Fact>]
-let ``deriv flags 2``() =
-    let regex = Regex("a{1,3}b")
-    let matcher = regex.TSetMatcher
-    let state = RegexState()
-    let d1 = getNodeDerivative(regex, state, matcher.InitialPattern,"a")
-    let counter = state.ActiveCounters.Values |> Seq.head
-    let d2 = getNodeDerivative(regex, state, d1, "a")
-    Assert.Equal(counter.Offset, 2)
-    let d3 = getNodeDerivative(regex, state, d2, "a")
-    Assert.Equal(counter.Offset, 3)
-    let d4 = getNodeDerivative(regex, state, d3, "b")
-    Assert.Equal(counter.Offset, 0)
-    Common.assertPatternIn ["(⊤*⟨a{1,3}b⟩|ε)"; "(ε|⊤*⟨a{1,3}b⟩)"] d4
+let ``counter match 1``() = assertDfaMatchEnds "..a" "_a__" []
 
 [<Fact>]
-let ``deriv flags 3``() =
-    let regex = Regex(@"\d{2}$")
-    let matcher = regex.TSetMatcher
-    let state = RegexState()
-    let d1 = getNodeDerivative(regex, state, matcher.InitialPattern,"1")
-    let counter =
-        state.ActiveCounters.Values |> Seq.head
-    let d2 = getNodeDerivative(regex, state, d1, "2")
-    Assert.Equal(counter.Offset, 2)
-    let d3 = getNodeDerivative(regex, state, d2, "a")
-    Assert.Equal(counter.Offset, 3)
-    let d4 = getNodeDerivative(regex, state, d3, "b")
-    Assert.Equal(counter.Offset, 0)
-    Common.assertPatternIn ["(⊤*⟨a{1,3}b⟩|ε)"; "(ε|⊤*⟨a{1,3}b⟩)"] d4
+let ``counter match 2``() = assertDfaMatchEnds "..a" "__a__" [3]
+
+[<Fact>]
+let ``counter match 3``() = assertDfaMatchEnds "..a" "__aaa__" [3]
+
+[<Fact>]
+let ``counter match 4``() = assertDfaMatchEnds "~(.*\d\d.*)" "__11__" [3; 6]
+
+
+[<Fact>]
+let ``counter match 5``() = assertDfaMatchEnds "~(.*\d\d.*)" "__11__" [3; 6]
+
+
+[<Fact>]
+let ``counter match 6``() = assertDfaReversePos "~(⊤*\d\d⊤*)" "Aa1" 0
+
+[<Fact>]
+let ``counter match 7``() = assertDfaMatches "~(⊤*\d\d⊤*)" "Aa11aBaAA" [(0,3); 3,6]
+
+
+
 

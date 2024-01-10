@@ -169,17 +169,15 @@ let ``caching lookarounds test 1``() =
         Regex(
             """1300\d{6}$"""
         ).TSetMatcher
+
+    // let result = matcher.FindMatchEnd("1300333444")
+    // Assert.Equal(ValueSome 10, result)
+
     let cache = matcher.Cache
     let mutable _toplevelOr = matcher.InitialPattern
     let mutable loc = Pat.Location.create "1300333444" 0
     let result = matcher.DfaEndPosition(cache, &loc, &_toplevelOr)
     Assert.Equal(10, result)
-
-    // let result = matcher.DebugDfaAllDerivatives("1300333444", printRegexState matcher)
-
-    // let result = matcher.FindMatchEnd("1300333444")
-    // Assert.Equal(ValueSome 10, result)
-    ()
 
 
 [<Fact>]
@@ -390,7 +388,6 @@ let ``reverse pattern 2``() =
 
 [<Fact>]
 let ``negation range test 1``() =
-    // let matcher = Matcher(@"~(.*\d\d⊤*)")
     let matcher = Regex(@"~(⊤*\d\d⊤*)")
     let result = matcher.MatchText("Aa11aBaAA")
     Assert.Equal(Some "Aa1", result)
@@ -438,6 +435,13 @@ Lorem Ipsum iHK3khIUTQYxHx9r has been the Aa11aBaAA standard dfgI51d7ZPhOwGwI2vp
 when an unknown versions of Lorem Ipsum.
 "
 
+
+
+[<Fact>]
+let ``web app debug``() =
+    let matcher = Regex(@"~(.*\d\d.*)&[a-zA-Z\d]{8,}")
+    let result = matcher.MatchPositions("y tej55zhA25wXu8bvQxFxt o") |> Seq.toArray
+    Assert.Equal(1, result.Length)
 
 
 
@@ -631,7 +635,9 @@ let ``just loop``() =
 
 [<Fact>]
 let ``simple 1``() =
-    let matcher = Regex("..g")
+    let regex = Regex("..g")
+    let matcher = regex.TSetMatcher
+
     let result =
         matcher.Matches("dfdff dfgfgg gfgdfg gddfdf") |> Seq.toArray
     Assert.Equal( 4, result.Length )
@@ -648,10 +654,55 @@ let ``set star loop test 1``() =
 
 
 
+[<Fact>]
+let ``dfa match 1``() =
+    let regex = Regex(".*a{3}")
+    let matcher = regex.TSetMatcher
+    let result = matcher.DfaMatchEnds("aaa")
+    Assert.Equal([3], result )
+
+[<Fact>]
+let ``dfa match 2``() =
+    let regex = Regex(".*a{3}")
+    let matcher = regex.TSetMatcher
+    let result = matcher.DfaMatchEnds("aa aaa")
+    Assert.Equal([6], result )
 
 
+[<Fact>]
+let ``dfa match 3``() =
+    let regex = Regex(@"~(⊤*\d\d⊤*)")
+    let matcher = regex.TSetMatcher
+    assertAllStates regex "aa11aaa" [
+        [ @"⟨⊤*~(⟨⊤*⟨\d{2,2}⊤*⟩⟩)⟩" ]
+        [ @"⟨⊤*~(⟨⊤*⟨\d{2,2}⊤*⟩⟩)⟩" ]
+        [ @"⟨⊤*~(⟨⊤*⟨\d{2,2}⊤*⟩⟩)⟩"; @"~(⟨⊤*⟨\d{2,2}⊤*⟩⟩)" ]
+        [ @"⟨⊤*~(⟨⊤*⟨\d{2,2}⊤*⟩⟩)⟩" ]
+        [ @"⟨⊤*~(⟨⊤*⟨\d{2,2}⊤*⟩⟩)⟩" ]
+    ]
 
 
+[<Fact>]
+let ``dfa match 4``() = assertDfaMatchEnds "..a" "_a__" []
+
+[<Fact>]
+let ``dfa match 5``() = assertDfaMatchEnds "..a" "__a__" [3]
+
+[<Fact>]
+let ``dfa match 6``() = assertDfaMatchEnds "..a" "___a__" [4]
+
+[<Fact>]
+let ``dfa match 7``() = assertDfaMatchEnds "..a" "___a__" [4]
+
+// [<Fact>]
+// let ``llmatch 1``() =
+//     let regex = Regex("abc")
+//     let matcher = regex.TSetMatcher
+//
+//     let result =
+//         matcher.LLMatchPositions("__abc__")
+//         |> Seq.toArray
+//     Assert.Equal([4; 7; 12], result |> Seq.map (fun v -> v.Index) )
 
 
 

@@ -137,7 +137,7 @@ let (|BoundedLoop|_|) (node: RegexNode<_>) =
 [<return: Struct>]
 let (|TrueStarredConcat|_|) (solver: ISolver<_>) (node: RegexNode<_>) =
     match node with
-    | Concat(head=TrueStar solver; tail=tail) -> ValueSome(tail)
+    | Concat(head=TrueStar solver; tail=tail; info=info) when not info.NodeFlags.HasCounter -> ValueSome(tail)
     | _ -> ValueNone
 
 
@@ -153,7 +153,6 @@ let (|CounterNode|_|) (node: RegexNode<_>) =
 //     match node with
 //     | (BoundedLoop as loop) | Concat(head=(BoundedLoop) as loop; tail=_)  -> ValueSome(loop)
 //     | _ -> ValueNone
-
 
 
 // private bool IsMonadic(string regex)
@@ -301,17 +300,19 @@ module Location =
     let inline createSpan (str: ReadOnlySpan<char>) (p: int32) : Location = { Input = str; Position = p; Reversed = false }
     let inline clone (loc:inref<Location>) : Location =
         { Input = loc.Input ; Position = loc.Position ; Reversed = loc.Reversed }
-    let inline createSpanRev (str: ReadOnlySpan<char>) (p: int32) (currDirection:bool) : Location = {
-        Input = str; Position = p; Reversed = not currDirection
+    let inline createSpanRev (str: ReadOnlySpan<char>) (p: int32) (forwards:bool) : Location = {
+        Input = str; Position = p; Reversed = not forwards
     }
+
+    let inline isFinal (loc: Location) =
+        loc.Reversed && loc.Position = 0
+        || not loc.Reversed && loc.Position = loc.Input.Length
 
     let inline nextPosition (loc: Location) =
         match loc.Reversed with
         | true -> (loc.Position - 1)
         | _ -> (loc.Position + 1 )
-    let inline isFinal (loc: Location) =
-        loc.Reversed && loc.Position = 0
-        || not loc.Reversed && loc.Position = loc.Input.Length
+
     let inline final (loc: Location) =
         match loc.Reversed with
         | true -> 0

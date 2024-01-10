@@ -89,21 +89,30 @@ let (|ContainsLookaround|_|)(x: RegexNodeInfo<'t>) =
 
 module rec Flags =
     let rec inferLoop(R, lower, upper) =
-        let hasCounterFlag =
-            RegexNodeFlags.None
-            // match R, upper with
-            // // TODO: more monadic regexes
-            // // decide counter threshold
-            // | (Singleton _, upper) when
-            //     upper <> Int32.MaxValue && upper > 1 -> RegexNodeFlags.HasCounterFlag
-            // | _ -> RegexNodeFlags.None
+
+// todo:
+#if NO_COUNTERS
+        let hasCounterFlag = RegexNodeFlags.None
+#else
+        let innerFlags = inferNodeOptimized R
+        let counterFlags =
+            match R, upper with
+            // TODO: more monadic regexes
+            // decide counter threshold
+            | (Singleton _, upper) when
+                upper <> Int32.MaxValue && upper > 1 ->
+                Flag.HasCounterFlag ||| Flag.IsCounterFlag
+            | _ ->
+                if innerFlags.HasCounter then Flag.HasCounterFlag else
+                Flag.None
+#endif
 
         let nullableLoopFlag =
             match lower with
             | 0 -> RegexNodeFlags.CanBeNullableFlag ||| RegexNodeFlags.IsAlwaysNullableFlag
             | _ -> RegexNodeFlags.None
 
-        inferNodeOptimized R ||| nullableLoopFlag ||| hasCounterFlag
+        inferNodeOptimized R ||| nullableLoopFlag ||| counterFlags
 
     let inferAnd(xs: seq<RegexNode<'t>>) : RegexNodeFlags =
         xs
@@ -124,9 +133,17 @@ module rec Flags =
         let t1 = inferNodeOptimized tail
         let orFlags = h1 ||| t1 &&& (Flag.ContainsEpsilonFlag ||| Flag.ContainsLookaroundFlag)
         let andFlags = h1 &&& t1 &&& (Flag.IsAlwaysNullableFlag||| Flag.CanBeNullableFlag)
-        let startsWithCounter = h1 &&& Flag.HasCounterFlag
-
-        andFlags ||| orFlags ||| startsWithCounter
+        let dependsOnCounter = h1.HasCounter || (h1.CanBeNullable && t1.HasCounter)
+        let isCounterFlag =
+            match dependsOnCounter, h1.IsCounter with
+            | true, true -> Flag.IsCounterFlag
+            | _ -> Flag.None
+        let counterFlags =
+            match dependsOnCounter, t1.CanBeNullable with
+            | true, true -> Flag.CanBeNullableFlag ||| Flag.HasCounterFlag
+            | true, false -> Flag.HasCounterFlag
+            | _ -> Flag.None
+        andFlags ||| orFlags ||| counterFlags ||| isCounterFlag
 
 
 
@@ -148,9 +165,13 @@ module rec Flags =
         let nullableFlags =
             if not (innerInfo.HasFlag(RegexNodeFlags.CanBeNullableFlag)) then
                 Flag.IsAlwaysNullableFlag ||| Flag.CanBeNullableFlag
-            else Flag.None
+            else
+                if innerInfo.HasCounter && innerInfo.CanBeNullable then
+                    Flag.CanBeNullableFlag else
+
+                Flag.None
         let otherFlags =
-            innerInfo &&& (Flag.ContainsEpsilonFlag ||| Flag.ContainsLookaroundFlag)
+            innerInfo &&& (Flag.ContainsEpsilonFlag ||| Flag.ContainsLookaroundFlag ||| Flag.HasCounterFlag)
         nullableFlags ||| otherFlags
 
 
@@ -165,23 +186,22 @@ module rec Flags =
         )
 
 
-    let rec inferNode(node: RegexNode<'t>) =
+    let rec inferInitialFlags(node: RegexNode<'t>) =
         match node with
         | Epsilon ->
-            RegexNodeFlags.CanBeNullableFlag
-            |> Flag.withFlag RegexNodeFlags.IsAlwaysNullableFlag
-            |> Flag.withFlag RegexNodeFlags.ContainsEpsilonFlag
+            Flag.CanBeNullableFlag ||| Flag.IsAlwaysNullableFlag ||| Flag.ContainsEpsilonFlag
+
         | Singleton _ -> RegexNodeFlags.None
-        | Not(inner, info) -> inferNot inner
+        | Not(inner, _) -> inferNot inner
         // not nullable
-        | Or(xs, info) -> inferOr xs
+        | Or(xs, _) -> inferOr xs
         | LookAround _ -> RegexNodeFlags.ContainsLookaroundFlag ||| RegexNodeFlags.CanBeNullableFlag
 
-        | Loop(node, low, up, info) -> inferLoop (node, low, up)
+        | Loop(node, low, up, _) -> inferLoop (node, low, up)
 
-        | And(xs, info) -> inferAnd xs
+        | And(xs, _) -> inferAnd xs
 
-        | Concat(head, tail, info) -> inferConcat head tail
+        | Concat(head, tail, _) -> inferConcat head tail
 
 
 let defaultInfo()(solver: ISolver<'t>) : RegexNodeInfo<'t> = RegexNodeInfo<'t>(

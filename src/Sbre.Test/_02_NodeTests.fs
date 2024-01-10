@@ -8,7 +8,7 @@ open Sbre
 open Sbre.Info
 open Sbre.Types
 open Xunit
-
+open Common
 
 #if DEBUG
 
@@ -237,86 +237,56 @@ let ``conversion neg lookahead ``() = assertConverted "1(?! Sep)" "1(?! Sep)"
 [<Fact>]
 let ``conversion conc ``() = assertConverted "Twain" "Twain"
 
+
+
 [<Fact>]
 let ``flags 1``() =
     let matcher = Regex("(\d⊤*|⊤*\d{2,2}⊤*)").TSetMatcher
-    let flags = Flags.inferNode matcher.RawPattern
-    Assert.Equal(Flag.None, flags)
-
-
-
-
-// [<Fact>]
-// let ``flags 2``() =
-//     let matcher = Regex(@"⊤*English⊤*&⊤*King⊤*&⊤*Paris⊤*&~(⊤*\n\n⊤*)\n").TSetMatcher
-//
-//     match matcher.RawPattern with
-//     | Types.And(nodes, info) ->
-//         // let flags = Flags.inferNode matcher.RawPattern
-//         let flags = Info.Flags.inferAnd (nodes)
-//         Assert.Equal(Flag.CanSkipFlag ||| Flag.PrefixFlag, flags)
-//     | _ -> Assert.True(false, "wrong node type")
+    let flags = Flags.inferInitialFlags matcher.RawPattern
+    assertEqual (Flag.CanBeNullableFlag ||| Flag.HasCounterFlag) flags
 
 
 [<Fact>]
-let ``flags 3``() =
+let ``flags 2``() =
     let matcher = Regex(@"(.*b|)").TSetMatcher
 
     match matcher.RawPattern with
     | Types.Or(nodes, info) ->
         // let flags = Flags.inferNode matcher.RawPattern
         // let info = Cache.mkInfoOfOr (matcher.Cache, nodes)
-        let flags = Flags.inferNode matcher.RawPattern
+        let flags = Flags.inferInitialFlags matcher.RawPattern
         Assert.Equal(Flag.CanBeNullableFlag ||| Flag.IsAlwaysNullableFlag ||| Flag.ContainsEpsilonFlag, flags)
     | _ -> Assert.True(false, "wrong node type")
 
 
-//
-// [<Fact>]
-// let ``flags 4``() =
-//     let matcher = Regex(@"~(⊤*Ara⊤*)").TSetMatcher
-//
-//     match matcher.RawPattern with
-//     | Types.Not(nodes, info) ->
-//         Assert.Equal(Flag.CanBeNullableFlag ||| Flag.IsAlwaysNullableFlag ||| Flag.CanSkipFlag ||| Flag.PrefixFlag, info.NodeFlags)
-//     | _ -> Assert.True(false, "wrong node type")
+[<Fact>]
+let ``flags 3``() =
+    let matcher = Regex(@"\d{2}⊤*").TSetMatcher
+    let flags = matcher.RawPattern.GetFlags()
+    assertTrue (flags.HasFlag(Flag.HasCounterFlag)) "hascounter"
+    assertTrue (flags.HasFlag(Flag.IsCounterFlag)) "iscounter"
+
+
+[<Fact>]
+let ``flags 4``() =
+    let matcher = Regex(@"⊤*\d{2}⊤*").TSetMatcher
+    let flags = matcher.RawPattern.GetFlags()
+    assertTrue (flags.HasFlag(Flag.HasCounterFlag)) "hascounter"
+    assertTrue (flags.HasFlag(Flag.CanBeNullableFlag)) "canbenullable"
+    assertFalse (flags.HasFlag(Flag.IsCounterFlag)) "iscounter"
+
+
+[<Fact>]
+let ``flags 5``() =
+    let matcher = Regex(@"~(⊤*\d{2}⊤*)").TSetMatcher
+    let flags = matcher.RawPattern.GetFlags()
+    Assert.True(flags.HasFlag(Flag.HasCounterFlag))
+    Assert.True(flags.HasFlag(Flag.CanBeNullableFlag))
+
 
 
 
 #if TODO
-
-
-[<Fact>]
-let ``flags prefix 1``() =
-    let matcher = Regex(@"have⊤*").TSetMatcher
-    let info = matcher.RawPattern.TryGetInfo.Value
-    Assert.Equal(Flag.PrefixFlag, info.NodeFlags)
-
-
-[<Fact>]
-let ``flags prefix 2``() =
-    let matcher = Regex(@"⊤*have⊤*").TSetMatcher
-    let info = matcher.RawPattern.TryGetInfo.Value
-    Assert.Equal(Flag.PrefixFlag ||| Flag.CanSkipFlag, info.NodeFlags)
-
-
-[<Fact>]
-let ``flags prefix 3``() =
-    let matcher = Regex(@"~(⊤*\n\n⊤*)\n&⊤*have⊤*").TSetMatcher
-    let info = matcher.RawPattern.TryGetInfo.Value
-    Assert.Equal(Flag.PrefixFlag ||| Flag.CanSkipFlag, info.NodeFlags)
-
-
-
-[<Fact>]
-let ``reverse unwrap``() =
-    let matcher = Regex("⊤*have⊤*").TSetMatcher
-    match matcher.ReversePattern with
-    | Concat(Loop(_),t,_) -> Assert.True(true)
-    | _ -> failwith "wrong result"
-
-
-
 
 
 // [<Fact>]

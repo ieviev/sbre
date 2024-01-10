@@ -71,7 +71,7 @@ let ``identity and 1`` () =
 
     let deriv = _04_DerivativeTests.getDerivativeT<uint64> (m,"English")
 
-    let req = refEq (Common.getRawPattern<uint64> m) deriv
+    let req = refEq (m.TSetMatcher.RawPattern) deriv
     Assert.True(req)
 
 

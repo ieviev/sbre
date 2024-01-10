@@ -3,6 +3,7 @@ module Sbre.Test._09_DfaNodeTests
 
 open Sbre
 open Sbre.Benchmarks.Jobs
+open Sbre.CountingSet
 open Sbre.Types
 open Xunit
 
@@ -14,7 +15,7 @@ let getDfaMatcherAndDerivative (pat:string) (input:string) =
     let cache = matcher.Cache
     let mutable _toplevelOr = matcher.InitialPattern
     let mutable loc = Pat.Location.create input 0
-    let rstate = RegexState()
+    let rstate = RegexState(cache.NumOfMinterms())
     let mutable stateId = 1
     let success = matcher.TryTakeTransition(rstate, &stateId, cache.MintermId(&loc), &loc)
     let results = matcher.GetStateAndFlagsById(stateId)

@@ -40,6 +40,7 @@
     <Compile Include="RegexNodeConverter.fs" />
     <Compile Include="Minterms.fs" />
     <Compile Include="Optimizations.fs" />
+    <Compile Include="CountingSet.fs" />
     <Compile Include="Algorithm.fs" />
     <Compile Include="Regex.fs" />
   </ItemGroup>

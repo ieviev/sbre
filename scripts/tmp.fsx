@@ -9,6 +9,7 @@ open Sbre
 open FSharp.Data
 open Sbre
 open Sbre.Pat
+open Sbre.Types
 open Thoth.Json.Net
 
 
@@ -46,47 +47,6 @@ type SimpleRegexNode =
 
 
 
-
-// (ab|cd)
-
-// (a{0,9} | a{0,10}) ==> a{0,10}
-
-// [abc]
-// [a-z]
-
-// [a-q][^u-z]{13}x
-// [u0000-uFFFF] (around 60k chars)
-// ^u-z // inverse set of u-z
-let char1 = int 'u', int 'z' // exclude (117, 122) from 60k chars
-
-// trying to match [^u-z] symbolically
-let match1 (someChar:char) =
-    let charCode = int someChar // get the char code/ minterm
-    let minterm =
-        if charCode < 117 && charCode > 122 then
-            1
-        else 0
-    if minterm = 1 then true else false
-
-// trying to match [^u-z] in a regular dfa
-let match2 (someChar:char) =
-    let charCode = int someChar // get the char code
-    if charCode = 0 then true
-    elif charCode = 1 then true
-    elif charCode = 2 then true
-    elif charCode = 3 then true
-    else failwith "todo"
-
-
-
-
-// u-z
-// around 60k chars (exclude (uvwxyz))
-
-
-
-// a{5,5} = a{5} ==> aaaaa
-
 // let pat2 = Epsilon |> Encode.Auto.toString |> File.writeTo "/home/ian/Desktop/temp-disk/encoded-samples/epsilon.json"
 // let pat2 =
 //     (Or(
@@ -114,15 +74,15 @@ let match2 (someChar:char) =
 //     |> Encode.Auto.toString |> File.writeTo "/home/ian/Desktop/temp-disk/encoded-samples/([ab][cd]&ac).json"
 
 
-let encoded = Encode.Auto.toString (pat1)
-
-let jsonString = """["Or",[["Concat",["Singleton","a"],["Singleton","b"]],["Concat",["Singleton","c"],["Singleton","d"]]]]"""
-
-let jsonValue2 = System.Text.Json.JsonDocument.Parse jsonString
-
-let jsonRoot = jsonValue2.RootElement
-
-jsonRoot[1]
+// let encoded = Encode.Auto.toString (pat1)
+//
+// let jsonString = """["Or",[["Concat",["Singleton","a"],["Singleton","b"]],["Concat",["Singleton","c"],["Singleton","d"]]]]"""
+//
+// let jsonValue2 = System.Text.Json.JsonDocument.Parse jsonString
+//
+// let jsonRoot = jsonValue2.RootElement
+//
+// jsonRoot[1]
 
 
 // let structure =
@@ -164,21 +124,22 @@ let res17 = reg16.Match("___a_________b_______abababababab____c___")
 // .*c
 // "___a_________b_______abababababab____|c___"
 
-// .*ababa.*c
-// prefix: ababa
+
+// "a.*b.*c"
 let rm = reg16.Matcher :?> RegexMatcher<uint64>
+let state = RegexState()
 
 let d1 =
-    let loc = Location.create "a" 0
+    let loc = Location.create "a___b____c_" 0
     let pred = rm.Cache.MintermForLocation(loc)
-    Algorithm.createDerivative (rm.Cache, &loc, pred, rm.RawPattern)
+    Algorithm.createDerivative (rm.Cache, state, &loc, pred, rm.RawPattern)
 
 rm.Cache.PrettyPrintNode(d1)
 
 let d2 =
     let loc = Location.create "_" 0
     let pred = rm.Cache.MintermForLocation(loc)
-    Algorithm.createDerivative (rm.Cache, &loc, pred, d1)
+    Algorithm.createDerivative (rm.Cache, state, &loc, pred, d1)
 
 rm.Cache.PrettyPrintNode(d1)
 rm.Cache.PrettyPrintNode(d2)
@@ -188,10 +149,18 @@ obj.ReferenceEquals(d1, d2)
 let allMinterms = rm.Cache.Minterms()
 let prettyMinterms = allMinterms |> Array.map rm.Cache.PrettyPrintMinterm
 
+//
+// ^ - not
+//     \n - not \n
+//     a-c - not a,b,c
+// not (\n, a ,b ,c)
+
+// a.*b.*c , "a" ==> .*b.*c
+
 // before a match has started (not ⊥ && not same)
 // a.*b.*c
-// [|"[^\na-c]"; "\n"; "a"; "b"; "c"|]
-// [|"⊥"; "⊥"; ".*b.*c"; "⊥"; "⊥"|]
+// [|"[^\na-c]"; "\n";  "a";        "b";      "c"|]
+// [|"⊥";        "⊥";   ".*b.*c";   "⊥";      "⊥"|]
 
 // a* is already in this state
 // after a match has started (not same)
@@ -241,3 +210,63 @@ rm.Cache.PrettyPrintMinterm(startset)
 
 
 // (.*t.*hat.*&.*w.*as.*&.*t.*he.*&.*nd.*)|((s.*|.*as.*)&.*t.*hat.*&.*t.*he.*&.*nd.*) ==> ((s.*|.*as.*)&.*t.*hat.*&.*t.*he.*&.*nd.*)
+
+
+
+
+// abc
+// Concat(a, Concat(b, c))  // structure
+
+// 1. collect all sets
+// {a,b,c}
+// 2. minterms, all 4 unique cases
+// "anything else"; "a"; "b"; "c"
+
+// 3. compute all possible cases (the dfa)
+
+// minterms minimize the size of this table
+// abc, "anything else"; ==> "⊥"
+// abc, "a"; ==> "bc"
+// abc, "b"; ==> "⊥"
+// abc, "c"; ==> "⊥"
+// --------------
+// bc, "anything else"; ==> "⊥"
+// bc, "a"; ==> "⊥"
+// bc, "b"; ==> "c"
+// bc, "c"; ==> "⊥"
+
+
+// [|"[^\na-c]"; "\n";  "a";        "b";      "c"|]
+// [|"⊥";        "⊥";   ".*b.*c";   "⊥";      "⊥"|]
+
+
+let r = Regex("[1-3].*[2-7].*[5-9]")
+// 1___2__5
+// 2___2__5
+// 2___2__5
+let m = r.Matcher :?> RegexMatcher<uint64>
+
+let minterms2 = m.Cache.Minterms()
+let prettyminterms2 =
+    minterms2
+    |> Array.map (fun v -> m.Cache.PrettyPrintMinterm(v))
+
+// [|"[^\n1-9]"; "\n"; "1"; "[23]"; "4"; "[5-7]"; "[89]"; |]
+
+// possible overlap
+// "1" - only included in [1-3] but not [2-7] or [5-9]
+// "[23]" - included in both [1-3] [2-7] but not [5-9]
+// ..
+
+// these have a lot of overlap
+// . - any non \n char
+// \w - any non whitespace char
+// \s - any whitespace char
+// \d - any digit char (included in \w too) (370 digits actually)
+// [0-9] - (arabic) digits 0 to 9
+// [2800-28FF] - braille characters (unicode set)
+
+
+
+
+
