@@ -18,23 +18,20 @@ let der1 (reg: Regex) (input: string) (raw:bool) =
     let node = if raw then matcher.RawPattern else matcher.InitialPattern
     let state = RegexState(cache.NumOfMinterms())
     let minterm = cache.MintermForLocation(location)
-    failwith "todo der"
     CountingSet.stepCounters state minterm
-    // CountingSet.bumpCounters state minterm node
     let der1 = createDerivative (cache, state,  &location, cache.MintermForLocation(location), node)
     cache.PrettyPrintNode der1
 
-let der1s (reg: Regex) (input: string) =
+let der1Node (reg: Regex) (input: string) (raw:bool) =
     let location = (Location.create input 0)
     let matcher = reg.TSetMatcher
     let cache = matcher.Cache
-    let node = matcher.InitialPattern
+    let node = if raw then matcher.RawPattern else matcher.InitialPattern
     let state = RegexState(cache.NumOfMinterms())
     let minterm = cache.MintermForLocation(location)
     CountingSet.stepCounters state minterm
     let der1 = createDerivative (cache, state,  &location, cache.MintermForLocation(location), node)
-    cache.PrettyPrintNode der1
-
+    der1
 
 let der1rawlocs (reg: Regex) (location: Location) =
     let matcher = reg.TSetMatcher
@@ -190,18 +187,27 @@ let assertNullability (regex:Regex) (input:string) (expectedRegexesList:string l
 
 
 
-let assertDfaMatchEnd (pattern:string) (input:string) (expected: int)  =
+// let assertDfaMatchEnd (pattern:string) (input:string) (expected: int)  =
+//     let regex = Regex(pattern)
+//     let matcher = regex.TSetMatcher
+//     let mutable loc = Location.createSpanRev (input.AsSpan()) input.Length false
+//     let mutable initptn = matcher.GetInitialStateId(&loc).Id
+//
+//     let collectedInfo = ResizeArray()
+//     // let dfaStateId = matcher.GetOrCreateState(matcher.InitialPattern)
+//     let result = matcher.DfaEndPosition(&loc, initptn, (fun (st,rs) ->
+//         ()
+//     ))
+//     Assert.Equal(expected, result)
+
+
+
+let assertDfaFirstNullable (pattern:string) (input:string) (firstNull)  =
     let regex = Regex(pattern)
     let matcher = regex.TSetMatcher
     let mutable loc = Location.createSpanRev (input.AsSpan()) input.Length false
-    let mutable initptn = matcher.InitialPattern
-
-    let collectedInfo = ResizeArray()
-    // let dfaStateId = matcher.GetOrCreateState(matcher.InitialPattern)
-    let result = matcher.DfaEndPosition(&loc, &initptn, (fun (st,rs) ->
-        ()
-    ))
-    Assert.Equal(expected, result)
+    let result = matcher.DfaEndPosition(&loc,1,RegexSearchMode.FirstNullable)
+    failwith "todo"
 
 let assertDfaMatchEnds (pattern:string) (input:string) (expected: int list)  =
     let regex = Regex(pattern)
@@ -250,6 +256,43 @@ let derNode(matcher: Regex, state:RegexState, node: RegexNode<TSet>, input: stri
     CountingSet.stepCounters state minterm
     let deriv = createDerivative (cache, state, &location, cache.MintermForLocation(location), node)
     deriv
+
+
+let getNodeDerivative(matcher: Regex, state:RegexState, node: RegexNode<TSet>, input: string) =
+    let matcher = matcher.Matcher :?> RegexMatcher<TSet>
+    let cache = matcher.Cache
+    let location = (Location.create input 0)
+    let minterm = cache.MintermForLocation(location)
+    CountingSet.stepCounters state minterm
+    let deriv = createDerivative (cache, state, &location, minterm, node)
+    deriv
+
+
+let getFirstDerivative(matcher: Regex, state:RegexState, node: RegexNode<TSet>, input: string) =
+    let matcher = matcher.Matcher :?> RegexMatcher<TSet>
+    let cache = matcher.Cache
+    let loc = (Location.create input 0)
+    let minterm = cache.MintermForLocation(loc)
+    CountingSet.stepCounters state minterm
+    let deriv = createDerivative (cache, state, &loc, minterm, node)
+    deriv
+
+
+let assertFirstNullablePos (pattern:string) (input:string) (expected) =
+    let regex = Regex(pattern)
+    let matcher = regex.TSetMatcher
+    let mutable loc = Location.create input 0
+    let result = matcher.DfaEndPosition(&loc,1, RegexSearchMode.FirstNullable)
+    Assert.Equal(expected, result)
+
+
+let assertMatchStart (pattern:string) (input:string) (startLocation:int) (expectedMatchStart:int) =
+    let regex = Regex(pattern)
+    let matcher = regex.TSetMatcher
+    let mutable loc = Location.create input startLocation
+    let result = matcher.DfaStartPosition(&loc,3)
+    Assert.Equal(expectedMatchStart, result)
+
 
 
 

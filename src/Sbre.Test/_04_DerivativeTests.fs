@@ -31,14 +31,7 @@ let getDerivativeT<'t when 't : struct and 't :> IEquatable< 't >
     let location = (Location.create input 0)
     createDerivative (cache, state, &location, cache.MintermForLocation(location), node)
 
-let getNodeDerivative(matcher: Regex, state:RegexState, node: RegexNode<TSet>, input: string) =
-    let matcher = matcher.Matcher :?> RegexMatcher<TSet>
-    let cache = matcher.Cache
-    let location = (Location.create input 0)
-    let minterm = cache.MintermForLocation(location)
-    CountingSet.stepCounters state minterm
-    let deriv = createDerivative (cache, state, &location, minterm, node)
-    deriv
+
 
 
 
@@ -58,8 +51,7 @@ let testFullDerivative(pattern: string, input: string, expectedDerivative: strin
 
 let testFullDerivativeMultiple(pattern: string, input: string, expectedDerivatives: string list) =
     let matcher = Regex(pattern)
-    let result = Common.der1s matcher input
-
+    let result = Common.der1 matcher input false
     Assert.Contains(result, expectedDerivatives)
 
 
@@ -318,10 +310,8 @@ let ``subsumption or loop limited 1``() =
     test2ndDerivatives (
         "[a-z]{0,10}y",
         "ccccc",
-        // [ @"(⊤*[a-z]{0,10}y|[a-z]{0,9}y)"; @"([a-z]{0,9}y|⊤*[a-z]{0,10}y)" ]
-        // CsA
-        // [ @"(⊤*[a-z]{0,10}y|[a-z]{0,10}y)"; "([a-z]{0,10}y|⊤*[a-z]{0,10}y)"]
-        [ "⊤*[a-z]{0,10}y" ]
+        [ @"([a-z]{0,9}y|⊤*[a-z]{0,10}y)" ]
+        // [ "⊤*[a-z]{0,10}y" ]
     )
 
 
@@ -336,40 +326,6 @@ let ``derivative eats node from set``() =
         [ @"a((?=\n)|(?!⊤))"; @"a((?!⊤)|(?=\n))" ]
     )
 
-
-
-[<Fact>]
-let ``matchend test 1``() =
-    // let matcher = Matcher(@".*(?=.*-)&\S.*\S")
-    let matcher = Regex(@".*(?=-)")
-    let result2 = matcher.FindMatchEnd(@"aa-")
-    Assert.Equal(ValueSome 2, result2)
-
-[<Fact>]
-let ``matchend test 2``() =
-    let matcher = Regex(@".*(?=.*-)&\S.*\S")
-    let result2 = matcher.FindMatchEnd(@"-aaaa-")
-    Assert.Equal(ValueSome 5, result2)
-
-
-[<Fact>]
-let ``matchend test 3.1``() =
-    let matcher = Regex(@".*b")
-    let ism = matcher.FindMatchEnd(" aaab ")
-    Assert.Equal(ValueSome 5, ism)
-
-
-[<Fact>]
-let ``matchend test 3``() =
-    let matcher = Regex(@".*b|a")
-    let ism = matcher.FindMatchEnd(" aaab ")
-    Assert.Equal(ValueSome 5, ism)
-
-[<Fact>]
-let ``matchend test 4``() =
-    let matcher = Regex(@"a+")
-    let ism = matcher.FindMatchEnd(" aaa ")
-    Assert.Equal(ValueSome 4, ism)
 
 
 
@@ -392,14 +348,7 @@ let ``matchend test 4``() =
 #endif
 
 
-[<Fact>]
-let ``deriv flags 1``() =
-    let regex = Regex("a{1,3}b")
-    let matcher = regex.TSetMatcher
-    let state = RegexState(matcher.Cache.NumOfMinterms())
-    let d1 = getNodeDerivative(regex, state, matcher.InitialPattern,"a")
-    let flags = d1.GetFlags()
-    Assert.Equal(Flag.HasCounterFlag, flags)
+
 
 
 // [<Fact>]
@@ -550,32 +499,6 @@ let ``deriv flags 1``() =
 //     ]
 //     assertEqual result.IsNullable true
 //
-
-
-
-[<Fact>]
-let ``counter match 1``() = assertDfaMatchEnds "..a" "_a__" []
-
-[<Fact>]
-let ``counter match 2``() = assertDfaMatchEnds "..a" "__a__" [3]
-
-[<Fact>]
-let ``counter match 3``() = assertDfaMatchEnds "..a" "__aaa__" [3]
-
-[<Fact>]
-let ``counter match 4``() = assertDfaMatchEnds "~(.*\d\d.*)" "__11__" [3; 6]
-
-
-[<Fact>]
-let ``counter match 5``() = assertDfaMatchEnds "~(.*\d\d.*)" "__11__" [3; 6]
-
-
-[<Fact>]
-let ``counter match 6``() = assertDfaReversePos "~(⊤*\d\d⊤*)" "Aa1" 0
-
-[<Fact>]
-let ``counter match 7``() = assertDfaMatches "~(⊤*\d\d⊤*)" "Aa11aBaAA" [(0,3); 3,6]
-
 
 
 

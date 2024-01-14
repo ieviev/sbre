@@ -101,7 +101,8 @@ module rec Flags =
             // decide counter threshold
             | (Singleton _, upper) when
                 upper <> Int32.MaxValue && upper > 1 ->
-                Flag.HasCounterFlag ||| Flag.IsCounterFlag
+                // Flag.HasCounterFlag ||| Flag.IsCounterFlag
+                Flag.None
             | _ ->
                 if innerFlags.HasCounter then Flag.HasCounterFlag else
                 Flag.None

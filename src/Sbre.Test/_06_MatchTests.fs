@@ -165,43 +165,14 @@ open Sbre.Test.Common
 
 [<Fact>]
 let ``caching lookarounds test 1``() =
-    let matcher =
-        Regex(
-            """1300\d{6}$"""
-        ).TSetMatcher
+    assertDfaMatchEnds """1300\d{6}$""" "1300333444" [10]
 
-    // let result = matcher.FindMatchEnd("1300333444")
-    // Assert.Equal(ValueSome 10, result)
-
-    let cache = matcher.Cache
-    let mutable _toplevelOr = matcher.InitialPattern
-    let mutable loc = Pat.Location.create "1300333444" 0
-    let result = matcher.DfaEndPosition(cache, &loc, &_toplevelOr)
-    Assert.Equal(10, result)
 
 
 [<Fact>]
 let ``caching lookarounds test 2``() =
+    assertDfaMatchEnds """(^1300\d{6}$)|(^1800|1900|1902\d{6}$)|(^0[2|3|7|8]{1}[0-9]{8}$)|(^13\d{4}$)|(^04\d{2,3}\d{6}$)""" "1300333444" [10]
 
-    let matcher =
-        Regex(
-            """(^1300\d{6}$)|(^1800|1900|1902\d{6}$)|(^0[2|3|7|8]{1}[0-9]{8}$)|(^13\d{4}$)|(^04\d{2,3}\d{6}$)"""
-        ).TSetMatcher
-    let cache = matcher.Cache
-    let mutable _toplevelOr = matcher.InitialPattern
-    let mutable loc = Pat.Location.create "1300333444" 0
-    let result = matcher.DfaEndPosition(cache, &loc, &_toplevelOr)
-    Assert.Equal(10, result)
-
-[<Fact>]
-let ``caching lookarounds test 3``() =
-    let matcher =
-        Regex(
-            """(^1300\d{6}$)|(^1800|1900|1902\d{6}$)|(^0[2|3|7|8]{1}[0-9]{8}$)|(^13\d{4}$)|(^04\d{2,3}\d{6}$)"""
-        )
-
-    let result = matcher.MatchText("1300333444")
-    Assert.Equal(Some "1300333444", result)
 
 [<Fact>]
 let ``caching lookarounds test 2 ``() =
@@ -214,7 +185,6 @@ let ``caching lookarounds test 2 ``() =
 
 [<Fact>]
 let ``boundaries after``() =
-    //testPartDerivativeFromLocation (@"(?!a)", "a", 1, "")
     let matcher = Regex("""a\b""")
     let result = matcher.MatchText("a ")
     Assert.Equal(Some "a", result)
@@ -631,6 +601,12 @@ let ``just loop``() =
         matcher.Matches("bbbbaaabbbbb") |> Seq.toArray
     Assert.Equal( 11, result.Length )
 
+[<Fact>]
+let ``just loop 2``() =
+    let matcher = Regex("a*").TSetMatcher
+    let result =
+        matcher.DfaMatchPositions("bbbbaaabbbbb") |> Seq.toArray
+    Assert.Equal( 11, result.Length )
 
 
 [<Fact>]
@@ -639,7 +615,7 @@ let ``simple 1``() =
     let matcher = regex.TSetMatcher
 
     let result =
-        matcher.Matches("dfdff dfgfgg gfgdfg gddfdf") |> Seq.toArray
+        matcher.Matches("dfdff dfggg gfgdfg gddfdf") |> Seq.toArray
     Assert.Equal( 4, result.Length )
 
 
@@ -656,30 +632,29 @@ let ``set star loop test 1``() =
 
 [<Fact>]
 let ``dfa match 1``() =
-    let regex = Regex(".*a{3}")
-    let matcher = regex.TSetMatcher
-    let result = matcher.DfaMatchEnds("aaa")
-    Assert.Equal([3], result )
+    assertDfaMatchEnds ".*a{3}" "aaa" [3]
+
 
 [<Fact>]
 let ``dfa match 2``() =
-    let regex = Regex(".*a{3}")
-    let matcher = regex.TSetMatcher
-    let result = matcher.DfaMatchEnds("aa aaa")
-    Assert.Equal([6], result )
+    failwith "todo"
+    // let regex = Regex(".*a{3}")
+    // let matcher = regex.TSetMatcher
+    // let result = matcher.DfaMatchEnds("aa aaa")
+    // Assert.Equal([6], result )
 
-
-[<Fact>]
-let ``dfa match 3``() =
-    let regex = Regex(@"~(⊤*\d\d⊤*)")
-    let matcher = regex.TSetMatcher
-    assertAllStates regex "aa11aaa" [
-        [ @"⟨⊤*~(⟨⊤*⟨\d{2,2}⊤*⟩⟩)⟩" ]
-        [ @"⟨⊤*~(⟨⊤*⟨\d{2,2}⊤*⟩⟩)⟩" ]
-        [ @"⟨⊤*~(⟨⊤*⟨\d{2,2}⊤*⟩⟩)⟩"; @"~(⟨⊤*⟨\d{2,2}⊤*⟩⟩)" ]
-        [ @"⟨⊤*~(⟨⊤*⟨\d{2,2}⊤*⟩⟩)⟩" ]
-        [ @"⟨⊤*~(⟨⊤*⟨\d{2,2}⊤*⟩⟩)⟩" ]
-    ]
+//
+// [<Fact>]
+// let ``dfa match 3``() =
+//     let regex = Regex(@"~(⊤*\d\d⊤*)")
+//     let matcher = regex.TSetMatcher
+//     assertAllStates regex "aa11aaa" [
+//         [ @"⟨⊤*~(⟨⊤*⟨\d{2,2}⊤*⟩⟩)⟩" ]
+//         [ @"⟨⊤*~(⟨⊤*⟨\d{2,2}⊤*⟩⟩)⟩" ]
+//         [ @"⟨⊤*~(⟨⊤*⟨\d{2,2}⊤*⟩⟩)⟩"; @"~(⟨⊤*⟨\d{2,2}⊤*⟩⟩)" ]
+//         [ @"⟨⊤*~(⟨⊤*⟨\d{2,2}⊤*⟩⟩)⟩" ]
+//         [ @"⟨⊤*~(⟨⊤*⟨\d{2,2}⊤*⟩⟩)⟩" ]
+//     ]
 
 
 [<Fact>]

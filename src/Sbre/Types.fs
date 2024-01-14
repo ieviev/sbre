@@ -88,6 +88,7 @@ type RegexStateFlags =
     | ContainsLookaroundFlag = 32
     | HasCounterFlag = 64
     | UseDotnetOptimizations = 128
+    | ContainsInitialFlag = 256
     // todo: fixed length
     // todo: can be subsumed
     // todo: singleton loop
@@ -116,6 +117,8 @@ module RegexStateFlagsExtensions =
         member this.HasPrefix = this &&& RegexStateFlags.HasPrefixFlag = RegexStateFlags.HasPrefixFlag
         [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
         member this.HasCounter = this &&& RegexStateFlags.HasCounterFlag = RegexStateFlags.HasCounterFlag
+        [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+        member this.ContainsInitial = this &&& RegexStateFlags.ContainsInitialFlag = RegexStateFlags.ContainsInitialFlag
 
 
 
@@ -129,13 +132,11 @@ type RegexNodeInfo<'tset when 'tset :> IEquatable<'tset> and 'tset: equality >()
 
     member val NodeFlags: RegexNodeFlags = RegexNodeFlags.None with get, set
     member val InitialStartset: InitialStartset<'tset> = InitialStartset.Uninitialized with get, set
-    // member val SkipPrefix: Memory<'tset>*Memory<'tset> = Unchecked.defaultof<_> with get, set
-    // member val SkipToChars: SearchValues<char> = Unchecked.defaultof<_> with get, set
     member val Transitions: ResizeArray<Transition<'tset>> = ResizeArray() with get, set
     member val Subsumes: Dictionary<RegexNode<'tset>,bool> = Dictionary() with get, set
+    // todo: subsumedbyset
 
     // filled in later
-    member val IsPostInitialized : bool = false with get, set
     member val Startset: 'tset = Unchecked.defaultof<'tset> with get, set
     member val StateFlags: 'tset = Unchecked.defaultof<'tset> with get, set
 

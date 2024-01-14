@@ -14,7 +14,9 @@ let dfaFindMatchEnd (pat:string) (input:string) =
     let cache = matcher.Cache
     let mutable _toplevelOr = matcher.InitialPattern
     let mutable loc = Pat.Location.create input 0
-    matcher.DfaEndPosition(cache, &loc, &_toplevelOr)
+    let mutable startState = matcher.GetInitialStateId(&loc).Id
+    failwith "todo find match end"
+    // matcher.DfaEndPosition(&loc, startState)
 
 let dfaFindAllEnds (pat:string) (input:string) =
     let regex = Regex(pat)

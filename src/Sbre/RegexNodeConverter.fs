@@ -51,7 +51,6 @@ let convertToSymbolicRegexNode
                 |> Seq.map b.mkConcat
             builder.mkOr children2 :: acc
         | RegexNodeKind.Conjunction ->
-
             let children2 =
                 node |> children2Seq |> Seq.map convertSingle |> Seq.map b.mkConcat
 

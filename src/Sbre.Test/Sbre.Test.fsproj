@@ -16,7 +16,7 @@
         <Compile Include="_02_NodeTests.fs" />
         <Compile Include="_03_NullabilityTests.fs" />
         <Compile Include="_04_DerivativeTests.fs" />
-        <Compile Include="_05_IdentityTests.fs" />
+        <Compile Include="_05_PartialMatchTests.fs" />
         <Compile Include="_06_MatchTests.fs" />
         <Compile Include="BenchmarkTests.fs" />
         <Compile Include="_07_ComparisonTests.fs" />

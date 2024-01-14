@@ -10,6 +10,7 @@ open System.Text.RuntimeRegexCopy.Symbolic
 open System.Text.RuntimeRegexCopy
 open Microsoft.FSharp.Core
 open Sbre.Algorithm
+open Sbre.CountingSet
 open Sbre.Types
 open Sbre.Pat
 open System.Runtime.InteropServices
@@ -61,7 +62,9 @@ type MatchingState(node:RegexNode<TSet>) =
         this.Flags <- flags
 
 
-
+type RegexSearchMode =
+    | FirstNullable
+    | MatchEnd
 
 [<Sealed>]
 type RegexMatcher<'t
@@ -88,102 +91,26 @@ type RegexMatcher<'t
         Array.init (1024 <<< _mintermsLog) (fun _ -> 0 ) // 0 : initial state
 
     do
-        // initial state: 1
-        m.GetOrCreateState(dotStarredNode) |> ignore
-        // m.GetOrCreateState(dotStarredNode) |> ignore
-        // --
+        m.GetOrCreateState(dotStarredNode) |> ignore // T*R: 1
+        m.GetOrCreateState(initialNode) |> ignore // R: 2
+        m.GetOrCreateState(reverseNode) |> ignore // R_rev: 3
 
     override this.IsMatch(input) =
         let mutable currPos = 0
         let mutable startLocation = Location.createSpan input currPos
         let mutable _toplevelOr = _cache.False
-        match RegexNode.matchEnd _cache &startLocation dotStarredNode &_toplevelOr with
-        | ValueNone -> false
-        | ValueSome _ -> true
+        match this.DfaEndPosition(&startLocation, 1, RegexSearchMode.FirstNullable) with
+        | -2 -> false
+        | _ -> true
+
 
     override this.FindMatchEnd(input) =
+        failwith "old"
         let mutable currPos = 0
         let mutable _toplevelOr = _cache.False
         let mutable startLocation = Location.createSpan input currPos
         RegexNode.matchEnd _cache &startLocation dotStarredNode &_toplevelOr
 
-#if DEBUG
-
-
-
-    /// formal match end without exit condition
-    member this.llmatchend(
-        cache: RegexCache<TSet>,
-        rstate: CountingSet.RegexState, // unused: state for counting sets
-        loc: byref<Location>,
-        activeNode: inref<RegexNode<TSet>>
-        )  =
-        let mutable looping = true
-        let mutable currentStateId =
-            this.GetOrCreateState(activeNode).Id // initialize state in dfa
-        let mutable currentMax = -2
-
-        while looping do
-
-            let state = _stateArray[currentStateId]
-            let flags = state.Flags
-
-            // no exit condition in formal llmatch
-            // 1. the pattern goes back to initial
-            // 2. there is a nullable position
-            // if flags.IsInitial && currentMax > 0 then
-            //     looping <- false
-
-            // skipping not in formal match
-            // if flags.CanSkip then
-            //     _cache.TryNextStartsetLocation(&loc, state.Startset)
-
-            // determine nullability
-            if RegexNode.isNullable(_cache, rstate, &loc,state.Node) then
-                currentMax <- loc.Position
-
-            if not (Location.isFinal loc) then
-                // transition dfa state to next
-                // if not in already in dfa then a new derivative is computed here
-                let _ =  this.TryTakeTransition(rstate, &currentStateId, _cache.MintermId(&loc), &loc)
-                loc.Position <- Location.nextPosition loc
-            else
-                looping <- false
-
-        currentMax
-
-    /// formal llmatch
-    member this.llmatch(startLoc, input:ReadOnlySpan<char>) =
-
-        let state = CountingSet.RegexState(_cache.NumOfMinterms()) // unused for now
-
-        // ⊤*(R_rev)
-        let trueStarredReversePat =
-            _cache.Builder.mkConcat2( _cache.TrueStar, reverseNode )
-
-        // start reversing from the end of the string
-        let mutable loc =
-            { Input = input ; Position = input.Length ; Reversed = true }
-
-        let leftmostStart = this.llmatchend(_cache, state, &loc, &trueStarredReversePat)
-
-        // start looking for the longest match from start
-        loc.Position <- leftmostStart
-        loc.Reversed <- false
-
-        let longestEnd = this.llmatchend(_cache, state, &loc, &initialNode)
-
-        let leftmostLongest = input.Slice(
-            start = leftmostStart,
-            length = longestEnd - leftmostStart)
-
-        {|
-          startPos = leftmostStart
-          endPos = longestEnd
-          text = leftmostLongest.ToString()
-          |}
-
-#endif
 
 
     override this.Match(input) : MatchResult =
@@ -218,7 +145,7 @@ type RegexMatcher<'t
     /// return all matches on input
     override this.Matches(input) =
         let mr = ResizeArray()
-        for result in this.DfaMatchPositions(input) do
+        for result in this.MatchPositions(input) do
             mr.Add({
                 Success = true
                 Value = input.Slice(result.Index,result.Length).ToString()
@@ -235,25 +162,28 @@ type RegexMatcher<'t
         let mutable location = Location.createSpan input startPos
         let mutable _toplevelOr = _cache.False
         let reverseStateId = this.GetOrCreateState(reverseNode).Id
+        let state = RegexState(_cache.NumOfMinterms())
+        let initState : MatchingState = this.GetInitialStateId(&location)
 
-        // RegexNode.matchEnd _cache &location dotStarredNode &_toplevelOr
 
-        match this.DfaEndPosition(_cache,&location,&dotStarredNode) with
+        failwith "TODO matchtext"
+
+        match this.DfaEndPosition(&location, initState.Id, RegexSearchMode.FirstNullable) with
         | -2 -> None
         | endPos ->
             location.Position <- endPos
             location.Reversed <- true
 
-            let startPos = this.DfaStartPosition(&location,reverseStateId)
-                // RegexNode.matchEnd _cache &location reverseNode &_toplevelOr
-
-            match startPos with
-            | -2 ->
-                failwith
-                    $"match succeeded left to right but not right to left:\nmatch end: {endPos}\nreverse pattern: {reverseNode}"
-            | start ->
-                let s = input.Slice(start,endPos - start).ToString()
-                Some(s)
+        //     let startPos = this.DfaStartPosition(&location,reverseStateId)
+        //         // RegexNode.matchEnd _cache &location reverseNode &_toplevelOr
+        //
+        //     match startPos with
+        //     | -2 ->
+        //         failwith
+        //             $"match succeeded left to right but not right to left:\nmatch end: {endPos}\nreverse pattern: {reverseNode}"
+        //     | start ->
+        //         let s = input.Slice(start,endPos - start).ToString()
+        //         Some(s)
 
 
     /// counts the number of matches
@@ -400,7 +330,7 @@ type RegexMatcher<'t
             // match RegexNode.getCachedTransition (minterm, sourceState.Node.TryGetInfo) with
             // | ValueSome v -> v
             // | _ ->
-            createDerivative (_cache, regexState, &loc, minterm, sourceState.Node)
+            createInitialDerivative (_cache, regexState, &loc, minterm, sourceState.Node, dotStarredNode)
         let targetState = this.GetOrCreateState(targetDerivative)
         targetState.Id
 
@@ -436,19 +366,24 @@ type RegexMatcher<'t
     /// end position with DFA
     member this.DfaEndPosition(
         loc: byref<Location>,
-        initialNode: inref<RegexNode<TSet>>,
+        startStateId: int,
+        searchMode: RegexSearchMode,
         ?debugFn: (MatchingState * CountingSet.RegexState -> unit) ) : int32 =
+
         assert (loc.Position > -1)
+
         let mutable foundmatch = false
-        let mutable currentStateId = 1
+        let mutable currentStateId = startStateId
         let mutable currentMax = -2
 
         let rstate = CountingSet.RegexState(_cache.NumOfMinterms())
-
-        let mutable hasBeenNullable = RegexNode.isNullable(_cache,rstate,&loc,initialNode)
-        let initialIsNegated =
-            hasBeenNullable
-            && match initialNode with | Concat(head,Not _,info) -> true | _ -> false
+        // let mutable hasBeenNullable = RegexNode.isNullable(_cache,rstate,&loc,startStateId)
+        // let initialIsNegated =
+        //     hasBeenNullable
+        //     && match startStateId with | Concat(head,Not _,info) -> true | _ -> false
+        // // if initial is nullable dont add T*
+        // if hasBeenNullable then
+        //     currentStateId <- this.GetOrCreateState(dotStarredNode ).Id
 
         while not foundmatch do
             let mutable dfaState = _stateArray[currentStateId]
@@ -456,9 +391,8 @@ type RegexMatcher<'t
 #if DEBUG
             debugFn |> Option.iter (fun fn -> fn (dfaState, rstate))
 #endif
-            if currentMax > 0 && (flags.IsInitial) then
-                if not initialIsNegated then
-                    foundmatch <- true
+            if currentMax > 0 && flags.IsInitial then
+                foundmatch <- true
 
             if flags.CanSkip then
                 // if flags &&& RegexStateFlags.UseDotnetOptimizations = RegexStateFlags.UseDotnetOptimizations then
@@ -468,15 +402,14 @@ type RegexMatcher<'t
                 _cache.TryNextStartsetLocation(&loc, ss)
 
             // set max nullability after skipping
-            let isNullable = flags.IsAlwaysNullable || RegexNode.isNullable(_cache,rstate,&loc,dfaState.Node)
+            let isNullable = RegexNode.isNullable(_cache,rstate,&loc,dfaState.Node)
             if isNullable then
                 currentMax <- loc.Position
-                if not hasBeenNullable then
-                    let newBranch = this.RemoveInitialBranch(initialNode, dfaState.Node)
-                    let newState = this.GetOrCreateState(newBranch)
-                    dfaState <- newState
+                match searchMode with
+                | RegexSearchMode.FirstNullable ->
+                    foundmatch <- true
+                | RegexSearchMode.MatchEnd -> ()
 
-            //
             // if (initialNullable && not isNullable) || (not initialNullable && isNullable) then
             //     if initialNullable then foundmatch <- true
 
@@ -568,13 +501,24 @@ type RegexMatcher<'t
                 currentMax <- loc.Position
         currentMax
 
+    member this.GetInitialStateId(loc:inref<Location>) =
+        let blankState = RegexState(_cache.NumOfMinterms())
+        if RegexNode.isNullable(_cache, blankState, &loc, dotStarredNode) then
+            this.GetOrCreateState(initialNode)
+        else this.GetOrCreateState(dotStarredNode)
+
     member this.DfaMatchEnds(input:ReadOnlySpan<char>) =
         let mutable loc = Location.createSpan input 0
         let mutable toplevelOr = dotStarredNode
+        let state = RegexState(_cache.NumOfMinterms())
+        let initState = this.GetInitialStateId(&loc)
+
         let eps = ResizeArray()
         let mutable looping = true
+        failwith "todo1"
         while looping do
-            match this.DfaEndPosition( &loc, &toplevelOr) with
+            // this.DfaEndPosition( &loc, initState.Id)
+            match 1  with
             | -2 ->
                 looping <- false // failed match
             | ep ->
@@ -584,94 +528,49 @@ type RegexMatcher<'t
                 loc.Position <- ep + 1
         eps
 
-    member this.DfaFullMatch(input:ReadOnlySpan<char>) =
+
+
+    member this.DfaFullSingleMatch(input:ReadOnlySpan<char>) : (int*int) voption =
         let mutable loc = Location.createSpan input 0
         let mutable toplevelOr = dotStarredNode
+        let state = RegexState(_cache.NumOfMinterms())
+        let initState = this.GetInitialStateId(&loc)
         let eps = ResizeArray()
-        let mutable looping = true
-        while looping do
-            match this.DfaEndPosition( &loc, &toplevelOr) with
-            | -2 ->
-                looping <- false // failed match
-            | ep ->
-                if loc.Position = loc.Input.Length then
-                    looping <- false
-                eps.Add ep
-                loc.Position <- ep + 1
-        eps
+        failwith "TODO matchtext"
+        // let mutable looping = true
+        // while looping do
+        //     match this.DfaEndPosition( &loc, initState.Id) with
+        //     | -2 ->
+        //         looping <- false // failed match
+        //     | ep ->
+        //         if loc.Position = loc.Input.Length then
+        //             looping <- false
+        //         eps.Add ep
+        //         loc.Position <- ep + 1
+        // eps
 
     member this.DfaCount(input:ReadOnlySpan<char>) =
         let mutable loc = Location.createSpan input 0
         let mutable toplevelOr = dotStarredNode
+        let state = RegexState(_cache.NumOfMinterms())
+        let initState = this.GetInitialStateId(&loc)
         let mutable counter = 0
         let mutable looping = true
-        while looping do
-            match this.DfaEndPosition( &loc, &toplevelOr) with
-            | -2 ->
-                looping <- false // failed match
-            | ep ->
-                if loc.Position = loc.Input.Length then
-                    looping <- false
-                counter <- counter + 1
-                loc.Position <- ep + 1
-        counter
+        failwith "TODO matchtext"
+        // while looping do
+        //     match this.DfaEndPosition( &loc, initState.Id) with
+        //     | -2 ->
+        //         looping <- false // failed match
+        //     | ep ->
+        //         if loc.Position = loc.Input.Length then
+        //             looping <- false
+        //         counter <- counter + 1
+        //         loc.Position <- ep + 1
+        // counter
 
-
-    // member this.LLMatchPositions(input) =
-    //
-    //     let mutable looping = true
-    //
-    //     let _startState = _stateArray[1]
-    //     let _initialFlags = _startState.Flags
-    //     let mutable currMatchStart = 0
-    //     let mutable location = Location.createSpanRev input input.Length false
-    //     let matchPositions = ResizeArray()
-    //     let trueStarredReversePat =
-    //         _cache.Builder.mkConcat2( _cache.TrueStar, reverseNode )
-    //     let mutable _toplevelOr = trueStarredReversePat
-    //
-    //     while looping do
-    //         location.Position <- currMatchStart
-    //         location.Reversed <- true
-    //         _toplevelOr <- trueStarredReversePat
-    //         let state = RegexState(_cache.NumOfMinterms())
-    //
-    //         let matchResult = this.llmatch()
-    //
-    //         match this.llmatchend(_cache, state ,&location, &_toplevelOr) with
-    //         | -2 -> looping <- false
-    //         | leftmostStart ->
-    //             location.Position <- leftmostStart
-    //             location.Reversed <- false
-    //
-    //             let startPos = this.llmatchend(_cache, state ,&location, &reverseNode)
-    //             location.Reversed <- false
-    //             match startPos with
-    //             | -2 ->
-    //                 failwith
-    //                     $"match succeeded left to right but not right to left\nthis may occur because of an unimplemented feature\nend-pos:{leftmostStart}, pattern:{reverseNode}"
-    //             | start ->
-    //                 let startIdx = max currMatchStart start
-    //                 let response: MatchPosition = {
-    //                     Index = startIdx
-    //                     Length = leftmostStart - startIdx
-    //                 }
-    //                 matchPositions.Add response
-    //             // continue
-    //             if leftmostStart < input.Length then
-    //                 _toplevelOr <- _cache.False
-    //                 if leftmostStart = currMatchStart then
-    //                     currMatchStart <- currMatchStart + 1
-    //                 else
-    //                     currMatchStart <- leftmostStart
-    //             else
-    //                 looping <- false
-    //     matchPositions
 
     /// return just the positions of matches without allocating the result
     override this.MatchPositions(input) =
-        if true then this.DfaMatchPositions(input) else
-
         let mutable looping = true
         let mutable _toplevelOr = _cache.False
         let _startState = _stateArray[1]
@@ -729,45 +628,44 @@ type RegexMatcher<'t
         let mutable currMatchStart = 0
         let mutable location = Location.createSpan input 0
         let reverseStateId = this.GetOrCreateState(reverseNode).Id
-        let initialNode =
-            if _initialIsNegation then this.GetOrCreateState(initialNode).Node
-            else this.GetOrCreateState(dotStarredNode).Node
-        let matchPositions = ResizeArray()
-        while looping do
-            location.Position <- currMatchStart
-
-            _cache.TryNextStartsetLocation(&location, _startState.Startset)
-
-            match this.DfaEndPosition(&location,&initialNode) with
-            | -2 -> looping <- false
-            | endPos ->
-                location.Position <- endPos
-                location.Reversed <- true
-                let startPos = this.DfaStartPosition(&location,reverseStateId)
-
-                location.Reversed <- false
-                match startPos with
-                | -2 ->
-                    failwith
-                        $"match succeeded left to right but not right to left\nthis may occur because of an unimplemented feature\nend-pos:{endPos}, pattern:{reverseNode}"
-                | start ->
-                    let startIdx = max currMatchStart start
-                    let response: MatchPosition = {
-                        Index = startIdx
-                        Length = endPos - startIdx
-                    }
-                    matchPositions.Add response
-                // continue
-                if endPos < input.Length then
-                    _toplevelOr <- _cache.False
-                    if endPos = currMatchStart then
-                        currMatchStart <- currMatchStart + 1
-                    else
-                        currMatchStart <- endPos
-                else
-                    looping <- false
-        matchPositions
-
+        let state = RegexState(_cache.NumOfMinterms())
+        let initState = this.GetInitialStateId(&location)
+        failwith "todo2"
+        // let matchPositions = ResizeArray()
+        // while looping do
+        //     location.Position <- currMatchStart
+        //
+        //     _cache.TryNextStartsetLocation(&location, _startState.Startset)
+        //
+        //     match this.DfaEndPosition(&location,initState.Id) with
+        //     | -2 -> looping <- false
+        //     | endPos ->
+        //         location.Position <- endPos
+        //         location.Reversed <- true
+        //         let startPos = this.DfaStartPosition(&location,reverseStateId)
+        //
+        //         location.Reversed <- false
+        //         match startPos with
+        //         | -2 ->
+        //             failwith
+        //                 $"match succeeded left to right but not right to left\nthis may occur because of an unimplemented feature\nend-pos:{endPos}, pattern:{reverseNode}"
+        //         | start ->
+        //             let startIdx = max currMatchStart start
+        //             let response: MatchPosition = {
+        //                 Index = startIdx
+        //                 Length = endPos - startIdx
+        //             }
+        //             matchPositions.Add response
+        //         // continue
+        //         if endPos < input.Length then
+        //             _toplevelOr <- _cache.False
+        //             if endPos = currMatchStart then
+        //                 currMatchStart <- currMatchStart + 1
+        //             else
+        //                 currMatchStart <- endPos
+        //         else
+        //             looping <- false
+        // matchPositions
 
     // accessors
     member this.InitialPattern = dotStarredNode
@@ -777,6 +675,79 @@ type RegexMatcher<'t
     member this.ReversePattern = reverseNode
 
     member this.Cache = _cache
+
+#if DEBUG
+
+    /// formal match end without exit condition
+    member this.llmatchend(
+        cache: RegexCache<TSet>,
+        rstate: CountingSet.RegexState, // unused: state for counting sets
+        loc: byref<Location>,
+        activeNode: inref<RegexNode<TSet>>
+        )  =
+        let mutable looping = true
+        let mutable currentStateId =
+            this.GetOrCreateState(activeNode).Id // initialize state in dfa
+        let mutable currentMax = -2
+
+        while looping do
+
+            let state = _stateArray[currentStateId]
+            let flags = state.Flags
+
+            // no exit condition in formal llmatch
+            // 1. the pattern goes back to initial
+            // 2. there is a nullable position
+            // if flags.IsInitial && currentMax > 0 then
+            //     looping <- false
+
+            // skipping not in formal match
+            // if flags.CanSkip then
+            //     _cache.TryNextStartsetLocation(&loc, state.Startset)
+
+            // determine nullability
+            if RegexNode.isNullable(_cache, rstate, &loc,state.Node) then
+                currentMax <- loc.Position
+
+            if not (Location.isFinal loc) then
+                // transition dfa state to next
+                // if not in already in dfa then a new derivative is computed here
+                let _ =  this.TryTakeTransition(rstate, &currentStateId, _cache.MintermId(&loc), &loc)
+                loc.Position <- Location.nextPosition loc
+            else
+                looping <- false
+
+        currentMax
+
+    /// formal llmatch
+    member this.llmatch(startLoc, input:ReadOnlySpan<char>) =
+        let state = CountingSet.RegexState(_cache.NumOfMinterms()) // unused for now
+        // ⊤*(R_rev)
+        let trueStarredReversePat =
+            _cache.Builder.mkConcat2( _cache.TrueStar, reverseNode )
+        // start reversing from the end of the string
+        let mutable loc =
+            { Input = input ; Position = input.Length ; Reversed = true }
+        let leftmostStart = this.llmatchend(_cache, state, &loc, &trueStarredReversePat)
+
+        // start looking for the longest match from start
+        loc.Position <- leftmostStart
+        loc.Reversed <- false
+
+        let longestEnd = this.llmatchend(_cache, state, &loc, &initialNode)
+
+        let leftmostLongest = input.Slice(
+            start = leftmostStart,
+            length = longestEnd - leftmostStart)
+
+        {|
+          startPos = leftmostStart
+          endPos = longestEnd
+          text = leftmostLongest.ToString()
+          |}
+
+#endif
+
 
 
 module Helpers =
@@ -826,6 +797,8 @@ module Helpers =
 #endif
             RegexMatcher<uint64>(trueStarredNode,rawNode,reverseNode,cache) //:> GenericRegexMatcher
         | n -> failwith $"bitvector too large, size: {n}"
+
+
 
 
 [<Sealed>]

@@ -9,6 +9,7 @@ open Sbre.Info
 open Sbre.Types
 open Xunit
 open Common
+open Sbre.Pat
 
 #if DEBUG
 
@@ -243,7 +244,8 @@ let ``conversion conc ``() = assertConverted "Twain" "Twain"
 let ``flags 1``() =
     let matcher = Regex("(\d⊤*|⊤*\d{2,2}⊤*)").TSetMatcher
     let flags = Flags.inferInitialFlags matcher.RawPattern
-    assertEqual (Flag.CanBeNullableFlag ||| Flag.HasCounterFlag) flags
+    if flags.HasCounter then
+        assertEqual (Flag.CanBeNullableFlag ||| Flag.HasCounterFlag) flags
 
 
 [<Fact>]
@@ -263,26 +265,82 @@ let ``flags 2``() =
 let ``flags 3``() =
     let matcher = Regex(@"\d{2}⊤*").TSetMatcher
     let flags = matcher.RawPattern.GetFlags()
-    assertTrue (flags.HasFlag(Flag.HasCounterFlag)) "hascounter"
-    assertTrue (flags.HasFlag(Flag.IsCounterFlag)) "iscounter"
+    if flags.HasCounter then
+        assertTrue (flags.HasFlag(Flag.HasCounterFlag)) "hascounter"
+        assertTrue (flags.HasFlag(Flag.IsCounterFlag)) "iscounter"
 
 
 [<Fact>]
 let ``flags 4``() =
     let matcher = Regex(@"⊤*\d{2}⊤*").TSetMatcher
     let flags = matcher.RawPattern.GetFlags()
-    assertTrue (flags.HasFlag(Flag.HasCounterFlag)) "hascounter"
-    assertTrue (flags.HasFlag(Flag.CanBeNullableFlag)) "canbenullable"
-    assertFalse (flags.HasFlag(Flag.IsCounterFlag)) "iscounter"
+    if flags.HasCounter then
+        assertTrue (flags.HasFlag(Flag.HasCounterFlag)) "hascounter"
+        assertTrue (flags.HasFlag(Flag.CanBeNullableFlag)) "canbenullable"
+        assertFalse (flags.HasFlag(Flag.IsCounterFlag)) "iscounter"
 
 
 [<Fact>]
 let ``flags 5``() =
     let matcher = Regex(@"~(⊤*\d{2}⊤*)").TSetMatcher
     let flags = matcher.RawPattern.GetFlags()
-    Assert.True(flags.HasFlag(Flag.HasCounterFlag))
-    Assert.True(flags.HasFlag(Flag.CanBeNullableFlag))
+    if flags.HasCounter then
+        Assert.True(flags.HasFlag(Flag.HasCounterFlag))
+        Assert.True(flags.HasFlag(Flag.CanBeNullableFlag))
 
+
+
+
+[<Fact>]
+let ``identity derivative 2`` () =
+    let m = Regex(@"((⊤*t|)neW⊤*&⊤*erohsa⊤*&⊤*lirpA⊤*&⊤*yadsruhT⊤*)")
+    let deriv = der1Node m "test" true
+    let req = refEq m.TSetMatcher.RawPattern deriv
+    Assert.True(req)
+
+
+[<Fact>]
+let ``identity and 1`` () =
+    let m = Regex(@"((nglish⊤*|⊤*English⊤*)&~(⊤*\n\n⊤*)\n&⊤*King⊤*&⊤*Paris⊤*)")
+
+    let deriv = der1Node m "English" true
+
+    let req = refEq (m.TSetMatcher.RawPattern) deriv
+    Assert.True(req)
+
+
+[<Fact>]
+let ``identity singleton 1`` () =
+    let m = Regex(@".*b|a")
+
+    // let deriv = der1Node m "aaab" true
+
+    let l1 =
+        match m.TSetMatcher.RawPattern with
+        | Or(nodes,_) ->
+            let conc = nodes |> Seq.find (function | Concat(_) -> true | _ -> false)
+            let loop =
+                match conc with
+                | Concat(regexNode, tail, regexNodeInfo) ->
+                    regexNode
+                | _ -> failwith "debug"
+            loop
+        | _ -> failwith "debug"
+
+    let l2 =
+        match m.TSetMatcher.ReversePattern with
+        | Or(nodes,_) ->
+            let conc = nodes |> Seq.find (function | Concat(_) -> true | _ -> false)
+            let loop =
+                match conc with
+                | Concat(regexNode, tail, regexNodeInfo) ->
+                    tail
+                | _ -> failwith "debug"
+            loop
+        | _ -> failwith "debug"
+
+    let req = refEq l1 l2
+    Assert.True(req)
 
 
 

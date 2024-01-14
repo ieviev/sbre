@@ -26,10 +26,10 @@ let getDfaMatcherAndDerivative (pat:string) (input:string) =
 let dfaFindMatchEnd (pat:string) (input:string) =
     let regex = Regex(pat)
     let matcher = regex.Matcher :?> RegexMatcher<TSet>
-    let cache = matcher.Cache
-    let mutable _toplevelOr = matcher.InitialPattern
-    let mutable loc = Pat.Location.create input 0
-    matcher.DfaEndPosition(cache, &loc, &_toplevelOr)
+    let result = matcher.DfaFullSingleMatch(input)
+    match result with
+    | ValueNone -> failwith "no match"
+    | ValueSome (s,e) -> e
 
 let dfaFindAllEnds (pat:string) (input:string) =
     let regex = Regex(pat)

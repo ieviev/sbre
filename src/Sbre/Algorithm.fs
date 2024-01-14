@@ -4,6 +4,7 @@ open System
 open System.Buffers
 open System.Collections.Immutable
 open System.Runtime.InteropServices
+open Microsoft.FSharp.Core.CompilerServices
 open Sbre.CountingSet
 open Sbre.Info
 open Sbre.Optimizations
@@ -200,13 +201,13 @@ module RegexNode =
         updated:RegexNode<_>
         ) : bool =
         let mutable isFinalNullable = false
-        if refEq cache.False updated then
-            isFinalNullable <-
-                match toplevelOr.TryGetInfo with
-                | ValueSome info ->
-                    info.CanBeNullable
-                    && (info.IsAlwaysNullable || isNullable (cache,state, &loc, toplevelOr))
-                | _ -> isNullable (cache, state, &loc, toplevelOr)
+
+        isFinalNullable <-
+            match toplevelOr.TryGetInfo with
+            | ValueSome info ->
+                info.CanBeNullable
+                && (info.IsAlwaysNullable || isNullable (cache,state, &loc, toplevelOr))
+            | _ -> isNullable (cache, state, &loc, toplevelOr)
         toplevelOr <- updated
         isFinalNullable
 
@@ -222,6 +223,7 @@ module RegexNode =
         let _startsetPredicate : TSet = cache.Solver.Full
         let _builder = cache.Builder
         let _initialAlwaysNullable = isAlwaysNullable initialNode
+        let _initialIsDotstarred = cache.IsImplicitDotStarred(initialNode)
         toplevelOr <- initialNode
 
         let mutable currentMax =
@@ -238,11 +240,14 @@ module RegexNode =
             else
                 let loc_pred = cache.MintermForLocation(loc)
 
-
-
                 // current active branches
                 if not (refEq toplevelOr cache.False) then
-                    let updated = createDerivative (cache, _state, &loc, loc_pred, toplevelOr)
+                    let updated =
+                        if _initialIsDotstarred then
+                            match toplevelOr with
+                            | Or(_) -> createInitialDerivative (cache, _state, &loc, loc_pred, toplevelOr, initialNode)
+                            | _ -> createDerivative (cache, _state, &loc, loc_pred, toplevelOr)
+                        else createDerivative (cache, _state, &loc, loc_pred, toplevelOr)
                     let isFinalNullable =
                         deriveActiveBranch(
                             &toplevelOr,
@@ -443,3 +448,43 @@ let rec createDerivative
         //     cache.Builder.AddTransitionInfo(loc_pred, node, result)
 
         result
+
+
+// this is a highly optimized way of returning llmatch
+let rec createInitialDerivative
+    (
+        cache: RegexCache<TSet>,
+        state : RegexState,
+        loc: inref<Location>,
+        loc_pred: TSet,
+        node: RegexNode<TSet>,
+        initialNode: RegexNode<TSet>
+    )
+    : RegexNode<TSet>
+    =
+        // assert ((function Or _ -> true | _ -> false) node)
+        match node with
+        | Or(nodes, info) ->
+            use e = nodes.GetEnumerator()
+            let mutable existsNullable = false
+
+            let derivatives = ResizeArray()
+            for n in nodes do
+                if not (refEq n initialNode) then
+                    derivatives.Add (createDerivative (cache, state,&loc, loc_pred, n))
+
+            for n in Seq.takeWhile (fun _ -> not existsNullable ) derivatives do
+                existsNullable <- RegexNode.isNullable(cache, state, &loc, n)
+
+            if not existsNullable then
+                let initialDerivative = createDerivative (cache, state,&loc, loc_pred, initialNode)
+                // todo: redundant branch check
+                let w = 1
+                derivatives.Add (initialDerivative)
+            cache.Builder.mkOr(derivatives)
+        | other ->
+            (createDerivative (cache, state,&loc, loc_pred, other))
+
+
+
+
