@@ -560,7 +560,7 @@ type SbreDebugSearch(patterns: string list, input: string) =
 
     [<Benchmark>]
     member this.DfaSbre() =
-        this.Matcher.DfaCount(inputText)
+        this.Matcher.Count(inputText)
 
 
 [<MemoryDiagnoser(false)>]

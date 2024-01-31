@@ -214,7 +214,6 @@ type RegexMatcher<'t
             })
         mr
 
-
     member this.ThreePassMatch(
         loc: byref<Location>
         ) =
@@ -239,8 +238,6 @@ type RegexMatcher<'t
         | matchEnd ->
             Some { MatchPosition.Index = earliestStart; Length = matchEnd - earliestStart }
 
-
-
     /// used internally
     override this.MatchText(input) =
         let mutable startPos = 0
@@ -251,10 +248,8 @@ type RegexMatcher<'t
         | Some v ->
             Some (input.Slice(v.Index,v.Length).ToString())
 
-
-
     /// counts the number of matches
-    override this.Count(input) = this.DfaCount(input)
+    override this.Count(input) = this.llmatch_all(input) |> Seq.length
 
     member this.CreateStartset(state:MatchingState, initial: bool) =
 
@@ -649,123 +644,11 @@ type RegexMatcher<'t
         //         loc.Position <- ep + 1
         // eps
 
-    member this.DfaCount(input:ReadOnlySpan<char>) =
-        let mutable loc = Location.createSpan input 0
-        let mutable toplevelOr = trueStarredNode
-        let state = RegexState(_cache.NumOfMinterms())
-        let initState = this.GetTruestarredStateId(&loc)
-        let mutable counter = 0
-        let mutable looping = true
-        failwith "TODO matchtext"
-        // while looping do
-        //     match this.DfaEndPosition( &loc, initState.Id) with
-        //     | -2 ->
-        //         looping <- false // failed match
-        //     | ep ->
-        //         if loc.Position = loc.Input.Length then
-        //             looping <- false
-        //         counter <- counter + 1
-        //         loc.Position <- ep + 1
-        // counter
 
 
     /// return just the positions of matches without allocating the result
-    override this.MatchPositions(input) =
-        let mutable looping = true
-        let mutable _toplevelOr = _cache.False
-        let _startState = _stateArray[1]
-        let _initialFlags = _startState.Flags
-        let mutable currMatchStart = 0
-        let mutable location = Location.createSpan input 0
-        let matchPositions = ResizeArray()
-        while looping do
-            location.Position <- currMatchStart
+    override this.MatchPositions(input) = this.llmatch_all(input)
 
-            _cache.TryNextStartsetLocation(&location, _startState.Startset)
-
-            match RegexNode.matchEnd _cache &location trueStarredNode &_toplevelOr with
-            | ValueNone -> looping <- false
-            | ValueSome(endPos: int) ->
-                location.Position <- endPos
-                location.Reversed <- true
-                let startPos =
-                    RegexNode.matchEnd
-                        _cache
-                        &location
-                        reverseNode
-                        &_toplevelOr
-
-                location.Reversed <- false
-                match startPos with
-                | ValueNone ->
-                    failwith
-                        $"match succeeded left to right but not right to left\nthis may occur because of an unimplemented feature\nend-pos:{endPos}, pattern:{reverseNode}"
-                | ValueSome start ->
-                    let startIdx = max currMatchStart start
-                    let response: MatchPosition = {
-                        Index = startIdx
-                        Length = endPos - startIdx
-                    }
-                    matchPositions.Add response
-                // continue
-                if endPos < input.Length then
-                    _toplevelOr <- _cache.False
-                    if endPos = currMatchStart then
-                        currMatchStart <- currMatchStart + 1
-                    else
-                        currMatchStart <- endPos
-                else
-                    looping <- false
-        matchPositions
-
-
-    member this.DfaMatchPositions(input) =
-
-        let mutable looping = true
-        let mutable _toplevelOr = _cache.False
-        let _startState = _stateArray[1]
-        let _initialFlags = _startState.Flags
-        let mutable currMatchStart = 0
-        let mutable location = Location.createSpan input 0
-        let reverseStateId = this.GetOrCreateState(reverseNode).Id
-        let state = RegexState(_cache.NumOfMinterms())
-        let initState = this.GetTruestarredStateId(&location)
-        failwith "todo2"
-        // let matchPositions = ResizeArray()
-        // while looping do
-        //     location.Position <- currMatchStart
-        //
-        //     _cache.TryNextStartsetLocation(&location, _startState.Startset)
-        //
-        //     match this.DfaEndPosition(&location,initState.Id) with
-        //     | -2 -> looping <- false
-        //     | endPos ->
-        //         location.Position <- endPos
-        //         location.Reversed <- true
-        //         let startPos = this.DfaStartPosition(&location,reverseStateId)
-        //
-        //         location.Reversed <- false
-        //         match startPos with
-        //         | -2 ->
-        //             failwith
-        //                 $"match succeeded left to right but not right to left\nthis may occur because of an unimplemented feature\nend-pos:{endPos}, pattern:{reverseNode}"
-        //         | start ->
-        //             let startIdx = max currMatchStart start
-        //             let response: MatchPosition = {
-        //                 Index = startIdx
-        //                 Length = endPos - startIdx
-        //             }
-        //             matchPositions.Add response
-        //         // continue
-        //         if endPos < input.Length then
-        //             _toplevelOr <- _cache.False
-        //             if endPos = currMatchStart then
-        //                 currMatchStart <- currMatchStart + 1
-        //             else
-        //                 currMatchStart <- endPos
-        //         else
-        //             looping <- false
-        // matchPositions
 
     // accessors
     member this.InitialPattern = trueStarredNode

@@ -21,8 +21,6 @@ let getDfaMatcherAndDerivative (pat:string) (input:string) =
     let results = matcher.GetStateAndFlagsById(stateId)
     matcher, results
 
-
-
 let dfaFindMatchEnd (pat:string) (input:string) =
     let regex = Regex(pat)
     let matcher = regex.Matcher :?> RegexMatcher<TSet>
@@ -31,29 +29,20 @@ let dfaFindMatchEnd (pat:string) (input:string) =
     | ValueNone -> failwith "no match"
     | ValueSome (s,e) -> e
 
-// let dfaFindAllEnds (pat:string) (input:string) =
-//     let regex = Regex(pat)
-//     let matcher = regex.Matcher :?> RegexMatcher<TSet>
-//     matcher.DfaMatchEnds(input)
-
-
 let getMatcher (pat:string) =
     let regex = Regex(pat)
     let matcher = regex.Matcher :?> RegexMatcher<TSet>
     matcher
-
 
 let assertPatternIn (expectedResults:string list) (state:MatchingState) =
     let node = state.Node
     let nodestr = node.ToString()
     Assert.Contains(nodestr , expectedResults)
 
-
 [<Fact>]
 let ``dfa derivative 01`` () =
     let matcher, (state) = getDfaMatcherAndDerivative "abcd" "abcde"
     assertPatternIn [ "(bcd|⊤*abcd)"; "(⊤*abcd|bcd)" ] state
-
 
 [<Fact>]
 let ``dfa startset 01`` () =

@@ -198,7 +198,7 @@ let assertDfaFirstNullable (pattern:string) (input:string) (firstNull)  =
 let assertDfaMatches (pattern:string) (input:string) (expected: (int*int) list)  =
     let regex = Regex(pattern)
     let matcher = regex.TSetMatcher
-    let result = matcher.DfaMatchPositions(input)
+    let result = matcher.MatchPositions(input)
     Assert.Equal(expected, result |> Seq.map (fun v -> v.Index,v.Length))
 
 let assertDfaReversePos (pattern:string) (input:string) (expected: int)  =
