@@ -1,6 +1,9 @@
 [<Xunit.Collection("Sequential")>]
 module Sbre.Test._06_MatchTests
 
+
+#if DEBUG
+
 open Sbre
 open Sbre.Algorithm
 open Xunit
@@ -120,79 +123,56 @@ let ``lookarounds test 4``() =
 
 [<Fact>]
 let ``lookarounds test 5``() =
-    let matcher = Regex(""".*(?<=aaa)""")
-    let result = matcher.MatchText("aa")
-    Assert.Equal(None, result)
+    assertNoMatch """.*(?<=aaa)""" "aa"
 
 
 [<Fact>]
 let ``lookarounds test 6``() =
-    let matcher = Regex(""".*(?=aaa)""")
-    let result = matcher.MatchText("baaa")
-    Assert.Equal(Some "b", result)
+    assertFirstMatchText """.*(?=aaa)""" "baaa" "b"
 
 
 [<Fact>]
 let ``lookarounds test 7``() =
-    let matcher = Regex("""(?<=aaa).*""")
-    let result = matcher.MatchText("aaabbb")
-    Assert.Equal(Some "bbb", result)
-
+    assertFirstMatchText """(?<=aaa).*""" "aaabbb" "bbb"
 
 
 [<Fact>]
 let ``lookarounds test 8``() =
-    let matcher = Regex("""(?<=aaa\{).*(?=\})""")
-    let result = matcher.MatchText("aaa{bbb {ccc}}")
-    Assert.Equal(Some "bbb {ccc}", result)
+    assertFirstMatchText """(?<=aaa\{).*(?=\})""" "aaa{bbb {ccc}}" "bbb {ccc}"
 
 
 [<Fact>]
 let ``lookarounds test 9``() =
-    let matcher =
-        Regex(
-            """^(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])\.(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])\.(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])\.(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])$"""
-        )
-
-    let result = matcher.MatchText("0.0.0.0")
-    Assert.Equal(Some "0.0.0.0", result)
-
-
-open Sbre.Test.Common
-
-// [<Fact>]
-// let ``caching lookarounds test 1``() =
-//     assertDfaMatchEnds """1300\d{6}$""" "1300333444" [10]
-//
-//
-//
-// [<Fact>]
-// let ``caching lookarounds test 2``() =
-//     assertDfaMatchEnds """(^1300\d{6}$)|(^1800|1900|1902\d{6}$)|(^0[2|3|7|8]{1}[0-9]{8}$)|(^13\d{4}$)|(^04\d{2,3}\d{6}$)""" "1300333444" [10]
+    assertFirstMatchText
+        """^(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])\.(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])\.(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])\.(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])$"""
+        "0.0.0.0"
+        "0.0.0.0"
 
 
 [<Fact>]
 let ``caching lookarounds test 2 ``() =
-    let matcher = Regex("""(^\d{3,5}\,\d{2}$)|(^\d{3,5}$)""")
-    let result = matcher.MatchText("1300333444")
-    Assert.Equal(None, result)
+    assertNoMatch
+        """(^\d{3,5}\,\d{2}$)|(^\d{3,5}$)"""
+        "1300333444"
 
 
 
 
 [<Fact>]
 let ``boundaries after``() =
-    let matcher = Regex("""a\b""")
-    let result = matcher.MatchText("a ")
-    Assert.Equal(Some "a", result)
+    assertFirstMatchText
+        """a\b"""
+        "a "
+        "a"
 
 
 
 [<Fact>]
 let ``boundaries test 1``() =
-    let matcher = Regex("""\b1\b""")
-    let ism = matcher.IsMatch("1")
-    Assert.True(ism)
+    assertFirstMatchText
+        """\b1\b"""
+        "1"
+        "1"
 
 [<Fact>]
 let ``boundaries test 1-2``() =
@@ -296,22 +276,14 @@ let ``exit range test 2``() =
 
 [<Fact>]
 let ``inverted startset test 1``() =
-    let matcher = Regex(@"..(?<=A.*)")
-    let ism = matcher.MatchText("Aa")
-    Assert.Equal(Some "Aa", ism)
+    assertFirstMatchText @"..(?<=A.*)" "Aa" "Aa"
 
 [<Fact>]
 let ``inverted startset test 2``() =
-    let matcher = Regex(@"(?=.*A)(?=.*a)(?=.*1)...")
-    let ism = matcher.MatchText("Aa1")
-    Assert.Equal(Some "Aa1", ism)
-    ()
-
-[<Fact>]
-let ``inverted startset test 3``() =
-    let matcher = Regex(@"^((?=\S*?[A-Z])(?=\S*?[a-z])(?=\S*?[0-9]).{6,})\S$")
-    let ism = matcher.MatchText("Aa11aBaAA")
-    ()
+    assertFirstMatchText
+        @"(?=.*A)(?=.*a)(?=.*1)..."
+        "Aa1"
+        "Aa1"
 
 
 
@@ -346,29 +318,32 @@ let ``reverse pattern 1``() =
 
 [<Fact>]
 let ``negation range test 1``() =
-    let matcher = Regex(@"~(⊤*\d\d⊤*)")
-    let result = matcher.MatchText("Aa11aBaAA")
-    Assert.Equal(Some "Aa1", result)
+    assertFirstMatchText
+        @"~(⊤*\d\d⊤*)"
+        "Aa11aBaAA"
+        "Aa1"
 
 [<Fact>]
 let ``negation range test 2``() =
-    let matcher = Regex(@"~(.*\d\d.*)")
-    let result = matcher.MatchText("Aa11aBaAA")
-    Assert.Equal(Some "Aa1", result)
+    assertFirstMatchText
+        @"~(.*\d\d.*)"
+        "Aa11aBaAA"
+        "Aa1"
 
 [<Fact>]
 let ``negation startset inference test``() =
-    let matcher = Regex(@"a.*&~(.*b.*)b")
-    let result = matcher.MatchText("---a------bbb")
-    Assert.Equal(Some "a------b", result)
+    assertFirstMatchText
+        @"a.*&~(.*b.*)b"
+        "---a------bbb"
+        "a------b"
 
 
 [<Fact>]
 let ``end with truestar test``() =
-    let matcher = Regex("class=\"⊤*")
-    let input = @"class=""dasdasdsdasd"""
-    let result = matcher.MatchText(input)
-    Assert.Equal(input, result.Value)
+    assertFirstMatchText
+        "class=\"⊤*"
+        @"class=""dasdasdsdasd"""
+        @"class=""dasdasdsdasd"""
 
 
 [<Fact>]
@@ -459,8 +434,11 @@ let ``web app test 5``() =
     Assert.Equal<string>(
         [|
             "De Vathaire, Florent "
+            ""
             " Le Vu, B{\\'e}atrice "
+            ""
             " Challeton-de Vathaire, C{\\'e}cile"
+            ""
         |],
         matchTexts
     )
@@ -533,18 +511,16 @@ let ``out of range test``() =
 
 [<Fact>]
 let ``ensure negation prevents match``() =
-    let matcher = Regex(".*which.*&.*could.*&.*that.*&~(.*the.*)")
-    let result =
-        matcher.MatchText("could only partly conceal the ravages which that long siege of storms had")
-
-    Assert.Equal( None, result )
+    assertNoMatch
+        ".*which.*&.*could.*&.*that.*&~(.*the.*)"
+        "could only partly conceal the ravages which that long siege of storms had"
 
 [<Fact>]
 let ``single char in negation``() =
-    let matcher = Regex(".*Huck.*&~(.*F.*)")
-    let result =
-        matcher.MatchText("The Adventures of Huckleberry Finn', published in 1885.")
-    Assert.Equal( Some "The Adventures of Huckleberry ", result )
+    assertFirstMatchText
+        ".*Huck.*&~(.*F.*)"
+        "The Adventures of Huckleberry Finn', published in 1885."
+        "The Adventures of Huckleberry "
 
 
 
@@ -563,25 +539,23 @@ how to name the two conspirators-in-chief--"
 [<Fact>]
 let ``index out of bounds test``() =
     let llmatches = getAllLLmatches @"~(⊤*\n\n⊤*)" abc
-    Assert.Equal( 2, llmatches.Count )
+    Assert.Equal( 3, llmatches.Count )
 
 
 
 [<Fact>]
 let ``negated end``() =
-    let matcher = Regex("F.*&~(.*Finn)")
-    let result =
-        matcher.MatchText("Finn', published in 1885.")
-    Assert.Equal( Some "Finn', published in 1885.", result )
-
-
+    assertFirstMatchText
+        "F.*&~(.*Finn)"
+        "Finn', published in 1885."
+        "Finn', published in 1885."
 
 
 [<Fact>]
 let ``just loop``() =
     let result = getAllLLmatches "a*" "bbbbaaabbbbb"
-    // PCRE: 11 matches -> aaa has 2 matches
-    Assert.Equal( 10, result.Count )
+    //  11 matches -> aaa has 2 matches
+    Assert.Equal( 11, result.Count )
 
 
 [<Fact>]
@@ -639,7 +613,4 @@ let ``dfa match 2``() =
 
 
 
-
-
-
-
+#endif

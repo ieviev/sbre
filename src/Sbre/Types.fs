@@ -81,7 +81,7 @@ module RegexNodeFlagsExtensions =
 type RegexStateFlags =
     | None = 0
     | InitialFlag = 1
-    | AlwaysNullableFlag = 2
+    | DeadendFlag = 2
     | CanBeNullableFlag = 4
     | CanSkipFlag = 8
     | HasPrefixFlag = 16
@@ -89,6 +89,7 @@ type RegexStateFlags =
     | HasCounterFlag = 64
     | UseDotnetOptimizations = 128
     | ContainsInitialFlag = 256
+    | AlwaysNullableFlag = 512
     // todo: fixed length
     // todo: can be subsumed
     // todo: singleton loop
@@ -98,13 +99,10 @@ module RegexStateFlagsExtensions =
     type Sbre.Types.RegexStateFlags with
         [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
         member this.IsInitial =
-            // (# "and" this RegexStateFlags.InitialFlag : RegexStateFlags #) <> RegexStateFlags.None
-            // this &&& RegexStateFlags.InitialFlag <> RegexStateFlags.None
-            // faster???
             this &&& RegexStateFlags.InitialFlag = RegexStateFlags.InitialFlag
-        // [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-        // member this.IsDeadend =
-        //     this &&& RegexStateFlags.DeadendFlag = RegexStateFlags.DeadendFlag
+        [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+        member this.IsDeadend =
+            this &&& RegexStateFlags.DeadendFlag = RegexStateFlags.DeadendFlag
         [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
         member this.IsAlwaysNullable = this &&& RegexStateFlags.AlwaysNullableFlag = RegexStateFlags.AlwaysNullableFlag
         [<MethodImpl(MethodImplOptions.AggressiveInlining)>]

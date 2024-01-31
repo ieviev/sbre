@@ -201,14 +201,6 @@ let assertDfaMatches (pattern:string) (input:string) (expected: (int*int) list) 
     let result = matcher.MatchPositions(input)
     Assert.Equal(expected, result |> Seq.map (fun v -> v.Index,v.Length))
 
-let assertDfaReversePos (pattern:string) (input:string) (expected: int)  =
-    let regex = Regex(pattern)
-    let matcher = regex.TSetMatcher
-    let mutable loc = Location.createSpanRev (input.AsSpan()) input.Length false
-    let dfaStateId = matcher.GetOrCreateState(matcher.ReversePattern).Id
-    let result = matcher.DfaStartPosition(&loc, dfaStateId)
-    Assert.Equal(expected, result)
-
 let printRegexState (matcher:RegexMatcher<_>) (state:RegexState) (node:RegexNode<TSet>) (loc:string) =
     let nodestr =
         match node with
@@ -263,20 +255,30 @@ let assertFirstNullablePos (pattern:string) (input:string) (expected) =
     Assert.Equal(expected, result)
 
 
-let assertMatchStart (pattern:string) (input:string) (startLocation:int) (expectedMatchStart:int) =
+let assertStartset (pattern:string) (initial:bool) (expected:string) =
     let regex = Regex(pattern)
     let matcher = regex.TSetMatcher
-    let mutable loc = Location.create input startLocation
-    let result = matcher.DfaStartPosition(&loc,3)
-    Assert.Equal(expectedMatchStart, result)
+    let startState = matcher.GetOrCreateState(matcher.RawPattern)
+    matcher.CreateStartset(startState, initial)
+    let resultStartset = matcher.Cache.PrettyPrintMinterm(startState.Startset)
+    Assert.Equal(resultStartset, expected)
 
 
-let assertNullableRanges (pattern:string) (input:string) (expected) =
-    let regex = Regex(pattern)
-    let matcher = regex.TSetMatcher
-    let mutable loc = Location.createReversedSpan (input.AsSpan())
-    let result = matcher.DfaSweepNullableRanges(&loc,4)
-    Assert.Equal<struct (int*int)>(expected, result)
+
+// let assertMatchStart (pattern:string) (input:string) (startLocation:int) (expectedMatchStart:int) =
+//     let regex = Regex(pattern)
+//     let matcher = regex.TSetMatcher
+//     let mutable loc = Location.create input startLocation
+//     let result = matcher.DfaStartPosition(&loc,3)
+//     Assert.Equal(expectedMatchStart, result)
+//
+//
+// let assertNullableRanges (pattern:string) (input:string) (expected) =
+//     let regex = Regex(pattern)
+//     let matcher = regex.TSetMatcher
+//     let mutable loc = Location.createReversedSpan (input.AsSpan())
+//     let result = matcher.DfaSweepNullableRanges(&loc,4)
+//     Assert.Equal<struct (int*int)>(expected, result)
 
 
 let assertNullablePositions (pattern:string) (input:string) (expected) =
@@ -299,6 +301,20 @@ let getFirstLLmatch (pattern:string) (input:string) =
     let endPos = matcher.DfaEndPosition(&loc,R_id,RegexSearchMode.MatchEnd)
     (matchStart,endPos)
 
+let getFirstLLmatchText (pattern:string) (input:string) =
+    let regex = Regex(pattern)
+    let matcher = regex.TSetMatcher
+    let mutable loc = Location.createReversedSpan (input.AsSpan())
+    let result = matcher.CollectReverseNullablePositions(&loc)
+    let R_id = matcher.GetOrCreateState(matcher.RawPattern).Id
+    let matchStart = result |> Seq.last
+    loc.Position <- matchStart
+    loc.Reversed <- false
+    let endPos = matcher.DfaEndPosition(&loc,R_id,RegexSearchMode.MatchEnd)
+    input.AsSpan().Slice(matchStart, endPos - matchStart).ToString()
+
+
+
 let getAllLLmatches (pattern:string) (input:string) =
     let regex = Regex(pattern)
     let matcher = regex.TSetMatcher
@@ -313,6 +329,15 @@ let assertFirstMatch (pattern:string) (input:string) (expected) =
 let assertFirstMatchText (pattern:string) (input:string) (expected) =
     let result = getFirstLLmatch pattern input
     Assert.Equal(expected, input.AsSpan().Slice(fst result, snd result - fst result).ToString())
+
+let assertNoMatch (pattern:string) (input:string)  =
+    let regex = Regex(pattern)
+    let matcher = regex.TSetMatcher
+    let mutable loc = Location.createReversedSpan (input.AsSpan())
+    let result = matcher.CollectReverseNullablePositions(&loc)
+    Assert.Equal(0, result.Count)
+
+
 
 let assertAllLLmatches (pattern:string) (input:string) (expected) =
     let result =

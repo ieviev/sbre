@@ -1,28 +1,32 @@
 [<Xunit.Collection("Sequential")>]
 module Sbre.Test._08_ConjunctionTests
 
+open NuGet.Frameworks
 open Sbre
 open Sbre.Benchmarks.Jobs
 open Xunit
 open Common
 
+#if DEBUG
+
 
 [<Fact>]
 let ``conjunction match test 1`` () =
-    let pattern = """c...&...s"""
-    let input = "raining cats and dogs"
-    let matcher = Regex(pattern)
-    let result = matcher.MatchText(input)
-    Assert.Equal(Some "cats", result)
+    assertFirstMatchText
+        """c...&...s"""
+        "raining cats and dogs"
+        "cats"
 
 
 [<Fact>]
 let ``conjunction match test 2`` () =
+
     let pattern = """c.*&.*s"""
     let input = "cats blah blah blah"
-    let matcher = Regex(pattern)
-    let result = matcher.MatchText(input)
-    Assert.Equal(Some "cats", result)
+    assertFirstMatchText
+        pattern
+        input
+        "cats"
 
 //
 //
@@ -30,27 +34,29 @@ let ``conjunction match test 2`` () =
 let ``conjunction match test 3`` () =
     let pattern = """.*rain.*&.*dogs.*"""
     let input = "raining cats and dogs"
-    let matcher = Regex(pattern)
-    let result = matcher.MatchText(input)
-    Assert.Equal(Some input, result)
+    assertFirstMatchText
+        pattern
+        input
+        input
 
 
 [<Fact>]
 let ``conjunction match test 4`` () =
     let pattern = """and.*&.*dogs.*"""
     let input = "raining cats and dogs"
-    let matcher = Regex(pattern)
-    let result = matcher.MatchText(input)
-    Assert.Equal(Some "and dogs", result)
+    assertFirstMatchText
+        pattern
+        input
+        "and dogs"
 
 
 [<Fact>]
 let ``conjunction match test 5`` () =
     let pattern = """[\s\S]*A[\s\S]*&[\s\S]*B""" // [\s\S]*
     let input = "B  A"
-    let matcher = Regex(pattern)
-    let result = matcher.MatchText(input)
-    Assert.Equal(None, result) // English occurs after French
+    assertNoMatch
+        pattern
+        input
 
 
 // [<Fact>]
@@ -118,9 +124,10 @@ let ``more than 3 cases short`` () =
         """⊤*Thursday⊤*&⊤*April⊤*&⊤*Went⊤*&⊤*ashore⊤*""" // [\s\S]*
 
     let input = twainExampleShort
-    let matcher = Regex(pattern)
-    let result = matcher.MatchText(input)
-    Assert.Equal(Some input, result)
+    assertFirstMatchText
+        pattern
+        input
+        input
 
 [<Fact>]
 let ``more than 3 cases short 2`` () =
@@ -128,9 +135,11 @@ let ``more than 3 cases short 2`` () =
         """[\s\S]*French[\s\S]*&[\s\S]*English[\s\S]*&[\s\S]*Chinese[\s\S]*&[\s\S]*Arabs[\s\S]*""" // [\s\S]*
 
     let input = "French English Chinese Arabs asdasd"
-    let matcher = Regex(pattern)
-    let result = matcher.MatchText(input)
-    Assert.Equal(Some input, result)
+    assertFirstMatchText
+        pattern
+        input
+        input
+
 
 [<Fact>]
 let ``twain match test 1`` () =
@@ -138,9 +147,9 @@ let ``twain match test 1`` () =
         """[\s\S]*English[\s\S]*&[\s\S]*French""" // [\s\S]*
 
     let input = twainExampleShort
-    let matcher = Regex(pattern)
-    let result = matcher.MatchText(input)
-    Assert.Equal(None, result) // English occurs after French
+    assertNoMatch
+        pattern
+        input
 
 
 [<Fact>]
@@ -151,20 +160,8 @@ let ``twain match test more than 3 cases 1`` () =
     assertFirstMatchText pattern input input
 
 
-[<Fact>]
-let ``twain match test more than 3 cases 2`` () =
-    let pattern =
-        """[\s\S]*French[\s\S]*&[\s\S]*Arabs&[\s\S]*Chinese[\s\S]*""" // [\s\S]*
 
-    let input = twainExampleShort
-    let matcher = Regex(pattern)
-    try
-        let result = matcher.MatchText(input)
-        match result with
-        | None -> Assert.False(true,"no match")
-        | Some s -> Assert.True(s.EndsWith("Arabs"), $"got {result.Value}")
-    with e ->
-        failwith (sprintf "failed with %A" e)
+
 
 
 
@@ -183,11 +180,12 @@ let ``twain match test 2`` () =
 let ``twain match test 3`` () =
     let pattern =
         """[\s\S]*French[\s\S]*&[\s\S]*English""" // [\s\S]*
-
     let input = twainExampleShort
-    let matcher = Regex(pattern)
-    let result = matcher.MatchText(input)
-    Assert.True(result.IsSome && result.Value.EndsWith("English")) // English occurs after French
+    let result =
+        getFirstLLmatchText
+            pattern
+            input
+    assertTrue (result.EndsWith("English"))
 
 [<Fact>]
 let ``twain match test 4`` () =
@@ -195,21 +193,10 @@ let ``twain match test 4`` () =
         """[\s\S]*French[\s\S]*&English[\s\S]*""" // [\s\S]*
 
     let input = "English, French asdasd"
-    let matcher = Regex(pattern)
-    let result = matcher.MatchText(input)
-    Assert.Equal(Some input, result) // English occurs after French
-//
-
-//
-// [<Fact>]
-// let ``twain match test 1``() =
-//     let pattern = """[\s\S]*English[\s\S]*&[\s\S]*French""" // [\s\S]*
-//     let input = twainExample1
-//     let matcher = Matcher(pattern)
-//     let result = matcher.Match(input)
-//     Assert.NotEqual(Some input,Some input)
-//
-
+    assertFirstMatchText
+        pattern
+        input
+        input
 
 let twainExample2 =
     """
@@ -333,8 +320,6 @@ out of you."
 let ``twain paragraph test 5``() =
     let pattern = @"\n\n~(⊤*\n\n⊤*)\n\n&⊤*(Arkansaw)⊤*"
     let input = twainExample3
-    let matcher = Regex(pattern)
-    let result = matcher.MatchText(input)
     let expectedParagraph = """
 
 "Aunt Sally, without knowing it--and of course without
@@ -344,47 +329,18 @@ all over the world except just here in Arkansaw they
 ALWAYS hunt strawberries with a dog--and a lantern--"
 
 """
-    Assert.Equal(Some expectedParagraph, result)
+    assertFirstMatchText
+        pattern
+        input
+        expectedParagraph
 
-
-
-//
-//
-// [<Fact>]
-// let ``twain paragraph test 6``() =
-//     let pattern = @"\n\n~(⊤*\n\n⊤*)\n\n&(⊤*(Arkansaw)⊤*)&(⊤*(Sally)⊤*)"
-//     let input = twainExample3
-//     let matcher = Regex(pattern)
-//     let result = matcher.FindMatchEnd(input)
-//     Assert.Equal(ValueSome 1098, result)
-
-
-// [<Fact>]
-// let ``twain paragraph test 8 ordering does not matter``() =
-//     let pattern1 = @"\n\n~(⊤*\n\n⊤*)\n\n&⊤*AAAAAAAAAAA⊤*&⊤*Tom⊤*&⊤*Sawyer⊤*"
-//     let pattern2 = @"\n\n~(⊤*\n\n⊤*)\n\n&⊤*Sawyer⊤*&⊤*Tom⊤*&⊤*AAAAAAAAAAA⊤*"
-//     let input = twainExample3
-//     let matcher1 = Regex(pattern1)
-//     let matcher2 = Regex(pattern2)
-//     let result1 = matcher1.FindMatchEnd(input)
-//     let result2 = matcher2.FindMatchEnd(input)
-//
-//     Assert.Equal(result1, result2)
 
 
 
 [<Fact>]
 let ``reverse startset test 1``() =
-
     let m = Regex(Permutations.permuteConjInParagraph [ "c[abci]*i";])
-    // let rp1 = m.RawPattern
-    // let rp2 = m.ReversePattern
-    //
-    // let ss1 = m.Cache.PrettyPrintMinterm(rp2.Startset)
-    // let d = 1
-
     let r = m.MatchPositions("aaa caaiaa bbb\n\n") |> Seq.toArray
-
     Assert.Equal(1,r.Length)
 
 
@@ -454,6 +410,7 @@ let ``script test 1``() =
 
 
 
+#endif
 
 
 

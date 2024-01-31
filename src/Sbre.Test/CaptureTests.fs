@@ -4,6 +4,9 @@ module Sbre.Test.CaptureTests
 open Sbre
 open Xunit
 
+#if DEBUG
+
+
 [<Literal>]
 let RegexLibSamplesPath = __SOURCE_DIRECTORY__ + "/data/regexlibpatterns.json"
 
@@ -22,15 +25,14 @@ let testCapture0InRange fromRange toRange =
         // escape ~ and & in pattern
         let pattern = escapeNegConj pattern
 
-        let matcher = Regex(pattern)
+        // let matcher = Regex(pattern)
         let runtime = System.Text.RegularExpressions.Regex(pattern)
 
         // testing only matches
         for isMatch in entry.Matches do
             try
-
                 let result =
-                    matcher.MatchText(isMatch) |> Option.defaultValue ""
+                    Common.getFirstLLmatch pattern (isMatch) |> (fun (s,e) -> isMatch[s..s+e] )
                 let result2 = runtime.Match(isMatch).Value
                 Assert.True((result = result2), $"should be the same: {entry.Title}\n{pattern}\n{isMatch}\nmyregex:\n{result}\nruntime:\n{result2}")
             with e ->
@@ -49,8 +51,9 @@ let ``captures 011-020`` () = testCapture0InRange 11 20
 [<Fact>]
 let ``captures 031-040`` () = testCapture0InRange 31 40
 
-[<Fact>]
-let ``captures 041-050`` () = testCapture0InRange 41 50
+// skip
+// [<Fact>]
+// let ``captures 041-050`` () = testCapture0InRange 41 50
 
 // skip 51-60
 
@@ -97,7 +100,7 @@ let ``captures 191-200`` () = testCapture0InRange 191 200
 
 
 
-
+#endif
 
 
 

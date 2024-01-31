@@ -2,6 +2,8 @@
 module Sbre.Test._03_NullabilityTests
 
 
+#if DEBUG
+
 open System
 open System.Text.RuntimeRegexCopy.Symbolic
 open Sbre
@@ -415,5 +417,7 @@ let ``skip position test 2``() =
     Assert.Equal(ValueSome 8, result)
 
 
+
+#endif
 
 #endif

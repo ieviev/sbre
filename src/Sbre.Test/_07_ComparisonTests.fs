@@ -3,6 +3,9 @@ module Sbre.Test._07_ComparisonTests
 
 open Sbre
 open Xunit
+open Common
+#if DEBUG
+
 
 let testSameAsRuntime (pattern:string) (input:string) =
     let mymatcher = Regex(pattern)
@@ -123,11 +126,11 @@ let ``deduplication test``() =
 
 [<Fact>]
 let ``deduplication test 2 ``() =
-    let pattern = """^[a-zA-Z]+(([\'\,\.\- ][a-zA-Z ])?[a-zA-Z]*)*$""" // multiline comments
-    let input = "T.F. Johnson"
-    let matcher = Regex(pattern)
-    let result = matcher.MatchText(input)
-    ()
+    assertFirstMatchText
+        """^[a-zA-Z]+(([\'\,\.\- ][a-zA-Z ])?[a-zA-Z]*)*$"""
+        "T.F. Johnson"
+        "T.F. Johnson"
+    // ? no test
 
 
 [<Fact>]
@@ -159,13 +162,18 @@ let ``massive or pattern`` () =
 
 [<Fact>]
 let ``semantics test 1`` () =
-    let matcher = Regex(@"(a|ab)*")
-    let ism = matcher.MatchText("abab")
-    Assert.Equal(ism, Some "abab")
+    assertFirstMatchText
+        @"(a|ab)*"
+        "abab"
+        "abab"
+
 
 
 [<Fact>]
 let ``top level duplicate test`` () =
-    let matcher = Regex(@"((\(\d{3}\)?)|(\d{3}))([\s-./]?)(\d{3})([\s-./]?)(\d{4})")
-    let ism = matcher.MatchText("1-(212)-123 4567")
-    Assert.Equal(ism, Some "(212)-123 4567")
+    assertFirstMatchText
+        @"((\(\d{3}\)?)|(\d{3}))([\s-./]?)(\d{3})([\s-./]?)(\d{4})"
+        "1-(212)-123 4567"
+        "(212)-123 4567"
+
+#endif

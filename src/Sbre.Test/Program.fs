@@ -3,6 +3,7 @@
 module Program
 
 open Sbre
+open Sbre.Benchmarks
 open Sbre.Test
 
 // let regex = Regex(@"(abc)+")
@@ -16,19 +17,13 @@ open Sbre.Test
 // let formalLlmatch = matcher.llmatch("__abcabc_abc_")
 //
 
+// let suite = Paper.Twain_1()
+// suite.Setup()
 
-let domatch =
-    let matcher = Regex(@"..(?<=A.*)")
-    let ism = matcher.MatchText("Aa")
-    assert(Some "Aa" = ism)
+let suite = Paper.SampleRegexes()
+suite.Setup()
+
+for i = 1 to 10 do
+    suite.Sbre() |> ignore
 
 
-// let domatch2 =
-//     let matcher = Regex("""1300\d{6}$""").TSetMatcher
-//     let cache = matcher.Cache
-//     let mutable _toplevelOr = matcher.InitialPattern
-//     let mutable loc = Pat.Location.create "1300333444" 0
-//     let result = matcher.DfaEndPosition(cache, &loc, &_toplevelOr)
-//     result
-
-let w = 1

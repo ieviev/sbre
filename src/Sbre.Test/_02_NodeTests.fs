@@ -21,29 +21,28 @@ module Helpers =
     let converter = RegexNodeConverter(bddBuilder, null)
     let bddBuilder2 = RegexBuilder(converter, charSetSolver, charSetSolver)
 
-let printImplicit (reg:Regex) =
+let printImplicit(reg: Regex) =
     try
         let matcher = reg.TSetMatcher
         let nodes = matcher.InitialPattern
         matcher.Cache.PrettyPrintNode nodes
-    with
-        e ->
-            try
-                let matcher = reg.UInt16Matcher
-                let nodes = matcher.InitialPattern
-                matcher.Cache.PrettyPrintNode nodes
-            with e ->
-                let matcher = reg.TSetMatcher
-                let nodes = matcher.InitialPattern
-                matcher.Cache.PrettyPrintNode nodes
+    with e ->
+        try
+            let matcher = reg.UInt16Matcher
+            let nodes = matcher.InitialPattern
+            matcher.Cache.PrettyPrintNode nodes
+        with e ->
+            let matcher = reg.TSetMatcher
+            let nodes = matcher.InitialPattern
+            matcher.Cache.PrettyPrintNode nodes
 
-let printNode (reg:RegexMatcher<_>, node:RegexNode<_>) =
+let printNode(reg: RegexMatcher<_>, node: RegexNode<_>) =
     try
         let matcher = reg
         let nodes = node
         matcher.Cache.PrettyPrintNode nodes
-    with
-        e -> failwith "failed to print node"
+    with e ->
+        failwith "failed to print node"
 
 
 [<Fact>]
@@ -99,7 +98,7 @@ let ``identity true star``() =
 
     let identity =
         match nodes with
-        | _ when obj.ReferenceEquals(cache.Builder.uniques._trueStar,nodes) -> true
+        | _ when obj.ReferenceEquals(cache.Builder.uniques._trueStar, nodes) -> true
         | _ -> false
 
     Assert.True(identity)
@@ -114,7 +113,7 @@ let ``identity true star reversed``() =
 
     let identity =
         match nodes with
-        | _ when obj.ReferenceEquals(cache.Builder.uniques._trueStar,nodes) -> true
+        | _ when obj.ReferenceEquals(cache.Builder.uniques._trueStar, nodes) -> true
         | _ -> false
 
     Assert.True(identity)
@@ -199,12 +198,10 @@ let assertConverted (pattern: string) (expected: string) =
     let asstr =
         try
             reg.TSetMatcher.Cache.PrettyPrintNode reg.TSetMatcher.RawPattern
-        with
-        | e ->
+        with e ->
             try
                 reg.UInt16Matcher.Cache.PrettyPrintNode reg.UInt16Matcher.RawPattern
-            with
-            | e ->
+            with e ->
                 reg.UInt16Matcher.Cache.PrettyPrintNode reg.TSetMatcher.RawPattern
 
     Assert.Equal(expected, asstr)
@@ -244,6 +241,7 @@ let ``conversion conc ``() = assertConverted "Twain" "Twain"
 let ``flags 1``() =
     let matcher = Regex("(\d⊤*|⊤*\d{2,2}⊤*)").TSetMatcher
     let flags = Flags.inferInitialFlags matcher.RawPattern
+
     if flags.HasCounter then
         assertEqual (Flag.CanBeNullableFlag ||| Flag.HasCounterFlag) flags
 
@@ -257,7 +255,11 @@ let ``flags 2``() =
         // let flags = Flags.inferNode matcher.RawPattern
         // let info = Cache.mkInfoOfOr (matcher.Cache, nodes)
         let flags = Flags.inferInitialFlags matcher.RawPattern
-        Assert.Equal(Flag.CanBeNullableFlag ||| Flag.IsAlwaysNullableFlag ||| Flag.ContainsEpsilonFlag, flags)
+
+        Assert.Equal(
+            Flag.CanBeNullableFlag ||| Flag.IsAlwaysNullableFlag ||| Flag.ContainsEpsilonFlag,
+            flags
+        )
     | _ -> Assert.True(false, "wrong node type")
 
 
@@ -265,6 +267,7 @@ let ``flags 2``() =
 let ``flags 3``() =
     let matcher = Regex(@"\d{2}⊤*").TSetMatcher
     let flags = matcher.RawPattern.GetFlags()
+
     if flags.HasCounter then
         assertTrue (flags.HasFlag(Flag.HasCounterFlag)) "hascounter"
         assertTrue (flags.HasFlag(Flag.IsCounterFlag)) "iscounter"
@@ -274,6 +277,7 @@ let ``flags 3``() =
 let ``flags 4``() =
     let matcher = Regex(@"⊤*\d{2}⊤*").TSetMatcher
     let flags = matcher.RawPattern.GetFlags()
+
     if flags.HasCounter then
         assertTrue (flags.HasFlag(Flag.HasCounterFlag)) "hascounter"
         assertTrue (flags.HasFlag(Flag.CanBeNullableFlag)) "canbenullable"
@@ -284,6 +288,7 @@ let ``flags 4``() =
 let ``flags 5``() =
     let matcher = Regex(@"~(⊤*\d{2}⊤*)").TSetMatcher
     let flags = matcher.RawPattern.GetFlags()
+
     if flags.HasCounter then
         Assert.True(flags.HasFlag(Flag.HasCounterFlag))
         Assert.True(flags.HasFlag(Flag.CanBeNullableFlag))
@@ -292,7 +297,7 @@ let ``flags 5``() =
 
 
 [<Fact>]
-let ``identity derivative 2`` () =
+let ``identity derivative 2``() =
     let m = Regex(@"((⊤*t|)neW⊤*&⊤*erohsa⊤*&⊤*lirpA⊤*&⊤*yadsruhT⊤*)")
     let deriv = der1Node m "test" true
     let req = refEq m.TSetMatcher.RawPattern deriv
@@ -300,7 +305,7 @@ let ``identity derivative 2`` () =
 
 
 [<Fact>]
-let ``identity and 1`` () =
+let ``identity and 1``() =
     let m = Regex(@"((nglish⊤*|⊤*English⊤*)&~(⊤*\n\n⊤*)\n&⊤*King⊤*&⊤*Paris⊤*)")
 
     let deriv = der1Node m "English" true
@@ -310,32 +315,46 @@ let ``identity and 1`` () =
 
 
 [<Fact>]
-let ``identity singleton 1`` () =
+let ``identity singleton 1``() =
     let m = Regex(@".*b|a")
 
     // let deriv = der1Node m "aaab" true
 
     let l1 =
         match m.TSetMatcher.RawPattern with
-        | Or(nodes,_) ->
-            let conc = nodes |> Seq.find (function | Concat(_) -> true | _ -> false)
+        | Or(nodes, _) ->
+            let conc =
+                nodes
+                |> Seq.find (
+                    function
+                    | Concat(_) -> true
+                    | _ -> false
+                )
+
             let loop =
                 match conc with
-                | Concat(regexNode, tail, regexNodeInfo) ->
-                    regexNode
+                | Concat(regexNode, tail, regexNodeInfo) -> regexNode
                 | _ -> failwith "debug"
+
             loop
         | _ -> failwith "debug"
 
     let l2 =
         match m.TSetMatcher.ReversePattern with
-        | Or(nodes,_) ->
-            let conc = nodes |> Seq.find (function | Concat(_) -> true | _ -> false)
+        | Or(nodes, _) ->
+            let conc =
+                nodes
+                |> Seq.find (
+                    function
+                    | Concat(_) -> true
+                    | _ -> false
+                )
+
             let loop =
                 match conc with
-                | Concat(regexNode, tail, regexNodeInfo) ->
-                    tail
+                | Concat(regexNode, tail, regexNodeInfo) -> tail
                 | _ -> failwith "debug"
+
             loop
         | _ -> failwith "debug"
 
@@ -383,5 +402,33 @@ let ``identity singleton 1`` () =
 // #endif
 
 #endif
+
+
+
+[<Fact>]
+let ``startset 01``() = assertStartset "(ab)" true "a"
+
+[<Fact>]
+let ``startset 02``() = assertStartset "(ab)*" true "a"
+
+[<Fact>]
+let ``startset 03``() = assertStartset "(ab)*" false "."
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 #endif

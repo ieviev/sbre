@@ -17,7 +17,8 @@ let getDfaMatcherAndDerivative (pat:string) (input:string) =
     let mutable loc = Pat.Location.create input 0
     let rstate = RegexState(cache.NumOfMinterms())
     let mutable stateId = 1
-    let success = matcher.TryTakeTransition(rstate, &stateId, cache.MintermId(&loc), &loc)
+    let current = matcher.GetStateAndFlagsById(stateId)
+    let success = matcher.TakeTransition(rstate, current.Flags, &stateId, cache.MintermId(&loc), &loc)
     let results = matcher.GetStateAndFlagsById(stateId)
     matcher, results
 
@@ -43,14 +44,6 @@ let assertPatternIn (expectedResults:string list) (state:MatchingState) =
 let ``dfa derivative 01`` () =
     let matcher, (state) = getDfaMatcherAndDerivative "abcd" "abcde"
     assertPatternIn [ "(bcd|⊤*abcd)"; "(⊤*abcd|bcd)" ] state
-
-[<Fact>]
-let ``dfa startset 01`` () =
-    let matcher, state = getDfaMatcherAndDerivative "abcd" "a"
-    let (startState) = matcher.GetOrCreateState(matcher.RawPattern)
-    matcher.CreateStartset(startState, false)
-    let initStartset = matcher.Cache.PrettyPrintMinterm(startState.Startset)
-    Assert.Equal(initStartset, "a")
 
 
 

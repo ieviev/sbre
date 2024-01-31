@@ -123,6 +123,7 @@ let main argv =
     // standard benchmarks
     | "twain-1" -> BenchmarkRunner.Run(typeof<Paper.Twain_1>,config) |> ignore
     | "twain" -> BenchmarkRunner.Run(typeof<Paper.TwainRegexes>,config) |> ignore
+    | "twain-m" -> BenchmarkRunner.Run(typeof<Paper.TwainRegexesMatchOnly>,config) |> ignore
     | "count-c" -> BenchmarkRunner.Run(typeof<Paper.CounterCompileTimeRegexes>,config) |> ignore
     | "count-m" -> BenchmarkRunner.Run(typeof<Paper.CounterMatchTimeRegexes>,config) |> ignore
     | "s" -> BenchmarkRunner.Run(typeof<Paper.SampleRegexes>,config) |> ignore
