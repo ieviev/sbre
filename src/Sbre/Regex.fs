@@ -26,12 +26,14 @@ type MatchResult = {
 [<CLIMutable>]
 [<Struct>]
 type MatchPosition = { Index: int; Length: int }
+    with
+    member this.GetText(input:ReadOnlySpan<char>) =
+        input.Slice(this.Index, this.Length).ToString()
 
 
 [<AbstractClass>]
 type GenericRegexMatcher() =
     abstract member IsMatch: input:ReadOnlySpan<char> -> bool
-    // abstract member FindMatchEnd: input:ReadOnlySpan<char> -> int voption
     abstract member Replace: input:ReadOnlySpan<char> * replacement:ReadOnlySpan<char> -> string
     abstract member Matches: input:ReadOnlySpan<char> -> MatchResult seq
     abstract member MatchPositions: input:ReadOnlySpan<char> -> MatchPosition seq
@@ -542,15 +544,29 @@ type RegexMatcher<'t
         let allPotentialStarts = this.CollectReverseNullablePositions(&loc)
         loc.Reversed <- false
         let mutable nextValidStart = 0
-        for i = (allPotentialStarts.Count - 1) to 0 do
+        let mutable lastMatchEnd = -2
+        // last reverse nullable pos: first match start
+        for i = (allPotentialStarts.Count - 1) downto 0 do
             let currStart = allPotentialStarts[i]
-            match currStart >= nextValidStart with
-            | false -> ()// duplicate
-            | true ->
+            if currStart >= nextValidStart then
                 loc.Position <- currStart
                 let matchEnd = this.DfaEndPosition(&loc, DFA_R, RegexSearchMode.MatchEnd)
-                matches.Add({ MatchPosition.Index = currStart
-                              Length = matchEnd - currStart })
+
+                // 0 length matches that already end a match dont count as matches
+                if not (matchEnd = currStart && currStart = lastMatchEnd) then
+                    lastMatchEnd <- matchEnd
+                    matches.Add( {
+                          MatchPosition.Index = currStart
+                          Length = (matchEnd - currStart) })
+
+
+                nextValidStart <- matchEnd
+                // a match till the end of the string should not start another match
+                if nextValidStart = input.Length then
+                    nextValidStart <- Int32.MaxValue
+
+
+
         matches
 
 

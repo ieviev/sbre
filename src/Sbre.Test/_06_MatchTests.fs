@@ -405,11 +405,8 @@ let ``web app debug``() =
 
 [<Fact>]
 let ``web app test 1``() =
-    let input = webAppSample
-    // let matcher = Matcher(@".*[a-z].*&.*[A-Z].*&.*\d.*&[a-zA-Z\d]{8,}")
-    let matcher = Regex(@".*[a-z].*&[a-zA-Z\d]{8,}")
-    let result = matcher.MatchPositions("y tej55zhA25wXu8bvQxFxt o") |> Seq.toArray
-    Assert.Equal(1, result.Length)
+    let result = getAllLLmatches (@".*[a-z].*&[a-zA-Z\d]{8,}") ("y tej55zhA25wXu8bvQxFxt o")
+    Assert.Equal(1, result.Count)
 
 
 
@@ -446,25 +443,26 @@ let webAppSample2 =
 
 [<Fact>]
 let ``web app test 4.1``() =
-    let matcher = Regex(@".*(?=.*E)&~(.*and.*)")
-    let result = matcher.Match(@"___and__E")
-    // todo: should return empty match too?
-    Assert.Equal("___an", result.Value)
+    assertFirstMatchText ((@".*(?=.*E)&~(.*and.*)")) @"___and__E" "___an"
 
 
 
 [<Fact>]
 let ``web app test 5``() =
-    let matcher = Regex(@"(?<=or=\{.*).*(?=.*\},)&~(⊤*and⊤*)&(\b.*\b)")
-    let result = matcher.Matches(webAppSample2) |> Seq.map (fun v -> v.Value)
+    let result = getAllLLmatches (@"(?<=or=\{.*).*(?=.*\},)&~(⊤*and⊤*)&(\b.*\b)") webAppSample2
+    let matchTexts =
+        result
+        |> Seq.map _.GetText(webAppSample2)
+        |> Seq.toArray
 
+    // TODO: sure?
     Assert.Equal<string>(
         [|
             "De Vathaire, Florent "
             " Le Vu, B{\\'e}atrice "
             " Challeton-de Vathaire, C{\\'e}cile"
         |],
-        result
+        matchTexts
     )
 
 let sample3  = """
@@ -564,11 +562,8 @@ how to name the two conspirators-in-chief--"
 
 [<Fact>]
 let ``index out of bounds test``() =
-    let matcher = Regex(@"~(⊤*\n\n⊤*)")
-    let result =
-        matcher.MatchPositions(abc)
-        |> Seq.toArray
-    Assert.Equal( 2, result.Length )
+    let llmatches = getAllLLmatches @"~(⊤*\n\n⊤*)" abc
+    Assert.Equal( 2, llmatches.Count )
 
 
 
@@ -584,48 +579,26 @@ let ``negated end``() =
 
 [<Fact>]
 let ``just loop``() =
-    let matcher = Regex("a*")
-    let result =
-        matcher.Matches("bbbbaaabbbbb") |> Seq.toArray
-    Assert.Equal( 11, result.Length )
-
-[<Fact>]
-let ``just loop 2``() =
-    let matcher = Regex("a*").TSetMatcher
-    let result =
-        matcher.DfaMatchPositions("bbbbaaabbbbb") |> Seq.toArray
-    Assert.Equal( 11, result.Length )
+    let result = getAllLLmatches "a*" "bbbbaaabbbbb"
+    // PCRE: 11 matches -> aaa has 2 matches
+    Assert.Equal( 10, result.Count )
 
 
 [<Fact>]
 let ``simple 1``() =
-    let regex = Regex("..g")
-    let matcher = regex.TSetMatcher
-
-    let result =
-        matcher.Matches("dfdff dfggg gfgdfg gddfdf") |> Seq.toArray
-    Assert.Equal( 4, result.Length )
-
-
+    let result = getAllLLmatches "..g" "dfdff dfggg gfgdfg gddfdf"
+    Assert.Equal( 3, result.Count )
 
 
 [<Fact>]
 let ``set star loop test 1``() =
-    let matcher = Regex("a*")
-    let result =
-        matcher.Matches("bbbb") |> Seq.toArray
-    Assert.Equal( 5, result.Length )
-
-
-
-// [<Fact>]
-// let ``dfa match 1``() =
-//     assertDfaMatchEnds ".*a{3}" "aaa" [3]
+    let result = getAllLLmatches "a*" "bbbb"
+    Assert.Equal( 5, result.Count )
 
 
 [<Fact>]
 let ``dfa match 2``() =
-    assertFirstMatch ".*a{3}" "aa aaa" (3,6)
+    assertFirstMatch ".*a{3}" "aa aaa" (0,6)
 
 
 //

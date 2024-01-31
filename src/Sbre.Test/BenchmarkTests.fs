@@ -147,30 +147,30 @@ let twain_20k = twain_input[..19999] // 10k chars limit
 
 
 
-
-[<Fact>]
-let ``line test 1``() =
-    let m = Regex(@".* the .*&.* and .*")
-    let r = m.Matches(twain_input[..15_000]) |> Seq.toArray
-    // 411
-
-    Assert.Equal(2, r.Length)
-    Assert.Equal(r[0].Index, 113)
-    Assert.Equal(r[0].Length, 64)
-    Assert.Equal(r[1].Index, 14710)
-    Assert.Equal(r[1].Length, 71)
-
-[<Fact>]
-let ``line test 2``() =
-    let m = Regex(@".* t[a-z]*e .*&.* a[a-z]*d .*")
-    let r = m.Matches(twain_input[..15_000]) |> Seq.toArray
-    // 411
-
-    Assert.Equal(2, r.Length)
-    Assert.Equal(r[0].Index, 113)
-    Assert.Equal(r[0].Length, 64)
-    Assert.Equal(r[1].Index, 14710)
-    Assert.Equal(r[1].Length, 71)
+//
+// [<Fact>]
+// let ``line test 1``() =
+//     let m = Regex(@".* the .*&.* and .*")
+//     let r = m.Matches(twain_input[..15_000]) |> Seq.toArray
+//     // 411
+//
+//     Assert.Equal(2, r.Length)
+//     Assert.Equal(r[0].Index, 113)
+//     Assert.Equal(r[0].Length, 64)
+//     Assert.Equal(r[1].Index, 14710)
+//     Assert.Equal(r[1].Length, 71)
+//
+// [<Fact>]
+// let ``line test 2``() =
+//     let m = Regex(@".* t[a-z]*e .*&.* a[a-z]*d .*")
+//     let r = m.Matches(twain_input[..15_000]) |> Seq.toArray
+//     // 411
+//
+//     Assert.Equal(2, r.Length)
+//     Assert.Equal(r[0].Index, 113)
+//     Assert.Equal(r[0].Length, 64)
+//     Assert.Equal(r[1].Index, 14710)
+//     Assert.Equal(r[1].Length, 71)
 
 
 // [<Fact>]

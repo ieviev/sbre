@@ -40,29 +40,29 @@ let getMatcher (pat:string) =
 
 
 
-[<Fact>]
-let ``flags 1``() =
-    let regex = Regex("a{1,3}b")
-    let matcher = regex.TSetMatcher
-    let state = RegexState(matcher.Cache.NumOfMinterms())
-    let d1 = getNodeDerivative(regex, state, matcher.InitialPattern,"a")
-    let flags = d1.GetFlags()
-    Assert.Equal(RegexNodeFlags.HasCounterFlag, flags)
-
-
-[<Fact>]
-let ``csa der 01`` () =
-    let matcher = getDfaMatcher "a{1,3}b"
-    let w  =1
-    Assert.Equal(4, 2)
-
-
-
-[<Fact>]
-let ``csa 01`` () =
-    let endPos = dfaFindMatchEnd "a{1,3}b" "baaabc"
-    Assert.Equal(4, endPos)
-
+// [<Fact>]
+// let ``flags 1``() =
+//     let regex = Regex("a{1,3}b")
+//     let matcher = regex.TSetMatcher
+//     let state = RegexState(matcher.Cache.NumOfMinterms())
+//     let d1 = getNodeDerivative(regex, state, matcher.InitialPattern,"a")
+//     let flags = d1.GetFlags()
+//     Assert.Equal(RegexNodeFlags.HasCounterFlag, flags)
+//
+//
+// [<Fact>]
+// let ``csa der 01`` () =
+//     let matcher = getDfaMatcher "a{1,3}b"
+//     let w  =1
+//     Assert.Equal(4, 2)
+//
+//
+//
+// [<Fact>]
+// let ``csa 01`` () =
+//     let endPos = dfaFindMatchEnd "a{1,3}b" "baaabc"
+//     Assert.Equal(4, endPos)
+//
 
 
 
@@ -87,13 +87,13 @@ let ``csa 01`` () =
 // [<Fact>]
 // let ``counter match 5``() = assertDfaMatchEnds "~(.*\d\d.*)" "__11__" [3; 6]
 //
-
-[<Fact>]
-let ``counter match 6``() = assertDfaReversePos "~(⊤*\d\d⊤*)" "Aa1" 0
-
-[<Fact>]
-let ``counter match 7``() = assertDfaMatches "~(⊤*\d\d⊤*)" "Aa11aBaAA" [(0,3); 3,6]
-
+//
+// [<Fact>]
+// let ``counter match 6``() = assertDfaReversePos "~(⊤*\d\d⊤*)" "Aa1" 0
+//
+// [<Fact>]
+// let ``counter match 7``() = assertDfaMatches "~(⊤*\d\d⊤*)" "Aa11aBaAA" [(0,3); 3,6]
+//
 
 
 

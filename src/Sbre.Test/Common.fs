@@ -299,6 +299,13 @@ let getFirstLLmatch (pattern:string) (input:string) =
     let endPos = matcher.DfaEndPosition(&loc,R_id,RegexSearchMode.MatchEnd)
     (matchStart,endPos)
 
+let getAllLLmatches (pattern:string) (input:string) =
+    let regex = Regex(pattern)
+    let matcher = regex.TSetMatcher
+    let results = matcher.llmatch_all(input)
+    results
+
+
 let assertFirstMatch (pattern:string) (input:string) (expected) =
     let result = getFirstLLmatch pattern input
     Assert.Equal<int*int>(expected, result)
@@ -306,5 +313,17 @@ let assertFirstMatch (pattern:string) (input:string) (expected) =
 let assertFirstMatchText (pattern:string) (input:string) (expected) =
     let result = getFirstLLmatch pattern input
     Assert.Equal(expected, input.AsSpan().Slice(fst result, snd result - fst result).ToString())
+
+let assertAllLLmatches (pattern:string) (input:string) (expected) =
+    let result =
+        getAllLLmatches pattern input
+        |> Seq.map (fun v -> v.Index,v.Length)
+    Assert.Equal<int*int>(expected, result)
+
+let assertAllLLmatchTexts (pattern:string) (input:string) (expected) =
+    let result =
+        getAllLLmatches pattern input
+        |> Seq.map _.GetText(input)
+    Assert.Equal<string>(expected, result)
 
 #endif

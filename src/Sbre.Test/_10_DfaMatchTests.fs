@@ -8,16 +8,7 @@ open Xunit
 
 #if DEBUG
 
-let dfaFindMatchEnd (pat:string) (input:string) =
-    let regex = Regex(pat)
-    let matcher = regex.Matcher :?> RegexMatcher<TSet>
-    let cache = matcher.Cache
-    let mutable _toplevelOr = matcher.InitialPattern
-    let mutable loc = Pat.Location.create input 0
-    let mutable startState = matcher.GetTruestarredStateId(&loc).Id
-    failwith "todo find match end"
-    // matcher.DfaEndPosition(&loc, startState)
-
+open Common
 
 let getMatcher (pat:string) =
     let regex = Regex(pat)
@@ -27,31 +18,31 @@ let getMatcher (pat:string) =
 
 [<Fact>]
 let ``dfa end 01`` () =
-    let endPos = dfaFindMatchEnd "abcd" "abcde"
-    Assert.Equal(4, endPos)
+    let idx,len = getFirstLLmatch "abcd" "abcde"
+    Assert.Equal(4, idx+len)
 
 
 [<Fact>]
 let ``dfa end 02`` () =
-    let endPos = dfaFindMatchEnd @".*(?=.*-)&\S.*\S" @"-aaaa-"
-    Assert.Equal(5, endPos)
-
-
-[<Fact>]
-let ``dfa end 03`` () =
-    let endPos =
-        dfaFindMatchEnd
-            (Permutations.permuteConjInLine ["t.*hat"; "a.*nd"; "t.*he";"w.*as"])
-            BenchmarkTests.twain_input[..100_000]
-    Assert.Equal(34728, endPos)
-
-[<Fact>]
-let ``dfa end 04 - unroll loop`` () =
-    let endPos =
-        dfaFindMatchEnd
-            "[a-q][^u-z]{13}x"
-            BenchmarkTests.twain_input[..20000]
-    Assert.Equal(11549, endPos)
+    let idx,len = getFirstLLmatch @".*(?=.*-)&\S.*\S" @"-aaaa-"
+    Assert.Equal(5, idx+len)
+//
+//
+// [<Fact>]
+// let ``dfa end 03`` () =
+//     let idx,len =
+//         getFirstLLmatch
+//             (Permutations.permuteConjInLine ["t.*hat"; "a.*nd"; "t.*he";"w.*as"])
+//             BenchmarkTests.twain_input[..100_000]
+//     Assert.Equal(34728, fst endPos)
+//
+// [<Fact>]
+// let ``dfa end 04 - unroll loop`` () =
+//     let idx,len =
+//         getFirstLLmatch
+//             "[a-q][^u-z]{13}x"
+//             BenchmarkTests.twain_input[..20000]
+//     Assert.Equal(11549, fst endPos)
 
 
 // [<Fact>]

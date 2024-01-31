@@ -390,12 +390,9 @@ let ``reverse startset test 1``() =
 
 [<Fact>]
 let ``reverse startset test 2``() =
-
-    let m = Regex(Permutations.permuteConjInParagraph [ @"[a-z]*a[a-z]*";])
-
-    let r = m.MatchPositions(marktwainsample) |> Seq.toArray
-
-    Assert.Equal(2,r.Length)
+    let pat = Permutations.permuteConjInParagraph [ @"[a-z]*a[a-z]*";]
+    let result=getAllLLmatches pat marktwainsample
+    Assert.Equal(2,result.Count)
 
 
 let shortPg = """
@@ -416,9 +413,7 @@ name "
 [<Fact>]
 let ``implication 1 ``() =
     let pattern = @"(?<=\n\n|\A)~(⊤*\n\n⊤*)(?=\n\n)&(~(⊤*mistake⊤*)|(⊤*strawberries⊤*))"
-    let matcher1 = Regex(pattern)
-    let result1 = matcher1.MatchText(shortPg)
-    Assert.Equal(result1.Value , "\"mistake of saying strawberries.\"")
+    assertAllLLmatchTexts pattern shortPg ["";"\"mistake of saying strawberries.\""]
 
 
 [<Fact>]
@@ -433,11 +428,9 @@ let ``implication 2 ``() =
 [<Fact>]
 let ``implication 3 ``() =
     let pattern = @"~(⊤*\n\n⊤*)\n&~(⊤*honor⊤*)"
-    let matcher1 = Regex(pattern)
     let result1 =
-        matcher1.MatchPositions(shortPg2)
-        |> Seq.toArray
-    Assert.Equal(2, result1.Length)
+        getAllLLmatches pattern shortPg2
+    Assert.Equal(2, result1.Count)
 
 // indicates problem with second startset
 [<Fact>]

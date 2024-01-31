@@ -55,16 +55,13 @@ let ``dfa derivative 01`` () =
     assertPatternIn [ "(bcd|⊤*abcd)"; "(⊤*abcd|bcd)" ] state
 
 
-
 [<Fact>]
 let ``dfa startset 01`` () =
-    let matcher, (state) = getDfaMatcherAndDerivative "abcd" "a"
-    let (startState) = matcher.GetStateAndFlagsById(1)
-    // let startset = matcher.CreateInitialStartset(startState)
+    let matcher, state = getDfaMatcherAndDerivative "abcd" "a"
+    let (startState) = matcher.GetOrCreateState(matcher.RawPattern)
+    matcher.CreateStartset(startState, false)
     let initStartset = matcher.Cache.PrettyPrintMinterm(startState.Startset)
     Assert.Equal(initStartset, "a")
-
-
 
 
 
