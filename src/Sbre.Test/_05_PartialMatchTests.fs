@@ -32,8 +32,7 @@ let ``firstNullable 6``() = assertFirstNullablePos @"a*" " aaa " 0
 
 
 [<Fact>]
-let ``startPos 1``() = assertFirstNullablePos @"a*" " aaa " 0
-
+let ``allNullablePositions 1``() = assertNullablePositions "(ab)+" "__abab__ab__" [8; 4; 2]
 
 
 

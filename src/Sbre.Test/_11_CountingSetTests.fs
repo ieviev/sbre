@@ -17,13 +17,13 @@ let dfaFindMatchEnd (pat:string) (input:string) =
     failwith "todo"
     let mutable _toplevelOr = matcher.RawPattern
     let mutable loc = Pat.Location.create input 0
-    let mutable startState = matcher.GetInitialStateId(&loc).Id
+    let mutable startState = matcher.GetTruestarredStateId(&loc).Id
     matcher.DfaEndPosition(&loc, startState, RegexSearchMode.MatchEnd)
 
-let dfaFindAllEnds (pat:string) (input:string) =
-    let regex = Regex(pat)
-    let matcher = regex.Matcher :?> RegexMatcher<TSet>
-    matcher.DfaMatchEnds(input)
+// let dfaFindAllEnds (pat:string) (input:string) =
+//     let regex = Regex(pat)
+//     let matcher = regex.Matcher :?> RegexMatcher<TSet>
+//     matcher.DfaMatchEnds(input)
 
 let getDfaMatcher (pat:string) =
     let regex = Regex(pat)
@@ -71,22 +71,22 @@ let ``csa 01`` () =
 
 
 
-[<Fact>]
-let ``counter match 1``() = assertDfaMatchEnds "..a" "_a__" []
-
-[<Fact>]
-let ``counter match 2``() = assertDfaMatchEnds "..a" "__a__" [3]
-
-[<Fact>]
-let ``counter match 3``() = assertDfaMatchEnds "..a" "__aaa__" [3]
-
-[<Fact>]
-let ``counter match 4``() = assertDfaMatchEnds "~(.*\d\d.*)" "__11__" [3; 6]
-
-
-[<Fact>]
-let ``counter match 5``() = assertDfaMatchEnds "~(.*\d\d.*)" "__11__" [3; 6]
-
+// [<Fact>]
+// let ``counter match 1``() = assertDfaMatchEnds "..a" "_a__" []
+//
+// [<Fact>]
+// let ``counter match 2``() = assertDfaMatchEnds "..a" "__a__" [3]
+//
+// [<Fact>]
+// let ``counter match 3``() = assertDfaMatchEnds "..a" "__aaa__" [3]
+//
+// [<Fact>]
+// let ``counter match 4``() = assertDfaMatchEnds "~(.*\d\d.*)" "__11__" [3; 6]
+//
+//
+// [<Fact>]
+// let ``counter match 5``() = assertDfaMatchEnds "~(.*\d\d.*)" "__11__" [3; 6]
+//
 
 [<Fact>]
 let ``counter match 6``() = assertDfaReversePos "~(⊤*\d\d⊤*)" "Aa1" 0

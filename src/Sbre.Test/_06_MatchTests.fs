@@ -163,15 +163,15 @@ let ``lookarounds test 9``() =
 
 open Sbre.Test.Common
 
-[<Fact>]
-let ``caching lookarounds test 1``() =
-    assertDfaMatchEnds """1300\d{6}$""" "1300333444" [10]
-
-
-
-[<Fact>]
-let ``caching lookarounds test 2``() =
-    assertDfaMatchEnds """(^1300\d{6}$)|(^1800|1900|1902\d{6}$)|(^0[2|3|7|8]{1}[0-9]{8}$)|(^13\d{4}$)|(^04\d{2,3}\d{6}$)""" "1300333444" [10]
+// [<Fact>]
+// let ``caching lookarounds test 1``() =
+//     assertDfaMatchEnds """1300\d{6}$""" "1300333444" [10]
+//
+//
+//
+// [<Fact>]
+// let ``caching lookarounds test 2``() =
+//     assertDfaMatchEnds """(^1300\d{6}$)|(^1800|1900|1902\d{6}$)|(^0[2|3|7|8]{1}[0-9]{8}$)|(^13\d{4}$)|(^04\d{2,3}\d{6}$)""" "1300333444" [10]
 
 
 [<Fact>]
@@ -630,9 +630,9 @@ let ``set star loop test 1``() =
 
 
 
-[<Fact>]
-let ``dfa match 1``() =
-    assertDfaMatchEnds ".*a{3}" "aaa" [3]
+// [<Fact>]
+// let ``dfa match 1``() =
+//     assertDfaMatchEnds ".*a{3}" "aaa" [3]
 
 
 [<Fact>]
@@ -657,17 +657,17 @@ let ``dfa match 2``() =
 //     ]
 
 
-[<Fact>]
-let ``dfa match 4``() = assertDfaMatchEnds "..a" "_a__" []
-
-[<Fact>]
-let ``dfa match 5``() = assertDfaMatchEnds "..a" "__a__" [3]
-
-[<Fact>]
-let ``dfa match 6``() = assertDfaMatchEnds "..a" "___a__" [4]
-
-[<Fact>]
-let ``dfa match 7``() = assertDfaMatchEnds "..a" "___a__" [4]
+// [<Fact>]
+// let ``dfa match 4``() = assertDfaMatchEnds "..a" "_a__" []
+//
+// [<Fact>]
+// let ``dfa match 5``() = assertDfaMatchEnds "..a" "__a__" [3]
+//
+// [<Fact>]
+// let ``dfa match 6``() = assertDfaMatchEnds "..a" "___a__" [4]
+//
+// [<Fact>]
+// let ``dfa match 7``() = assertDfaMatchEnds "..a" "___a__" [4]
 
 // [<Fact>]
 // let ``llmatch 1``() =

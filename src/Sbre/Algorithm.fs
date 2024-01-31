@@ -450,7 +450,7 @@ let rec createDerivative
         result
 
 
-// this is a highly optimized way of returning llmatch
+// this is an experimental highly optimized way of returning llmatch
 let rec createInitialDerivative
     (
         cache: RegexCache<TSet>,

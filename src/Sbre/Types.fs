@@ -237,7 +237,8 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
 
             let isStar = lower = 0 && upper = Int32.MaxValue
 
-            let inner = $"{inner}"
+            let inner =
+                if inner.Length = 1 then inner else $"({inner})"
 
             let loopCount =
                 if isStar then "*"

@@ -31,10 +31,10 @@ let dfaFindMatchEnd (pat:string) (input:string) =
     | ValueNone -> failwith "no match"
     | ValueSome (s,e) -> e
 
-let dfaFindAllEnds (pat:string) (input:string) =
-    let regex = Regex(pat)
-    let matcher = regex.Matcher :?> RegexMatcher<TSet>
-    matcher.DfaMatchEnds(input)
+// let dfaFindAllEnds (pat:string) (input:string) =
+//     let regex = Regex(pat)
+//     let matcher = regex.Matcher :?> RegexMatcher<TSet>
+//     matcher.DfaMatchEnds(input)
 
 
 let getMatcher (pat:string) =

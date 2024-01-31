@@ -209,11 +209,7 @@ let assertDfaFirstNullable (pattern:string) (input:string) (firstNull)  =
     let result = matcher.DfaEndPosition(&loc,1,RegexSearchMode.FirstNullable)
     failwith "todo"
 
-let assertDfaMatchEnds (pattern:string) (input:string) (expected: int list)  =
-    let regex = Regex(pattern)
-    let matcher = regex.TSetMatcher
-    let result = matcher.DfaMatchEnds(input)
-    Assert.Equal(expected, result)
+
 
 let assertDfaMatches (pattern:string) (input:string) (expected: (int*int) list)  =
     let regex = Regex(pattern)
@@ -294,8 +290,20 @@ let assertMatchStart (pattern:string) (input:string) (startLocation:int) (expect
     Assert.Equal(expectedMatchStart, result)
 
 
+let assertNullableRanges (pattern:string) (input:string) (expected) =
+    let regex = Regex(pattern)
+    let matcher = regex.TSetMatcher
+    let mutable loc = Location.createSpanRev (input.AsSpan()) (input.Length) false
+    let result = matcher.DfaSweepNullableRanges(&loc,4)
+    Assert.Equal<struct (int*int)>(expected, result)
 
 
+let assertNullablePositions (pattern:string) (input:string) (expected) =
+    let regex = Regex(pattern)
+    let matcher = regex.TSetMatcher
+    let mutable loc = Location.createSpanRev (input.AsSpan()) (input.Length) false
+    let result = matcher.CollectReverseNullablePositions(&loc)
+    Assert.Equal<int>(expected, result)
 
 
 
