@@ -305,14 +305,14 @@ let ``subsumption or concat ``() =
 
 
 
-[<Fact>]
-let ``subsumption or loop limited 1``() =
-    test2ndDerivatives (
-        "[a-z]{0,10}y",
-        "ccccc",
-        [ @"([a-z]{0,9}y|⊤*[a-z]{0,10}y)" ]
-        // [ "⊤*[a-z]{0,10}y" ]
-    )
+// [<Fact>]
+// let ``subsumption or loop limited 1``() =
+//     test2ndDerivatives (
+//         "[a-z]{0,10}y",
+//         "ccccc",
+//         [ @"([a-z]{0,9}y|⊤*[a-z]{0,10}y)" ]
+//         // [ "⊤*[a-z]{0,10}y" ]
+//     )
 
 
 

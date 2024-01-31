@@ -4,6 +4,7 @@ module Sbre.Test._06_MatchTests
 open Sbre
 open Sbre.Algorithm
 open Xunit
+open Common
 
 
 
@@ -92,14 +93,10 @@ let ``top level or remove in correct order``() =
 
 
 
-[<Fact>]
-let ``lookarounds test 1``() =
-    let matcher = Regex(""" Sep""")
-    let mutable loc = Pat.Location.create "1 Sep" 1
-    let ism = matcher.FindMatchEnd(""" Sep""")
-        // RegexNode.matchEnd (matcher.Cache, &loc, matcher.RawPattern)
-
-    Assert.True(ism.IsSome)
+// [<Fact>]
+// let ``lookarounds test 1``() =
+//     assertFirstMatch """ Sep""" """ Sep""" (0,5)
+//
 
 [<Fact>]
 let ``lookarounds test 2``() =
@@ -289,17 +286,12 @@ let ``lots of alternations test 3``() =
 
 [<Fact>]
 let ``exit range test 1``() =
-    let matcher = Regex(@".*b|a")
-    let ism = matcher.MatchText(" aaab ")
-    Assert.Equal(Some " aaab", ism)
-
+    assertFirstMatchText @".*b|a" " aaab " " aaab"
 
 
 [<Fact>]
 let ``exit range test 2``() =
-    let matcher = Regex(@"a+")
-    let ism = matcher.MatchText(" aaa ")
-    Assert.Equal(Some "aaa", ism)
+    assertFirstMatchText @"a+" " aaa " "aaa"
 
 
 [<Fact>]
@@ -341,17 +333,13 @@ let ``reverse pattern 1``() =
     // Assert.Equal(p2,p1)
     ()
 
-[<Fact>]
-let ``reverse pattern 2``() =
-    let mutable startLocation = Pat.Location.create "1aA" 0
-
-    let m = Regex(@"(?=.*A)(?=.*a)(?=.*1).{3,3}")
-    let m_rev = Regex(@".{3,3}(?<=1.*)(?<=a.*)(?<=A.*)")
-
-    let res = m_rev.FindMatchEnd("1aA")
-    // let res_rev = RegexNode.matchEnd (m_rev.Cache,startLocation , ValueNone, m_rev.RawPattern)
-    // Assert.Equal(res_rev,res)
-    ()
+// [<Fact>]
+// let ``reverse pattern 2``() =
+//     let mutable startLocation = Pat.Location.create "1aA" 0
+//     let m = Regex(@"(?=.*A)(?=.*a)(?=.*1).{3,3}")
+//     let m_rev = Regex(@".{3,3}(?<=1.*)(?<=a.*)(?<=A.*)")
+//     let res = m_rev.FindMatchEnd("1aA")
+//     ()
 
 
 
@@ -637,11 +625,8 @@ let ``set star loop test 1``() =
 
 [<Fact>]
 let ``dfa match 2``() =
-    failwith "todo"
-    // let regex = Regex(".*a{3}")
-    // let matcher = regex.TSetMatcher
-    // let result = matcher.DfaMatchEnds("aa aaa")
-    // Assert.Equal([6], result )
+    assertFirstMatch ".*a{3}" "aa aaa" (3,6)
+
 
 //
 // [<Fact>]

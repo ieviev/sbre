@@ -187,28 +187,12 @@ let assertNullability (regex:Regex) (input:string) (expectedRegexesList:string l
 
 
 
-// let assertDfaMatchEnd (pattern:string) (input:string) (expected: int)  =
-//     let regex = Regex(pattern)
-//     let matcher = regex.TSetMatcher
-//     let mutable loc = Location.createSpanRev (input.AsSpan()) input.Length false
-//     let mutable initptn = matcher.GetInitialStateId(&loc).Id
-//
-//     let collectedInfo = ResizeArray()
-//     // let dfaStateId = matcher.GetOrCreateState(matcher.InitialPattern)
-//     let result = matcher.DfaEndPosition(&loc, initptn, (fun (st,rs) ->
-//         ()
-//     ))
-//     Assert.Equal(expected, result)
-
-
-
 let assertDfaFirstNullable (pattern:string) (input:string) (firstNull)  =
     let regex = Regex(pattern)
     let matcher = regex.TSetMatcher
     let mutable loc = Location.createSpanRev (input.AsSpan()) input.Length false
     let result = matcher.DfaEndPosition(&loc,1,RegexSearchMode.FirstNullable)
     failwith "todo"
-
 
 
 let assertDfaMatches (pattern:string) (input:string) (expected: (int*int) list)  =
@@ -225,7 +209,6 @@ let assertDfaReversePos (pattern:string) (input:string) (expected: int)  =
     let result = matcher.DfaStartPosition(&loc, dfaStateId)
     Assert.Equal(expected, result)
 
-
 let printRegexState (matcher:RegexMatcher<_>) (state:RegexState) (node:RegexNode<TSet>) (loc:string) =
     let nodestr =
         match node with
@@ -240,8 +223,6 @@ let printRegexState (matcher:RegexMatcher<_>) (state:RegexState) (node:RegexNode
         |> Seq.map (fun v -> $"(c:{v})")
         |> String.concat ";"
     counterState + "; " + nodestr + "; " + loc
-
-
 
 
 let derNode(matcher: Regex, state:RegexState, node: RegexNode<TSet>, input: string) =
@@ -293,7 +274,7 @@ let assertMatchStart (pattern:string) (input:string) (startLocation:int) (expect
 let assertNullableRanges (pattern:string) (input:string) (expected) =
     let regex = Regex(pattern)
     let matcher = regex.TSetMatcher
-    let mutable loc = Location.createSpanRev (input.AsSpan()) (input.Length) false
+    let mutable loc = Location.createReversedSpan (input.AsSpan())
     let result = matcher.DfaSweepNullableRanges(&loc,4)
     Assert.Equal<struct (int*int)>(expected, result)
 
@@ -301,13 +282,29 @@ let assertNullableRanges (pattern:string) (input:string) (expected) =
 let assertNullablePositions (pattern:string) (input:string) (expected) =
     let regex = Regex(pattern)
     let matcher = regex.TSetMatcher
-    let mutable loc = Location.createSpanRev (input.AsSpan()) (input.Length) false
+    let mutable loc = Location.createReversedSpan (input.AsSpan())
     let result = matcher.CollectReverseNullablePositions(&loc)
     Assert.Equal<int>(expected, result)
 
 
+let getFirstLLmatch (pattern:string) (input:string) =
+    let regex = Regex(pattern)
+    let matcher = regex.TSetMatcher
+    let mutable loc = Location.createReversedSpan (input.AsSpan())
+    let result = matcher.CollectReverseNullablePositions(&loc)
+    let R_id = matcher.GetOrCreateState(matcher.RawPattern).Id
+    let matchStart = result |> Seq.last
+    loc.Position <- matchStart
+    loc.Reversed <- false
+    let endPos = matcher.DfaEndPosition(&loc,R_id,RegexSearchMode.MatchEnd)
+    (matchStart,endPos)
 
+let assertFirstMatch (pattern:string) (input:string) (expected) =
+    let result = getFirstLLmatch pattern input
+    Assert.Equal<int*int>(expected, result)
 
-
+let assertFirstMatchText (pattern:string) (input:string) (expected) =
+    let result = getFirstLLmatch pattern input
+    Assert.Equal(expected, input.AsSpan().Slice(fst result, snd result - fst result).ToString())
 
 #endif

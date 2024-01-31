@@ -31,7 +31,7 @@ type MatchPosition = { Index: int; Length: int }
 [<AbstractClass>]
 type GenericRegexMatcher() =
     abstract member IsMatch: input:ReadOnlySpan<char> -> bool
-    abstract member FindMatchEnd: input:ReadOnlySpan<char> -> int voption
+    // abstract member FindMatchEnd: input:ReadOnlySpan<char> -> int voption
     abstract member Replace: input:ReadOnlySpan<char> * replacement:ReadOnlySpan<char> -> string
     abstract member Matches: input:ReadOnlySpan<char> -> MatchResult seq
     abstract member MatchPositions: input:ReadOnlySpan<char> -> MatchPosition seq
@@ -162,7 +162,7 @@ type RegexMatcher<'t
         | _ -> true
 
 
-    override this.FindMatchEnd(input) =
+    member this.FindMatchEnd(input) =
         failwith "old"
         let mutable currPos = 0
         let mutable _toplevelOr = _cache.False
@@ -449,30 +449,26 @@ type RegexMatcher<'t
         loc: byref<Location>) : ResizeArray<int> =
         assert (loc.Position > -1)
         assert (loc.Reversed = true)
-        let mutable foundmatch = false
+        let mutable looping = true
         let mutable currentStateId = DFA_TR_rev
-
         let rstate = RegexState(_cache.NumOfMinterms())
         let mutable nullablePositions_rev = ResizeArray<int>()
 
-        // determine initial nullability
-        if RegexNode.isNullable(_cache,rstate,&loc,_stateArray[currentStateId].Node) then
-            nullablePositions_rev.Add loc.Position
+        while looping do
+            let dfaState = _stateArray[currentStateId]
+            let flags = dfaState.Flags
+            let isNullable = RegexNode.isNullable(_cache,rstate,&loc,dfaState.Node)
+            if isNullable then
+                nullablePositions_rev.Add loc.Position
 
-        while not foundmatch do
-            if loc.Position > 0 && not foundmatch then
+            if loc.Position > 0 && looping then
                 let loc_pred = _cache.MintermId(&loc)
                 let nextState = this.TryNextDerivative(
                     rstate, &currentStateId, loc_pred, &loc)
                 currentStateId <- nextState
                 loc.Position <- Location.nextPosition loc
-
-                let ms = _stateArray[currentStateId]
-                let isNullable = RegexNode.isNullable(_cache,rstate,&loc,ms.Node)
-                if isNullable then
-                    nullablePositions_rev.Add loc.Position
             else
-                foundmatch <- true
+                looping <- false
 
         nullablePositions_rev
 
@@ -537,12 +533,26 @@ type RegexMatcher<'t
             else
                 foundmatch <- true
 
-        let asd = 1
-        // if foundmatch then
-        //     if currentMax > loc.Position &&
-        //        _stateArray[currentStateId].Node.IsAlwaysNullable || RegexNode.isNullable (_cache,rstate, &loc, _stateArray[currentStateId].Node) then
-        //         currentMax <- loc.Position
         nullableRanges
+
+    member this.llmatch_all(
+        input:ReadOnlySpan<char>) : ResizeArray<MatchPosition> =
+        let matches = ResizeArray()
+        let mutable loc = Location.createReversedSpan input
+        let allPotentialStarts = this.CollectReverseNullablePositions(&loc)
+        loc.Reversed <- false
+        let mutable nextValidStart = 0
+        for i = (allPotentialStarts.Count - 1) to 0 do
+            let currStart = allPotentialStarts[i]
+            match currStart >= nextValidStart with
+            | false -> ()// duplicate
+            | true ->
+                loc.Position <- currStart
+                let matchEnd = this.DfaEndPosition(&loc, DFA_R, RegexSearchMode.MatchEnd)
+                matches.Add({ MatchPosition.Index = currStart
+                              Length = matchEnd - currStart })
+        matches
+
 
     /// end position with DFA
     member this.DfaStartPosition(
@@ -907,8 +917,8 @@ type Regex(pattern: string, [<Optional; DefaultParameterValue(false)>] experimen
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     override this.Count(input) = matcher.Count(input)
-    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    override this.FindMatchEnd(input) = matcher.FindMatchEnd(input)
+    // [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    // override this.FindMatchEnd(input) = matcher.FindMatchEnd(input)
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     override this.IsMatch(input) = matcher.IsMatch(input)
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]

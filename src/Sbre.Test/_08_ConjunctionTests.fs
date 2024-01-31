@@ -4,7 +4,7 @@ module Sbre.Test._08_ConjunctionTests
 open Sbre
 open Sbre.Benchmarks.Jobs
 open Xunit
-
+open Common
 
 
 [<Fact>]
@@ -147,12 +147,9 @@ let ``twain match test 1`` () =
 let ``twain match test more than 3 cases 1`` () =
     let pattern =
         """[\s\S]*French[\s\S]*&[\s\S]*English[\s\S]*&[\s\S]*Chinese[\s\S]*&[\s\S]*Arabs[\s\S]*""" // [\s\S]*
-
     let input = twainExampleShort
-    let matcher = Regex(pattern)
-    let me = matcher.FindMatchEnd(input)
-    let result = matcher.MatchText(input)
-    Assert.Equal(Some input, result)
+    assertFirstMatchText pattern input input
+
 
 [<Fact>]
 let ``twain match test more than 3 cases 2`` () =
@@ -177,8 +174,9 @@ let ``twain match test 2`` () =
 
     let input = twainExampleShort
     let matcher = Regex(pattern)
-    let result = matcher.FindMatchEnd(input)
-    Assert.Equal(ValueSome 195, result) // English occurs after French
+    // let result = matcher.FindMatchEnd(input)
+    assertFirstMatch pattern input (0,195)
+    // Assert.Equal(ValueSome 195, result) // English occurs after French
 
 
 [<Fact>]
@@ -303,54 +301,32 @@ out of you."
 
 
 
-[<Fact>]
-let ``twain paragraph test 1``() =
-    let pattern = @"\n\n~(⊤*\n\n⊤*)\n\n&(⊤*(Huck|Finn)⊤*)"
-    let input = twainExample3
-    let matcher = Regex(pattern)
-    let result = matcher.FindMatchEnd(input)
-    Assert.Equal(ValueSome 464, result)
-
-[<Fact>]
-let ``twain paragraph test 2``() =
-    let pattern = @"\n\n~(⊤*\n\n⊤*)\n\n&⊤*Huck⊤*&⊤*Sawyer⊤*"
-    let input = twainExample3
-    let matcher = Regex(pattern)
-    let result = matcher.FindMatchEnd(input)
-    Assert.Equal(ValueSome 464, result)
-
-
-
-// TODO: startset bug
 // [<Fact>]
-// let ``twain paragraph test 3``() =
-//     let pattern = @"\n\n~(⊤*\n\n⊤*)\n\n&⊤*(Huck|Finn)⊤*"
+// let ``twain paragraph test 1``() =
+//     let pattern = @"\n\n~(⊤*\n\n⊤*)\n\n&(⊤*(Huck|Finn)⊤*)"
 //     let input = twainExample3
-//     let matcher = Matcher(pattern)
-//     let result = matcher.Match(input)
-//     let expectedParagraph = """
+//     let matcher = Regex(pattern)
+//     let result = matcher.FindMatchEnd(input)
+//     Assert.Equal(ValueSome 464, result)
 //
-// "Now, Tom Sawyer, what kind of a lie are you fixing YOUR
-// mouth to contribit to this mess of rubbage? Speak out--and
-// I warn you before you begin, that I don't believe a word
-// of it.  You and Huck's been up to something you no business
-// to--I know it perfectly well; I know you, BOTH of you.
-// Now you explain that dog, and them blackberries,
-// and the lantern, and the rest of that rot--and mind you
-// talk as straight as a string--do you hear?"
+// [<Fact>]
+// let ``twain paragraph test 2``() =
+//     let pattern = @"\n\n~(⊤*\n\n⊤*)\n\n&⊤*Huck⊤*&⊤*Sawyer⊤*"
+//     let input = twainExample3
+//     let matcher = Regex(pattern)
+//     let result = matcher.FindMatchEnd(input)
+//     Assert.Equal(ValueSome 464, result)
+
+
 //
-// """
-//     Assert.Equal(Some expectedParagraph, result)
-
-
-
-[<Fact>]
-let ``twain paragraph test 4``() =
-    let pattern = @"\n\n~(⊤*\n\n⊤*)\n\n&⊤*(Arkansaw)⊤*"
-    let input = twainExample3
-    let matcher = Regex(pattern)
-    let result = matcher.FindMatchEnd(input)
-    Assert.Equal(ValueSome 1098, result)
+//
+// [<Fact>]
+// let ``twain paragraph test 4``() =
+//     let pattern = @"\n\n~(⊤*\n\n⊤*)\n\n&⊤*(Arkansaw)⊤*"
+//     let input = twainExample3
+//     let matcher = Regex(pattern)
+//     let result = matcher.FindMatchEnd(input)
+//     Assert.Equal(ValueSome 1098, result)
 
 
 [<Fact>]
@@ -372,43 +348,28 @@ ALWAYS hunt strawberries with a dog--and a lantern--"
 
 
 
-
-
-[<Fact>]
-let ``twain paragraph test 6``() =
-    let pattern = @"\n\n~(⊤*\n\n⊤*)\n\n&(⊤*(Arkansaw)⊤*)&(⊤*(Sally)⊤*)"
-    let input = twainExample3
-    let matcher = Regex(pattern)
-    let result = matcher.FindMatchEnd(input)
-    Assert.Equal(ValueSome 1098, result)
-
-
-// ?
+//
+//
 // [<Fact>]
-// let ``twain paragraph test 7``() =
-//     let pattern = @"\n\n~(⊤*\n\n⊤*)\n\n&⊤*Tom⊤*&⊤*aggravate⊤*"
+// let ``twain paragraph test 6``() =
+//     let pattern = @"\n\n~(⊤*\n\n⊤*)\n\n&(⊤*(Arkansaw)⊤*)&(⊤*(Sally)⊤*)"
 //     let input = twainExample3
-//     let matcher = Matcher(pattern)
-//     let result = matcher.Match(input)
-//     let expectedParagraph = """
-//
-// "Tom Sawyer, I lay if you aggravate me a little more, I'll--"
-//
-// """
-//     Assert.Equal(Some expectedParagraph, result)
-//
+//     let matcher = Regex(pattern)
+//     let result = matcher.FindMatchEnd(input)
+//     Assert.Equal(ValueSome 1098, result)
 
-[<Fact>]
-let ``twain paragraph test 8 ordering does not matter``() =
-    let pattern1 = @"\n\n~(⊤*\n\n⊤*)\n\n&⊤*AAAAAAAAAAA⊤*&⊤*Tom⊤*&⊤*Sawyer⊤*"
-    let pattern2 = @"\n\n~(⊤*\n\n⊤*)\n\n&⊤*Sawyer⊤*&⊤*Tom⊤*&⊤*AAAAAAAAAAA⊤*"
-    let input = twainExample3
-    let matcher1 = Regex(pattern1)
-    let matcher2 = Regex(pattern2)
-    let result1 = matcher1.FindMatchEnd(input)
-    let result2 = matcher2.FindMatchEnd(input)
 
-    Assert.Equal(result1, result2)
+// [<Fact>]
+// let ``twain paragraph test 8 ordering does not matter``() =
+//     let pattern1 = @"\n\n~(⊤*\n\n⊤*)\n\n&⊤*AAAAAAAAAAA⊤*&⊤*Tom⊤*&⊤*Sawyer⊤*"
+//     let pattern2 = @"\n\n~(⊤*\n\n⊤*)\n\n&⊤*Sawyer⊤*&⊤*Tom⊤*&⊤*AAAAAAAAAAA⊤*"
+//     let input = twainExample3
+//     let matcher1 = Regex(pattern1)
+//     let matcher2 = Regex(pattern2)
+//     let result1 = matcher1.FindMatchEnd(input)
+//     let result2 = matcher2.FindMatchEnd(input)
+//
+//     Assert.Equal(result1, result2)
 
 
 

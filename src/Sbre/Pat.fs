@@ -303,6 +303,9 @@ module Location =
     let inline createSpanRev (str: ReadOnlySpan<char>) (p: int32) (forwards:bool) : Location = {
         Input = str; Position = p; Reversed = not forwards
     }
+    let inline createReversedSpan (str: ReadOnlySpan<char>) : Location = {
+        Input = str; Position = str.Length; Reversed = true
+    }
 
     let inline isFinal (loc: Location) =
         loc.Reversed && loc.Position = 0
