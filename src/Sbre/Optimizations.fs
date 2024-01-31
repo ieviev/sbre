@@ -5,6 +5,15 @@ open Sbre.Pat
 open System
 
 
+type SbreOptimizations =
+    | ReverseStringPrefix of string
+    | ReverseSetsPrefix of TSet array
+    | NoOptimizations
+
+let tryGetReversePrefix (c:RegexCache<TSet>) (node:RegexNode<TSet>) =
+    let a = 1
+    Some NoOptimizations
+
 let tryJumpToStartset (c:RegexCache<TSet>)(loc:byref<Location>) (node:RegexNode<TSet>) : int32 =
     loc.Position
     // let prefix : InitialStartset<_> =

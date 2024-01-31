@@ -115,6 +115,7 @@ type RegexState(numOfMinterms:int) =
         this.ActiveCounters.Values
         |> Seq.toList
 
+    member this.Clear() = this.ActiveCounters.Clear()
     member this.NumOfMinterms = numOfMinterms
 
 

@@ -400,5 +400,47 @@ type TSet = uint64
 // type TSet = uint32
 // type TSet = uint16
 
+[<Sealed>]
+type SharedResizeArray<'t>(initialSize:int) =
+    let mutable size = 0
+    let mutable limit = initialSize
+    let mutable pool : 't array = ArrayPool.Shared.Rent(initialSize)
+    member this.Add(item) =
+        if size = limit then
+            let newLimit = limit * 2
+            let newArray = ArrayPool.Shared.Rent(newLimit)
+            Array.Copy(pool,newArray,size)
+            ArrayPool.Shared.Return(pool)
+            pool <- newArray
+            limit <- limit * 2
+        pool[size] <- item
+        size <- size + 1
+
+    member this.Clear() =
+        size <- 0
+    member this.Contains(item) =
+        let mutable e = pool.AsSpan(0, size).GetEnumerator()
+        let mutable found = false
+        while not found && e.MoveNext() do
+            found <- obj.ReferenceEquals(e.Current,item)
+        found
+    member this.GetEnumerator() =
+        let mutable e = pool.AsSpan(0, size).GetEnumerator()
+        e
+
+    member this.Length = size
+
+
+    member this.AsSpan() = pool.AsSpan(0, size)
+        // for i = (allPotentialStarts.Count - 1) downto 0 do
+    member this.AsArray() = pool.AsSpan(0, size).ToArray()
+
+    interface IDisposable with
+        member this.Dispose() =
+            ArrayPool.Shared.Return(pool)
+
+
+
+
 
 

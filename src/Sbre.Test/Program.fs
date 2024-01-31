@@ -21,9 +21,11 @@ open Sbre.Test
 // suite.Setup()
 
 let suite = Paper.SampleRegexes()
-suite.Setup()
+for pat in suite.Patterns do
+    suite.Pattern <- pat
+    suite.Setup()
 
-for i = 1 to 10 do
-    suite.Sbre() |> ignore
+    for i = 1 to 100 do
+        suite.Sbre() |> ignore
 
 

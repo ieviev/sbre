@@ -22,13 +22,6 @@ let getDfaMatcherAndDerivative (pat:string) (input:string) =
     let results = matcher.GetStateAndFlagsById(stateId)
     matcher, results
 
-let dfaFindMatchEnd (pat:string) (input:string) =
-    let regex = Regex(pat)
-    let matcher = regex.Matcher :?> RegexMatcher<TSet>
-    let result = matcher.DfaFullSingleMatch(input)
-    match result with
-    | ValueNone -> failwith "no match"
-    | ValueSome (s,e) -> e
 
 let getMatcher (pat:string) =
     let regex = Regex(pat)

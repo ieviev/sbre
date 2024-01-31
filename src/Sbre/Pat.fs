@@ -43,6 +43,7 @@ module Solver =
             (larger &&& smaller) = smaller
     // let inline notElemOfSetU64 predicate locationMinterm = predicate &&& locationMinterm = 0uL
     let inline not' predicate = ~~~predicate
+    let inline isEmpty predicate = predicate = 0UL
     let inline mapOr (s:ISolver<^t>) ([<InlineIfLambda>]f: 'a -> ^t) xs: ^t =
         let mutable startset = s.Empty
         for x in xs do

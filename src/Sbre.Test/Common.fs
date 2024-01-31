@@ -191,7 +191,8 @@ let assertDfaFirstNullable (pattern:string) (input:string) (firstNull)  =
     let regex = Regex(pattern)
     let matcher = regex.TSetMatcher
     let mutable loc = Location.createSpanRev (input.AsSpan()) input.Length false
-    let result = matcher.DfaEndPosition(&loc,1,RegexSearchMode.FirstNullable)
+    let rstate = RegexState(matcher.Cache.NumOfMinterms())
+    let result = matcher.DfaEndPosition(rstate,&loc,1)
     failwith "todo"
 
 
@@ -248,11 +249,13 @@ let getFirstDerivative(matcher: Regex, state:RegexState, node: RegexNode<TSet>, 
 
 
 let assertFirstNullablePos (pattern:string) (input:string) (expected) =
-    let regex = Regex(pattern)
-    let matcher = regex.TSetMatcher
-    let mutable loc = Location.create input 0
-    let result = matcher.DfaEndPosition(&loc,1, RegexSearchMode.FirstNullable)
-    Assert.Equal(expected, result)
+    failwith "todo"
+    // let regex = Regex(pattern)
+    // let matcher = regex.TSetMatcher
+    // let mutable loc = Location.create input 0
+    // let rstate = RegexState(matcher.Cache.NumOfMinterms())
+    // let result = matcher.DfaEndPosition(&loc,1)
+    Assert.Equal(expected, 1)
 
 
 let assertStartset (pattern:string) (initial:bool) (expected:string) =
@@ -285,33 +288,30 @@ let assertNullablePositions (pattern:string) (input:string) (expected) =
     let regex = Regex(pattern)
     let matcher = regex.TSetMatcher
     let mutable loc = Location.createReversedSpan (input.AsSpan())
-    let result = matcher.CollectReverseNullablePositions(&loc)
-    Assert.Equal<int>(expected, result)
+    let rstate = RegexState(matcher.Cache.NumOfMinterms())
+    use acc = new SharedResizeArray<int>(100)
+    let result = matcher.CollectReverseNullablePositions(acc,rstate,&loc)
+    Assert.Equal<int>(expected, result.AsArray())
 
 
 let getFirstLLmatch (pattern:string) (input:string) =
     let regex = Regex(pattern)
     let matcher = regex.TSetMatcher
     let mutable loc = Location.createReversedSpan (input.AsSpan())
-    let result = matcher.CollectReverseNullablePositions(&loc)
+    let rstate = RegexState(matcher.Cache.NumOfMinterms())
+    use acc = new SharedResizeArray<int>(100)
+    let result = matcher.CollectReverseNullablePositions(acc,rstate,&loc)
     let R_id = matcher.GetOrCreateState(matcher.RawPattern).Id
-    let matchStart = result |> Seq.last
+    let matchStart = result.AsArray() |> Seq.last
     loc.Position <- matchStart
     loc.Reversed <- false
-    let endPos = matcher.DfaEndPosition(&loc,R_id,RegexSearchMode.MatchEnd)
+    rstate.Clear()
+    let endPos = matcher.DfaEndPosition(rstate,&loc,R_id)
     (matchStart,endPos)
 
 let getFirstLLmatchText (pattern:string) (input:string) =
-    let regex = Regex(pattern)
-    let matcher = regex.TSetMatcher
-    let mutable loc = Location.createReversedSpan (input.AsSpan())
-    let result = matcher.CollectReverseNullablePositions(&loc)
-    let R_id = matcher.GetOrCreateState(matcher.RawPattern).Id
-    let matchStart = result |> Seq.last
-    loc.Position <- matchStart
-    loc.Reversed <- false
-    let endPos = matcher.DfaEndPosition(&loc,R_id,RegexSearchMode.MatchEnd)
-    input.AsSpan().Slice(matchStart, endPos - matchStart).ToString()
+    let (ms,me) = getFirstLLmatch pattern input
+    input.AsSpan().Slice(ms, me - ms).ToString()
 
 
 
@@ -334,8 +334,10 @@ let assertNoMatch (pattern:string) (input:string)  =
     let regex = Regex(pattern)
     let matcher = regex.TSetMatcher
     let mutable loc = Location.createReversedSpan (input.AsSpan())
-    let result = matcher.CollectReverseNullablePositions(&loc)
-    Assert.Equal(0, result.Count)
+    let rstate = RegexState(matcher.Cache.NumOfMinterms())
+    use acc = new SharedResizeArray<int>(100)
+    let result = matcher.CollectReverseNullablePositions(acc,rstate,&loc)
+    Assert.Equal(0, result.Length)
 
 
 

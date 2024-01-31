@@ -10,20 +10,6 @@ open Common
 
 #if DEBUG
 
-let dfaFindMatchEnd (pat:string) (input:string) =
-    let regex = Regex(pat)
-    let matcher = regex.Matcher :?> RegexMatcher<TSet>
-    let cache = matcher.Cache
-    failwith "todo"
-    let mutable _toplevelOr = matcher.RawPattern
-    let mutable loc = Pat.Location.create input 0
-    let mutable startState = matcher.GetTruestarredStateId(&loc).Id
-    matcher.DfaEndPosition(&loc, startState, RegexSearchMode.MatchEnd)
-
-// let dfaFindAllEnds (pat:string) (input:string) =
-//     let regex = Regex(pat)
-//     let matcher = regex.Matcher :?> RegexMatcher<TSet>
-//     matcher.DfaMatchEnds(input)
 
 let getDfaMatcher (pat:string) =
     let regex = Regex(pat)

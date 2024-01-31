@@ -444,8 +444,8 @@ let rec createDerivative
                 else
                     R'S
 
-        // if not (containsLookaround node) && not node.HasCounter then
-        //     cache.Builder.AddTransitionInfo(loc_pred, node, result)
+        if not (containsLookaround node) && not node.HasCounter then
+            cache.Builder.AddTransitionInfo(loc_pred, node, result)
 
         result
 

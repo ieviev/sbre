@@ -173,9 +173,25 @@ type RegexCache< 't
                     loc.Position <- (currpos)
 
 
+    member this.TryNextStartsetLocationRightToLeft(loc: byref<Location>, set:  SearchValues<char>, isInverted:bool) : unit =
+        
+        let currpos = loc.Position
+        let slice = loc.Input.Slice(0, currpos)
+
+        let sharedIndex =
+            if isInverted then
+                slice.LastIndexOfAnyExcept(set)
+            else
+                slice.LastIndexOfAny(set)
+
+        if sharedIndex = -1 then
+            loc.Position <- Location.final loc
+        else
+            loc.Position <- sharedIndex + 1
+
 
     member this.TryNextStartsetLocation(loc: byref<Location>, set: TSet) : unit =
-        if _solver.IsEmpty(set) then () else
+        assert (not (Solver.isEmpty set))
         let setChars = this.MintermStartsetChars(set)
         let isInverted = _solver.isElemOfSet (set,minterms[0])
         let currpos = loc.Position
