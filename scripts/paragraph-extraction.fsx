@@ -66,13 +66,13 @@ let sh =
     Regex(paragraphRegexes[0]).Matches(sample).Count
     // 49 matches
 // let mat = Matcher(@"~(⊤*\n\n⊤*)")
-let mat = Matcher(paragraphRegexes[0]).MatchPositions(sample) |> Seq.toArray
+// let mat = Matcher(paragraphRegexes[0]).MatchPositions(sample) |> Seq.toArray
 // let mat = Matcher(@"~(⊤*\n\n+[^\n]⊤*)")
 
 // let r1 = mat.MatchPositions(shortSample) |> Seq.toArray
 
-let r2 = 
-    Matcher(@"~(⊤*\n\n⊤*)").MatchPositions(shortSample) |> Seq.where (fun v -> v.startIndex <> v.endIndex) |> Seq.length
+// let r2 = 
+//     Matcher(@"~(⊤*\n\n⊤*)").MatchPositions(shortSample) |> Seq.where (fun v -> v.startIndex <> v.endIndex) |> Seq.length
 
 // // neg-lookahead
 // // leading ws

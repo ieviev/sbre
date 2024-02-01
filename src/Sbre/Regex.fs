@@ -18,6 +18,13 @@ open System.Runtime.InteropServices
 
 [<Struct>]
 type MatchResult = {
+    Value: string
+    Index: int
+    Length: int
+}
+
+[<Struct>]
+type SingleMatchResult = {
     Success: bool
     Value: string
     Index: int
@@ -39,7 +46,7 @@ type GenericRegexMatcher() =
     abstract member Matches: input:ReadOnlySpan<char> -> MatchResult seq
     abstract member MatchPositions: input:ReadOnlySpan<char> -> MatchPosition seq
     // abstract member MatchText: input:ReadOnlySpan<char> -> string option
-    abstract member Match: input:ReadOnlySpan<char> -> MatchResult
+    abstract member Match: input:ReadOnlySpan<char> -> SingleMatchResult
     abstract member Count: input:ReadOnlySpan<char> -> int
 
 
@@ -257,7 +264,7 @@ type RegexMatcher<'t
         | -2 -> false
         | _ -> true
 
-    override this.Match(input) : MatchResult =
+    override this.Match(input) : SingleMatchResult =
         let firstMatch =
             this.MatchPositions(input) |> Seq.tryHead
         match firstMatch with
@@ -289,9 +296,8 @@ type RegexMatcher<'t
     /// return all matches on input
     override this.Matches(input) =
         let mr = ResizeArray()
-        for result in this.MatchPositions(input) do
+        for result in this.llmatch_all(input) do
             mr.Add({
-                Success = true
                 Value = input.Slice(result.Index,result.Length).ToString()
                 Index = result.Index
                 Length = result.Length
@@ -300,7 +306,6 @@ type RegexMatcher<'t
 
     /// counts the number of matches
     override this.Count(input) =
-        // this.llmatch_all(input).Count
         this.llmatch_all_count_only(input)
 
     member this.CreateStartset(state:MatchingState, initial: bool) = _createStartset(state,initial)
@@ -556,8 +561,8 @@ module Helpers =
                     _optimizations = optimizations
                 )
 
-            let rev_optimizations =
-                Optimizations.tryGetReversePrefix cache reverseNode
+            // let rev_optimizations =
+            //     Optimizations.tryGetReversePrefix cache reverseNode
 
 #if DEBUG
             Debug.debuggerSolver <- Some solver

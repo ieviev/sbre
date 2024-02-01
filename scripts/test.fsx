@@ -35,20 +35,18 @@ let res = regex.Match(sampleText)
 
 
 
-
-
 // ---
 let s = System.IO.File.ReadAllText(__SOURCE_DIRECTORY__ + "/textsample.txt")
 
 // experimental `&` and `~` parser in Sbre.Regex.fs
-let test1a = Sbre.Regex("c...&...s").MatchText("raining cats and dogs") // Some "cats"
-let test1b = Sbre.Regex(".*rain.*&.*dogs.*").MatchText("raining cats and dogs") // Some "raining cats and dogs"
-let test1c = Sbre.Regex("and.*&.*dogs.*").MatchText("raining cats and dogs") // Some "and dogs"
+let test1a = Sbre.Regex("c...&...s").Match("raining cats and dogs") // Some "cats"
+let test1b = Sbre.Regex(".*rain.*&.*dogs.*").Match("raining cats and dogs") // Some "raining cats and dogs"
+let test1c = Sbre.Regex("and.*&.*dogs.*").Match("raining cats and dogs") // Some "and dogs"
 
 // .{0,5} is the maximum distance between 2 constraints
-let test2a = Sbre.Regex(".{0,5}&(?<=cats).*&.*(?=dogs)").MatchText("raining cats and dogs") // Some " and "
-let test2b = Sbre.Regex(".{0,4}&(?<=cats).*&.*(?=dogs)").MatchText("raining cats and dogs") // None
-let test2c = Sbre.Regex(".{0,4}&(?<=cats).*&.*(?=dogs)").MatchText("cats-dogs") // Some "-"
+let test2a = Sbre.Regex(".{0,5}&(?<=cats).*&.*(?=dogs)").Match("raining cats and dogs") // Some " and "
+let test2b = Sbre.Regex(".{0,4}&(?<=cats).*&.*(?=dogs)").Match("raining cats and dogs") // None
+let test2c = Sbre.Regex(".{0,4}&(?<=cats).*&.*(?=dogs)").Match("cats-dogs") // Some "-"
 
 /// find password
 let test3a =
@@ -62,7 +60,7 @@ let test3a =
         ]
         |> String.concat "&"
     )
-        .MatchText(
+        .Match(
             """
 Lorem Ipsum is simply dummy text of the printing and typesetting industry.
 Lorem Ipsum has been the industry's standard dummy text ever since the 1500s,
@@ -188,8 +186,8 @@ let password =
     )
 
 
-password.MatchText("Aa1aa")
-password.MatchText("Aa11aaAA")
+password.Match("Aa1aa")
+password.Match("Aa11aaAA")
 
 
 let until1 = System.Text.RegularExpressions.Regex(@"ab(?!\b)..").Match("abcde fgahij")

@@ -127,23 +127,23 @@ let res17 = reg16.Match("___a_________b_______abababababab____c___")
 
 // "a.*b.*c"
 let rm = reg16.Matcher :?> RegexMatcher<uint64>
-let state = RegexState()
+// let state = RegexState()
 
-let d1 =
-    let loc = Location.create "a___b____c_" 0
-    let pred = rm.Cache.MintermForLocation(loc)
-    Algorithm.createDerivative (rm.Cache, state, &loc, pred, rm.RawPattern)
+// let d1 =
+//     let loc = Location.create "a___b____c_" 0
+//     let pred = rm.Cache.MintermForLocation(loc)
+//     Algorithm.createDerivative (rm.Cache, state, &loc, pred, rm.RawPattern)
 
-rm.Cache.PrettyPrintNode(d1)
+// rm.Cache.PrettyPrintNode(d1)
 
-let d2 =
-    let loc = Location.create "_" 0
-    let pred = rm.Cache.MintermForLocation(loc)
-    Algorithm.createDerivative (rm.Cache, state, &loc, pred, d1)
+// let d2 =
+//     let loc = Location.create "_" 0
+//     let pred = rm.Cache.MintermForLocation(loc)
+//     Algorithm.createDerivative (rm.Cache, state, &loc, pred, d1)
 
-rm.Cache.PrettyPrintNode(d1)
-rm.Cache.PrettyPrintNode(d2)
-obj.ReferenceEquals(d1, d2)
+// rm.Cache.PrettyPrintNode(d1)
+// rm.Cache.PrettyPrintNode(d2)
+// obj.ReferenceEquals(d1, d2)
 
 
 let allMinterms = rm.Cache.Minterms()
@@ -168,34 +168,34 @@ let prettyMinterms = allMinterms |> Array.map rm.Cache.PrettyPrintMinterm
 // [|"[^\na-c]"; "\n"; "a"; "b"; "c"|]
 // [|".*b.*c"; "⊥"; ".*b.*c"; ".*c"; ".*b.*c"|]
 
-let allInitialDerivatives =
-    allMinterms
-    |> Array.map (fun minterm ->
-        let loc = Location.create "_" 0 // irrelevant without lookarounds
-        Algorithm.createDerivative (rm.Cache, &loc, minterm, rm.RawPattern)
-    )
+// let allInitialDerivatives =
+//     allMinterms
+//     |> Array.map (fun minterm ->
+//         let loc = Location.create "_" 0 // irrelevant without lookarounds
+//         Algorithm.createDerivative (rm.Cache, &loc, minterm, rm.RawPattern)
+//     )
 
-let initialpats = allInitialDerivatives |> Array.map string
+// let initialpats = allInitialDerivatives |> Array.map string
 
-let all2ndDerivatives =
-    allMinterms
-    |> Array.map (fun minterm ->
-        let loc = Location.create "_" 0
-        Algorithm.createDerivative (rm.Cache, &loc, minterm, d1)
-    )
+// let all2ndDerivatives =
+//     allMinterms
+//     |> Array.map (fun minterm ->
+//         let loc = Location.create "_" 0
+//         Algorithm.createDerivative (rm.Cache, &loc, minterm, d1)
+//     )
 
-let tmp52 = all2ndDerivatives |> Array.map string
+// let tmp52 = all2ndDerivatives |> Array.map string
 
-let startset =
-    allMinterms
-    |> Array.where (fun minterm ->
-        let loc = Location.create "_" 0
-        let der = Algorithm.createDerivative (rm.Cache, &loc, minterm, d1)
-        not (refEq der d1)
-    )
-    |> Array.reduce (|||) // bitwise merge all minterms
+// let startset =
+//     allMinterms
+//     |> Array.where (fun minterm ->
+//         let loc = Location.create "_" 0
+//         let der = Algorithm.createDerivative (rm.Cache, &loc, minterm, d1)
+//         not (refEq der d1)
+//     )
+//     |> Array.reduce (|||) // bitwise merge all minterms
 
-rm.Cache.PrettyPrintMinterm(startset)
+// rm.Cache.PrettyPrintMinterm(startset)
 
 // subsumption - eliminating redundant branches
 

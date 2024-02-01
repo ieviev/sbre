@@ -11,7 +11,6 @@ type SbreOptimizations =
     | NoOptimizations
 
 let tryGetReversePrefix (c:RegexCache<TSet>) (node:RegexNode<TSet>) =
-    let a = 1
     Some NoOptimizations
 
 let tryJumpToStartset (c:RegexCache<TSet>)(loc:byref<Location>) (node:RegexNode<TSet>) : int32 =

@@ -48,14 +48,14 @@
     <PackageOutputPath>./nupkg</PackageOutputPath>
     <Authors>ieviev</Authors>
     <Title>$(ProjectName)</Title>
-    <Version>0.0.18</Version>
+    <Version>0.0.21</Version>
   </PropertyGroup>
   <ItemGroup>
     <!-- <Reference Include="RuntimeRegexCopy" Condition="'$(Configuration)'=='Release'">
       <HintPath>../RuntimeRegexCopy/bin/Release/net8.0/RuntimeRegexCopy.dll</HintPath>
     </Reference> -->
-<!--    <ProjectReference Include="..\RuntimeRegexCopy\RuntimeRegexCopy.csproj" PrivateAssets="all" />-->
-    <ProjectReference Include="..\RuntimeRegexCopy\RuntimeRegexCopy.csproj" />
+    <!--    <ProjectReference Include="..\RuntimeRegexCopy\RuntimeRegexCopy.csproj" PrivateAssets="all" />-->
+    <ProjectReference Include="..\RuntimeRegexCopy\RuntimeRegexCopy.csproj" PrivateAssets="all" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="$(MSBuildThisFileDirectory)../RuntimeRegexCopy/bin/Release/net8.0/RuntimeRegexCopy.dll">

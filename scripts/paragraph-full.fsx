@@ -228,7 +228,7 @@ let count2 pattern =
 
 // [ @"[a-qA-Q][^u-z]{0,13}l [a-qA-Q][^u-z]{0,13}l [a-qA-Q][^w-z]{0,13}t"]
 
-let test =
+// let test =
     // let pattern = ".*Huck.*&~(.*Finn.*)"
     // let pattern = Permutations.permuteConjInLine ["Huck"; "Finn"; "Tom"; "Sawyer"; "Usually"; ]
     // let pattern = Permutations.permuteConjInLine [ @"(?i)[a-z]{2,12}ing to the (?:d[a-z]+)\s" ]
@@ -236,20 +236,20 @@ let test =
     // let pattern = Permutations.permuteConjInLine [ @"ing to the [a-z]{0,8}[a-z] "; "Huck" ]
     // let pattern = Permutations.permuteConjInLine [ @"ing to"; "Huck" ] // 17
     // let pattern = Permutations.permuteConjInLine [ @"ing to"; "Huck" ] // 17
-    let pattern =
-        Permutations.permuteConjInLine
-        // Permutations.permuteAltInLine
+    // let pattern =
+    //     Permutations.permuteConjInLine
+    //     // Permutations.permuteAltInLine
 
-        [
-            @"[a-qA-Q][^u-z]{0,13}l [a-qA-Q][^u-z]{0,13}l [a-qA-Q][^w-z]{0,13}t"
-            "[a-qA-Q][^u-z]{0,13}g to be an [a-qA-Q][^u-z]{0,13}n"
-            "into"
-            "that"
-        // "Huck"
-        ]
+    //     [
+    //         @"[a-qA-Q][^u-z]{0,13}l [a-qA-Q][^u-z]{0,13}l [a-qA-Q][^w-z]{0,13}t"
+    //         "[a-qA-Q][^u-z]{0,13}g to be an [a-qA-Q][^u-z]{0,13}n"
+    //         "into"
+    //         "that"
+    //     // "Huck"
+    //     ]
     // [ @" [gw][a-z]{0,8}ing to [a-z]{0,8}[a-z] "; "Huck"; "Finn" ]
 
-    Regex(pattern).MatchPositions(input) |> Seq.toArray |> viewn 10
+    // Regex(pattern).MatchPositions(input) |> Seq.toArray |> viewn 10
 
 
 let pattern = Permutations.permuteConjInLine [ "Huck"; "Finn"; "Tom" ]

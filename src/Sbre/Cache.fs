@@ -34,8 +34,6 @@ type RegexCache< 't
     let classifier =
         if typeof<TSet> = typeof<uint64> then
             ((box _solver) :?> UInt64Solver)._classifier
-        // elif typeof<TSet> = typeof<uint32> then
-        //     ((box _solver) :?> UInt32Solver)._classifier
         else
             failwith "todo invalid solver"
 
@@ -43,26 +41,11 @@ type RegexCache< 't
     let _ascii = classifier.Ascii
     let _nonAscii = classifier.NonAscii
     let minterms: TSet[] = _solver.GetMinterms()
-
-
-
-
-
     let mintermBdds =
         (minterms |> Array.map (fun v -> _solver.ConvertToBDD(v, _charsetSolver)))
 
     let predStartsets = StartsetHelpers.startsetsFromMintermArray mintermBdds
     let mutable _cachedStartsets: Dictionary<TSet, SearchValues<char>> = Dictionary()
-
-    // let mutable _startsetPredicate : TSet =
-    //     failwith "TODO"
-    //     _solver.Full // Startset.inferStartset _solver _rawPattern
-    // let mutable _initialStartset =
-    //     // match Startset.inferInitialStartset _solver _rawPattern with
-    //     // | InitialStartset.MintermArrayPrefix(arr, _) -> arr
-    //     // | _ ->
-    //         // TODO: unoptimzed regex
-    //         ([|_solver.Full|].AsMemory())
 
     let _getMintermStartsetChars (minterm:TSet) =
         match _cachedStartsets.TryGetValue(minterm) with
@@ -75,22 +58,13 @@ type RegexCache< 't
                     minterms,
                     minterm
                 )
-            _cachedStartsets.Add(minterm, (newSpan))
+            _cachedStartsets.Add(minterm, newSpan)
             newSpan
-
-    // let initialSearchValues = _getMintermStartsetChars _initialStartset.Span[0]
-
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.Minterms() = minterms
     member this.NumOfMinterms() = minterms.Length
 
-    // [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    // member this.GetInitialStartsetPrefix() = _initialStartset
-    //
-    // [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    // member this.GetInitialSearchValues() = initialSearchValues
-    // member this.GetInitialStartsetPredicate : TSet = _startsetPredicate
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.MintermBdds() = mintermBdds
@@ -122,8 +96,6 @@ type RegexCache< 't
             else
                 loc.Position <- loc.Position + sharedIndex
                 let currpos = loc.Position
-
-                //
                 if currpos + setPrefix.Length > (loc.Input.Length - 1) then
                     skipping <- false
                 else
@@ -135,9 +107,7 @@ type RegexCache< 't
                     if termPrefix.Length = 0 then
                         -1, true
                     else
-                        let termMatch =
-                            // _solver.isElemOfSet(termSpan[0],nextLocMinterm)
-                            (Solver.elemOfSet termPrefix[0] nextLocMinterm)
+                        let termMatch = Solver.elemOfSet termPrefix[0] nextLocMinterm
                         (if termMatch then 0 else -1), termPrefix.Length <> 1
 
                 let mutable i = 1
@@ -170,11 +140,11 @@ type RegexCache< 't
 
                 if stopSearch then
                     skipping <- false
-                    loc.Position <- (currpos)
+                    loc.Position <- currpos
 
 
     member this.TryNextStartsetLocationRightToLeft(loc: byref<Location>, set:  SearchValues<char>, isInverted:bool) : unit =
-        
+
         let currpos = loc.Position
         let slice = loc.Input.Slice(0, currpos)
 
@@ -184,10 +154,10 @@ type RegexCache< 't
             else
                 slice.LastIndexOfAny(set)
 
-        if sharedIndex = -1 then
-            loc.Position <- Location.final loc
-        else
-            loc.Position <- sharedIndex + 1
+        match sharedIndex with
+        | -1 -> loc.Position <- Location.final loc
+        | _ -> loc.Position <- sharedIndex + 1
+
 
 
     member this.TryNextStartsetLocation(loc: byref<Location>, set: TSet) : unit =
@@ -521,10 +491,8 @@ type RegexCache< 't
 
 
 
-
 #if DEBUG
     member cache.PrettyPrintMinterm(xs: _) : string = cache.Solver.PrettyPrint(xs, _charsetSolver)
-
     member this.PrettyPrintNode(node: RegexNode<TSet>) : string =
         let display(nodes: RegexNode<TSet>) = this.PrettyPrintNode(nodes)
         let paren str = $"({str})"
@@ -560,15 +528,13 @@ type RegexCache< 't
                     []
 
             setItems |> String.concat "&" |> paren
-        | Not(items, info) ->
+        | Not(items, _) ->
             let inner = this.PrettyPrintNode items
 
             $"~({inner})"
-        | Loop(body, lower, upper, info) ->
+        | Loop(body, lower, upper, _) ->
             let inner = this.PrettyPrintNode body
-
             let isStar = lower = 0 && upper = Int32.MaxValue
-
             let inner = $"{inner}"
 
             let loopCount =
@@ -583,7 +549,6 @@ type RegexCache< 't
 
         | LookAround(body, lookBack, negate) ->
             let inner = this.PrettyPrintNode body
-
             match lookBack, negate with
             // | true, true when this.isFull body.Head -> "\\A"
             // | false, true when this.isFull body.Head -> "\\z"
@@ -592,7 +557,7 @@ type RegexCache< 't
             | true, true -> $"(?<!{inner})"
             | true, false -> $"(?<={inner})"
 
-        | Concat(h, t, info) -> this.PrettyPrintNode h + this.PrettyPrintNode t
+        | Concat(h, t, _) -> this.PrettyPrintNode h + this.PrettyPrintNode t
         | Epsilon -> "ε"
 #endif
     member this.Optimizations = _optimizations

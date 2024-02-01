@@ -20,10 +20,8 @@ let words =
     longSample.Split([|'\r';'\n'|])
     |> Seq.collect (fun v -> v.Split(' '))
     |> Seq.collect (fun v -> v.Split("--"))
-    // |> Seq.map (fun v -> v.Trim(trimChars).ToLowerInvariant())
     |> Seq.map (fun v -> v.Trim(trimChars))
     
-
 
 let wordDict = 
     words
