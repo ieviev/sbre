@@ -426,21 +426,10 @@ type RegexMatcher<'t
         while looping do
             let dfaState = _stateArray[currentStateId]
             let flags = dfaState.Flags
-
+#if SKIP
             if flags.CanSkip then
-                // if flags.IsInitial then
-                //     match _cache.Optimizations.FindMode with
-                //     // | FindNextStartingPositionMode.FixedDistanceString_LeftToRight
-                //     | FindNextStartingPositionMode.LeadingString_RightToLeft ->
-                //         _cache.Optimizations.TryFindNextStartingPositionRightToLeft(loc.Input, &loc.Position, loc.Position) |> ignore
-                //     | _ ->
-                //         _cache.TryNextStartsetLocationRightToLeft(&loc, dfaState.StartsetChars, dfaState.StartsetIsInverted)
-                // else
-                    // if flags &&& RegexStateFlags.UseDotnetOptimizations = RegexStateFlags.UseDotnetOptimizations then
-                    // _cache.Optimizations.TryFindNextStartingPositionRightToLeft(loc.Input, &loc.Position, loc.Position) |> ignore
                 _cache.TryNextStartsetLocationRightToLeft(&loc, dfaState.StartsetChars, dfaState.StartsetIsInverted)
-                // _cache.TryNextStartsetLocation(&loc, dfaState.Startset)
-
+#endif
             if this.StateIsNullable(flags,rstate, &loc, dfaState) then
                 acc.Add loc.Position
 
@@ -588,7 +577,6 @@ type Regex(pattern: string, [<Optional; DefaultParameterValue(false)>] experimen
     let runtimeBddBuilder = SymbolicRegexBuilder<BDD>(charsetSolver, charsetSolver)
     let converter = RegexNodeConverter(runtimeBddBuilder, null)
     let regexBuilder = RegexBuilder(converter, charsetSolver, charsetSolver)
-
     let symbolicBddnode: RegexNode<BDD> =
         RegexNodeConverter.convertToSymbolicRegexNode (
             charsetSolver,
@@ -597,22 +585,20 @@ type Regex(pattern: string, [<Optional; DefaultParameterValue(false)>] experimen
             regexTree.Root
         )
     let implicitTrueStar = regexBuilder.trueStar
+    let minterms = symbolicBddnode |> Minterms.compute runtimeBddBuilder
     let trueStarPattern: RegexNode<BDD> =
         regexBuilder.mkConcat2(implicitTrueStar, symbolicBddnode)
-    let minterms = trueStarPattern |> Minterms.compute runtimeBddBuilder
     let matcher =
         Helpers.createMatcher(minterms,charsetSolver,converter,trueStarPattern,symbolicBddnode,regexTree)
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     override this.Count(input) = matcher.Count(input)
-    // [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    // override this.FindMatchEnd(input) = matcher.FindMatchEnd(input)
+    
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     override this.IsMatch(input) = matcher.IsMatch(input)
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     override this.MatchPositions(input) = matcher.MatchPositions(input)
-    // [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    // override this.MatchText(input) = matcher.MatchText(input)
+    
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     override this.Matches(input) =
         matcher.Matches(input)
