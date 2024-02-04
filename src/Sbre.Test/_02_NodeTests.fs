@@ -24,16 +24,16 @@ module Helpers =
 let printImplicit(reg: Regex) =
     try
         let matcher = reg.TSetMatcher
-        let nodes = matcher.InitialPattern
+        let nodes = matcher.TrueStarredPattern
         matcher.Cache.PrettyPrintNode nodes
     with e ->
         try
             let matcher = reg.UInt16Matcher
-            let nodes = matcher.InitialPattern
+            let nodes = matcher.TrueStarredPattern
             matcher.Cache.PrettyPrintNode nodes
         with e ->
             let matcher = reg.TSetMatcher
-            let nodes = matcher.InitialPattern
+            let nodes = matcher.TrueStarredPattern
             matcher.Cache.PrettyPrintNode nodes
 
 let printNode(reg: RegexMatcher<_>, node: RegexNode<_>) =

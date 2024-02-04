@@ -14,7 +14,7 @@ open Common
 let getDfaMatcher (pat:string) =
     let regex = Regex(pat)
     let matcher = regex.Matcher :?> RegexMatcher<TSet>
-    let mutable _toplevelOr = matcher.InitialPattern
+    let mutable _toplevelOr = matcher.TrueStarredPattern
     matcher
 
 

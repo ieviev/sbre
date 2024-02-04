@@ -322,7 +322,7 @@ module Location =
         | true -> 0
         | _ -> loc.Input.Length
 
-
+/// same as obj.ReferenceEquals(x, y)
 let inline refEq x y =
     // obj.ReferenceEquals(x, y)
     // System.Runtime.CompilerServices.RuntimeHelpers.Equals(x,y)

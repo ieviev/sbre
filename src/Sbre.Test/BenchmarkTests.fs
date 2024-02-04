@@ -6,7 +6,6 @@ open Sbre
 open Sbre.Benchmarks.Jobs
 open Xunit
 
-
 let twainPatterns = [
     @"Twain"
     @"(?i)Twain"

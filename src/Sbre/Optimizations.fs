@@ -1,4 +1,4 @@
-module internal rec Sbre.Optimizations
+module rec Sbre.Optimizations
 
 open Sbre.Types
 open Sbre.Pat

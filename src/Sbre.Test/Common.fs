@@ -15,7 +15,7 @@ let der1 (reg: Regex) (input: string) (raw:bool) =
     let location = (Location.create input 0)
     let matcher = reg.TSetMatcher
     let cache = matcher.Cache
-    let node = if raw then matcher.RawPattern else matcher.InitialPattern
+    let node = if raw then matcher.RawPattern else matcher.TrueStarredPattern
     let state = RegexState(cache.NumOfMinterms())
     let minterm = cache.MintermForLocation(location)
     CountingSet.stepCounters state minterm
@@ -26,7 +26,7 @@ let der1Node (reg: Regex) (input: string) (raw:bool) =
     let location = (Location.create input 0)
     let matcher = reg.TSetMatcher
     let cache = matcher.Cache
-    let node = if raw then matcher.RawPattern else matcher.InitialPattern
+    let node = if raw then matcher.RawPattern else matcher.TrueStarredPattern
     let state = RegexState(cache.NumOfMinterms())
     let minterm = cache.MintermForLocation(location)
     CountingSet.stepCounters state minterm
@@ -69,7 +69,7 @@ let assertCounterStates (regex:Regex) (input:string) (expectedStates:(CounterSta
     let mutable currNode =
         match matcher.RawPattern with
         | Not(_) -> matcher.RawPattern
-        | _ -> matcher.InitialPattern
+        | _ -> matcher.TrueStarredPattern
     let mutable remainingStates = expectedStates
     let mutable endNullable = false
 
@@ -127,7 +127,7 @@ let assertAllStates (regex:Regex) (input:string) (expectedRegexesList:string lis
     let state = RegexState(matcher.Cache.NumOfMinterms())
     let cache = matcher.Cache
     let mutable loc = (Location.create input 0)
-    let mutable currNode = matcher.InitialPattern
+    let mutable currNode = matcher.TrueStarredPattern
     let mutable remainingStates = expectedRegexesList
 
     while (not (Location.isFinal loc)) && not (refEq currNode cache.False) && not remainingStates.IsEmpty do
@@ -159,7 +159,7 @@ let assertNullability (regex:Regex) (input:string) (expectedRegexesList:string l
     let state = RegexState(matcher.Cache.NumOfMinterms())
     let cache = matcher.Cache
     let mutable loc = (Location.create input 0)
-    let mutable currNode = matcher.InitialPattern
+    let mutable currNode = matcher.TrueStarredPattern
     let mutable remainingStates = expectedRegexesList
 
     while (not (Location.isFinal loc)) && not (refEq currNode cache.False) && not remainingStates.IsEmpty do
@@ -206,7 +206,7 @@ let printRegexState (matcher:RegexMatcher<_>) (state:RegexState) (node:RegexNode
     let nodestr =
         match node with
         | Or(nodes, info) ->
-            nodes |> Seq.where (fun v -> not (refEq matcher.InitialPattern v))
+            nodes |> Seq.where (fun v -> not (refEq matcher.TrueStarredPattern v))
             |> Seq.map string
             |> String.concat "; "
         | _ -> node.ToString()

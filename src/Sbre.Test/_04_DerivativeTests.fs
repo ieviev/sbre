@@ -38,7 +38,7 @@ let getDerivativeT<'t when 't : struct and 't :> IEquatable< 't >
 let testFullDerivative(pattern: string, input: string, expectedDerivative: string) =
     let matcher = Regex(pattern).TSetMatcher
     let cache = matcher.Cache
-    let node = matcher.InitialPattern
+    let node = matcher.TrueStarredPattern
     let state = RegexState(cache.NumOfMinterms())
     let location = (Location.create input 0)
 
@@ -58,7 +58,7 @@ let testFullDerivativeMultiple(pattern: string, input: string, expectedDerivativ
 let test2ndDerivative(pattern: string, input: string, expectedDerivative: string) =
     let matcher = Regex(pattern).TSetMatcher
     let cache = matcher.Cache
-    let node = matcher.InitialPattern
+    let node = matcher.TrueStarredPattern
     let state = RegexState(cache.NumOfMinterms())
     let location = (Location.create input 0)
     let location1 = (Location.create input 1)
@@ -82,7 +82,7 @@ let test2ndDerivatives(pattern: string, input: string, expectedDerivatives: stri
         try
             let matcher = Regex(pattern).TSetMatcher
             let cache = matcher.Cache
-            let node = matcher.InitialPattern
+            let node = matcher.TrueStarredPattern
             let state = RegexState(cache.NumOfMinterms())
 
             let der1 = createDerivative (cache, state, &location, cache.MintermForLocation(location), node)
@@ -93,7 +93,7 @@ let test2ndDerivatives(pattern: string, input: string, expectedDerivatives: stri
                 try
                     let matcher = Regex(pattern).ByteMatcher
                     let cache = matcher.Cache
-                    let node = matcher.InitialPattern
+                    let node = matcher.TrueStarredPattern
                     let state = RegexState(cache.NumOfMinterms())
                     let der1 = createDerivative (cache, state, &location, cache.MintermForLocation(location), node)
                     let der2 = createDerivative (cache, state, &location1, cache.MintermForLocation(location1), der1)
@@ -101,7 +101,7 @@ let test2ndDerivatives(pattern: string, input: string, expectedDerivatives: stri
                 with e ->
                     let matcher = Regex(pattern).UInt16Matcher
                     let cache = matcher.Cache
-                    let node = matcher.InitialPattern
+                    let node = matcher.TrueStarredPattern
                     let state = RegexState(cache.NumOfMinterms())
                     let der1 = createDerivative (cache, state, &location, cache.MintermForLocation(location), node)
                     let der2 = createDerivative (cache, state, &location1, cache.MintermForLocation(location1), der1)
