@@ -23,8 +23,28 @@ let getImmediateDerivatives (cache: RegexCache<_>) (node: RegexNode<TSet>) =
         minterm, der
     )
 
+
+let merge (cache: RegexCache<_>) derivs =
+    derivs
+    |> Seq.groupBy (fun (mt, node) -> node)
+    |> Seq.map (fun (_, group) ->
+        group |> Seq.map fst |> Seq.fold (|||) cache.Solver.Empty, group |> Seq.head |> snd
+    )
+
 let printImmediateDerivatives (cache: RegexCache<_>) (node: RegexNode<TSet>) =
     let derivs = getImmediateDerivatives cache node
+
+    derivs
+    |> Seq.map (fun (mt, node) ->
+        let mt = cache.PrettyPrintMinterm(mt)
+        let node = cache.PrettyPrintNode(node)
+        $"\t{mt, -20}=>\t{node}"
+    )
+    |> String.concat "\n"
+
+let printMergedImmediateDerivatives (cache: RegexCache<_>) (node: RegexNode<TSet>) =
+    let derivs = getImmediateDerivatives cache node |> merge cache
+
     derivs
     |> Seq.map (fun (mt, node) ->
         let mt = cache.PrettyPrintMinterm(mt)
@@ -44,6 +64,7 @@ let printDerivatives (cache: RegexCache<_>) (derivs: (TSet * RegexNode<TSet>) se
 
 
 let printImmediate node = printImmediateDerivatives cache node
+let printMergeDerivs node = printMergedImmediateDerivatives cache node
 let print derivs = printDerivatives cache derivs
 let getDerivs node = getImmediateDerivatives cache node
 
@@ -51,30 +72,44 @@ let getDerivs node = getImmediateDerivatives cache node
 // // [|"[^\na-d]"; "\n"; "a"; "b"; "c"; "d"|]
 // let prettyMinterms = allMinterms |> Array.map cache.PrettyPrintMinterm
 
-let node1 = matcher.ReverseTrueStarredPattern
-let node1immediate = getImmediateDerivatives cache node1
+let initial = matcher.ReverseTrueStarredPattern
 
-printImmediateDerivatives cache node1
+printImmediateDerivatives cache initial
+printMergeDerivs initial
 
 let nonInitialDerivatives =
-    node1immediate 
-    |> Array.where (fun (mt, node) -> not (refEq node node1) )
+    getImmediateDerivatives cache initial
+    |> Array.where (fun (mt, node) -> not (refEq node initial))
 
 printDerivatives cache nonInitialDerivatives
 
 nonInitialDerivatives.Length // there is only 1 potential derivative
 
+
+
+
 // let a = Sbre.Optimizations.NoOptimizations
 
 
-let nextmt,nextnode = nonInitialDerivatives[0]
+let nextmt, nextnode = nonInitialDerivatives[0]
 
+let immediate2 = getImmediateDerivatives cache nextnode
 
 printImmediate nextnode
 
+let remaining2 =
+    immediate2
+    |> Array.where (fun (mt, node) -> not (refEq node initial || refEq node nextnode))
+
+print remaining2
 
 
+let next3mt, next3node = remaining2[0]
 
+printImmediate next3node
+
+
+// dc[^\n]
 
 let rec prefix (acc: 't list) (node: RegexNode<_>) =
     match node with
