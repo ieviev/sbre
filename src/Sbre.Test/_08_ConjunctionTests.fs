@@ -52,7 +52,7 @@ let ``conjunction match test 4`` () =
 
 [<Fact>]
 let ``conjunction match test 5`` () =
-    let pattern = """[\s\S]*A[\s\S]*&[\s\S]*B""" // [\s\S]*
+    let pattern = """⊤*A⊤*&⊤*B""" // [\s\S]*
     let input = "B  A"
     assertNoMatch
         pattern

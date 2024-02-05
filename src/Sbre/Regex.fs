@@ -6,12 +6,12 @@ open System.Collections.Generic
 open System.Globalization
 open System.Numerics
 open System.Runtime.CompilerServices
-open System.Text.RegularExpressions.Symbolic
 open System.Text.RuntimeRegexCopy.Symbolic
 open System.Text.RuntimeRegexCopy
 open Microsoft.FSharp.Core
 open Sbre.Algorithm
 open Sbre.CountingSet
+open Sbre.Optimizations
 open Sbre.Types
 open Sbre.Pat
 open System.Runtime.InteropServices
@@ -119,7 +119,7 @@ type RegexMatcher<'t when 't: struct>
 
     let _initialIsNegation =
         match initialNode with
-        | Not(_) -> true
+        | Not _ -> true
         | _ -> false
 
     let mutable _dfaDelta: int[] = Array.init (1024 <<< _mintermsLog) (fun _ -> 0) // 0 : initial state
@@ -163,7 +163,7 @@ type RegexMatcher<'t when 't: struct>
 
         let condition =
             if initial then
-                (fun (d) -> not (refEq d state.Node || refEq d _cache.False))
+                (fun d -> not (refEq d state.Node || refEq d _cache.False))
             else
                 (fun d -> not (refEq d state.Node))
 
@@ -265,6 +265,12 @@ type RegexMatcher<'t when 't: struct>
     let DFA_R_rev = _getOrCreateState(reverseNode, false).Id
     // ⊤*(R_rev)
     let DFA_TR_rev = _getOrCreateState(reverseTrueStarredNode, true).Id // R_rev
+
+    let _initialOptimizations =
+        Optimizations.findInitialOptimizations
+            (fun node -> _getOrCreateState(node,false).Id )
+            (fun node -> _getOrCreateState(node,false).Flags )
+            _cache reverseNode reverseTrueStarredNode
 
 
     override this.IsMatch(input) =
@@ -469,12 +475,36 @@ type RegexMatcher<'t when 't: struct>
         assert (loc.Reversed = true)
         let mutable looping = true
         let mutable currentStateId = DFA_TR_rev
+        let mutable dfaState = _stateArray[currentStateId]
 
         while looping do
-            let dfaState = _stateArray[currentStateId]
+            dfaState <- _stateArray[currentStateId]
             let flags = dfaState.Flags
 #if SKIP
-            if flags.CanSkip  then
+            if flags.IsInitial then
+                match _initialOptimizations with
+                | InitialOptimizations.NoOptimizations -> ()
+                | InitialOptimizations.ReverseSetsPrefix(prefix, transitionNodeId) ->
+                    let skipResult = _cache.TryNextStartsetLocationArrayReversed( &loc, prefix.Span )
+                    match skipResult with
+                    | ValueSome resultEnd ->
+                        let suffixStart = resultEnd - prefix.Length
+                        currentStateId <- transitionNodeId
+                        dfaState <- _stateArray[transitionNodeId]
+                        loc.Position <- suffixStart
+                    | ValueNone ->
+                        // no matches remaining
+                        loc.Position <- Location.final loc
+                | InitialOptimizations.PotentialStartPrefix prefix ->
+                    let skipResult = _cache.TryNextStartsetLocationArrayReversed( &loc, prefix.Span )
+                    match skipResult with
+                    | ValueSome resultEnd ->
+                        loc.Position <- resultEnd
+                    | ValueNone ->
+                        // no matches remaining
+                        loc.Position <- Location.final loc
+
+            elif flags.CanSkip  then
                 let tmp_loc = loc.Position
                 _cache.TryNextStartsetLocationRightToLeft(
                     &loc,
@@ -536,7 +566,6 @@ type RegexMatcher<'t when 't: struct>
         // for i = (allPotentialStarts.Count - 1) downto 0 do
         for i = (startSpans.Length - 1) downto 0 do
             let currStart = startSpans[i]
-
             if currStart >= nextValidStart then
                 loc.Position <- currStart
                 rstate.Clear()
@@ -547,7 +576,7 @@ type RegexMatcher<'t when 't: struct>
         matchCount
 
     /// return just the positions of matches without allocating the result
-    override this.MatchPositions(input) = this.llmatch_all (input)
+    override this.MatchPositions(input) = this.llmatch_all input
 
 
     // accessors
@@ -638,7 +667,7 @@ module Helpers =
 
 
 [<Sealed>]
-type Regex(pattern: string, [<Optional; DefaultParameterValue(false)>] experimental: bool) =
+type Regex(pattern: string, [<Optional; DefaultParameterValue(false)>] _experimental: bool) =
     inherit GenericRegexMatcher()
     let pattern = pattern.Replace("⊤", @"[\s\S]")
     // experimental parser!

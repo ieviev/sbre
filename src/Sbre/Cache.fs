@@ -264,7 +264,7 @@ type RegexCache< 't
         let inputSpan = loc.Input
         let mutable currpos = loc.Position
         let mutable skipping = true
-        let mutable result = ValueNone
+        let mutable resultEnd = ValueNone
         let mutable slice: ReadOnlySpan<char> = inputSpan.Slice(0, currpos)
 
         /// vectorize the search for the first character
@@ -279,13 +279,12 @@ type RegexCache< 't
                 slice <- inputSpan.Slice(0, currpos)
                 if not isInverted then
                     slice.LastIndexOfAny(firstSetChars)
-
                 else
                     slice.LastIndexOfAnyExcept(firstSetChars)
 
             if not (sharedIndex = -1) then
                 let potential = sharedIndex + 1
-                result <- ValueSome(potential)
+                resultEnd <- ValueSome(potential)
 
         while skipping do
             let sharedIndex =
@@ -305,25 +304,23 @@ type RegexCache< 't
                 // exit if too far
                 if potential < setSpan.Length then
                     skipping <- false
-                    result <- ValueSome(potential)
+                    resultEnd <- ValueSome(potential)
                     couldBe <- false
 
                 let mutable i = 0
                 while couldBe && i < tailPrefixSpan.Length do
                     let inputMinterm = this.Classify(inputSpan[potential - i - 2])
-
-                    // if _solver.notElemOfSet (inputMinterm,tailPrefixSpan[i]) then
                     if Solver.notElemOfSet inputMinterm tailPrefixSpan[i] then
                         couldBe <- false
                     i <- i + 1
 
                 if couldBe then
                     skipping <- false
-                    result <- ValueSome(potential)
+                    resultEnd <- ValueSome(potential)
                 else
                     currpos <- potential - 1
 
-        result
+        resultEnd
 
     /// skip till a prefix of minterms matches
     member this.TryNextStartsetLocationArrayWithLoopTerminator(loc: inref<Location>, setSpan: ReadOnlySpan<TSet>, termSpan: ReadOnlySpan<TSet>) =

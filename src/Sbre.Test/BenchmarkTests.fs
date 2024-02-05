@@ -5,13 +5,13 @@ open System.IO
 open Sbre
 open Sbre.Benchmarks.Jobs
 open Xunit
-
+open Common
 let twainPatterns = [
     @"Twain"
     @"(?i)Twain"
     @"[a-z]shing"
     @"Huck[a-zA-Z]+|Saw[a-zA-Z]+"
-    @"\b\w+nn\b"
+    // @"\b\w+nn\b"
     @"[a-q][^u-z]{13}x"
     @"Tom|Sawyer|Huckleberry|Finn"
     @"(?i)Tom|Sawyer|Huckleberry|Finn"
@@ -29,7 +29,63 @@ let twain_input =
     File.ReadAllText(__SOURCE_DIRECTORY__ + "/data/input-text.txt")
 
 
+
 let twain_20k = twain_input[..19999] // 10k chars limit
+
+
+
+[<Fact>]
+let twain_counts_0() =
+    let idx = 0
+    assertEqual
+        (System.Text.RegularExpressions.Regex(twainPatterns[idx]).Count(twain_input))
+        (Sbre.Regex(twainPatterns[idx]).Count(twain_input))
+
+[<Fact>]
+let twain_counts_1() =
+    let idx = 1
+    assertEqual
+        (System.Text.RegularExpressions.Regex(twainPatterns[idx]).Count(twain_input))
+        (Sbre.Regex(twainPatterns[idx]).Count(twain_input))
+
+[<Fact>]
+let twain_counts_2() =
+    let idx = 2
+    assertEqual
+        (System.Text.RegularExpressions.Regex(twainPatterns[idx]).Count(twain_input))
+        (Sbre.Regex(twainPatterns[idx]).Count(twain_input))
+
+[<Fact>]
+let twain_counts_3() =
+    let idx = 3
+    assertEqual
+        (System.Text.RegularExpressions.Regex(twainPatterns[idx]).Count(twain_input))
+        (Sbre.Regex(twainPatterns[idx]).Count(twain_input))
+
+// blowup
+// [<Fact>]
+// let twain_counts_4() =
+//     let idx = 4
+//     let pat = twainPatterns[idx]
+//     assertEqual
+//         (System.Text.RegularExpressions.Regex(twainPatterns[idx]).Count(twain_input))
+//         (Sbre.Regex(twainPatterns[idx]).Count(twain_input))
+
+// [<Fact>]
+// let twain_counts_5() =
+//     let idx = 5
+//     assertEqual
+//         (System.Text.RegularExpressions.Regex(twainPatterns[idx]).Count(twain_input))
+//         (Sbre.Regex(twainPatterns[idx]).Count(twain_input))
+
+[<Fact>]
+let twain_counts_6() =
+    let idx = 6
+    assertEqual
+        (System.Text.RegularExpressions.Regex(twainPatterns[idx]).Count(twain_input))
+        (Sbre.Regex(twainPatterns[idx]).Count(twain_input))
+
+
 
 // [<Fact>]
 // let ``paragraphs-huck``() =

@@ -4,9 +4,11 @@ open Sbre.Types
 open Sbre.Pat
 open System
 
+[<RequireQualifiedAccess>]
 type InitialOptimizations =
     | NoOptimizations
-    | ReverseSetsPrefix of prefix:Memory<TSet> * transitionNode:RegexNode<TSet>
+    | ReverseSetsPrefix of prefix:Memory<TSet> * transitionNodeId:int
+    | PotentialStartPrefix of prefix:Memory<TSet>
 
 type SbreOptimizations =
     | ReverseStringPrefix of string
@@ -15,6 +17,14 @@ type SbreOptimizations =
 
 let tryGetReversePrefix (c:RegexCache<TSet>) (node:RegexNode<TSet>) =
     Some NoOptimizations
+
+#if DEBUG
+let printPrefixSets (cache:RegexCache<_>) (sets:TSet list) =
+    sets
+    |> Seq.map cache.PrettyPrintMinterm
+    |> String.concat ";"
+#endif
+
 
 let getImmediateDerivatives (cache: RegexCache<_>) (node: RegexNode<TSet>) =
     cache.Minterms()
@@ -46,9 +56,11 @@ let getNonRedundantDerivatives
     |> Seq.where (fun (mt, deriv) -> not (redundantNodes.Contains(deriv)))
     |> Seq.toArray
 
-let rec calcPrefixSets (cache: RegexCache<_>) (node: RegexNode<_>) =
+let rec calcPrefixSets (getStateFlags: RegexNode<_> -> RegexStateFlags) (cache: RegexCache<_>) (startNode: RegexNode<_>) =
     let redundant = System.Collections.Generic.HashSet<RegexNode<TSet>>([ cache.False ])
     let rec loop acc node =
+        let stateFlags = getStateFlags node
+        if stateFlags.CanSkip then acc |> List.rev else
         if not (redundant.Add(node)) then
             []
         else if node.IsAlwaysNullable then
@@ -63,11 +75,44 @@ let rec calcPrefixSets (cache: RegexCache<_>) (node: RegexNode<_>) =
                 // let merged_pred = prefix_derivs |> Seq.map fst |> Seq.fold (|||) cache.Solver.Empty
                 prefix_derivs |> Seq.map snd |> Seq.iter (redundant.Add >> ignore)
                 acc |> List.rev
-    loop [] node
-let printPrefixSets (cache:RegexCache<_>) (sets:TSet list) =
-    sets
-    |> Seq.map cache.PrettyPrintMinterm
-    |> String.concat ";"
+    loop [] startNode
+
+
+let rec calcPotentialMatchStart (getStateFlags: RegexNode<_> -> RegexStateFlags) (cache: RegexCache<_>) (startNode: RegexNode<_>) =
+    let redundant = System.Collections.Generic.HashSet<RegexNode<TSet>>([ cache.False ])
+    let rec loop acc (nodes:RegexNode<_> list) =
+        let stateFlags =
+            nodes |> Seq.map getStateFlags
+        let shouldExit =
+            stateFlags |> Seq.exists (_.CanSkip) || nodes |> Seq.exists (_.IsAlwaysNullable)
+        if shouldExit then acc |> List.rev else
+        let nonRedundant =
+            nodes |> List.where (redundant.Add)
+        if nonRedundant.IsEmpty then
+            acc |> List.rev
+        else
+            let prefixDerivsList =
+                nonRedundant
+                |> List.map (getNonRedundantDerivatives cache redundant)
+
+            let merged_pred =
+                prefixDerivsList
+                |> Seq.collect id
+                |> Seq.map fst
+                |> Seq.fold (|||) cache.Solver.Empty
+
+            let remainingNodes =
+                prefixDerivsList
+                |> Seq.collect id
+                |> Seq.map snd
+                |> Seq.toList
+            let acc' = merged_pred :: acc
+            // let dbg = printPrefixSets cache acc'
+            loop acc' remainingNodes
+    loop [] [startNode]
+
+
+
 
 let rec applyPrefixSets (cache:RegexCache<_>) (node:RegexNode<TSet>) (sets:TSet list) =
     assert (not node.ContainsLookaround)
@@ -79,17 +124,22 @@ let rec applyPrefixSets (cache:RegexCache<_>) (node:RegexNode<TSet>) (sets:TSet 
         let der = Algorithm.createDerivative (cache, state, &loc, head, node)
         applyPrefixSets cache der tail
 
-
-let findInitialOptimizations (c:RegexCache<TSet>) (node:RegexNode<TSet>) (trueStarredNode:RegexNode<TSet>) =
+let findInitialOptimizations
+    (nodeToId:RegexNode<TSet> -> int)
+    (nodeToStateFlags:RegexNode<TSet> -> RegexStateFlags)
+    (c:RegexCache<TSet>) (node:RegexNode<TSet>) (trueStarredNode:RegexNode<TSet>) =
     if node.ContainsLookaround then InitialOptimizations.NoOptimizations else
-    let prefix = Optimizations.calcPrefixSets c node
-    match prefix.Length with
-    | 0 -> InitialOptimizations.NoOptimizations
-    | _ ->
+    match Optimizations.calcPrefixSets nodeToStateFlags c node with
+    | prefix when prefix.Length > 0 ->
         let applied = Optimizations.applyPrefixSets c trueStarredNode prefix
         let mem = Memory(Seq.toArray prefix)
-        InitialOptimizations.ReverseSetsPrefix(mem,applied)
-
+        InitialOptimizations.ReverseSetsPrefix(mem,nodeToId applied)
+    | _ ->
+        match Optimizations.calcPotentialMatchStart nodeToStateFlags c node with
+        | potentialStart when potentialStart.Length > 0 ->
+            let mem = Memory(Seq.toArray potentialStart)
+            InitialOptimizations.PotentialStartPrefix(mem)
+        | _ -> InitialOptimizations.NoOptimizations
 
 let tryJumpToStartset (c:RegexCache<TSet>)(loc:byref<Location>) (node:RegexNode<TSet>) : int32 =
     loc.Position

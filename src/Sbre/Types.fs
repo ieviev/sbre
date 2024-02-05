@@ -310,7 +310,7 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
             info.IsAlwaysNullable
         | Singleton _ -> false
         | LookAround _ -> false
-        | Epsilon -> false
+        | Epsilon -> true
 
     member this.DoesNotContainEpsilon =
         match this with
