@@ -23,7 +23,7 @@
     <WarnOn>1182</WarnOn>
     <!--    implicit conversion -->
     <WarnOn>3387</WarnOn>
-    <!-- <DefineConstants>$(DefineConstants);SKIP</DefineConstants> -->
+     <DefineConstants>$(DefineConstants);SKIP</DefineConstants> 
     <DefineConstants>$(DefineConstants);DFA</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
@@ -40,9 +40,9 @@
     <Compile Include="Cache.fs" />
     <Compile Include="RegexNodeConverter.fs" />
     <Compile Include="Minterms.fs" />
-    <Compile Include="Optimizations.fs" />
     <Compile Include="CountingSet.fs" />
     <Compile Include="Algorithm.fs" />
+    <Compile Include="Optimizations.fs" />
     <Compile Include="Regex.fs" />
   </ItemGroup>
   <PropertyGroup>
@@ -56,7 +56,8 @@
       <HintPath>../RuntimeRegexCopy/bin/Release/net8.0/RuntimeRegexCopy.dll</HintPath>
     </Reference> -->
     <!--    <ProjectReference Include="..\RuntimeRegexCopy\RuntimeRegexCopy.csproj" PrivateAssets="all" />-->
-    <ProjectReference Include="..\RuntimeRegexCopy\RuntimeRegexCopy.csproj" PrivateAssets="all" />
+<!--    <ProjectReference Include="..\RuntimeRegexCopy\RuntimeRegexCopy.csproj" PrivateAssets="all" />-->
+    <ProjectReference Include="..\RuntimeRegexCopy\RuntimeRegexCopy.csproj"  />
   </ItemGroup>
   <ItemGroup>
     <Content Include="$(MSBuildThisFileDirectory)../RuntimeRegexCopy/bin/Release/net8.0/RuntimeRegexCopy.dll">

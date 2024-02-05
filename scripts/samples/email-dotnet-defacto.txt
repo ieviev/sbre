@@ -1,0 +1,31 @@
+------- Valid
+first.last@iana.org
+1234567890123456789012345678901234567890123456789012345678901234@iana.org
+"first\"last"@iana.org
+"first@last"@iana.org
+"first\\last"@iana.org
+"first\last"@iana.org
+user+mailbox@iana.org
+customer/department@iana.org
+customer/department=shipping@iana.org
+"Doug \"Ace\" L."@iana.org
++1~1+@iana.org
+{_test_}@iana.org
+"[[ test ]]"@iana.org
+"test&#13;&#10; blah"@iana.org
+
+--------- Invalid
+first@...........com
+first.last@sub.do,com
+first\@last@iana.org
+first.last
+.first.last@iana.org
+first.last.@iana.org
+"first"last"@iana.org
+"""@iana.org
+first\\@last@iana.org
+Doug\ \"Ace\"\ Lovell@iana.org
+()[]\;:,><@iana.org
+test@.
+test@[123.123.123.123
+test@123.123.123.123]

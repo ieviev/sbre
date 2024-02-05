@@ -15,7 +15,11 @@ open Sbre.Types
 open System.Linq
 
 
-module internal StartsetHelpers =
+module
+#if !RELEASE
+    internal
+#endif
+    StartsetHelpers =
     let bddToStartsetChars(bdd: BDD) : PredStartset =
         let rcc = RegexCharClass()
         let mutable ranges = BDDRangeConverter.ToRanges(bdd)
@@ -839,9 +843,9 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
 
     member this.mkNot(inner: RegexNode< 't >) =
         // short-circuit
-        if inner.IsAlwaysNullable && inner.DoesNotContainEpsilon then
-            _uniques._false
-        else
+        // if inner.IsAlwaysNullable && inner.DoesNotContainEpsilon then
+        //     _uniques._false
+        // else
 
             let createNode(inner: RegexNode< 't >) =
                 match inner with

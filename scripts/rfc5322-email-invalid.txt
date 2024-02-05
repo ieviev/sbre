@@ -1,0 +1,14 @@
+first@...........com
+first.last@sub.do,com
+first\@last@iana.org
+first.last
+.first.last@iana.org
+first.last.@iana.org
+"first"last"@iana.org
+"""@iana.org
+first\\@last@iana.org
+Doug\ \"Ace\"\ Lovell@iana.org
+()[]\;:,><@iana.org
+test@.
+test@[123.123.123.123
+test@123.123.123.123]

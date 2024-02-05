@@ -38,7 +38,7 @@ let printImmediateDerivatives (cache: RegexCache<_>) (node: RegexNode<TSet>) =
     |> Seq.map (fun (mt, node) ->
         let mt = cache.PrettyPrintMinterm(mt)
         let node = cache.PrettyPrintNode(node)
-        $"\t{mt, -20}=>\t{node}"
+        $"\t{mt, -23}=>\t{node}"
     )
     |> String.concat "\n"
 
@@ -49,7 +49,7 @@ let printMergedImmediateDerivatives (cache: RegexCache<_>) (node: RegexNode<TSet
     |> Seq.map (fun (mt, node) ->
         let mt = cache.PrettyPrintMinterm(mt)
         let node = cache.PrettyPrintNode(node)
-        $"\t{mt, -20}=>\t{node}"
+        $"\t{mt, -23}=>\t{node}"
     )
     |> String.concat "\n"
 
@@ -58,69 +58,94 @@ let printDerivatives (cache: RegexCache<_>) (derivs: (TSet * RegexNode<TSet>) se
     |> Seq.map (fun (mt, node) ->
         let mt = cache.PrettyPrintMinterm(mt)
         let node = cache.PrettyPrintNode(node)
-        $"\t{mt, -20}=>\t{node}"
+        $"\t{mt, -23}=>\t{node}"
     )
     |> String.concat "\n"
 
 
-let printImmediate node = printImmediateDerivatives cache node
-let printMergeDerivs node = printMergedImmediateDerivatives cache node
-let print derivs = printDerivatives cache derivs
-let getDerivs node = getImmediateDerivatives cache node
+let nonInitialNonFalseDerivatives
+    (cache: RegexCache<TSet>)
+    (redundantNodes: System.Collections.Generic.HashSet<RegexNode<TSet>>)
+    (node: RegexNode<TSet>)
+    =
+    getImmediateDerivatives cache node
+    |> merge cache
+    |> Seq.where (fun (mt, deriv) -> not (redundantNodes.Contains(deriv)))
+    |> Seq.toArray
 
-// let allMinterms = matcher.Cache.Minterms()
-// // [|"[^\na-d]"; "\n"; "a"; "b"; "c"; "d"|]
-// let prettyMinterms = allMinterms |> Array.map cache.PrettyPrintMinterm
+// ----
 
-let initial = matcher.ReverseTrueStarredPattern
-
-printImmediateDerivatives cache initial
-printMergeDerivs initial
-
-let nonInitialDerivatives =
-    getImmediateDerivatives cache initial
-    |> Array.where (fun (mt, node) -> not (refEq node initial))
-
-printDerivatives cache nonInitialDerivatives
-
-nonInitialDerivatives.Length // there is only 1 potential derivative
+let m, c =
+    // let r = Sbre.Regex("Huck[a-zA-Z]+|Saw[a-zA-Z]+")
+    let r = Sbre.Regex("[a-z]shing")
+    // let r = Sbre.Regex("Twain")
+    r.TSetMatcher, r.TSetMatcher.Cache
 
 
+// ideal case
+// let rec calcPrefix (cache: RegexCache<_>)  acc (node: RegexNode<_>) =
+//     let prefix_derivs = nonInitialNonFalseDerivatives c node
 
+//     match prefix_derivs with
+//     | [| (mt, deriv) |] ->
+//         let acc' = mt :: acc
+//         calcPrefix cache acc' deriv
+//     | _ ->
+//         printDerivatives cache prefix_derivs |> stdout.WriteLine
+//         acc |> Seq.map cache.PrettyPrintMinterm |> Seq.rev |> Seq.toList
 
-// let a = Sbre.Optimizations.NoOptimizations
+let rec calcPrefixSets (cache: RegexCache<_>) acc (node: RegexNode<_>) =
+    let redundant = System.Collections.Generic.HashSet<RegexNode<TSet>>([ cache.False ])
 
+    let rec loop node =
+        if not (redundant.Add(node)) then
+            []
+        else if node.IsAlwaysNullable then
+            acc |> List.rev
+        else
+            let prefix_derivs = nonInitialNonFalseDerivatives c redundant node
+            match prefix_derivs with
+            | [| (mt, deriv) |] ->
+                let acc' = mt :: acc
+                calcPrefixSets cache acc' deriv
+            | _ ->
+                // let merged_pred = prefix_derivs |> Seq.map fst |> Seq.fold (|||) cache.Solver.Empty
+                prefix_derivs |> Seq.map snd |> Seq.iter (redundant.Add >> ignore)
+                acc |> List.rev
 
-let nextmt, nextnode = nonInitialDerivatives[0]
+    loop node
 
-let immediate2 = getImmediateDerivatives cache nextnode
+let printPrefixSets (cache:RegexCache<_>) (sets:TSet list) = 
+    sets
+    |> Seq.map cache.PrettyPrintMinterm
+    |> String.concat ";"
 
-printImmediate nextnode
+let rec applyPrefixSets (cache:RegexCache<_>) (node:RegexNode<TSet>) (sets:TSet list) = 
+    assert (not node.ContainsLookaround)
+    match sets with 
+    | [] -> node
+    | head :: tail -> 
+        let loc = Pat.Location.getDefault ()
+        let state = Sbre.CountingSet.RegexState(cache.NumOfMinterms())
+        let der = Algorithm.createDerivative (cache, state, &loc, head, node)
+        applyPrefixSets cache der tail
 
-let remaining2 =
-    immediate2
-    |> Array.where (fun (mt, node) -> not (refEq node initial || refEq node nextnode))
+let pref = calcPrefixSets c [] m.ReversePattern
+printPrefixSets c pref
 
-print remaining2
+let afterPrefix =
+    applyPrefixSets c m.ReverseTrueStarredPattern pref
 
+afterPrefix.ToString()
 
-let next3mt, next3node = remaining2[0]
+string m.ReversePattern
 
-printImmediate next3node
+let c1 = nonInitialNonFalseDerivatives c m.ReversePattern
+printDerivatives c c1
+let c2 = nonInitialNonFalseDerivatives c (snd c1[0])
+printDerivatives c c2
 
-
-// dc[^\n]
-
-let rec prefix (acc: 't list) (node: RegexNode<_>) =
-    match node with
-    | Concat(head, tail, info) ->
-        match prefix [] head with
-        | [] -> acc // no more prefix
-        | headPrefix -> prefix (headPrefix @ acc) tail
-    | Epsilon -> acc
-    | Or(nodes, info) -> failwith "todo"
-    | Singleton(set) -> failwith "todo"
-    | Loop(node, low, up, info) -> failwith "todo"
-    | And(nodes, info) -> failwith "todo"
-    | Not(node, info) -> failwith "todo"
-    | LookAround(node, lookback, negate) -> failwith "todo"
+let c31 = nonInitialNonFalseDerivatives c (snd c2[0])
+printDerivatives c c31
+let c2 = nonInitialNonFalseDerivatives c (snd c1[0])
+printDerivatives c c2

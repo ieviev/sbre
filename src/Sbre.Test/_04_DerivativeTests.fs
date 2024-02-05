@@ -79,34 +79,14 @@ let test2ndDerivatives(pattern: string, input: string, expectedDerivatives: stri
     let location1 = (Location.create input 1)
 
     let result =
-        try
-            let matcher = Regex(pattern).TSetMatcher
-            let cache = matcher.Cache
-            let node = matcher.TrueStarredPattern
-            let state = RegexState(cache.NumOfMinterms())
+        let matcher = Regex(pattern).TSetMatcher
+        let cache = matcher.Cache
+        let node = matcher.TrueStarredPattern
+        let state = RegexState(cache.NumOfMinterms())
 
-            let der1 = createDerivative (cache, state, &location, cache.MintermForLocation(location), node)
-            let der2 = createDerivative (cache, state, &location1, cache.MintermForLocation(location1), der1)
-            cache.PrettyPrintNode der2
-        with
-            e ->
-                try
-                    let matcher = Regex(pattern).ByteMatcher
-                    let cache = matcher.Cache
-                    let node = matcher.TrueStarredPattern
-                    let state = RegexState(cache.NumOfMinterms())
-                    let der1 = createDerivative (cache, state, &location, cache.MintermForLocation(location), node)
-                    let der2 = createDerivative (cache, state, &location1, cache.MintermForLocation(location1), der1)
-                    cache.PrettyPrintNode der2
-                with e ->
-                    let matcher = Regex(pattern).UInt16Matcher
-                    let cache = matcher.Cache
-                    let node = matcher.TrueStarredPattern
-                    let state = RegexState(cache.NumOfMinterms())
-                    let der1 = createDerivative (cache, state, &location, cache.MintermForLocation(location), node)
-                    let der2 = createDerivative (cache, state, &location1, cache.MintermForLocation(location1), der1)
-                    cache.PrettyPrintNode der2
-
+        let der1 = createDerivative (cache, state, &location, cache.MintermForLocation(location), node)
+        let der2 = createDerivative (cache, state, &location1, cache.MintermForLocation(location1), der1)
+        cache.PrettyPrintNode der2
 
 
     Assert.Contains(result, expectedDerivatives)
@@ -301,6 +281,23 @@ let ``deriv negation end ``() =
 [<Fact>]
 let ``subsumption or concat ``() =
     testPartDerivative (@".*t.*hat.*", "ttt", @".*hat.*")
+
+
+[<Fact>]
+let ``deriv negation 1 ``() =
+    testPartDerivatives (@"~(.*11.*)", "1", [@"~((1.*|.*11.*))"; @"~((.*11.*|1.*))"])
+
+[<Fact>]
+let ``deriv negation 2 ``() =
+    test2ndDerivatives (@"~(.*11.*)", "11", [
+        @"(⊤*~(.*11.*)|~(.*)|~((.*11.*|1.*)))"
+        @"(~(.*)|⊤*~(.*11.*)|~((1.*|.*11.*)))"
+        @"(~(.*)|⊤*~(.*11.*)|~((.*11.*|1.*)))"
+        @"(~(.*)|~((.*11.*|1.*))|⊤*~(.*11.*))"
+        @"(~(.*)|~((1.*|.*11.*))|⊤*~(.*11.*))"
+    ])
+
+
 
 
 

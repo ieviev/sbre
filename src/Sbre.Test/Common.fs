@@ -345,12 +345,19 @@ let assertAllLLmatches (pattern:string) (input:string) (expected) =
     let result =
         getAllLLmatches pattern input
         |> Seq.map (fun v -> v.Index,v.Length)
-    Assert.Equal<int*int>(expected, result)
+    try
+        Assert.Equal<int*int>(expected, result)
+    with e ->
+        let real = result |> Seq.map string |> String.concat ";"
+        failwith $"expected: %A{expected};\nactual:%A{real}"
 
 let assertAllLLmatchTexts (pattern:string) (input:string) (expected) =
     let result =
         getAllLLmatches pattern input
         |> Seq.map _.GetText(input)
     Assert.Equal<string>(expected, result)
+
+let assertNodeOneOf (node:RegexNode<_>) (options:string seq) =
+    Assert.Contains(node.ToString() , options)
 
 #endif

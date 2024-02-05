@@ -414,7 +414,8 @@ let ``startset 02``() = assertStartset "(ab)*" true "a"
 [<Fact>]
 let ``startset 03``() = assertStartset "(ab)*" false "."
 
-
+[<Fact>]
+let ``startset 04``() = assertStartset "~(.*11.*|1.*)" false "."
 
 
 

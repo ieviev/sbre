@@ -31,13 +31,6 @@ let twain_input =
 
 let twain_20k = twain_input[..19999] // 10k chars limit
 
-//
-// [<Fact>]
-// let ``loop subsumption test``() =
-//     let m = Matcher(Permutations.permuteConjInParagraph [ @"[a-zA-Z]{0,12}ing\s";])
-//     let r = m.Matches(paragraph) |> Seq.toArray
-//     Assert.Equal(r.Length,9)
-
 // [<Fact>]
 // let ``paragraphs-huck``() =
 //     let m = Regex(@"~(⊤*\n\n⊤*)&⊤*Huck⊤*")
@@ -111,22 +104,22 @@ let twain_20k = twain_input[..19999] // 10k chars limit
 //
 //
 //
-// [<Fact>]
-// let ``lines-have-there``() =
-//     let m = Regex(@".*have.*&.*there.*&.*")
-//     let r = m.Matches(twain_input[..120_000]) |> Seq.toArray
-//     // 411
-//
-//     // Assert.Equal(426, r.Length) // full text
-//     Assert.Equal(4, r.Length)
-//     Assert.Equal(r[0].Index, 63592)
-//     Assert.Equal(r[1].Index, 109000)
-//     Assert.Equal(r[2].Index, 112959)
-//
-//     Assert.Equal(r[0].Length, 73)
-//     Assert.Equal(r[1].Length, 40)
-//     Assert.Equal(r[2].Length, 50)
-//
+[<Fact>]
+let ``lines-have-there``() =
+    let m = Regex(@".*have.*&.*there.*&.*")
+    let r = m.Matches(twain_input[..120_000]) |> Seq.toArray
+    // 411
+
+    // Assert.Equal(426, r.Length) // full text
+    Assert.Equal(4, r.Length)
+    Assert.Equal(r[0].Index, 63592)
+    Assert.Equal(r[1].Index, 109000)
+    Assert.Equal(r[2].Index, 112959)
+
+    Assert.Equal(r[0].Length, 73)
+    Assert.Equal(r[1].Length, 40)
+    Assert.Equal(r[2].Length, 50)
+
 //
 // [<Fact>]
 // let ``which could test``() =
@@ -156,18 +149,19 @@ let twain_20k = twain_input[..19999] // 10k chars limit
 //     Assert.Equal(r[0].Length, 64)
 //     Assert.Equal(r[1].Index, 14710)
 //     Assert.Equal(r[1].Length, 71)
-//
-// [<Fact>]
-// let ``line test 2``() =
-//     let m = Regex(@".* t[a-z]*e .*&.* a[a-z]*d .*")
-//     let r = m.Matches(twain_input[..15_000]) |> Seq.toArray
-//     // 411
-//
-//     Assert.Equal(2, r.Length)
-//     Assert.Equal(r[0].Index, 113)
-//     Assert.Equal(r[0].Length, 64)
-//     Assert.Equal(r[1].Index, 14710)
-//     Assert.Equal(r[1].Length, 71)
+
+
+[<Fact>]
+let ``line test 2``() =
+    let m = Regex(@".* t[a-z]*e .*&.* a[a-z]*d .*")
+    let r = m.Matches(twain_input[..15_000]) |> Seq.toArray
+    // 411
+
+    Assert.Equal(2, r.Length)
+    Assert.Equal(r[0].Index, 113)
+    Assert.Equal(r[0].Length, 64)
+    Assert.Equal(r[1].Index, 14710)
+    Assert.Equal(r[1].Length, 71)
 
 
 // [<Fact>]

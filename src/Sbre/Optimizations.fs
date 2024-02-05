@@ -4,6 +4,9 @@ open Sbre.Types
 open Sbre.Pat
 open System
 
+type InitialOptimizations =
+    | NoOptimizations
+    | ReverseSetsPrefix of prefix:Memory<TSet> * transitionNode:RegexNode<TSet>
 
 type SbreOptimizations =
     | ReverseStringPrefix of string
@@ -12,6 +15,81 @@ type SbreOptimizations =
 
 let tryGetReversePrefix (c:RegexCache<TSet>) (node:RegexNode<TSet>) =
     Some NoOptimizations
+
+let getImmediateDerivatives (cache: RegexCache<_>) (node: RegexNode<TSet>) =
+    cache.Minterms()
+    |> Array.map (fun minterm ->
+        let loc = Pat.Location.getDefault ()
+        let state = Sbre.CountingSet.RegexState(cache.NumOfMinterms())
+        let der = Algorithm.createDerivative (cache, state, &loc, minterm, node)
+        minterm, der
+    )
+let getImmediateDerivativesMerged (cache: RegexCache<_>) (node: RegexNode<TSet>) =
+    cache.Minterms()
+    |> Array.map (fun minterm ->
+        let loc = Pat.Location.getDefault ()
+        let state = Sbre.CountingSet.RegexState(cache.NumOfMinterms())
+        let der = Algorithm.createDerivative (cache, state, &loc, minterm, node)
+        minterm, der
+    )
+    |> Seq.groupBy snd
+    |> Seq.map (fun (_, group) ->
+        group |> Seq.map fst |> Seq.fold (|||) cache.Solver.Empty, group |> Seq.head |> snd
+    )
+
+let getNonRedundantDerivatives
+    (cache: RegexCache<TSet>)
+    (redundantNodes: System.Collections.Generic.HashSet<RegexNode<TSet>>)
+    (node: RegexNode<TSet>)
+    =
+    getImmediateDerivativesMerged cache node
+    |> Seq.where (fun (mt, deriv) -> not (redundantNodes.Contains(deriv)))
+    |> Seq.toArray
+
+let rec calcPrefixSets (cache: RegexCache<_>) (node: RegexNode<_>) =
+    let redundant = System.Collections.Generic.HashSet<RegexNode<TSet>>([ cache.False ])
+    let rec loop acc node =
+        if not (redundant.Add(node)) then
+            []
+        else if node.IsAlwaysNullable then
+            acc |> List.rev
+        else
+            let prefix_derivs = getNonRedundantDerivatives cache redundant node
+            match prefix_derivs with
+            | [| (mt, deriv) |] ->
+                let acc' = mt :: acc
+                loop acc' deriv
+            | _ ->
+                // let merged_pred = prefix_derivs |> Seq.map fst |> Seq.fold (|||) cache.Solver.Empty
+                prefix_derivs |> Seq.map snd |> Seq.iter (redundant.Add >> ignore)
+                acc |> List.rev
+    loop [] node
+let printPrefixSets (cache:RegexCache<_>) (sets:TSet list) =
+    sets
+    |> Seq.map cache.PrettyPrintMinterm
+    |> String.concat ";"
+
+let rec applyPrefixSets (cache:RegexCache<_>) (node:RegexNode<TSet>) (sets:TSet list) =
+    assert (not node.ContainsLookaround)
+    match sets with
+    | [] -> node
+    | head :: tail ->
+        let loc = Pat.Location.getDefault ()
+        let state = Sbre.CountingSet.RegexState(cache.NumOfMinterms())
+        let der = Algorithm.createDerivative (cache, state, &loc, head, node)
+        applyPrefixSets cache der tail
+
+
+let findInitialOptimizations (c:RegexCache<TSet>) (node:RegexNode<TSet>) (trueStarredNode:RegexNode<TSet>) =
+    if node.ContainsLookaround then InitialOptimizations.NoOptimizations else
+    let prefix = Optimizations.calcPrefixSets c node
+    match prefix.Length with
+    | 0 -> InitialOptimizations.NoOptimizations
+    | _ ->
+        let applied = Optimizations.applyPrefixSets c trueStarredNode prefix
+        let mem = Memory(Seq.toArray prefix)
+        InitialOptimizations.ReverseSetsPrefix(mem,applied)
+
 
 let tryJumpToStartset (c:RegexCache<TSet>)(loc:byref<Location>) (node:RegexNode<TSet>) : int32 =
     loc.Position

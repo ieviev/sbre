@@ -163,9 +163,9 @@ type RegexMatcher<'t when 't: struct>
 
         let condition =
             if initial then
-                (fun (d) -> not (refEq d state.Node) && not (refEq d _cache.False))
+                (fun (d) -> not (refEq d state.Node || refEq d _cache.False))
             else
-                (fun (d) -> not (refEq d state.Node))
+                (fun d -> not (refEq d state.Node))
 
         // TODO: check for sequences
         let startsetPredicate =
@@ -474,12 +474,17 @@ type RegexMatcher<'t when 't: struct>
             let dfaState = _stateArray[currentStateId]
             let flags = dfaState.Flags
 #if SKIP
-            if flags.CanSkip then
+            if flags.CanSkip  then
+                let tmp_loc = loc.Position
                 _cache.TryNextStartsetLocationRightToLeft(
                     &loc,
                     dfaState.StartsetChars,
                     dfaState.StartsetIsInverted
                 )
+                // adding all skipped locations todo: optimize this to ranges
+                if tmp_loc > loc.Position && this.StateIsNullable(flags, rstate, &loc, dfaState) then
+                    for i = tmp_loc downto loc.Position + 1 do
+                        acc.Add(i)
 #endif
             if this.StateIsNullable(flags, rstate, &loc, dfaState) then
                 acc.Add loc.Position

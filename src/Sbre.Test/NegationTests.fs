@@ -13,26 +13,39 @@ open Common
 let ``negation test 1: password``() =
     assertFirstMatchText @"~(.*\d\d.*)" "Aa11aBaAA" "Aa1"
 
-// [<Fact>]
-// let ``negation test 2: password``() =
-//     let matcher = Regex(@"~(.*\d\d.*)&^.*$")
-//     let result = matcher.MatchText("Aa11aBaAA")
-//     Assert.Equal(None, result)
-//
-//
-// [<Fact>]
-// let ``negation test 2.1: range``() =
-//     let matcher = Regex(@"a~(.*bc⊤*)")
-//     let result = matcher.MatchText("a    bc dasdad")
-//     Assert.Equal(Some("a    b"), result)
-//
-//
-// [<Fact>]
-// let ``negation test 3: shortest match from right?``() =
-//     let matcher = Regex(@"asd~(⊤*nl⊤*)")
-//     let result = matcher.MatchText("cvbcbcvasdasd nl adasd asdasd")
-//     Assert.Equal(Some("asdasd n"), result)
-//
+[<Fact>]
+let ``negation test 2: password``() =
+    assertNoMatch @"~(.*\d\d.*)&^.*$" "Aa11aBaAA"
+
+
+[<Fact>]
+let ``negation test 2.1: range``() =
+    assertFirstMatchText @"a~(.*bc⊤*)" ("a    bc dasdad") "a    b"
+
+
+
+[<Fact>]
+let ``negation test 3: shortest match from right?``() =
+    assertFirstMatchText (@"asd~(⊤*nl⊤*)") "cvbcbcvasdasd nl adasd asdasd" "asdasd n"
+
+
+[<Fact>]
+let ``negation skipping test``() =
+    assertAllLLmatches @"~(.*\d\d.*)" "Aa11aBabb115454vbsdvfv45AAZ" [
+        (0, 3)
+        (3, 7)
+        (10, 1)
+        (11, 1)
+        (12, 1)
+        (13, 1)
+        (14, 9);(23, 4);(27, 0)
+    ]
+
+
+
+
+
+
 //
 //
 //

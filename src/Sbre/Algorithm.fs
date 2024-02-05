@@ -7,7 +7,6 @@ open System.Runtime.InteropServices
 open Microsoft.FSharp.Core.CompilerServices
 open Sbre.CountingSet
 open Sbre.Info
-open Sbre.Optimizations
 open Sbre.Pat
 open Sbre.Types
 

@@ -266,11 +266,9 @@ type RegexCache< 't
         let mutable skipping = true
         let mutable result = ValueNone
         let mutable slice: ReadOnlySpan<char> = inputSpan.Slice(0, currpos)
-        // let setSpan = prefix.AsSpan()
 
         /// vectorize the search for the first character
         let firstSetChars = this.MintermStartsetChars(setSpan[0])
-        // let isInverted = _solver.isElemOfSet(setSpan[0],minterms[0])
         let isInverted = Solver.elemOfSet setSpan[0] minterms[0]
         let tailPrefixSpan = setSpan.Slice(1)
         let _tailPrefixLength = tailPrefixSpan.Length
