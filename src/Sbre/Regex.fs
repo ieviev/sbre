@@ -135,12 +135,9 @@ type RegexMatcher<'t when 't: struct>
         let derivatives =
             minterms
             |> Array.map (fun minterm ->
-                let temp_location = Location.getDefault ()
-                let blankState = RegexState(_cache.NumOfMinterms())
-
                 match RegexNode.getCachedTransition (minterm, state.Node.TryGetInfo) with
                 | ValueSome v -> v
-                | _ -> createDerivative (_cache, blankState, &temp_location, minterm, state.Node)
+                | _ -> createStartsetDerivative (_cache, minterm, state.Node)
             )
 
         // debug pretty minterms
@@ -413,6 +410,22 @@ type RegexMatcher<'t when 't: struct>
         || this.IsNullable (rstate, &loc, dfaState.Node)
 
 
+    member this.HandleOptimizedNullable(unique:OptimizedUnique, loc: inref<Location>) : bool =
+        let currChar = _cache.CurrentChar(loc)
+        let prevCharOpt = _cache.PrevChar(loc)
+        match unique with
+        | WordBorder ->
+            match prevCharOpt, currChar with
+            | ValueNone, ValueSome c |  ValueSome c, ValueNone -> RegexCharClass.IsBoundaryWordChar(c)
+            | ValueSome prev, ValueSome curr ->
+                let c1 = not (RegexCharClass.IsBoundaryWordChar(prev)) && RegexCharClass.IsBoundaryWordChar(curr)
+                let c2 = (RegexCharClass.IsBoundaryWordChar(prev)) && not (RegexCharClass.IsBoundaryWordChar(curr))
+                c1 || c2
+            | _ -> true// impossible case
+
+        | StartOfString -> failwith "todo"
+        | NotStartOfString -> loc.Position > 0
+
     member this.IsNullable(state:RegexState, loc: inref<Location>, node: RegexNode<_>) : bool =
             // short-circuit
             if node.CanNotBeNullable then
@@ -420,6 +433,10 @@ type RegexMatcher<'t when 't: struct>
             elif node.IsAlwaysNullable then
                 true
             else
+            // short-circuit common cases
+            match _cache.OptimizedUniques.TryGetValue(node) with
+            | true, v -> this.HandleOptimizedNullable(v, &loc)
+            | _ ->
             match node with
             // Nullx () = true
             | Epsilon -> true
@@ -434,6 +451,29 @@ type RegexMatcher<'t when 't: struct>
                 found
             // Nullx (R) and Nullx (S)
             | And(xs, info) ->
+                // short-circuit failure condition
+                let canNotBeNullableCheck =
+                    match info.LookupPrev with
+                    | false -> false
+                    | _ ->
+                        let c1 =
+                            match info.MustStartWithWordBorder with
+                            | Some true ->
+                                let isWordBorder =
+                                    this.HandleOptimizedNullable(OptimizedUnique.WordBorder, &loc)
+                                not isWordBorder
+                            | _ -> false
+                        let c2 =
+                            match info.PrevCharRequired with
+                            | Some v ->
+                                match _cache.PrevChar(loc) with
+                                | ValueNone -> true
+                                | ValueSome s ->
+                                    Solver.notElemOfSet v (_cache.CharToMinterm(s))
+                            | _ -> false
+                        c1 || c2
+                if canNotBeNullableCheck then false else
+
                 use mutable e = xs.GetEnumerator()
                 let mutable forall = true
                 while forall && e.MoveNext() do
@@ -465,6 +505,27 @@ type RegexMatcher<'t when 't: struct>
                     | false -> false
                 else
                     this.IsNullable (state, &loc, head) && this.IsNullable (state, &loc, tail)
+
+            // lookaround optimization
+            | LookAround(Singleton pred, lookBack, negate) ->
+                match lookBack with
+                | true ->
+                    match _cache.PrevChar(loc) with
+                    | ValueNone -> negate
+                    | ValueSome prevc ->
+                        let mt = _cache.CharToMinterm(prevc)
+                        let isSet = Solver.elemOfSet pred mt
+                        if negate then not isSet else isSet
+                | _ ->
+                    match _cache.CurrentChar(loc) with
+                    | ValueNone -> negate
+                    | ValueSome nextc ->
+                        let mt = _cache.CharToMinterm(nextc)
+                        let isSet = Solver.elemOfSet pred mt
+                        if negate then not isSet else isSet
+
+
+
             | LookAround(body, lookBack, negate) ->
                 let mutable _tlo = _cache.False
                 let rstate = RegexState(_cache.NumOfMinterms())
@@ -473,27 +534,27 @@ type RegexMatcher<'t when 't: struct>
                 // Nullx ((?=R)) = IsMatch(x, R)
                 | false, false ->
                     let mutable loc2 = Location.clone &loc
-                    match this.DfaMatchEnd(rstate,&loc2,startstate.Id) with
+                    match this.DfaMatchEnd(rstate,&loc2,startstate.Id, searchMode=RegexSearchMode.FirstNullable) with
                     | -2 -> false
                     | _ -> true
                 // Nullx ((?!R)) = not IsMatch(x, R)
                 | false, true ->
                     let mutable loc2 = Location.clone &loc
-                    match this.DfaMatchEnd(rstate,&loc2,startstate.Id) with
+                    match this.DfaMatchEnd(rstate,&loc2,startstate.Id, searchMode=RegexSearchMode.FirstNullable) with
                     | -2 -> true
                     | _ -> false
                 | true, false -> // Nullx ((?<=R)) = IsMatch(xr, Rr)
                     let mutable revnode = (RegexNode.rev _cache.Builder body)
                     let revstate = this.GetOrCreateState(revnode)
                     let mutable revloc = Location.createSpanRev loc.Input loc.Position loc.Reversed
-                    match this.DfaMatchEnd(rstate,&revloc,revstate.Id) with
+                    match this.DfaMatchEnd(rstate,&revloc,revstate.Id, searchMode=RegexSearchMode.FirstNullable) with
                     | -2 -> false
                     | _ -> true
                 | true, true -> // Nullx ((?<!R)) = not IsMatch(x r, Rr)
                     let R_rev = RegexNode.rev _cache.Builder body
                     let revstate = this.GetOrCreateState(R_rev)
                     let mutable revloc = Location.createSpanRev loc.Input loc.Position loc.Reversed
-                    match this.DfaMatchEnd(rstate,&revloc,revstate.Id) with
+                    match this.DfaMatchEnd(rstate,&revloc,revstate.Id, searchMode=RegexSearchMode.FirstNullable) with
                     | -2 -> true
                     | _ -> false
 
@@ -505,7 +566,6 @@ type RegexMatcher<'t when 't: struct>
     ) : RegexNode<TSet> =
 
         let result =
-
             let info = node.GetFlags()
             if info.IsCounter then
                 failwith "counter"
@@ -557,6 +617,14 @@ type RegexMatcher<'t when 't: struct>
 
             // Derx (R | S) = Derx (R) | Derx (S)
             | Or(xs, info) ->
+                let isWordBorder =
+                    refEq node _cache.Builder.anchors._wordBorder.Value
+
+                // if isWordBorder then
+                //     _cache.False
+                // else
+
+                let dbg = 1
                 let derivatives = ResizeArray()
                 for n in xs do
                     derivatives.Add (this.CreateDerivative( state,&loc, loc_pred, n))
@@ -564,9 +632,31 @@ type RegexMatcher<'t when 't: struct>
 
             // Derx (R & S) = Derx (R) & Derx (S)
             | And(xs, info) as head ->
+                let failed =
+                    match info.LookupPrev with
+                    | false -> false
+                    | _ ->
+                        match info.MustStartWithWordBorder with
+                        | Some true ->
+                            let isWordBorder =
+                                this.HandleOptimizedNullable(OptimizedUnique.WordBorder, &loc)
+                            not isWordBorder
+                        | _ -> false
+                if failed then _cache.False else
+
+                //
                 let derivatives = ResizeArray()
-                for n in xs do
-                    derivatives.Add (this.CreateDerivative (state,&loc, loc_pred, n))
+                use mutable e = xs.GetEnumerator()
+                let mutable foundFalse = false
+                while not foundFalse && e.MoveNext() do
+                    let der = this.CreateDerivative (state,&loc, loc_pred, e.Current)
+                    if refEq _cache.False der then
+                        foundFalse <- true
+                    else
+                        derivatives.Add(der)
+                if foundFalse then _cache.False else
+                // for n in xs do
+                //     derivatives.Add (this.CreateDerivative (state,&loc, loc_pred, n))
                 _cache.Builder.mkAnd(derivatives)
 
             // Derx(~R) = ~Derx (R)
@@ -584,6 +674,7 @@ type RegexMatcher<'t when 't: struct>
                     if refEq _cache.Builder.uniques._false S' then
                         R'S
                     else
+                        if refEq R'S _cache.False then S' else
                         _cache.Builder.mkOr ( seq { R'S ;S' } )
                 else
                     R'S
@@ -652,7 +743,8 @@ type RegexMatcher<'t when 't: struct>
         (
             rstate: RegexState,
             loc: byref<Location>,
-            startStateId: int
+            startStateId: int,
+            searchMode:RegexSearchMode
         ) : int32 =
         assert (loc.Position > -1)
         let mutable looping = true
@@ -673,6 +765,10 @@ type RegexMatcher<'t when 't: struct>
             // set max nullability after skipping
             if this.StateIsNullable(flags, rstate, &loc, dfaState) then
                 currentMax <- loc.Position
+                match searchMode with
+                | RegexSearchMode.FirstNullable ->
+                    loc.Position <- Location.final loc
+                | _ -> ()
 
             if not (Location.isFinal loc) then
                 // let mintermId = _cache.MintermId(&loc)
@@ -775,7 +871,13 @@ type RegexMatcher<'t when 't: struct>
         let mutable loc = Location.createReversedSpan input
         let rstate = RegexState(_cache.NumOfMinterms())
         use acc = new SharedResizeArray<int>(100)
-        let allPotentialStarts = this.CollectReverseNullablePositions(acc, rstate, &loc)
+        let allPotentialStarts =
+            if reverseTrueStarredNode.CanBeNullable then
+                for i = loc.Input.Length downto 0 do
+                    acc.Add(i)
+                acc
+            else
+                this.CollectReverseNullablePositions(acc, rstate, &loc)
         loc.Reversed <- false
         let mutable nextValidStart = 0
         let startSpans = allPotentialStarts.AsSpan()
@@ -790,8 +892,11 @@ type RegexMatcher<'t when 't: struct>
                     match _initialFixedLength with
                     | Some fl -> currStart + fl
                     | _ -> this.DfaEndPosition(rstate, &loc, DFA_R)
-                matches.Add({ MatchPosition.Index = currStart; Length = (matchEnd - currStart) })
-                nextValidStart <- matchEnd
+                match matchEnd with
+                | -2 -> ()
+                | _ ->
+                    matches.Add({ MatchPosition.Index = currStart; Length = (matchEnd - currStart) })
+                    nextValidStart <- matchEnd
 
         matches
 
@@ -801,7 +906,13 @@ type RegexMatcher<'t when 't: struct>
         let mutable loc = Location.createReversedSpan input
         let rstate = RegexState(_cache.NumOfMinterms())
         use acc = new SharedResizeArray<int>(100)
-        let allPotentialStarts = this.CollectReverseNullablePositions(acc, rstate, &loc)
+        let allPotentialStarts =
+            if reverseTrueStarredNode.CanBeNullable then
+                for i = loc.Input.Length downto 0 do
+                    acc.Add(i)
+                acc
+            else
+                this.CollectReverseNullablePositions(acc, rstate, &loc)
         loc.Reversed <- false
         let mutable nextValidStart = 0
         let startSpans = allPotentialStarts.AsSpan()
@@ -816,8 +927,11 @@ type RegexMatcher<'t when 't: struct>
                     match _initialFixedLength with
                     | Some fl -> currStart + fl
                     | _ -> this.DfaEndPosition(rstate, &loc, DFA_R)
-                matchCount <- matchCount + 1
-                nextValidStart <- matchEnd
+                match matchEnd with
+                | -2 -> ()
+                | _ ->
+                    matchCount <- matchCount + 1
+                    nextValidStart <- matchEnd
         matchCount
 
     /// return just the positions of matches without allocating the result
@@ -838,10 +952,11 @@ type RegexMatcher<'t when 't: struct>
 module Helpers =
     let createMatcher
         (
+            bddBuilder: RegexBuilder<BDD>,
             minterms: BDD array,
             charsetSolver,
             converter,
-            trueStarPattern,
+            // trueStarPattern,
             symbolicBddnode,
             regexTree: RegexTree
         )
@@ -872,11 +987,10 @@ module Helpers =
             Debug.debuggerSolver <- Some solver
 #endif
             let uintbuilder = RegexBuilder(converter, solver, charsetSolver)
+            uintbuilder.InitializeUniqueMap(bddBuilder)
 
-            let trueStarredNode =
-                (Minterms.transform uintbuilder charsetSolver solver) trueStarPattern
-
-            let rawNode = (Minterms.transform uintbuilder charsetSolver solver) symbolicBddnode
+            let rawNode = (Minterms.transform bddBuilder uintbuilder charsetSolver solver) symbolicBddnode
+            let trueStarredNode = uintbuilder.mkConcat2(uintbuilder.uniques._trueStar, rawNode)
 
             if not (regexTree.Root.Options.HasFlag(RegexOptions.RightToLeft)) then
                 regexTree.Root.Options <- RegexOptions.RightToLeft
@@ -923,12 +1037,10 @@ type Regex(pattern: string, [<Optional; DefaultParameterValue(false)>] _experime
             RegexOptions.ExplicitCapture ||| RegexOptions.NonBacktracking,
             CultureInfo.InvariantCulture
         )
-
     let charsetSolver = CharSetSolver()
     let runtimeBddBuilder = SymbolicRegexBuilder<BDD>(charsetSolver, charsetSolver)
     let converter = RegexNodeConverter(runtimeBddBuilder, null)
     let regexBuilder = RegexBuilder(converter, charsetSolver, charsetSolver)
-
     let symbolicBddnode: RegexNode<BDD> =
         RegexNodeConverter.convertToSymbolicRegexNode (
             charsetSolver,
@@ -936,19 +1048,14 @@ type Regex(pattern: string, [<Optional; DefaultParameterValue(false)>] _experime
             regexBuilder,
             regexTree.Root
         )
-
-    let implicitTrueStar = regexBuilder.trueStar
     let minterms = symbolicBddnode |> Minterms.compute runtimeBddBuilder
-
-    let trueStarPattern: RegexNode<BDD> =
-        regexBuilder.mkConcat2 (implicitTrueStar, symbolicBddnode)
 
     let matcher =
         Helpers.createMatcher (
+            regexBuilder,
             minterms,
             charsetSolver,
             converter,
-            trueStarPattern,
             symbolicBddnode,
             regexTree
         )

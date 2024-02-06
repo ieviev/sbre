@@ -59,6 +59,15 @@ module Solver =
             ss <- s.Or(ss,f coll.Current)
         ss
 
+    let inline mergeSets
+        (s:ISolver<^t>)
+        (coll:seq<^t>): ^t =
+        let mutable ss = s.Empty
+        use mutable coll = coll.GetEnumerator()
+        while (not (s.IsFull(ss))) && coll.MoveNext() do
+            ss <- s.Or(ss,coll.Current)
+        ss
+
     let inline mergeNonFullWithEnumerator
         (s:ISolver<^t>)
         ([<InlineIfLambda>]f: RegexNode<'t> -> ^t)

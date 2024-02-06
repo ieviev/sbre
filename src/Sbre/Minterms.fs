@@ -5,12 +5,18 @@ open System.Text.RuntimeRegexCopy.Symbolic
 open Sbre.Types
 
 let rec transform
+    (oldBuilder: RegexBuilder<BDD>)
     (builder: RegexBuilder<'tnewset>)
     (charsetSolver: CharSetSolver)
     (newSolver: ISolver<'tnewset>)
     (node: RegexNode<BDD>)
     : RegexNode<'tnewset> =
-    let inline transformInner v = transform builder charsetSolver newSolver v
+
+    match builder.UniquesDict.TryGetValue(node) with
+    | true, v -> v
+    | _ ->
+
+    let inline transformInner v = transform oldBuilder builder charsetSolver newSolver v
     match node with
     | Singleton tset -> builder.one(newSolver.ConvertFromBDD(tset, charsetSolver))
     | Not(xs,info) -> builder.mkNot(transformInner xs)
@@ -18,6 +24,7 @@ let rec transform
         let xs' = xs |> map transformInner
         builder.mkAnd(xs' |> Seq.toArray)
     | Or (xs,info) ->
+
         let xs' = xs |> map transformInner
         builder.mkOr(xs' |> Seq.toArray)
     | Loop (xs, lower, upper,info) ->

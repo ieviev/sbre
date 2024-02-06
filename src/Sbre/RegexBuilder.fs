@@ -192,9 +192,27 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 LanguagePrimitives.PhysicalHash x ^^^ LanguagePrimitives.PhysicalHash y
         }
 
+    let _lookaroundComparer: IEqualityComparer<struct (RegexNode<'t> * bool * bool)> =
+        { new IEqualityComparer<struct (RegexNode<'t> * bool * bool)> with
+            member this.Equals(struct (x1, y1, z1), struct (x2, y2, z2)) =
+                y1 = y2 && z1 = z2
+                && refEq x1 x2
+
+            member this.GetHashCode(struct (x, y, z)) =
+                LanguagePrimitives.PhysicalHash x //^^^ LanguagePrimitives.PhysicalHash y
+        }
+
+
 
     let _refComparer =
         { new IEqualityComparer<RegexNode< 't >> with
+            member this.Equals(xs, ys) = refEq xs ys
+
+            member this.GetHashCode(x) = LanguagePrimitives.PhysicalHash x
+        }
+
+    let _bddrefComparer =
+        { new IEqualityComparer<RegexNode< BDD >> with
             member this.Equals(xs, ys) = refEq xs ys
 
             member this.GetHashCode(x) = LanguagePrimitives.PhysicalHash x
@@ -229,6 +247,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
         Dictionary(_orCacheComparer)
 
     let _notCache: Dictionary<RegexNode< 't >, RegexNode< 't >> = Dictionary(_refComparer)
+    let _lookaroundCache: Dictionary<struct (RegexNode< 't >*bool*bool), RegexNode< 't >> = Dictionary(_lookaroundComparer)
 
     let _andCache: Dictionary<RegexNode<'t>[], RegexNode<'t>> = Dictionary(_andCacheComparer)
 
@@ -384,6 +403,8 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
     let mutable _prefixCache: Dictionary<RegexNode<'t>, InitialStartset<'t>> =
         Dictionary(_refComparer)
 
+    let mutable _uniquesDict : Dictionary<RegexNode<BDD>,RegexNode<'t>> = Dictionary<RegexNode<BDD>,RegexNode<'t>>(_bddrefComparer)
+
 
 
     member this.trueStar = _uniques._trueStar
@@ -394,6 +415,17 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
     // member this.DerivativeCache = _derivativeCache
     // member this.Startset2Cache = _startset2Cache
     member this.SubsumptionCache = _subsumptionCache
+    member this.UniquesDict = _uniquesDict
+
+    member this.InitializeUniqueMap(oldBuilder:RegexBuilder<BDD>) =
+        _uniquesDict.Add(oldBuilder.anchors._aAnchor.Value,this.anchors._aAnchor.Value)
+        _uniquesDict.Add(oldBuilder.anchors._bigAAnchor.Value,this.anchors._bigAAnchor.Value)
+        _uniquesDict.Add(oldBuilder.anchors._caretAnchor.Value,this.anchors._caretAnchor.Value)
+        _uniquesDict.Add(oldBuilder.anchors._dollarAnchor.Value,this.anchors._dollarAnchor.Value)
+        _uniquesDict.Add(oldBuilder.anchors._nonWordBorder.Value,this.anchors._nonWordBorder.Value)
+        _uniquesDict.Add(oldBuilder.anchors._wordBorder.Value,this.anchors._wordBorder.Value)
+        _uniquesDict.Add(oldBuilder.anchors._zAnchor.Value,this.anchors._zAnchor.Value)
+        ()
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.AddTransitionInfo
@@ -717,7 +749,6 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 | _ when nodes.Length = 1 -> nodes[0]
                 | twoormore ->
                     let flags = Flags.inferAnd twoormore
-                    let e = twoormore.GetEnumerator()
                     let minterms2 =
                         twoormore
                         |> Seq.map (_.SubsumedByMinterm(solver))
@@ -725,6 +756,31 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                     let mergedInfo =
                         this.CreateInfo(flags, minterms2)
 
+                    let immediateLookbehinds =
+                        twoormore
+                        |> Seq.choose (fun v ->
+                            match v with
+                            | Concat(head=head) ->
+                                match head with
+                                | LookAround(lookBack = true;node=body;negate=false) -> Some (body)
+                                | _ when refEq _anchors._wordBorder.Value head ->
+                                    mergedInfo.LookupPrev <- true
+                                    mergedInfo.MustStartWithWordBorder <- Some true
+                                    None
+                                | _ -> None
+                            | _ -> None
+                        )
+                        |> Seq.choose (fun (v) ->
+                            match v with
+                            | Singleton pred -> Some pred
+                            // | Concat(last tail=Singleton pred) -> Some pred
+                            | _ -> None
+                        )
+                        |> Seq.toArray
+                    if immediateLookbehinds.Length <> 0 then
+                        let merged = Solver.mergeSets solver immediateLookbehinds
+                        if not (solver.IsFull(merged)) then
+                            mergedInfo.PrevCharRequired <- Some merged
 
                     let newAnd = RegexNode.And(ofSeq twoormore, mergedInfo)
                     newAnd
@@ -746,10 +802,12 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             nodes: RegexNode<'t> seq
 
         ) : RegexNode<_> =
+
         let mutable enumerating = true
         let mutable status = MkOrFlags.None
         let mutable zeroloops = 0
         let mutable singletonLoops = 0
+        let mutable singletons = 0
         use mutable e = nodes.GetEnumerator()
         let derivatives = HashSet(_refComparer) //this.DerivativeSet
 
@@ -776,6 +834,16 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
         match status with
         | MkOrFlags.IsTrueStar -> _uniques._trueStar
         | _ ->
+        let allSingletons() =
+            nodes
+            |> Seq.forall (function Singleton _ -> true | _ -> false )
+        if derivatives.Any() && allSingletons() then
+            let merged =
+                derivatives
+                |> Seq.map (function Singleton (pred) -> pred | _ -> failwith "invalid case" )
+                |> Seq.fold (fun v v2 -> solver.Or(v,v2) ) solver.Empty
+            this.one(merged)
+        else
 
         if zeroloops > 1 then
             // remove loop duplicates
@@ -803,7 +871,9 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             else
                 derivatives.Add(Epsilon) |> ignore
 
-        if derivatives.Count = 0 then _uniques._false else
+        if derivatives.Count = 0 then
+            _uniques._false
+        else
         if derivatives.Count = 1 then derivatives |> Seq.head else
 
         let nodeSet = derivatives |> this.trySubsumeOr |> Seq.toArray
@@ -898,6 +968,17 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
 
             _concatCache.Add(key, v)
             v
+
+
+    member this.mkLookaround(body: RegexNode< 't >, lookBack:bool, negate:bool) : RegexNode< 't > =
+        let key = struct (body, lookBack, negate)
+        match _lookaroundCache.TryGetValue(key) with
+        | true, v -> v
+        | _ ->
+            let node = LookAround(body, lookBack = lookBack, negate = negate)
+            _lookaroundCache.Add(key, node)
+            node
+
 
 
     member this.mkConcat(nodesCorrectOrder: RegexNode< 't > list) : RegexNode< 't > =

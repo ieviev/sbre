@@ -19,7 +19,7 @@ let der1 (reg: Regex) (input: string) (raw:bool) =
     let state = RegexState(cache.NumOfMinterms())
     let minterm = cache.MintermForLocation(location)
     CountingSet.stepCounters state minterm
-    let der1 = createDerivative (cache, state,  &location, cache.MintermForLocation(location), node)
+    let der1 = matcher.CreateDerivative ( state,  &location, cache.MintermForLocation(location), node)
     cache.PrettyPrintNode der1
 
 let der1Node (reg: Regex) (input: string) (raw:bool) =
@@ -30,7 +30,7 @@ let der1Node (reg: Regex) (input: string) (raw:bool) =
     let state = RegexState(cache.NumOfMinterms())
     let minterm = cache.MintermForLocation(location)
     CountingSet.stepCounters state minterm
-    let der1 = createDerivative (cache, state,  &location, cache.MintermForLocation(location), node)
+    let der1 = matcher.CreateDerivative  (state,  &location, cache.MintermForLocation(location), node)
     der1
 
 let der1Rev (reg: Regex) (input: string) =
@@ -41,7 +41,7 @@ let der1Rev (reg: Regex) (input: string) =
     let state = RegexState(cache.NumOfMinterms())
     let minterm = cache.MintermForLocation(location)
     CountingSet.stepCounters state minterm
-    let der1 = createDerivative (cache, state,  &location, cache.MintermForLocation(location), node)
+    let der1 = matcher.CreateDerivative  ( state,  &location, cache.MintermForLocation(location), node)
     der1
 
 let der1rawlocs (reg: Regex) (location: Location) =
@@ -49,7 +49,7 @@ let der1rawlocs (reg: Regex) (location: Location) =
     let cache = matcher.Cache
     let node = matcher.RawPattern
     let state = RegexState(cache.NumOfMinterms())
-    let der1 = createDerivative (cache, state, &location, cache.MintermForLocation(location), node)
+    let der1 = matcher.CreateDerivative  ( state, &location, cache.MintermForLocation(location), node)
     cache.PrettyPrintNode der1
 
 
@@ -91,7 +91,7 @@ let assertCounterStates (regex:Regex) (input:string) (expectedStates:(CounterSta
         let minterm = cache.MintermForLocation(loc)
 
         let isnull =
-            let endNullable = RegexNode.isNullable(cache, state, &loc, currNode)
+            let endNullable = matcher.IsNullable( state, &loc, currNode)
             endNullable
         endNullable <- isnull
 
@@ -100,7 +100,7 @@ let assertCounterStates (regex:Regex) (input:string) (expectedStates:(CounterSta
         // bump counters
         let counters = state.Counters()
 
-        let deriv = createDerivative (cache, state, &loc, minterm, currNode)
+        let deriv = matcher.CreateDerivative ( state, &loc, minterm, currNode)
         currNode <- deriv
 
         Seq.zip state.ActiveCounters.Values remainingStates.Head
@@ -122,7 +122,7 @@ let assertCounterStates (regex:Regex) (input:string) (expectedStates:(CounterSta
 
 
     let isnull =
-        let endNullable = RegexNode.isNullable(cache, state, &loc, currNode)
+        let endNullable = matcher.IsNullable( state, &loc, currNode)
         endNullable
     endNullable <- isnull
 
@@ -152,12 +152,12 @@ let assertAllStates (regex:Regex) (input:string) (expectedRegexesList:string lis
 
         // bump counters
         assertAlternation remainingStates.Head currNode
-        let deriv = createDerivative (cache, state, &loc, cache.MintermForLocation(loc), currNode)
+        let deriv = matcher.CreateDerivative ( state, &loc, cache.MintermForLocation(loc), currNode)
         currNode <- deriv
         remainingStates <- remainingStates.Tail
         loc.Position <- loc.Position + 1
 
-    let endNullable = RegexNode.isNullable(cache, state, &loc, currNode)
+    let endNullable = matcher.IsNullable( state, &loc, currNode)
     {|
       Node = currNode
       State = state
@@ -184,12 +184,12 @@ let assertNullability (regex:Regex) (input:string) (expectedRegexesList:string l
 
         // bump counters
         assertAlternation remainingStates.Head currNode
-        let deriv = createDerivative (cache, state, &loc, cache.MintermForLocation(loc), currNode)
+        let deriv = matcher.CreateDerivative ( state, &loc, cache.MintermForLocation(loc), currNode)
         currNode <- deriv
         remainingStates <- remainingStates.Tail
         loc.Position <- loc.Position + 1
 
-    let endNullable = RegexNode.isNullable(cache, state, &loc, currNode)
+    let endNullable = matcher.IsNullable(state, &loc, currNode)
     {|
       Node = currNode
       State = state
@@ -235,7 +235,7 @@ let derNode(matcher: Regex, state:RegexState, node: RegexNode<TSet>, input: stri
     let location = (Location.create input 0)
     let minterm = cache.MintermForLocation(location)
     CountingSet.stepCounters state minterm
-    let deriv = createDerivative (cache, state, &location, cache.MintermForLocation(location), node)
+    let deriv = matcher.CreateDerivative (state, &location, cache.MintermForLocation(location), node)
     deriv
 
 
@@ -245,7 +245,7 @@ let getNodeDerivative(matcher: Regex, state:RegexState, node: RegexNode<TSet>, i
     let location = (Location.create input 0)
     let minterm = cache.MintermForLocation(location)
     CountingSet.stepCounters state minterm
-    let deriv = createDerivative (cache, state, &location, minterm, node)
+    let deriv = matcher.CreateDerivative (state, &location, cache.MintermForLocation(location), node)
     deriv
 
 
@@ -255,7 +255,7 @@ let getFirstDerivative(matcher: Regex, state:RegexState, node: RegexNode<TSet>, 
     let loc = (Location.create input 0)
     let minterm = cache.MintermForLocation(loc)
     CountingSet.stepCounters state minterm
-    let deriv = createDerivative (cache, state, &loc, minterm, node)
+    let deriv = matcher.CreateDerivative ( state, &loc, minterm, node)
     deriv
 
 

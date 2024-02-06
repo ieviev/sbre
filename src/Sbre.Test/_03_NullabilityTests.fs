@@ -26,7 +26,7 @@ let ``nullable 01``() =
     let state = RegexState(matcher.Cache.NumOfMinterms())
     let loc = Location.create "" 0
     let node = matcher.RawPattern
-    let nullable = Algorithm.RegexNode.isNullable(matcher.Cache,state,&loc,node)
+    let nullable = matcher.IsNullable(state,&loc,node)
     assertFalse nullable
 
 

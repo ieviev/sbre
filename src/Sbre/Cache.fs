@@ -12,6 +12,12 @@ open Sbre.Types
 open Sbre.Pat
 open Info
 
+
+type OptimizedUnique =
+    | WordBorder
+    | StartOfString
+    | NotStartOfString
+
 // #nowarn "25" // missing patterns inference
 
 [<Sealed>]
@@ -46,8 +52,14 @@ type RegexCache< 't
 
     let predStartsets = StartsetHelpers.startsetsFromMintermArray mintermBdds
     let mutable _cachedStartsets: Dictionary<TSet, SearchValues<char>> = Dictionary()
+    let mutable _optimizedUniques: Dictionary<RegexNode<TSet>,OptimizedUnique> = Dictionary(Common.equalityComparer)
 
+    let initUniques() =
+        _optimizedUniques.Add(_builder.anchors._wordBorder.Value, OptimizedUnique.WordBorder)
+        let notStartOfString = _builder.mkLookaround(_builder.uniques._true,true,false)
+        _optimizedUniques.Add(notStartOfString, OptimizedUnique.NotStartOfString)
 
+    do initUniques()
 
     let _getMintermStartsetChars (minterm:TSet) =
         match _cachedStartsets.TryGetValue(minterm) with
@@ -450,6 +462,24 @@ type RegexCache< 't
         this.Classify(loc.Input[pos])
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    member this.CurrentChar(loc: Location) : _ =
+        let mutable pos = loc.Position
+        if loc.Reversed then
+            pos <- pos - 1
+        if pos = loc.Input.Length || pos = -1 then
+            ValueNone else
+        ValueSome loc.Input[pos]
+
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    member this.PrevChar(loc: Location) : _ =
+        let mutable pos = loc.Position
+        if not loc.Reversed then
+            pos <- pos - 1
+        if pos = loc.Input.Length || pos = -1 then
+            ValueNone else
+        ValueSome loc.Input[pos]
+
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.MintermId(loc: inref<Location>) : _ =
         let c =
             if not loc.Reversed then
@@ -465,8 +495,8 @@ type RegexCache< 't
     member this.CharToMinterm(chr: char) : _ =
         let i = int chr
         match i < 128 with
-        | true -> _ascii[i]
-        | false -> _nonAscii.Find(i)
+        | true -> minterms[_ascii[i]]
+        | false -> minterms[_nonAscii.Find(i)]
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.MintermById(id: int) =
@@ -578,3 +608,4 @@ type RegexCache< 't
         | Epsilon -> "ε"
 #endif
     member this.Optimizations = _optimizations
+    member this.OptimizedUniques = _optimizedUniques

@@ -963,7 +963,7 @@ namespace System.Text.RuntimeRegexCopy
             const int CacheArrayLength = 8;
             Debug.Assert(asciiLazyCache is null || asciiLazyCache.Length == CacheArrayLength, "set lookup should be able to store two bits for each of the first 128 characters");
             // If the value is ASCII and already has an answer for this value, use it.
-            if (asciiLazyCache is uint[] cache)
+            if (asciiLazyCache is { } cache)
             {
                 int index = ch >> 4;
                 if ((uint)index < (uint)cache.Length)

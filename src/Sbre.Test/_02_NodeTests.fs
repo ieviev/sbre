@@ -321,6 +321,15 @@ let ``identity rev 1``() =
 
     let req = refEq (m.TSetMatcher.ReversePattern) deriv
     Assert.True(req)
+// let wordborder = _cache.Builder.anchors._wordBorder.Value
+// let isWordBorder = refEq node wordborder
+
+[<Fact>]
+let ``identity word border``() =
+    let m = Regex(@"\b")
+
+    let req = refEq (m.TSetMatcher.ReversePattern) m.TSetMatcher.RawPattern
+    Assert.True(req)
 
 
 

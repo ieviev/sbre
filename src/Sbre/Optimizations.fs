@@ -52,7 +52,7 @@ let getImmediateDerivatives (cache: RegexCache<_>) (node: RegexNode<TSet>) =
     |> Array.map (fun minterm ->
         let loc = Pat.Location.getDefault ()
         let state = Sbre.CountingSet.RegexState(cache.NumOfMinterms())
-        let der = Algorithm.createDerivative (cache, state, &loc, minterm, node)
+        let der = Algorithm.createStartsetDerivative (cache, minterm, node)
         minterm, der
     )
 let getImmediateDerivativesMerged (cache: RegexCache<_>) (node: RegexNode<TSet>) =
@@ -60,7 +60,7 @@ let getImmediateDerivativesMerged (cache: RegexCache<_>) (node: RegexNode<TSet>)
     |> Array.map (fun minterm ->
         let loc = Pat.Location.getDefault ()
         let state = Sbre.CountingSet.RegexState(cache.NumOfMinterms())
-        let der = Algorithm.createDerivative (cache, state, &loc, minterm, node)
+        let der = Algorithm.createStartsetDerivative (cache,  minterm, node)
         minterm, der
     )
     |> Seq.groupBy snd
@@ -241,7 +241,7 @@ let rec applyPrefixSets (cache:RegexCache<_>) (node:RegexNode<TSet>) (sets:TSet 
     | head :: tail ->
         let loc = Pat.Location.getDefault ()
         let state = Sbre.CountingSet.RegexState(cache.NumOfMinterms())
-        let der = Algorithm.createDerivative (cache, state, &loc, head, node)
+        let der = Algorithm.createStartsetDerivative (cache, head, node)
         applyPrefixSets cache der tail
 
 let findInitialOptimizations

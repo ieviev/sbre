@@ -119,18 +119,10 @@ let convertToSymbolicRegexNode
             b.mkLoop (b.one bdd, node.M, node.N) :: acc
         | RegexNodeKind.Empty -> acc
         | RegexNodeKind.PositiveLookaround ->
-            RegexNode.LookAround(
-                b.mkConcat (convertChildren node),
-                lookBack = node.Options.HasFlag(RegexOptions.RightToLeft),
-                negate = false
-            )
+            builder.mkLookaround(b.mkConcat (convertChildren node),node.Options.HasFlag(RegexOptions.RightToLeft),false)
             :: acc
         | RegexNodeKind.NegativeLookaround ->
-            RegexNode.LookAround(
-                b.mkConcat (convertChildren node),
-                lookBack = node.Options.HasFlag(RegexOptions.RightToLeft),
-                negate = true
-            )
+            builder.mkLookaround(b.mkConcat (convertChildren node),node.Options.HasFlag(RegexOptions.RightToLeft),true)
             :: acc
         | other -> failwith $"RegexNodeKind conversion not implemented: {other}, \n{rootNode}"
 
