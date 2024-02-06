@@ -1164,13 +1164,13 @@ type TestAllEnginesAllPatterns(patterns: string list, input: string) =
     // member this.Symbolic() =
     //     this.NonBack_Regex.Count(inputText)
     //
-    // [<Benchmark(Description = "Compiled")>]
-    // member this.Compiled() =
-    //     this.Compiled_Regex.Count(inputText)
+    [<Benchmark(Description = "Compiled")>]
+    member this.Compiled() =
+        this.Compiled_Regex.Count(inputText)
 
-    [<Benchmark(Description = "None")>]
-    member this.None() =
-        this.None_Regex.Count(inputText)
+    // [<Benchmark(Description = "None")>]
+    // member this.None() =
+    //     this.None_Regex.Count(inputText)
 
     [<Benchmark(Description = "Sbre")>]
     member this.Sbre() =

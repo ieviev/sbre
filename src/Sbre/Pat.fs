@@ -174,6 +174,7 @@ let (|ZeroboundSetLoop|_|) (node: RegexNode<_>) =
 [<return: Struct>]
 let (|AllSameHead|_|) (nodes: seq<RegexNode<_>>) =
     let mutable allsame = true
+    let mutable headRef : RegexNode<_> = Unchecked.defaultof<_>
     nodes
     |> Seq.pairwise
     |> Seq.iter (fun (prev, v) ->
@@ -181,10 +182,12 @@ let (|AllSameHead|_|) (nodes: seq<RegexNode<_>>) =
         | Concat(head = head1; tail = tail1), Concat(head = head2; tail = tail2) ->
             if not (obj.ReferenceEquals(head1, head2)) then
                 allsame <- false
+            else
+                headRef <- head1
         | _ -> allsame <- false
     )
     if allsame then
-        ValueSome()
+        ValueSome(headRef)
     else ValueNone
 
 

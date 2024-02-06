@@ -1,5 +1,6 @@
 module rec Sbre.Optimizations
 
+open Sbre.Algorithm
 open Sbre.Types
 open Sbre.Pat
 open System
@@ -7,6 +8,7 @@ open System
 [<RequireQualifiedAccess>]
 type InitialOptimizations =
     | NoOptimizations
+    | ReverseStringPrefix of prefix:string * transitionNodeId:int
     | ReverseSetsPrefix of prefix:Memory<TSet> * transitionNodeId:int
     | PotentialStartPrefix of prefix:Memory<TSet>
 
@@ -56,17 +58,96 @@ let getNonRedundantDerivatives
     |> Seq.where (fun (mt, deriv) -> not (redundantNodes.Contains(deriv)))
     |> Seq.toArray
 
+/// strip parts irrelevant for prefix
+let rec getPrefixNodeAndComplement (cache:RegexCache<_>) (node:RegexNode<_>) : RegexNode<_> * RegexNode<_> option =
+    match node with
+    | Concat(Loop(low=0;up=Int32.MaxValue),tail,_ ) -> getPrefixNodeAndComplement cache tail
+    | Concat(Loop(node=body;low=n;up=Int32.MaxValue),tail,_ ) ->
+        cache.Builder.mkConcat2( cache.Builder.mkLoop(body,n,n),tail ), None
+
+    // TODO: ?
+    // | Not(node, info) -> getPrefixNodeAndComplement cache node
+    | And(nodes, info) ->
+        let existsComplement =
+            nodes
+            |> Seq.exists (function | Not _ -> true | _ -> false )
+
+        if not existsComplement then
+
+            let prefixes =
+                nodes
+                |> Seq.choose (fun v ->
+                    match v with
+                    | Concat(head=Singleton p) -> Some v
+                    | _ -> None
+                )
+                |> Seq.toArray
+
+            if prefixes.Length > 0 then
+                cache.Builder.mkOr(prefixes), None
+            else
+
+            let trimmed =
+                nodes
+                |> Seq.map (getPrefixNodeAndComplement cache)
+                |> Seq.toArray
+            let noComplements = trimmed |> Seq.forall (fun v -> (snd v).IsNone)
+            if noComplements then
+                cache.Builder.mkOr(trimmed |> Seq.map fst), None
+            else
+                node, None
+
+        else
+
+        let nonComplementNodes =
+            nodes
+            |> Seq.where (function | Not _ -> false | _ -> true )
+            |> Seq.toArray
+        if nonComplementNodes.Length = 0 || nonComplementNodes.Length = nodes.Count then node, None else
+        let complement =
+            nodes
+            |> Seq.choose (function | Not (inner,info) -> Some inner | _ -> None )
+            |> cache.Builder.mkOr
+            |> Some
+
+        let trimmed =
+            nonComplementNodes
+            |> Seq.map (getPrefixNodeAndComplement cache)
+            |> Seq.toArray
+
+        let noComplements =
+            trimmed
+            |> Seq.forall (fun v -> (snd v).IsNone)
+
+        if noComplements then
+            cache.Builder.mkOr(trimmed |> Seq.map fst), complement
+        else
+            cache.Builder.mkAnd(nonComplementNodes), complement
+    | _ -> node, None
+
+
 let rec calcPrefixSets (getStateFlags: RegexNode<_> -> RegexStateFlags) (cache: RegexCache<_>) (startNode: RegexNode<_>) =
     let redundant = System.Collections.Generic.HashSet<RegexNode<TSet>>([ cache.False ])
+
+    // nothing to complement if a match has not started
+    let prefixStartNode, complementStartset =
+        getPrefixNodeAndComplement cache startNode
+
+
     let rec loop acc node =
+        let isRedundant = not (redundant.Add(node))
+        // let all_derivs = getImmediateDerivativesMerged cache node |> Seq.toArray
+        let prefix_derivs = getNonRedundantDerivatives cache redundant node
+        // a -> t
         let stateFlags = getStateFlags node
-        if stateFlags.CanSkip then acc |> List.rev else
-        if not (redundant.Add(node)) then
-            []
-        else if node.IsAlwaysNullable then
+        if stateFlags.CanSkip && not (refEq prefixStartNode node) then acc |> List.rev else
+        // if stateFlags.CanSkip && not (refEq startNodeWithoutComplement node) then acc |> List.rev else
+        if isRedundant then
+            acc |> List.rev
+        else if node.IsAlwaysNullable  then
             acc |> List.rev
         else
-            let prefix_derivs = getNonRedundantDerivatives cache redundant node
+
             match prefix_derivs with
             | [| (mt, deriv) |] ->
                 let acc' = mt :: acc
@@ -75,7 +156,22 @@ let rec calcPrefixSets (getStateFlags: RegexNode<_> -> RegexStateFlags) (cache: 
                 // let merged_pred = prefix_derivs |> Seq.map fst |> Seq.fold (|||) cache.Solver.Empty
                 prefix_derivs |> Seq.map snd |> Seq.iter (redundant.Add >> ignore)
                 acc |> List.rev
-    loop [] startNode
+    let prefix = loop [] prefixStartNode
+
+    match complementStartset with
+    | _ when prefix.IsEmpty -> prefix
+    | None -> prefix
+    | Some compl ->
+        let complementStartset = calcPrefixSets getStateFlags cache compl
+        let trimmedPrefix =
+            prefix
+            |> Seq.takeWhile (fun v ->
+                not (cache.Solver.isElemOfSet(v,complementStartset[0]))
+            )
+            |> Seq.toList
+        if trimmedPrefix.IsEmpty then
+            [prefix[0]] else trimmedPrefix
+
 
 
 let rec calcPotentialMatchStart (getStateFlags: RegexNode<_> -> RegexStateFlags) (cache: RegexCache<_>) (startNode: RegexNode<_>) =
@@ -109,7 +205,12 @@ let rec calcPotentialMatchStart (getStateFlags: RegexNode<_> -> RegexStateFlags)
             let acc' = merged_pred :: acc
             // let dbg = printPrefixSets cache acc'
             loop acc' remainingNodes
-    loop [] [startNode]
+
+    let prefixStartNode, complementStartset =
+        getPrefixNodeAndComplement cache startNode
+    match complementStartset with
+    | Some c -> [] // todo
+    | None -> loop [] [prefixStartNode]
 
 
 
@@ -130,10 +231,29 @@ let findInitialOptimizations
     (c:RegexCache<TSet>) (node:RegexNode<TSet>) (trueStarredNode:RegexNode<TSet>) =
     if node.ContainsLookaround then InitialOptimizations.NoOptimizations else
     match Optimizations.calcPrefixSets nodeToStateFlags c node with
-    | prefix when prefix.Length > 0 ->
-        let applied = Optimizations.applyPrefixSets c trueStarredNode prefix
-        let mem = Memory(Seq.toArray prefix)
-        InitialOptimizations.ReverseSetsPrefix(mem,nodeToId applied)
+    | prefix when prefix.Length > 1 ->
+
+        let mts = c.Minterms()
+        let singleCharPrefixes =
+            prefix
+            |> Seq.map (fun v ->
+                // negated set
+                if Solver.elemOfSet v mts[0] then None else
+                let chrs = c.MintermChars(v)
+                if chrs.Length = 1 then Some (chrs[0]) else None
+            )
+            |> Seq.takeWhile Option.isSome
+            |> Seq.choose id
+            |> Seq.rev
+            |> Seq.toArray
+            |> String
+        if singleCharPrefixes.Length > 1 then
+            let applied = Optimizations.applyPrefixSets c trueStarredNode (List.take singleCharPrefixes.Length prefix)
+            InitialOptimizations.ReverseStringPrefix(singleCharPrefixes,nodeToId applied)
+        else
+            let applied = Optimizations.applyPrefixSets c trueStarredNode prefix
+            let mem = Memory(Seq.toArray prefix)
+            InitialOptimizations.ReverseSetsPrefix(mem,nodeToId applied)
     | _ ->
         match Optimizations.calcPotentialMatchStart nodeToStateFlags c node with
         | potentialStart when potentialStart.Length > 0 ->

@@ -205,36 +205,28 @@ module rec Flags =
         | Concat(head, tail, _) -> inferConcat head tail
 
 
-let defaultInfo()(solver: ISolver<'t>) : RegexNodeInfo<'t> = RegexNodeInfo<'t>(
-    NodeFlags = Flag.None,
-    InitialStartset = Uninitialized
-)
+// let defaultInfo()(solver: ISolver<'t>) : RegexNodeInfo<'t> =
+//
+//
+//     RegexNodeInfo<'t>(
+//     NodeFlags = Flag.None,
+// )
 
-let convertLoop
-    (
-        xs: RegexNode<'t>,
-        solver: ISolver<'t>,
-        info: RegexNodeInfo<'b>
-    )
-    : RegexNodeInfo<'t>
-    =
-    RegexNodeInfo<'t>(
-        NodeFlags = info.NodeFlags
-    )
 
 
 [<AutoOpen>]
 module Node =
     let inline isAlwaysNullable(node: RegexNode<'t>) =
         match node with
-        | Or(info = info) -> info.IsAlwaysNullable
-        | Singleton _ -> false
-        | Loop(info = info) -> info.IsAlwaysNullable
-        | And(info = info) -> info.IsAlwaysNullable
-        | Not(info = info) -> info.IsAlwaysNullable
-        | LookAround _ -> false
+        | Or(info = info)
+        | Loop(info = info)
+        | And(info = info)
+        | Not(info = info)
         | Concat(info = info) -> info.IsAlwaysNullable
+        | Singleton _ -> false
+        | LookAround _ -> false
         | Epsilon -> false
+
 
     let inline isAlwaysNullableV(vinfo: RegexNodeInfo<'t> voption, node:RegexNode<'t>) =
         match vinfo with

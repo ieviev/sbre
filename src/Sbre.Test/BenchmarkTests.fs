@@ -33,6 +33,7 @@ let twain_input =
 let twain_20k = twain_input[..19999] // 10k chars limit
 
 
+#if DEBUG
 
 [<Fact>]
 let twain_counts_0() =
@@ -51,9 +52,11 @@ let twain_counts_1() =
 [<Fact>]
 let twain_counts_2() =
     let idx = 2
-    assertEqual
-        (System.Text.RegularExpressions.Regex(twainPatterns[idx]).Count(twain_input))
-        (Sbre.Regex(twainPatterns[idx]).Count(twain_input))
+    let r1 = (System.Text.RegularExpressions.Regex(twainPatterns[idx]).Matches(twain_input))
+    let r2 = (Sbre.Regex(twainPatterns[idx]).Matches(twain_input)) |> Seq.toArray
+    assertEqual r1.Count r2.Length
+
+
 
 [<Fact>]
 let twain_counts_3() =
@@ -252,3 +255,4 @@ let ``line test 2``() =
 //
 
 
+#endif

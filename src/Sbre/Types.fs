@@ -129,17 +129,17 @@ type Transition<'tset when 'tset :> IEquatable<'tset> and 'tset: equality > = {
 type RegexNodeInfo<'tset when 'tset :> IEquatable<'tset> and 'tset: equality >() =
 
     member val NodeFlags: RegexNodeFlags = RegexNodeFlags.None with get, set
-    member val InitialStartset: InitialStartset<'tset> = InitialStartset.Uninitialized with get, set
+    // member val InitialStartset: InitialStartset<'tset> = InitialStartset.Uninitialized with get, set
     member val Transitions: ResizeArray<Transition<'tset>> = ResizeArray() with get, set
     member val Subsumes: Dictionary<RegexNode<'tset>,bool> = Dictionary() with get, set
     // todo: subsumedbyset
 
     // filled in later
+    member val Minterms: 'tset = Unchecked.defaultof<'tset> with get, set
     member val Startset: 'tset = Unchecked.defaultof<'tset> with get, set
     member val StateFlags: 'tset = Unchecked.defaultof<'tset> with get, set
 
     member inline this.IsAlwaysNullable =
-
         this.NodeFlags &&& RegexNodeFlags.IsAlwaysNullableFlag = RegexNodeFlags.IsAlwaysNullableFlag
         // (this.Flags &&& RegexNodeFlags.IsAlwaysNullable) <> RegexNodeFlags.None
     member inline this.CanBeNullable =
@@ -184,7 +184,6 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
     // optimized cases
 
     // | Star of  (* RE* *) node: RegexNode<'tset> * info: RegexNodeInfo<'tset>
-
 
 
 
@@ -280,6 +279,7 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
             ValueSome info
         | _ -> ValueNone
 
+
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.GetFlags() =
         match this with
@@ -297,6 +297,7 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
         not (this.GetFlags().HasFlag(RegexNodeFlags.CanBeNullableFlag))
     member this.ContainsLookaround =
         this.GetFlags().HasFlag(RegexNodeFlags.ContainsLookaroundFlag)
+
 
     member this.HasCounter =
         this.GetFlags().HasFlag(RegexNodeFlags.HasCounterFlag)
@@ -319,6 +320,14 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
         | Singleton _ -> true
         | LookAround _ -> true
         | Epsilon -> false
+
+    member this.SubsumedByMinterm (solver:ISolver<'tset>) =
+        match this with
+        | Or(info = info) | Loop(info = info) | And(info = info) | Not(info = info) | Concat(info = info) ->
+            info.Minterms
+        | Epsilon -> solver.Empty
+        | Singleton pred -> pred
+        | LookAround(node, lookBack, negate) -> node.SubsumedByMinterm solver
 
 
 [<Flags>]

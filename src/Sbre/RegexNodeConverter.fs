@@ -66,7 +66,8 @@ let convertToSymbolicRegexNode
                 if node.Options.HasFlag(RegexOptions.Negated) then
                     let inner = convertChildren node |> b.mkConcat
                     let flags = Info.Flags.inferNot inner
-                    RegexNode.Not(inner, RegexNodeInfo<BDD>( NodeFlags = flags, Startset = Unchecked.defaultof<BDD>, InitialStartset = Uninitialized))
+                    let info = builder.CreateInfo(flags, inner.SubsumedByMinterm(css))
+                    RegexNode.Not(inner, info)
                     :: acc
                 else
                     convertChildren node
@@ -89,7 +90,7 @@ let convertToSymbolicRegexNode
             | _ -> b.mkLoop (single, node.M, node.N) :: acc
 
         // anchors
-        | RegexNodeKind.Beginning -> b.anchors._bigAAnchor.Value :: acc // TBD:  ^ or \A in multiline
+        | RegexNodeKind.Beginning -> b.anchors._caretAnchor.Value :: acc // TBD:  ^ or \A in multiline
         | RegexNodeKind.EndZ -> b.anchors._dollarAnchor.Value :: acc // TBD:  $ or \z in multiline
         | RegexNodeKind.Boundary -> b.anchors._wordBorder.Value :: acc
         | RegexNodeKind.NonBoundary -> b.anchors._nonWordBorder.Value :: acc

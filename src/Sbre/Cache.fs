@@ -47,6 +47,8 @@ type RegexCache< 't
     let predStartsets = StartsetHelpers.startsetsFromMintermArray mintermBdds
     let mutable _cachedStartsets: Dictionary<TSet, SearchValues<char>> = Dictionary()
 
+
+
     let _getMintermStartsetChars (minterm:TSet) =
         match _cachedStartsets.TryGetValue(minterm) with
         | true, v -> v
@@ -74,6 +76,10 @@ type RegexCache< 't
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.MintermStartsetChars(startset: TSet) = _getMintermStartsetChars startset
+
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    member this.MintermChars(startset: TSet) : Span<char> = StartsetHelpers.getMintermChars(_solver,predStartsets, minterms, startset)
+
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.SkipIndexOfAny(loc: byref<Location>, setChars: SearchValues<char>) : unit =
         if isNull setChars then () else

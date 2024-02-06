@@ -33,6 +33,17 @@ let der1Node (reg: Regex) (input: string) (raw:bool) =
     let der1 = createDerivative (cache, state,  &location, cache.MintermForLocation(location), node)
     der1
 
+let der1Rev (reg: Regex) (input: string) =
+    let location = (Location.create input 0)
+    let matcher = reg.TSetMatcher
+    let cache = matcher.Cache
+    let node = matcher.ReversePattern
+    let state = RegexState(cache.NumOfMinterms())
+    let minterm = cache.MintermForLocation(location)
+    CountingSet.stepCounters state minterm
+    let der1 = createDerivative (cache, state,  &location, cache.MintermForLocation(location), node)
+    der1
+
 let der1rawlocs (reg: Regex) (location: Location) =
     let matcher = reg.TSetMatcher
     let cache = matcher.Cache

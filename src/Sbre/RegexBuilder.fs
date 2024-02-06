@@ -3,7 +3,6 @@ namespace Sbre
 open System
 open System.Buffers
 open System.Collections.Generic
-open System.Collections.Immutable
 open System.Globalization
 open System.Runtime.CompilerServices
 open System.Runtime.InteropServices
@@ -20,6 +19,12 @@ module
     internal
 #endif
     StartsetHelpers =
+
+    let bddSingleChar (bdd:BDD) =
+        let mutable ranges = BDDRangeConverter.ToRanges(bdd)
+        match ranges with
+        | [| (s,e) |] when s = e -> Some (char s)
+        | _ -> None
     let bddToStartsetChars(bdd: BDD) : PredStartset =
         let rcc = RegexCharClass()
         let mutable ranges = BDDRangeConverter.ToRanges(bdd)
@@ -73,14 +78,14 @@ module
 
     let static_merged_chars = Array.zeroCreate 1024 |> ResizeArray<char>
 
-    let getMergedIndexOfSpan
+    let getMintermChars
         (
             _solver: ISolver<TSet>,
             predStartsetArray: Types.PredStartset array,
             uintMinterms:TSet array, //: 't array when 't: (static member Zero: 't) and 't: (static member (&&&) : 't * 't -> 't),
             startset: TSet //: 't when 't: (static member Zero: 't) and 't: (static member (&&&) : 't * 't -> 't)
         )
-        : SearchValues<char>
+        : Span<char>
         =
         let mergedCharSpan = CollectionsMarshal.AsSpan(static_merged_chars)
         let mutable totalLen = 0
@@ -98,8 +103,7 @@ module
                     let pspan = predStartsetArray[i].Chars.AsSpan()
                     pspan.CopyTo(targetSpan)
                     totalLen <- totalLen + pspan.Length
-
-            SearchValues.Create (mergedCharSpan.Slice(0, totalLen))
+            mergedCharSpan.Slice(0, totalLen)
 
         else
             for i = 1 to predStartsetArray.Length - 1 do
@@ -115,7 +119,18 @@ module
                     totalLen <- totalLen + pspan.Length
                 | false -> ()
 
-            SearchValues.Create (mergedCharSpan.Slice(0, totalLen))
+            mergedCharSpan.Slice(0, totalLen)
+
+    let getMergedIndexOfSpan
+        (
+            _solver: ISolver<TSet>,
+            predStartsetArray: Types.PredStartset array,
+            uintMinterms:TSet array, //: 't array when 't: (static member Zero: 't) and 't: (static member (&&&) : 't * 't -> 't),
+            startset: TSet //: 't when 't: (static member Zero: 't) and 't: (static member (&&&) : 't * 't -> 't)
+        )
+        : SearchValues<char>
+        =
+        SearchValues.Create (getMintermChars(_solver,predStartsetArray,uintMinterms,startset))
 
 
 
@@ -139,6 +154,10 @@ module private BuilderHelpers =
 type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
     (converter: RegexNodeConverter, solver: ISolver< 't >, bcss: CharSetSolver) as b =
     let runtimeBuilder = SymbolicRegexBuilder< 't>(solver, bcss)
+
+    let _createInfo flags containsMinterms =
+        RegexNodeInfo<'t>(NodeFlags = flags, Minterms = containsMinterms)
+
     let getDerivativeCacheComparer() : IEqualityComparer<struct (TSet * RegexNode<TSet>)> =
         { new IEqualityComparer<struct (TSet * RegexNode<TSet>)> with
             member this.Equals(struct (x1, x2), struct (y1, y2)) = x1 = y1 && refEq x2 y2
@@ -165,7 +184,8 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
     let _concatCacheComparer: IEqualityComparer<struct (RegexNode<'t> * RegexNode<'t >)> =
         { new IEqualityComparer<struct (RegexNode<'t> * RegexNode<'t>)> with
 
-            member this.Equals(struct (x1, y1), struct (x2, y2)) = refEq x1 x2 && refEq y1 y2
+            member this.Equals(struct (x1, y1), struct (x2, y2)) =
+                refEq x1 x2 && refEq y1 y2
 
 
             member this.GetHashCode(struct (x, y)) =
@@ -224,26 +244,15 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 _true,
                 low = 0,
                 up = Int32.MaxValue,
-                info =
-                    RegexNodeInfo<'t>(
-                        NodeFlags =
-                            (RegexNodeFlags.IsAlwaysNullableFlag
-                             ||| RegexNodeFlags.CanBeNullableFlag),
-                        Startset = solver.Full,
-                        InitialStartset = Uninitialized
-                    )
+                info = _createInfo (RegexNodeFlags.IsAlwaysNullableFlag ||| RegexNodeFlags.CanBeNullableFlag) solver.Full
+
             )
         _truePlus =
             RegexNode.Loop(
                 _true,
                 low = 1,
                 up = Int32.MaxValue,
-                info =
-                    RegexNodeInfo<'t>(
-                        NodeFlags = RegexNodeFlags.None,
-                        Startset = solver.Full,
-                        InitialStartset = Uninitialized
-                    )
+                info = _createInfo (RegexNodeFlags.None) solver.Full
             )
         _wordChar = lazy b.setFromStr @"\w"
         _nonWordChar = lazy b.setFromStr @"\W"
@@ -265,12 +274,8 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             _zAnchor = __z_anchor
             _dollarAnchor =
                 lazy
-                    let info =
-                        RegexNodeInfo<'t>(
-                            NodeFlags = RegexNodeFlags.CanBeNullableFlag, //||| RegexNodeFlags.ContainsLookaround
-                            Startset = Unchecked.defaultof<_>,
-                            InitialStartset = Uninitialized
-                        )
+
+                    let info = _createInfo (RegexNodeFlags.CanBeNullableFlag ||| RegexNodeFlags.ContainsLookaroundFlag) solver.Full
 
                     Or(
                         ofSeq [
@@ -284,13 +289,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             // (?<=\A|\A\n) ≡ \a
             _aAnchor =
                 lazy
-                    let info =
-                        RegexNodeInfo<'t>(
-                            NodeFlags = RegexNodeFlags.CanBeNullableFlag, //||| RegexNodeFlags.ContainsLookaround
-                            Startset = solver.Full,
-                            InitialStartset = Uninitialized
-                        )
-
+                    let info = _createInfo (RegexNodeFlags.CanBeNullableFlag  ||| RegexNodeFlags.ContainsLookaroundFlag) solver.Full
                     let seqv =
                         ofSeq [
                             __big_a_anchor.Value
@@ -302,12 +301,8 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
 
             _nonWordBorder =
                 lazy
-                    let info =
-                        RegexNodeInfo<'t>(
-                            NodeFlags = RegexNodeFlags.CanBeNullableFlag,
-                            Startset = solver.Full,
-                            InitialStartset = Uninitialized
-                        )
+                    let info = _createInfo (RegexNodeFlags.CanBeNullableFlag  ||| RegexNodeFlags.ContainsLookaroundFlag) solver.Full
+
                     // (?!ψ\w)
                     let c1 = [
                         RegexNode.LookAround(
@@ -339,13 +334,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
 
             _wordBorder =
                 lazy
-                    let info =
-                        RegexNodeInfo<'t>(
-                            NodeFlags =
-                                (RegexNodeFlags.CanBeNullableFlag ||| RegexNodeFlags.ContainsLookaroundFlag),
-                            Startset = Unchecked.defaultof<_>,
-                            InitialStartset = Uninitialized
-                        )
+                    let info = _createInfo (RegexNodeFlags.CanBeNullableFlag ||| RegexNodeFlags.ContainsLookaroundFlag) solver.Full
 
                     Or(
                         ofSeq [
@@ -380,13 +369,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             // ^ ≡ \A|(?<=\n)
             _caretAnchor =
                 lazy
-                    let info =
-                        RegexNodeInfo<'t>(
-                            NodeFlags = (RegexNodeFlags.CanBeNullableFlag ||| RegexNodeFlags.None),
-                            Startset = Unchecked.defaultof<_>,
-                            InitialStartset = Uninitialized
-                        )
-
+                    let info = _createInfo (RegexNodeFlags.CanBeNullableFlag ||| RegexNodeFlags.ContainsLookaroundFlag) solver.Full
                     Or(
                         ofSeq [
                             __big_a_anchor.Value
@@ -559,10 +542,20 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
         | _ ->
 
             match nodes with
-            | AllSameHead() when typeof<'t> = typeof<TSet>  ->
+            | AllSameHead(shead) when typeof<'t> = typeof<TSet>  ->
                 match nodes |> unbox with
                 | TrySubsumeSameTail (s) -> Seq.singleton (unbox s) //:?> RegexNode<'t> seq
-                | _ -> nodes
+                | _ ->
+                    let mergeTails =
+                        nodes |> Seq.map (fun v ->
+                            match v with
+                            | Concat(regexNode, tail, regexNodeInfo) -> tail
+                            | _ -> failwith "todo: subsumption bug"
+                        )
+                        |> this.mkOr
+                    nodes.Clear()
+                    nodes.Add(this.mkConcat2(shead, mergeTails)) |> ignore
+                    nodes
             | _ ->
 
                 nodes
@@ -724,12 +717,14 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 | _ when nodes.Length = 1 -> nodes[0]
                 | twoormore ->
                     let flags = Flags.inferAnd twoormore
-
+                    let e = twoormore.GetEnumerator()
+                    let minterms2 =
+                        twoormore
+                        |> Seq.map (_.SubsumedByMinterm(solver))
+                        |> Seq.fold (fun acc v -> solver.Or(acc,v) ) solver.Empty
                     let mergedInfo =
-                        RegexNodeInfo<'t>(
-                            NodeFlags = flags,
-                            InitialStartset = Uninitialized
-                        )
+                        this.CreateInfo(flags, minterms2)
+
 
                     let newAnd = RegexNode.And(ofSeq twoormore, mergedInfo)
                     newAnd
@@ -824,11 +819,12 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 | twoormore ->
                     let flags = Flags.inferOr twoormore
 
+                    let minterms2 =
+                        twoormore
+                        |> Seq.map (_.SubsumedByMinterm(solver))
+                        |> Seq.fold (fun acc v -> solver.Or(acc,v) ) solver.Empty
                     let mergedInfo =
-                        RegexNodeInfo<'t>(
-                            NodeFlags = flags,
-                            InitialStartset = Uninitialized
-                        )
+                        this.CreateInfo(flags, minterms2)
 
                     RegexNode.Or(ofSeq twoormore, mergedInfo)
 
@@ -854,7 +850,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 | Epsilon -> _uniques._truePlus // ~(ε) -> ⊤+
                 | _ ->
                     let mutable flags = Flags.inferNot inner
-                    Not(inner, this.CreateInfo(flags))
+                    Not(inner, this.CreateInfo(flags, inner.SubsumedByMinterm(solver)))
 
             let key = inner
 
@@ -884,20 +880,21 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
         RegexNode.Singleton(converter.CreateBDDFromSetString(node.Str))
 
     member this.mkConcat2(head: RegexNode< 't >, tail: RegexNode< 't >) : RegexNode< 't > =
+        match head with
+        | Epsilon -> tail // ()R -> R
+        | _ when refEq head _uniques._false -> _uniques._false // ⊥R -> ⊥
+        | _ ->
+
         let key = struct (head, tail)
 
         match _concatCache.TryGetValue(key) with
         | true, v -> v
         | _ ->
             let v =
-                match head with
-                | Epsilon -> tail // ()R -> R
-                | _ when refEq head _uniques._false -> _uniques._false // ⊥R -> ⊥
-                | _ ->
-
-                    let flags = Flags.inferConcat head tail
-                    let info = this.CreateInfo(flags)
-                    Concat(head, tail, info)
+                let flags = Flags.inferConcat head tail
+                let mergedMinterms = solver.Or(head.SubsumedByMinterm(solver),tail.SubsumedByMinterm(solver))
+                let info = this.CreateInfo(flags, mergedMinterms)
+                Concat(head, tail, info)
 
             _concatCache.Add(key, v)
             v
@@ -918,8 +915,9 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                         match acc with
                         | Epsilon -> v
                         | _ ->
-                            let flags' = Flags.inferConcat v acc
-                            Concat(v, acc, this.CreateInfo(flags'))
+                            // let flags' = Flags.inferConcat v acc
+                            this.mkConcat2 (v, acc)
+                            // Concat(v, acc, this.CreateInfo(flags'))
                     )
                     Epsilon
 
@@ -937,18 +935,15 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                     _uniques._trueStar
                 else
                     let flags = Flags.inferLoop (body, lower, upper)
-                    RegexNode.Loop(body, lower, upper, info = b.CreateInfo(flags))
 
-
+                    RegexNode.Loop(body, lower, upper, info = b.CreateInfo(flags, body.SubsumedByMinterm(solver)))
             | _, (x, y) when x > 0 ->
                 let flags = Flags.inferLoop (body, lower, upper)
-                let info = b.CreateInfo(flags)
+                let info = b.CreateInfo(flags, body.SubsumedByMinterm(solver))
                 RegexNode.Loop(body, lower, upper, info = info)
-
-
             | _ ->
                 let flags = Flags.inferLoop (body, lower, upper)
-                let info = b.CreateInfo(flags)
+                let info = b.CreateInfo(flags, body.SubsumedByMinterm(solver))
                 RegexNode.Loop(body, lower, upper, info = info)
 
         let key = struct (body, lower, upper)
@@ -961,11 +956,8 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             v
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    member this.CreateInfo(flags: RegexNodeFlags) : RegexNodeInfo<_> =
-        // match _regexInfoCache.TryGetValue(struct (flags, startset)) with
-        // | true, v -> v
-        // | _ ->
-        RegexNodeInfo<'t>(NodeFlags = flags)
+    member this.CreateInfo(flags: RegexNodeFlags, containsMinterms:'t) : RegexNodeInfo<_> =
+        _createInfo flags containsMinterms
 
 
         // _regexInfoCache.Add(struct (flags, startset), v)

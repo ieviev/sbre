@@ -177,7 +177,7 @@ let equalSeq (xs1: seq<'t>) (xs2: seq<'t>) : unit = Assert.Equal<'t>(xs1, xs2)
 //     | _ -> Assert.True(false, "not an or node")
 //
 
-let assertConverted (pattern: string) (expected: string) =
+let assertConverted (pattern: string) (expected: string list) =
     let regexTree =
         ExtendedRegexParser.Parse(
             pattern,
@@ -204,14 +204,14 @@ let assertConverted (pattern: string) (expected: string) =
             with e ->
                 reg.UInt16Matcher.Cache.PrettyPrintNode reg.TSetMatcher.RawPattern
 
-    Assert.Equal(expected, asstr)
+    Assert.Contains<string>(asstr,expected)
 
 [<Fact>]
-let ``conversion lookaround ``() = assertConverted ".(?<=A.*)" @".(?<=A.*)"
+let ``conversion lookaround ``() = assertConverted ".(?<=A.*)" [@".(?<=A.*)"]
 // assertConverted ".(?<=A.*)" @"[^\n](?<=A[^\n]*)"
 
 [<Fact>]
-let ``conversion lookaround 2 ``() = assertConverted ".(?=A.*)" @".(?=A.*)"
+let ``conversion lookaround 2 ``() = assertConverted ".(?=A.*)" [@".(?=A.*)"]
 
 // assertConverted ".(?=A.*)" @"[^\n](?=A[^\n]*)"
 
@@ -225,15 +225,15 @@ let ``conversion lookaround 2 ``() = assertConverted ".(?=A.*)" @".(?=A.*)"
 
 
 [<Fact>]
-let ``conversion label``() = assertConverted "(?<Time>^\d)" @"(?<!⊤)\d"
+let ``conversion label``() = assertConverted "(?<Time>^\d)" [@"((?<!⊤)|(?<=\n))φ"; @"((?<=\n)|(?<!⊤))φ"]
 // assertConverted ".(?=A.*)" @"[^\n](?=A[^\n]*)"
 
 
 [<Fact>]
-let ``conversion neg lookahead ``() = assertConverted "1(?! Sep)" "1(?! Sep)"
+let ``conversion neg lookahead ``() = assertConverted "1(?! Sep)" ["1(?! Sep)"]
 
 [<Fact>]
-let ``conversion conc ``() = assertConverted "Twain" "Twain"
+let ``conversion conc ``() = assertConverted "Twain" ["Twain"]
 
 
 
@@ -295,7 +295,6 @@ let ``flags 5``() =
 
 
 
-
 [<Fact>]
 let ``identity derivative 2``() =
     let m = Regex(@"((⊤*t|)neW⊤*&⊤*erohsa⊤*&⊤*lirpA⊤*&⊤*yadsruhT⊤*)")
@@ -312,6 +311,18 @@ let ``identity and 1``() =
 
     let req = refEq (m.TSetMatcher.RawPattern) deriv
     Assert.True(req)
+
+
+[<Fact>]
+let ``identity rev 1``() =
+    let m = Regex(@"⊤*Huck⊤*")
+
+    let deriv = der1Rev m "g"
+
+    let req = refEq (m.TSetMatcher.ReversePattern) deriv
+    Assert.True(req)
+
+
 
 
 [<Fact>]
