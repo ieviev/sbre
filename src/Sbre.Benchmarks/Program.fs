@@ -30,7 +30,6 @@ let dbgSample() =
         reg.Matches(sample_inputText).Count |> ignore
 
 
-
 let dbgSbre() =
 
     // let t = Paper.DebugSbre3()
@@ -72,8 +71,11 @@ let main argv =
     // dbgNonb()
     // dbgSample()
 
-
     match Environment.GetCommandLineArgs() |> Seq.last with
+    | "prefix1" -> BenchmarkRunner.Run(typeof<Optimizations.Prefix1>,config) |> ignore
+    | "prefix2" -> BenchmarkRunner.Run(typeof<Optimizations.Prefix2>,config) |> ignore
+
+    // ---
     | "outer-none" -> BenchmarkRunner.Run(typeof<ParagraphOuter.None1>,config) |> ignore
     | "outer-nonb" -> BenchmarkRunner.Run(typeof<ParagraphOuter.NonBack1>,config) |> ignore
     | "outer-sbre" -> BenchmarkRunner.Run(typeof<ParagraphOuter.Sbre1>,config) |> ignore

@@ -20,12 +20,15 @@ open Sbre.Test
 // let suite = Paper.Twain_1()
 // suite.Setup()
 
-let suite = Paper.SampleRegexes()
-for pat in suite.Patterns do
-    suite.Pattern <- pat
-    suite.Setup()
+// let suite = Paper.SampleRegexes()
+// let suite = Paper.SampleRegexes()
+// for pat in suite.Patterns do
+//     suite.Pattern <- pat
+//     suite.Setup()
+//
+//     for i = 1 to 100 do
+//         suite.Sbre() |> ignore
 
-    for i = 1 to 100 do
-        suite.Sbre() |> ignore
 
-
+let pref = Optimizations.Prefix2()
+pref.FirstSetIndexOfChars()

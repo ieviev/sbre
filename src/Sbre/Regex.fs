@@ -86,7 +86,7 @@ type MatchingState(node: RegexNode<TSet>) =
         this.Flags <- flags
 
     member this.SetStartset(c: RegexCache<TSet>, set: TSet) =
-        let setChars = c.MintermStartsetChars(set)
+        let setChars = c.MintermSearchValues(set)
         let minterms = c.Minterms()
         let isInverted = Solver.elemOfSet set minterms[0]
         this.Startset <- set
@@ -746,8 +746,16 @@ type Regex(pattern: string, [<Optional; DefaultParameterValue(false)>] _experime
     override this.Match(input) = matcher.Match(input)
 
     member this.Matcher: GenericRegexMatcher = matcher
-#if DEBUG
+    
     member this.TSetMatcher: RegexMatcher<TSet> = matcher :?> RegexMatcher<TSet>
+    member this.InitialReversePrefix = 
+        Sbre.Optimizations.findInitialOptimizations
+            (fun node -> this.TSetMatcher.GetOrCreateState(node).Id)
+            (fun node -> this.TSetMatcher.GetOrCreateState(node).Flags)
+            this.TSetMatcher.Cache
+            this.TSetMatcher.ReversePattern
+            this.TSetMatcher.ReverseTrueStarredPattern
+#if DEBUG
     member this.UInt16Matcher: RegexMatcher<uint16> = matcher :?> RegexMatcher<uint16>
     member this.ByteMatcher: RegexMatcher<byte> = matcher :?> RegexMatcher<byte>
 #endif

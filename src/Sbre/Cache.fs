@@ -75,7 +75,7 @@ type RegexCache< 't
     member this.MintermStartsets() = predStartsets
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    member this.MintermStartsetChars(startset: TSet) = _getMintermStartsetChars startset
+    member this.MintermSearchValues(startset: TSet) = _getMintermStartsetChars startset
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.MintermChars(startset: TSet) : Span<char> = StartsetHelpers.getMintermChars(_solver,predStartsets, minterms, startset)
@@ -168,7 +168,7 @@ type RegexCache< 't
 
     member this.TryNextStartsetLocation(loc: byref<Location>, set: TSet) : unit =
         assert (not (Solver.isEmpty set))
-        let setChars = this.MintermStartsetChars(set)
+        let setChars = this.MintermSearchValues(set)
         let isInverted = _solver.isElemOfSet (set,minterms[0])
         let currpos = loc.Position
 
@@ -274,7 +274,7 @@ type RegexCache< 't
         let mutable slice: ReadOnlySpan<char> = inputSpan.Slice(0, currpos)
 
         /// vectorize the search for the first character
-        let firstSetChars = this.MintermStartsetChars(setSpan[0])
+        let firstSetChars = this.MintermSearchValues(setSpan[0])
         let isInverted = Solver.elemOfSet setSpan[0] minterms[0]
         let tailPrefixSpan = setSpan.Slice(1)
         let _tailPrefixLength = tailPrefixSpan.Length
@@ -351,7 +351,7 @@ type RegexCache< 't
 
 
         /// vectorize the search for the first minterm
-        let firstSetChars = this.MintermStartsetChars(mergedPrefix)
+        let firstSetChars = this.MintermSearchValues(mergedPrefix)
 
         /// '.' to ^\n -> it's easier to invert large sets
         // let isInverted = _solver.isElemOfSet(mergedPrefix,minterms[0])
@@ -457,6 +457,13 @@ type RegexCache< 't
             else
                 loc.Input[loc.Position - 1]
         let i = int c
+        match i < 128 with
+        | true -> _ascii[i]
+        | false -> _nonAscii.Find(i)
+
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    member this.CharToMinterm(chr: char) : _ =
+        let i = int chr
         match i < 128 with
         | true -> _ascii[i]
         | false -> _nonAscii.Find(i)
