@@ -272,6 +272,9 @@ type RegexMatcher<'t when 't: struct>
             (fun node -> _getOrCreateState(node,false).Flags )
             _cache reverseNode reverseTrueStarredNode
 
+    let _initialFixedLength =
+        Optimizations.getFixedLength reverseNode
+
 
     override this.IsMatch(input) =
         let mutable currPos = 0
@@ -554,11 +557,13 @@ type RegexMatcher<'t when 't: struct>
         // for i = (allPotentialStarts.Count - 1) downto 0 do
         for i = (startSpans.Length - 1) downto 0 do
             let currStart = startSpans[i]
-
             if currStart >= nextValidStart then
                 loc.Position <- currStart
                 rstate.Clear()
-                let matchEnd = this.DfaEndPosition(rstate, &loc, DFA_R)
+                let matchEnd =
+                    match _initialFixedLength with
+                    | Some fl -> currStart + fl
+                    | _ -> this.DfaEndPosition(rstate, &loc, DFA_R)
                 matches.Add({ MatchPosition.Index = currStart; Length = (matchEnd - currStart) })
                 nextValidStart <- matchEnd
 
@@ -581,8 +586,10 @@ type RegexMatcher<'t when 't: struct>
             if currStart >= nextValidStart then
                 loc.Position <- currStart
                 rstate.Clear()
-                // todo: if is fixed length then dont have to
-                let matchEnd = this.DfaEndPosition(rstate, &loc, DFA_R)
+                let matchEnd =
+                    match _initialFixedLength with
+                    | Some fl -> currStart + fl
+                    | _ -> this.DfaEndPosition(rstate, &loc, DFA_R)
                 matchCount <- matchCount + 1
                 nextValidStart <- matchEnd
         matchCount

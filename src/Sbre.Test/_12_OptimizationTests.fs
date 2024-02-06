@@ -10,6 +10,28 @@ open Common
 
 #if DEBUG
 
+
+[<Fact>]
+let ``fixed length 1``() =
+    let regex = Regex("Twain")
+    let matcher = regex.TSetMatcher
+    let prefixLen = Optimizations.getFixedLength matcher.ReversePattern
+    Assert.Equal(Some 5, prefixLen)
+
+[<Fact>]
+let ``fixed length 2``() =
+    let regex = Regex("[a-q][^u-z]{13}x")
+    let matcher = regex.TSetMatcher
+    let prefixLen = Optimizations.getFixedLength matcher.ReversePattern
+    Assert.Equal(Some 15, prefixLen)
+
+
+
+
+
+
+
+
 [<Fact>]
 let ``calc reverse prefix 1``() =
     let regex = Regex("Twain")

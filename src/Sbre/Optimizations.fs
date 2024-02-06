@@ -12,13 +12,30 @@ type InitialOptimizations =
     | ReverseSetsPrefix of prefix:Memory<TSet> * transitionNodeId:int
     | PotentialStartPrefix of prefix:Memory<TSet>
 
-type SbreOptimizations =
+type ActiveBranchOptimizations =
     | ReverseStringPrefix of string
     | ReverseSetsPrefix of TSet array
     | NoOptimizations
 
-let tryGetReversePrefix (c:RegexCache<TSet>) (node:RegexNode<TSet>) =
-    Some NoOptimizations
+
+let getFixedLength (node: RegexNode<TSet>) =
+    let rec loop (acc:int) node : int option =
+        match node with
+        | Concat(head, tail, info) ->
+            loop acc head
+            |> Option.bind (fun headLen ->
+                loop headLen tail
+            )
+        | Epsilon -> None
+        | Or(nodes, info) -> None
+        | Singleton foo -> Some (1 + acc)
+        | Loop(Singleton node, low, up, info) ->
+            if low = up then Some (low + acc) else None
+        | Loop(node, low, up, info) -> None
+        | And(nodes, info) -> None
+        | Not(node, info) -> None
+        | LookAround(node, lookBack, negate) -> None
+    loop 0 node
 
 #if DEBUG
 let printPrefixSets (cache:RegexCache<_>) (sets:TSet list) =
@@ -26,7 +43,6 @@ let printPrefixSets (cache:RegexCache<_>) (sets:TSet list) =
     |> Seq.map cache.PrettyPrintMinterm
     |> String.concat ";"
 #endif
-
 
 let getImmediateDerivatives (cache: RegexCache<_>) (node: RegexNode<TSet>) =
     cache.Minterms()
