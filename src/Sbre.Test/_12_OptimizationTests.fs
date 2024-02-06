@@ -124,7 +124,7 @@ let ``initialOptimizations 1``() =
             (fun node -> matcher.GetOrCreateState(node).Flags)
             matcher.Cache matcher.ReversePattern matcher.ReverseTrueStarredPattern
     match optimizations with
-    | Optimizations.InitialOptimizations.ReverseStringPrefix(prefix, transitionNode) ->
+    | Optimizations.InitialOptimizations.StringPrefix(prefix, transitionNode) ->
         Assert.True(prefix.Length = 5)
     | _ -> failwith "invalid optimization result"
 
@@ -155,7 +155,7 @@ let ``initialOptimizations 3``() =
     match optimizations with
     // | Optimizations.InitialOptimizations.ReverseStringPrefix(prefix,_) ->
     //     Assert.Equal(1,prefix.Length)
-    | Optimizations.InitialOptimizations.ReverseSetsPrefix(prefix,_) ->
+    | Optimizations.InitialOptimizations.SetsPrefix(prefix,_) ->
         Assert.Equal(3,prefix.Length)
     | _ -> failwith "invalid optimization result"
 
@@ -170,7 +170,7 @@ let ``initialOptimizations 4``() =
             (fun node -> matcher.GetOrCreateState(node).Flags)
             matcher.Cache matcher.ReversePattern matcher.ReverseTrueStarredPattern
     match optimizations with
-    | Optimizations.InitialOptimizations.ReverseStringPrefix(prefix,_) ->
+    | Optimizations.InitialOptimizations.StringPrefix(prefix,_) ->
         Assert.Equal(5,prefix.Length)
     | _ -> failwith "invalid optimization result"
 

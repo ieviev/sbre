@@ -468,7 +468,7 @@ type RegexMatcher<'t when 't: struct>
     member this.TrySkipInitial(loc:byref<Location>, dfaState:byref<MatchingState>, currentStateId:byref<int>) =
         match _initialOptimizations with
         | InitialOptimizations.NoOptimizations -> ()
-        | InitialOptimizations.ReverseStringPrefix(prefix, transitionNodeId) ->
+        | InitialOptimizations.StringPrefix(prefix, transitionNodeId) ->
             let slice = loc.Input.Slice(0, loc.Position)
             let resultStart = slice.LastIndexOf(prefix)
             if resultStart = -1 then
@@ -477,7 +477,7 @@ type RegexMatcher<'t when 't: struct>
                 currentStateId <- transitionNodeId
                 dfaState <- _stateArray[transitionNodeId]
                 loc.Position <- resultStart
-        | InitialOptimizations.ReverseSetsPrefix(prefix, transitionNodeId) ->
+        | InitialOptimizations.SetsPrefix(prefix, transitionNodeId) ->
             let skipResult = _cache.TryNextStartsetLocationArrayReversed( &loc, prefix.Span )
             match skipResult with
             | ValueSome resultEnd ->

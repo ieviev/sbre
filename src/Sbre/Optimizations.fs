@@ -8,8 +8,11 @@ open System
 [<RequireQualifiedAccess>]
 type InitialOptimizations =
     | NoOptimizations
-    | ReverseStringPrefix of prefix:string * transitionNodeId:int
-    | ReverseSetsPrefix of prefix:Memory<TSet> * transitionNodeId:int
+    /// ex. Twain ==> (ε|Twain)
+    | StringPrefix of prefix:string * transitionNodeId:int
+    /// ex. [Tt][Ww][Aa][Ii][Nn] ==> (ε|(?i)Twain)
+    | SetsPrefix of prefix:Memory<TSet> * transitionNodeId:int
+    /// ex. (Twain|Huck) ==> potential start:[TH][wu][ac][ik]
     | PotentialStartPrefix of prefix:Memory<TSet>
 
 type ActiveBranchOptimizations =
@@ -265,11 +268,11 @@ let findInitialOptimizations
             |> String
         if singleCharPrefixes.Length > 1 then
             let applied = Optimizations.applyPrefixSets c trueStarredNode (List.take singleCharPrefixes.Length prefix)
-            InitialOptimizations.ReverseStringPrefix(singleCharPrefixes,nodeToId applied)
+            InitialOptimizations.StringPrefix(singleCharPrefixes,nodeToId applied)
         else
             let applied = Optimizations.applyPrefixSets c trueStarredNode prefix
             let mem = Memory(Seq.toArray prefix)
-            InitialOptimizations.ReverseSetsPrefix(mem,nodeToId applied)
+            InitialOptimizations.SetsPrefix(mem,nodeToId applied)
     | _ ->
         match Optimizations.calcPotentialMatchStart nodeToStateFlags c node with
         | potentialStart when potentialStart.Length > 0 ->
