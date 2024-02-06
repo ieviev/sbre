@@ -42,3 +42,60 @@ let p2Chars = cache2.MintermChars(prefixSets2[1]).ToArray() // just 2 chars in [
 // 2. [kw] // 
 // 3. [ac] // vowels are usually more frequent
 // 4. [A-Za-z] (compare either as TSet or System.Buffers.SearchValues)
+
+
+let regex3 = Sbre.Regex("(?i)Twain")
+let cache3 = regex3.TSetMatcher.Cache
+let prefix3 = regex3.InitialReversePrefix
+let prefixSets3 = 
+    match prefix3 with
+    | InitialOptimizations.SetsPrefix(prefix, _) -> Array.toList (prefix.ToArray())
+    | _ -> failwith "debug"
+let prefixPretty3 = Optimizations.printPrefixSets cache3 (prefixSets3)    
+// "[Nn];[Ii];[Aa];[Ww];[Tt]"
+
+// let p3Chars = cache3.MintermChars(prefixSets3[1]).ToArray() // just 2 chars in [kw]
+
+let regex4 = Sbre.Regex("(abcd|bqwe|crty)")
+let cache4 = regex4.TSetMatcher.Cache
+let prefix4 = regex4.InitialReversePrefix
+let prefixSets4 = 
+    match prefix4 with
+    | InitialOptimizations.PotentialStartPrefix(prefix) -> Array.toList (prefix.ToArray())
+    | _ -> failwith "debug"
+let prefixPretty4 = Optimizations.printPrefixSets cache4 (prefixSets4)  
+// "[dey];[ctw];[bqr];[a-c]"
+
+let testchars = cache4.MintermChars(prefixSets4[3]).ToArray()
+// [|'a'; 'b'; 'c'|]
+let testcharcodes = testchars |> Array.map int
+// [|97; 98; 99|] - sequential char codes
+// search for sequential char codes can be optimized with ranges
+let test = "____b_".AsSpan().IndexOfAnyInRange('a','c')
+
+
+// more difficult examples
+
+let regex5 = Sbre.Regex("a{0,10}.")
+let cache5 = regex5.TSetMatcher.Cache
+let prefix5 = regex5.InitialReversePrefix
+let prefixSets5 = 
+    match prefix5 with
+    | InitialOptimizations.PotentialStartPrefix(prefix) -> Array.toList (prefix.ToArray())
+    | _ -> failwith "debug"
+let prefixPretty5 = Optimizations.printPrefixSets cache5 (prefixSets5)  
+// "[dey];[ctw];[bqr];[a-c]"
+
+let chars = cache5.MintermChars(prefixSets5[0]).ToArray()
+// [|'\010'|]
+
+
+cache5.Minterms() |> Array.map cache5.PrettyPrintMinterm
+// [|"[^\na]"; "\n"; "a"|]
+
+// TSet negation condition
+let charIsNegated = 
+    // (cache5.Minterms()[0]) is where all negated characters are
+    Solver.elemOfSet (cache5.Minterms()[0]) prefixSets5[0] 
+let test5 = "\n\n\n____b_".AsSpan().IndexOfAnyExcept(chars)
+
