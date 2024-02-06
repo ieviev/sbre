@@ -313,12 +313,21 @@ type RegexCache< 't
                     resultEnd <- ValueSome(potential)
                     couldBe <- false
 
-                let mutable i = 0
-                while couldBe && i < tailPrefixSpan.Length do
+                // r to l
+                // let mutable i = 0
+                // while couldBe && i < tailPrefixSpan.Length do
+                //     let inputMinterm = this.Classify(inputSpan[potential - i - 2])
+                //     if Solver.notElemOfSet inputMinterm tailPrefixSpan[i] then
+                //         couldBe <- false
+                //     i <- i + 1
+
+                // l to r
+                let mutable i = _tailPrefixLength - 1
+                while couldBe && i >= 0 do
                     let inputMinterm = this.Classify(inputSpan[potential - i - 2])
                     if Solver.notElemOfSet inputMinterm tailPrefixSpan[i] then
                         couldBe <- false
-                    i <- i + 1
+                    i <- i - 1
 
                 if couldBe then
                     skipping <- false
