@@ -22,6 +22,7 @@ let prefixSets1 =
     
 let prefixPretty1 = Optimizations.printPrefixSets cache1 (prefixSets1)
 
+// ".*have.*&.*there.*")
 // "e;[rv];[ae];h"
 
 let regex2 = Sbre.Regex("Huck[a-zA-Z]+|Saw[a-zA-Z]+")

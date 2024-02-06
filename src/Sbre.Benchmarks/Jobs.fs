@@ -1121,7 +1121,7 @@ type TestAllEngines(pattern: string, input: string) =
 [<ShortRunJob>]
 [<AbstractClass>]
 [<HideColumns([| "" |])>]
-type TestAllEnginesAllPatterns(patterns: string list, input: string) =
+type TestAllEnginesAllPatternsMatchOnly(patterns: string list, input: string) =
     do AppContext.SetData("REGEX_NONBACKTRACKING_MAX_AUTOMATA_SIZE", 1_000_000)
     let inputText = input
     let opts_None =
@@ -1160,9 +1160,9 @@ type TestAllEnginesAllPatterns(patterns: string list, input: string) =
         this.Sbre_Regex <- Regex(this.Pattern)
 
 
-    // [<Benchmark(Description = "NonBacktrack")>]
-    // member this.Symbolic() =
-    //     this.NonBack_Regex.Count(inputText)
+    [<Benchmark(Description = "NonBacktrack")>]
+    member this.Symbolic() =
+        this.NonBack_Regex.Count(inputText)
     //
     [<Benchmark(Description = "Compiled")>]
     member this.Compiled() =

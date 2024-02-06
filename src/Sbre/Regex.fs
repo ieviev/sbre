@@ -355,7 +355,8 @@ type RegexMatcher<'t when 't: struct>
         let sourceState = _stateArray[currentState]
 
         let targetDerivative =
-            createDerivative (_cache, regexState, &loc, minterm, sourceState.Node)
+            // createDerivative (_cache, regexState, &loc, minterm, sourceState.Node)
+            this.CreateDerivative(regexState, &loc, minterm, sourceState.Node)
 
         let targetState = this.GetOrCreateState(targetDerivative)
         targetState.Id
@@ -409,7 +410,188 @@ type RegexMatcher<'t when 't: struct>
             dfaState: MatchingState
         ) : bool =
         flags.CanBeNullable && flags.IsAlwaysNullable
-        || RegexNode.isNullable (_cache, rstate, &loc, dfaState.Node)
+        || this.IsNullable (rstate, &loc, dfaState.Node)
+
+
+    member this.IsNullable(state:RegexState, loc: inref<Location>, node: RegexNode<_>) : bool =
+            // short-circuit
+            if node.CanNotBeNullable then
+                false
+            elif node.IsAlwaysNullable then
+                true
+            else
+            match node with
+            // Nullx () = true
+            | Epsilon -> true
+            // Nullx (ψ) = false
+            | Singleton _ -> false
+            // Nullx (R) or Nullx (S)
+            | Or(xs, info) ->
+                use mutable e = xs.GetEnumerator()
+                let mutable found = false
+                while not found && e.MoveNext() do
+                    found <- this.IsNullable (state, &loc, e.Current)
+                found
+            // Nullx (R) and Nullx (S)
+            | And(xs, info) ->
+                use mutable e = xs.GetEnumerator()
+                let mutable forall = true
+                while forall && e.MoveNext() do
+                    forall <- this.IsNullable (state, &loc, e.Current)
+                forall
+            // Nullx (R{m, n}) = m = 0 or Nullx (R)
+            | Loop(R, low, _, info) -> low = 0 || (this.IsNullable (state, &loc, R))
+            // not(Nullx (R))
+            | Not(inner, info) ->
+                if info.NodeFlags.IsCounter then
+                    failwith "counter nullability"
+                    // match state.CounterCanExit(node) with
+                    // | ValueSome(true) -> not (this.IsNullable (cache,state, &loc, inner))
+                    // | ValueSome(false) -> true
+                    // | _ -> not (this.IsNullable (cache,state, &loc, inner))
+                else
+                    not (this.IsNullable (state, &loc, inner))
+            // Nullx (R) and Nullx (S)
+            | Concat(head, tail, info) ->
+                if info.NodeFlags.IsAlwaysNullable then true else
+                if info.NodeFlags.IsCounter then
+                    let counter = state.TryGetCounter(node)
+                    match counter with
+                    | ValueNone -> false
+                    | ValueSome counter ->
+                    let canExit = counter.CanExit()
+                    match canExit with
+                    | true -> this.IsNullable (state, &loc, tail)
+                    | false -> false
+                else
+                    this.IsNullable (state, &loc, head) && this.IsNullable (state, &loc, tail)
+            | LookAround(body, lookBack, negate) ->
+                let mutable _tlo = _cache.False
+                let rstate = RegexState(_cache.NumOfMinterms())
+                let startstate = this.GetOrCreateState(body)
+                match lookBack, negate with
+                // Nullx ((?=R)) = IsMatch(x, R)
+                | false, false ->
+                    let mutable loc2 = Location.clone &loc
+                    match this.DfaMatchEnd(rstate,&loc2,startstate.Id) with
+                    | -2 -> false
+                    | _ -> true
+                // Nullx ((?!R)) = not IsMatch(x, R)
+                | false, true ->
+                    let mutable loc2 = Location.clone &loc
+                    match this.DfaMatchEnd(rstate,&loc2,startstate.Id) with
+                    | -2 -> true
+                    | _ -> false
+                | true, false -> // Nullx ((?<=R)) = IsMatch(xr, Rr)
+                    let mutable revnode = (RegexNode.rev _cache.Builder body)
+                    let revstate = this.GetOrCreateState(revnode)
+                    let mutable revloc = Location.createSpanRev loc.Input loc.Position loc.Reversed
+                    match this.DfaMatchEnd(rstate,&revloc,revstate.Id) with
+                    | -2 -> false
+                    | _ -> true
+                | true, true -> // Nullx ((?<!R)) = not IsMatch(x r, Rr)
+                    let R_rev = RegexNode.rev _cache.Builder body
+                    let revstate = this.GetOrCreateState(R_rev)
+                    let mutable revloc = Location.createSpanRev loc.Input loc.Position loc.Reversed
+                    match this.DfaMatchEnd(rstate,&revloc,revstate.Id) with
+                    | -2 -> true
+                    | _ -> false
+
+    member this.CreateDerivative (
+        state : RegexState,
+        loc: inref<Location>,
+        loc_pred: TSet,
+        node: RegexNode<TSet>
+    ) : RegexNode<TSet> =
+
+        let result =
+
+            let info = node.GetFlags()
+            if info.IsCounter then
+                failwith "counter"
+                // createCounterDerivative(cache,state,&loc,loc_pred,node)
+            else
+
+            match node with
+            // Derx (R) = ⊥ if R ∈ ANC or R = ()
+            | LookAround _
+            | Epsilon -> _cache.False
+            // Der s⟨i⟩ (ψ) = if si ∈ [[ψ]] then () else ⊥
+            | Singleton pred ->
+                // if c.Solver.isElemOfSet(pred,loc_pred) then Epsilon else c.False
+                if Solver.elemOfSet pred loc_pred then Epsilon else _cache.False
+
+            // Derx (R{m, n}) =
+            // if m=0 or Null ∀(R)=true or Nullx (R)=false
+            // then Derx (R)·R{m −1, n −1}
+            // else Derx (R·R{m −1, n −1})
+            | Loop(R, low, up, info) ->
+
+                // CSA
+                let inline decr x =
+                    if x = Int32.MaxValue || x = 0 then x else x - 1
+
+                let case1 =
+                    low = 0
+                    || info.IsAlwaysNullable = true
+                    || not (this.IsNullable (state, &loc, R))
+
+                match case1 with
+                | true ->
+                    // Derx (R)·R{m −1, n −1, l}
+                    // let derR = createDerivative (cache, state, &loc, loc_pred, R)
+                    let derR = this.CreateDerivative(state, &loc, loc_pred, R)
+                    _cache.Builder.mkConcat2 (derR, _cache.Builder.mkLoop (R, decr low, decr up))
+
+                | false ->
+                    // Derx (R·R{m −1, n −1, l})
+                    this.CreateDerivative (
+
+                        state,
+                        &loc,
+                        loc_pred,
+                        _cache.Builder.mkConcat2 (R, _cache.Builder.mkLoop (R, decr low, decr up))
+                    )
+
+
+
+            // Derx (R | S) = Derx (R) | Derx (S)
+            | Or(xs, info) ->
+                let derivatives = ResizeArray()
+                for n in xs do
+                    derivatives.Add (this.CreateDerivative( state,&loc, loc_pred, n))
+                derivatives |> _cache.Builder.mkOr
+
+            // Derx (R & S) = Derx (R) & Derx (S)
+            | And(xs, info) as head ->
+                let derivatives = ResizeArray()
+                for n in xs do
+                    derivatives.Add (this.CreateDerivative (state,&loc, loc_pred, n))
+                _cache.Builder.mkAnd(derivatives)
+
+            // Derx(~R) = ~Derx (R)
+            | Not(inner, info) ->
+                let derR = this.CreateDerivative ( state,&loc, loc_pred, inner)
+                _cache.Builder.mkNot (derR)
+            // Derx (R·S) = if Nullx (R) then Derx (R)·S|Derx (S) else Derx (R)·S
+            | Concat(head, tail, info) ->
+
+                let R' = this.CreateDerivative (state,&loc, loc_pred, head)
+                let R'S = _cache.Builder.mkConcat2 (R', tail)
+
+                if this.IsNullable (state, &loc, head) then
+                    let S' = this.CreateDerivative (state,&loc, loc_pred, tail)
+                    if refEq _cache.Builder.uniques._false S' then
+                        R'S
+                    else
+                        _cache.Builder.mkOr ( seq { R'S ;S' } )
+                else
+                    R'S
+
+        if not node.ContainsLookaround && not node.HasCounter then
+            _cache.Builder.AddTransitionInfo(loc_pred, node, result)
+
+        result
 
     /// end position with DFA
     member this.DfaEndPosition
@@ -419,7 +601,7 @@ type RegexMatcher<'t when 't: struct>
             startStateId: int
 #if DEBUG
             ,
-            ?debugFn: (MatchingState * CountingSet.RegexState -> unit)
+            ?debugFn: MatchingState * RegexState -> unit
 #endif
         ) : int32 =
         assert (loc.Position > -1)
@@ -449,6 +631,50 @@ type RegexMatcher<'t when 't: struct>
                 currentMax <- loc.Position
 
             if loc.Position < loc.Input.Length then
+                // let mintermId = _cache.MintermId(&loc)
+                // if flags.HasCounter then
+                //     failwith "todo: counters"
+                //     let mintermId = _cache.MintermId(&loc)
+                //     CountingSet.bumpCounters rstate (_cache.MintermById(mintermId)) dfaState.Node
+                // if flags.HasCounter then
+                //     rstate.ActiveCounters |> Seq.iter (_.Value.TryReset())
+                //     CountingSet.stepCounters rstate (_cache.MintermById(mintermId))
+                this.TakeTransition(rstate, flags, &currentStateId, &loc)
+
+                loc.Position <- Location.nextPosition loc
+            else
+                looping <- false
+
+        currentMax
+
+
+    member this.DfaMatchEnd
+        (
+            rstate: RegexState,
+            loc: byref<Location>,
+            startStateId: int
+        ) : int32 =
+        assert (loc.Position > -1)
+        let mutable looping = true
+        let mutable currentStateId = startStateId
+        let mutable currentMax = -2
+
+        while looping do
+            let mutable dfaState = _stateArray[currentStateId]
+            let flags = dfaState.Flags
+            if flags.IsDeadend then
+                looping <- false
+            else
+
+            if flags.CanSkip then
+                let ss = dfaState.Startset
+                _cache.TryNextStartsetLocation(&loc, ss)
+
+            // set max nullability after skipping
+            if this.StateIsNullable(flags, rstate, &loc, dfaState) then
+                currentMax <- loc.Position
+
+            if not (Location.isFinal loc) then
                 // let mintermId = _cache.MintermId(&loc)
                 // if flags.HasCounter then
                 //     failwith "todo: counters"
@@ -746,9 +972,9 @@ type Regex(pattern: string, [<Optional; DefaultParameterValue(false)>] _experime
     override this.Match(input) = matcher.Match(input)
 
     member this.Matcher: GenericRegexMatcher = matcher
-    
+
     member this.TSetMatcher: RegexMatcher<TSet> = matcher :?> RegexMatcher<TSet>
-    member this.InitialReversePrefix = 
+    member this.InitialReversePrefix =
         Sbre.Optimizations.findInitialOptimizations
             (fun node -> this.TSetMatcher.GetOrCreateState(node).Id)
             (fun node -> this.TSetMatcher.GetOrCreateState(node).Flags)

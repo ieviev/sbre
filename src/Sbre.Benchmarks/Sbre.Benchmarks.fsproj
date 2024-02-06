@@ -13,6 +13,7 @@
         <Compile Include="ParagraphFull.fs" />
         <Compile Include="Paper.fs" />
         <Compile Include="Optimizations.fs" />
+        <Compile Include="Learning.fs" />
         <Compile Include="Program.fs" />
         <Content Include="data\**\*.*" CopyToOutputDirectory="PreserveNewest"/>
     </ItemGroup>
@@ -23,6 +24,7 @@
 
     <ItemGroup>
       <PackageReference Include="BenchmarkDotNet" Version="0.13.2" />
+      <PackageReference Include="FSharp.Data" Version="6.3.0" />
     </ItemGroup>
 
 </Project>

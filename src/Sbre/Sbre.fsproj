@@ -23,7 +23,7 @@
     <WarnOn>1182</WarnOn>
     <!--    implicit conversion -->
     <WarnOn>3387</WarnOn>
-     <DefineConstants>$(DefineConstants);SKIP</DefineConstants> 
+    <DefineConstants>$(DefineConstants);SKIP</DefineConstants>
     <DefineConstants>$(DefineConstants);DFA</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
@@ -49,14 +49,14 @@
     <PackageOutputPath>./nupkg</PackageOutputPath>
     <Authors>ieviev</Authors>
     <Title>$(ProjectName)</Title>
-    <Version>0.0.21</Version>
+    <Version>0.0.22</Version>
   </PropertyGroup>
   <ItemGroup>
     <!-- <Reference Include="RuntimeRegexCopy" Condition="'$(Configuration)'=='Release'">
       <HintPath>../RuntimeRegexCopy/bin/Release/net8.0/RuntimeRegexCopy.dll</HintPath>
     </Reference> -->
-    <!--    <ProjectReference Include="..\RuntimeRegexCopy\RuntimeRegexCopy.csproj" PrivateAssets="all" />-->
-<!--    <ProjectReference Include="..\RuntimeRegexCopy\RuntimeRegexCopy.csproj" PrivateAssets="all" />-->
+    <!-- nuget pack -->
+    <!-- <ProjectReference Include="..\RuntimeRegexCopy\RuntimeRegexCopy.csproj" PrivateAssets="all" /> -->
     <ProjectReference Include="..\RuntimeRegexCopy\RuntimeRegexCopy.csproj"  />
   </ItemGroup>
   <ItemGroup>
@@ -67,6 +67,6 @@
     </Content>
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Update="FSharp.Core" Version="7.0.*" />
+    <PackageReference Update="FSharp.Core" Version="8.0.*" />
   </ItemGroup>
 </Project>

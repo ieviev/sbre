@@ -29,9 +29,6 @@ let ``fixed length 2``() =
 
 
 
-
-
-
 [<Fact>]
 let ``calc reverse prefix 1``() =
     let regex = Regex("Twain")
@@ -204,6 +201,40 @@ let ``initialOptimizations 6``() =
         let prefixString = Optimizations.printPrefixSets matcher.Cache (prefix.ToArray() |> Seq.toList)
         Assert.Equal("[A-Za-z];[kw];[ac];[Su]", prefixString)
     | _ -> failwith "invalid optimization result"
+
+[<Fact>]
+let ``initialOptimizations 7``() =
+    // variable length prefix?
+    let regex = Regex("Tom|Sawyer|Huckleberry|Finn")
+    let matcher = regex.TSetMatcher
+    let optimizations =
+        Optimizations.findInitialOptimizations
+            (fun node -> matcher.GetOrCreateState(node).Id)
+            (fun node -> matcher.GetOrCreateState(node).Flags)
+            matcher.Cache matcher.ReversePattern matcher.ReverseTrueStarredPattern
+    match optimizations with
+    | Optimizations.InitialOptimizations.PotentialStartPrefix(prefix) ->
+        let prefixString = Optimizations.printPrefixSets matcher.Cache (prefix.ToArray() |> Seq.toList)
+        Assert.Equal("[mnry];[enor];[Tiry]", prefixString)
+    | _ -> failwith "invalid optimization result"
+
+
+[<Fact>]
+let ``initialOptimizations 8``() =
+    let regex = Regex("\s([A-Za-z]awyer|[A-Za-z]inn)\s")
+    let matcher = regex.TSetMatcher
+    let optimizations =
+        Optimizations.findInitialOptimizations
+            (fun node -> matcher.GetOrCreateState(node).Id)
+            (fun node -> matcher.GetOrCreateState(node).Flags)
+            matcher.Cache matcher.ReversePattern matcher.ReverseTrueStarredPattern
+    match optimizations with
+    | Optimizations.InitialOptimizations.PotentialStartPrefix(prefix) ->
+        let prefixString = Optimizations.printPrefixSets matcher.Cache (prefix.ToArray() |> Seq.toList)
+        Assert.Equal("\s;[nr];[en];[iy];[A-Za-z];\s", prefixString)
+    | _ -> failwith "invalid optimization result"
+
+
 
 
 
