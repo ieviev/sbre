@@ -20,13 +20,25 @@ let ctx = Provider.GetSample()
 [<BenchmarkDotNet.Attributes.MemoryDiagnoser>]
 [<ShortRunJob>]
 type Learning1() =
-    // inherit StringPrefix("Twain")
     inherit Jobs.TestSbreAllPatternsMatchOnly(
         [
             @"(?<=\s.*).*(?=.*(\n|\.|,|\s))&(?<=\s|(\s|\n)).*&.*(?=(\n|\.|,|\s)|.)&\b.*\b"
         ],
         ctx.Examples[10].String
     )
+
+
+[<BenchmarkDotNet.Attributes.MemoryDiagnoser>]
+[<ShortRunJob>]
+type Learning2() =
+    inherit Jobs.TestSbreAllPatternsMatchOnly(
+        [
+            // @"(?<=(\s\s|e\s|n\s).*).*(?=.*(\n\n|\.\n|,\s|\s\())&(?<=(\s\s|e\s|n\s)|[a-z,\)]?\s(\s\n|\s\s)?).*&.*(?=(\n\n|\.\n|,\s|\s\()|.{2})&\b.*\b"
+            @"(?<=(\s\s|e\s|n\s).*).*(?=.*(\n\n|\.\n|,\s|\s\())&(?<=(\s\s|e\s|n\s)|[a-z,\)]?\s(\s\n|\s\s)?).*&.*(?=(\n\n|\.\n|,\s|\s\()|.{2})&\b.*\b&.{8}"
+        ],
+        ctx.Examples[10].String
+    )
+
 
 // [<BenchmarkDotNet.Attributes.MemoryDiagnoser>]
 // [<ShortRunJob>]

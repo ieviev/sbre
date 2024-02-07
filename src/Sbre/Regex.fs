@@ -53,7 +53,7 @@ type GenericRegexMatcher() =
     abstract member Count: input: ReadOnlySpan<char> -> int
 
 
-
+[<Sealed>]
 type MatchingState(node: RegexNode<TSet>) =
     member val Id = -1 with get, set
     member val Node = node with get, set
@@ -735,9 +735,7 @@ type RegexMatcher<'t when 't: struct>
         currentMax
 
     member this.TrySkipInitialRev(loc:byref<Location>, currentStateId:byref<int>) : bool =
-        // let currPos = loc.Position
         match _initialOptimizations with
-        | InitialOptimizations.NoOptimizations -> false
         | InitialOptimizations.StringPrefix(prefix, transitionNodeId) ->
             let slice = loc.Input.Slice(0, loc.Position)
             let resultStart = slice.LastIndexOf(prefix.Span)
@@ -783,7 +781,7 @@ type RegexMatcher<'t when 't: struct>
                 // no matches remaining
                 loc.Position <- Location.final loc
                 false
-
+        | InitialOptimizations.NoOptimizations -> false
 
 
     member this.TrySkipActiveRev(flags:RegexStateFlags,loc:byref<Location>, currentStateId:byref<int>, acc: byref<SharedResizeArrayStruct<int>>) : bool =
@@ -834,9 +832,8 @@ type RegexMatcher<'t when 't: struct>
         while looping do
             let flags = _flagsArray[currentStateId]
 #if SKIP
-            if flags.IsInitial && this.TrySkipInitialRev(&loc, &currentStateId) then
-                ()
-            elif flags.CanSkip && this.TrySkipActiveRev(flags,&loc, &currentStateId, &acc) then
+            if (flags.IsInitial && this.TrySkipInitialRev(&loc, &currentStateId)) ||
+               (flags.CanSkip && this.TrySkipActiveRev(flags,&loc, &currentStateId, &acc)) then
                 ()
             else
 #endif
@@ -845,7 +842,7 @@ type RegexMatcher<'t when 't: struct>
 
             if loc.Position > 0 then
                 this.TakeTransition(flags, &currentStateId, &loc)
-                loc.Position <- Location.nextPosition loc
+                loc.Position <- loc.Position - 1
             else
                 looping <- false
 
@@ -888,7 +885,6 @@ type RegexMatcher<'t when 't: struct>
 
         let mutable matchCount = 0
         let mutable loc = Location.createReversedSpan input
-        // use acc = new SharedResizeArray<int>(100)
         use mutable acc = new SharedResizeArrayStruct<int>(100)
         let allPotentialStarts =
             if _flagsArray[DFA_TR_rev].CanBeNullable then

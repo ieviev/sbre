@@ -76,6 +76,7 @@ let main argv =
     | "prefix2" -> BenchmarkRunner.Run(typeof<Optimizations.Prefix2>,config) |> ignore
     // ---
     | "learning1" -> BenchmarkRunner.Run(typeof<Learning.Learning1>,config) |> ignore
+    | "learning2" -> BenchmarkRunner.Run(typeof<Learning.Learning2>,config) |> ignore
     // ---
     | "outer-none" -> BenchmarkRunner.Run(typeof<ParagraphOuter.None1>,config) |> ignore
     | "outer-nonb" -> BenchmarkRunner.Run(typeof<ParagraphOuter.NonBack1>,config) |> ignore

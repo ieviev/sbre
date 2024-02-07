@@ -527,12 +527,10 @@ type RegexCache< 't
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.MintermId(loc: Location) : _ =
-        let c =
-            if not loc.Reversed then
-                loc.Input[loc.Position]
-            else
-                loc.Input[loc.Position - 1]
-        let i = int c
+        let mutable pos = loc.Position
+        if loc.Reversed then
+            pos <- pos - 1
+        let i = int (loc.Input[pos])
         match i < 128 with
         | true -> _ascii[i]
         | false -> _nonAscii.Find(i)
