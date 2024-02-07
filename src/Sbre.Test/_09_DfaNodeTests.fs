@@ -18,7 +18,7 @@ let getDfaMatcherAndDerivative (pat:string) (input:string) =
     let rstate = RegexState(cache.NumOfMinterms())
     let mutable stateId = matcher.GetOrCreateState(_toplevelOr).Id
     let current = matcher.GetStateAndFlagsById(stateId)
-    let success = matcher.TakeTransition(rstate, current.Flags, &stateId, &loc)
+    let success = matcher.TakeTransition(current.Flags, &stateId, &loc)
     let results = matcher.GetStateAndFlagsById(stateId)
     matcher, results
 

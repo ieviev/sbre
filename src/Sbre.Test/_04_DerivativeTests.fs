@@ -43,7 +43,7 @@ let testFullDerivative(pattern: string, input: string, expectedDerivative: strin
     let location = (Location.create input 0)
 
     let result =
-        matcher.CreateDerivative ( state, &location, cache.MintermForLocation(location), node)
+        matcher.CreateDerivative (  &location, cache.MintermForLocation(location), node)
         |> (fun v -> cache.PrettyPrintNode v)
 
     Assert.Equal(expectedDerivative, result)
@@ -63,9 +63,9 @@ let test2ndDerivative(pattern: string, input: string, expectedDerivative: string
     let location = (Location.create input 0)
     let location1 = (Location.create input 1)
 
-    let der1 = matcher.CreateDerivative  ( state, &location, cache.MintermForLocation(location), node)
+    let der1 = matcher.CreateDerivative  (  &location, cache.MintermForLocation(location), node)
 
-    let der2 = matcher.CreateDerivative  ( state, &location1, cache.MintermForLocation(location1), der1)
+    let der2 = matcher.CreateDerivative  (  &location1, cache.MintermForLocation(location1), der1)
 
     let result = der2 |> (fun v -> cache.PrettyPrintNode v)
 
@@ -84,8 +84,8 @@ let test2ndDerivatives(pattern: string, input: string, expectedDerivatives: stri
         let node = matcher.TrueStarredPattern
         let state = RegexState(cache.NumOfMinterms())
 
-        let der1 = matcher.CreateDerivative  ( state, &location, cache.MintermForLocation(location), node)
-        let der2 = matcher.CreateDerivative ( state, &location1, cache.MintermForLocation(location1), der1)
+        let der1 = matcher.CreateDerivative  (  &location, cache.MintermForLocation(location), node)
+        let der2 = matcher.CreateDerivative (  &location1, cache.MintermForLocation(location1), der1)
         cache.PrettyPrintNode der2
 
 

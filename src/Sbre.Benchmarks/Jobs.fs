@@ -1160,17 +1160,17 @@ type TestAllEnginesAllPatternsMatchOnly(patterns: string list, input: string) =
         this.Sbre_Regex <- Regex(this.Pattern)
 
 
-    [<Benchmark(Description = "NonBacktrack")>]
-    member this.Symbolic() =
-        this.NonBack_Regex.Count(inputText)
+    // [<Benchmark(Description = "NonBacktrack")>]
+    // member this.Symbolic() =
+    //     this.NonBack_Regex.Count(inputText)
     //
     [<Benchmark(Description = "Compiled")>]
     member this.Compiled() =
         this.Compiled_Regex.Count(inputText)
-
-    [<Benchmark(Description = "None")>]
-    member this.None() =
-        this.None_Regex.Count(inputText)
+    //
+    // [<Benchmark(Description = "None")>]
+    // member this.None() =
+    //     this.None_Regex.Count(inputText)
 
     [<Benchmark(Description = "Sbre")>]
     member this.Sbre() =

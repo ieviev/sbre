@@ -31,7 +31,7 @@ type StringPrefix(pattern:string) =
     let prefixString =
         match optimizations with
         | InitialOptimizations.StringPrefix(prefix, transitionNodeId) ->
-            prefix
+            prefix.Span.ToString()
         | _ -> failwith "could not get prefix"
 
     let charToTSet (chr:char) = matcher.Cache.CharToMinterm(chr)

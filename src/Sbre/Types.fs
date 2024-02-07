@@ -111,11 +111,11 @@ module RegexStateFlagsExtensions =
         [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
         member this.ContainsLookaround = this &&& RegexStateFlags.ContainsLookaroundFlag = RegexStateFlags.ContainsLookaroundFlag
         [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-        member this.CanSkip = this &&& RegexStateFlags.CanSkipFlag = RegexStateFlags.CanSkipFlag
+        member this.CanSkip = this &&& (RegexStateFlags.CanSkipFlag ||| RegexStateFlags.InitialFlag) = RegexStateFlags.CanSkipFlag
         [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
         member this.HasPrefix = this &&& RegexStateFlags.HasPrefixFlag = RegexStateFlags.HasPrefixFlag
-        [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-        member this.HasCounter = this &&& RegexStateFlags.HasCounterFlag = RegexStateFlags.HasCounterFlag
+        // [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+        // member this.HasCounter = this &&& RegexStateFlags.HasCounterFlag = RegexStateFlags.HasCounterFlag
         [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
         member this.ContainsInitial = this &&& RegexStateFlags.ContainsInitialFlag = RegexStateFlags.ContainsInitialFlag
 
@@ -442,12 +442,8 @@ type SharedResizeArray<'t>(initialSize:int) =
     member this.GetEnumerator() =
         let mutable e = pool.AsSpan(0, size).GetEnumerator()
         e
-
     member this.Length = size
-
-
     member this.AsSpan() = pool.AsSpan(0, size)
-        // for i = (allPotentialStarts.Count - 1) downto 0 do
     member this.AsArray() = pool.AsSpan(0, size).ToArray()
 
     interface IDisposable with
@@ -456,6 +452,61 @@ type SharedResizeArray<'t>(initialSize:int) =
 
 
 
+// [<Struct; IsByRefLike>]
+// type Utf8Enumerator =
+//     val mutable Remaining: ReadOnlySpan<byte>
+//     val mutable BytesConsumed: int
+//     val mutable Current: Rune
+//     member this.MoveNext() =
+//         let opStatus = Rune.DecodeFromUtf8(this.Remaining, &this.Current, &this.BytesConsumed)
+//         this.Remaining <- this.Remaining.Slice(this.BytesConsumed)
+//         opStatus = OperationStatus.Done
+//     new(bytes: ReadOnlySpan<byte>) =
+//         {
+//             Remaining = bytes
+//             Current = Unchecked.defaultof<_>
+//             BytesConsumed = 0
+//         }
+
+[<Struct; IsByRefLike>]
+type SharedResizeArrayStruct<'t> =
+    val mutable size : int
+    val mutable limit : int
+    val mutable pool : 't array
+    member this.Add(item) =
+        if this.size = this.limit then
+            let newLimit = this.limit * 2
+            let newArray = ArrayPool.Shared.Rent(newLimit)
+            Array.Copy(this.pool,newArray,this.size)
+            ArrayPool.Shared.Return(this.pool)
+            this.pool <- newArray
+            this.limit <- this.limit * 2
+        this.pool[this.size] <- item
+        this.size <- this.size + 1
+    member this.Clear() =
+        this.size <- 0
+    member this.Contains(item) =
+        let mutable e = this.pool.AsSpan(0, this.size).GetEnumerator()
+        let mutable found = false
+        while not found && e.MoveNext() do
+            found <- obj.ReferenceEquals(e.Current,item)
+        found
+    member this.GetEnumerator() =
+        let mutable e = this.pool.AsSpan(0, this.size).GetEnumerator()
+        e
+    member this.Length = this.size
+    member this.AsSpan() = this.pool.AsSpan(0, this.size)
+    member this.AsArray() = this.pool.AsSpan(0, this.size).ToArray()
+
+    interface IDisposable with
+        member this.Dispose() =
+            ArrayPool.Shared.Return(this.pool)
+    new(initialSize: int) =
+        {
+            size = 0
+            limit = initialSize
+            pool = ArrayPool.Shared.Rent(initialSize)
+        }
 
 
 

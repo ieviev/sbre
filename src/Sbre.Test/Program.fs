@@ -26,6 +26,7 @@ for pat in suite.Patterns do
     suite.Pattern <- pat
     suite.Setup()
 
+    // for i = 1 to 100 do
     for i = 1 to 100 do
         suite.Sbre() |> ignore
 
