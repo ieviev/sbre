@@ -90,8 +90,10 @@ let convertToSymbolicRegexNode
             | _ -> b.mkLoop (single, node.M, node.N) :: acc
 
         // anchors
-        | RegexNodeKind.Beginning -> b.anchors._caretAnchor.Value :: acc // TBD:  ^ or \A in multiline
-        | RegexNodeKind.EndZ -> b.anchors._dollarAnchor.Value :: acc // TBD:  $ or \z in multiline
+        | RegexNodeKind.Bol -> b.anchors._caretAnchor.Value :: acc
+        | RegexNodeKind.Beginning -> b.anchors._bigAAnchor.Value :: acc
+        | RegexNodeKind.Eol -> b.anchors._dollarAnchor.Value :: acc
+        | RegexNodeKind.EndZ -> b.anchors._zAnchor.Value :: acc
         | RegexNodeKind.Boundary -> b.anchors._wordBorder.Value :: acc
         | RegexNodeKind.NonBoundary -> b.anchors._nonWordBorder.Value :: acc
         | RegexNodeKind.Setlazy

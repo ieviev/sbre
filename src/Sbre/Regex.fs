@@ -998,7 +998,7 @@ type Regex(pattern: string, [<Optional; DefaultParameterValue(false)>] _experime
     let regexTree =
         ExtendedRegexParser.Parse(
             pattern,
-            RegexOptions.ExplicitCapture ||| RegexOptions.NonBacktracking,
+            RegexOptions.ExplicitCapture ||| RegexOptions.NonBacktracking ||| RegexOptions.Multiline,
             CultureInfo.InvariantCulture
         )
     let charsetSolver = CharSetSolver()

@@ -575,7 +575,7 @@ let ``dfa match 2``() =
     assertFirstMatch ".*a{3}" "aa aaa" (0,6)
 
 
-let webappsample3 = """
+let webappsample6 = """
 The fists of all the generals came down this time, and again the
 King's eye sparkled with pleasure. The Chancellor sprang to his
 feet and appealed to his Majesty:
@@ -588,9 +588,24 @@ But the King waved him to his seat again, saying:
 [<Fact>]
 let ``web app test 6``() =
     // todo: check performance of this
-    let result = getAllLLmatches """~(⊤*(\n⊤*){2})&⊤*g⊤*&~(⊤*")&[A-Za-z]{5}⊤*""" webappsample3
+    let result = getAllLLmatches """~(⊤*(\n⊤*){2})&⊤*g⊤*&~(⊤*")&[A-Za-z]{5}⊤*""" webappsample6
     Assert.Equal([(5, 124); (212, 37)], result |> Seq.map (fun v -> v.Index,v.Length) )
 
+let webappsample7 = """
+remarked to Joan:
+
+"Out of charity I will consider that you did not know who devised
+this measure which you condemn in so candid language."
+
+"Save your charity for another occasion, my
+"""
+
+[<Fact>]
+let ``web app test 7``() =
+    let result = getAllLLmatches """(?<=\n\n|\A)~(⊤*\n\n⊤*)(?=\n\n|\Z)&(~(⊤*charity⊤*)|(⊤*honor⊤*))""" webappsample7
+    // let result = getAllLLmatches """(?<=\n\n|^)~(⊤*\n\n⊤*)(?=\n\n|\Z)&(~(⊤*charity⊤*)|(⊤*honor⊤*))""" webappsample7
+    // let result = getAllLLmatches """(^a)|(\ab)""" webappsample7
+    Assert.Equal([(0, 18)], result |> Seq.map (fun v -> v.Index,v.Length) )
 
 
 //
