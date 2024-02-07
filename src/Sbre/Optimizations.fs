@@ -316,8 +316,8 @@ let tryGetLimitedSkip (nodeToId:RegexNode<TSet> -> int) (getStartset:RegexNode<_
                 | _ -> node
             let finalNode = loop (snd singlePath)
             if path.Count < 2 then None else
-                if c.MintermIsInverted(skipTerm) then
-                    failwith "todo: inverted minterm"
+                if c.MintermIsInverted(skipTerm) then None else
+                    // failwith "todo: inverted minterm"
                 let chrs = c.MintermChars(skipTerm)
                 if chrs.Length > 50 then
                     failwith "todo: too many chars in set"

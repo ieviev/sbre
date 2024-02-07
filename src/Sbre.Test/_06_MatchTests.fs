@@ -575,6 +575,24 @@ let ``dfa match 2``() =
     assertFirstMatch ".*a{3}" "aa aaa" (0,6)
 
 
+let webappsample3 = """
+The fists of all the generals came down this time, and again the
+King's eye sparkled with pleasure. The Chancellor sprang to his
+feet and appealed to his Majesty:
+
+"Sire, I claim your protection."
+
+But the King waved him to his seat again, saying:
+"""
+
+[<Fact>]
+let ``web app test 6``() =
+    // todo: check performance of this
+    let result = getAllLLmatches """~(⊤*(\n⊤*){2})&⊤*g⊤*&~(⊤*")&[A-Za-z]{5}⊤*""" webappsample3
+    Assert.Equal([(5, 124); (212, 37)], result |> Seq.map (fun v -> v.Index,v.Length) )
+
+
+
 //
 // [<Fact>]
 // let ``dfa match 3``() =
