@@ -1,10 +1,7 @@
 module internal Sbre.Info
 
 open System
-open System.Runtime.InteropServices
-open System.Text.RuntimeRegexCopy.Symbolic
 open Sbre.Types
-open Pat
 
 #nowarn "9"
 
@@ -72,7 +69,7 @@ let (|NodeIsAlwaysNullable|_|)(x: RegexNode<'t>) =
     | Loop(node, low, up, IsAlwaysNullable) -> ValueSome()
     | And(xs, IsAlwaysNullable) -> ValueSome()
     | Not(fSharpList, IsAlwaysNullable) -> ValueSome()
-    | LookAround(node, lookBack, negate) -> ValueNone
+    | LookAround(node, lookBack, negate, _) -> ValueNone
     | _ -> ValueNone
 
 [<return: Struct>]
@@ -157,7 +154,7 @@ module rec Flags =
         | Loop(node, low, up, info) -> info.NodeFlags
         | And(nodes, info) -> info.NodeFlags
         | Not(node, info) -> info.NodeFlags
-        | LookAround(node, lookBack, negate) -> Flag.CanBeNullableFlag ||| Flag.ContainsLookaroundFlag
+        | LookAround(node, lookBack, negate, _) -> Flag.CanBeNullableFlag ||| Flag.ContainsLookaroundFlag
 
 
     let inferNot(inner: RegexNode<'t>) =
@@ -245,18 +242,6 @@ module Node =
         match vinfo with
         | ValueSome info -> info.CanBeNullable
         | ValueNone -> canBeNullable node
-
-    let inline canSkip(node: RegexNode<'t>) =
-        false // TODO!
-        // match node with
-        // | Or(info = info) -> info.CanSkip()
-        // | Singleton _ -> false
-        // | Loop(info = info) -> info.CanSkip()
-        // | And(info = info) -> info.CanSkip()
-        // | Not(info = info) -> info.CanSkip()
-        // | LookAround _ -> false
-        // | Concat(info = info) -> info.CanSkip()
-        // | Epsilon -> false
 
     let inline containsLookaround(node: RegexNode<'t>) =
         match node with

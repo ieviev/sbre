@@ -37,7 +37,7 @@ let getFixedLength (node: RegexNode<TSet>) =
         | Loop(node, low, up, info) -> None
         | And(nodes, info) -> None
         | Not(node, info) -> None
-        | LookAround(node, lookBack, negate) -> None
+        | LookAround(_) -> None
     loop 0 node
 
 #if DEBUG

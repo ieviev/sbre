@@ -174,28 +174,6 @@ type RegexMatcher<'t when 't: struct>
         // let dbg_startset = _cache.PrettyPrintMinterm(startsetPredicate)
         // invert empty startset (nothing to skip to)
         state.SetStartset(_cache, startsetPredicate)
-        // state.Startset <- startsetPredicate
-
-        //
-        if initial && _cache.Optimizations.IsUseful then
-            match _cache.Optimizations.FindMode with
-            // | FindNextStartingPositionMode.FixedDistanceString_LeftToRight ->
-            //     // _cache.Optimizations.MinRequiredLength
-            //     // _cache.Optimizations.MaxPossibleLength
-            //     state.Flags <- state.Flags ||| RegexStateFlags.UseDotnetOptimizations
-            // | FindNextStartingPositionMode.FixedDistanceSets_LeftToRight
-            // | FindNextStartingPositionMode.LeadingString_LeftToRight
-            // | FindNextStartingPositionMode.FixedDistanceString_LeftToRight  ->
-            //     state.Flags <- state.Flags ||| RegexStateFlags.UseDotnetOptimizations
-            // | FindNextStartingPositionMode.FixedDistanceChar_LeftToRight
-            // | FindNextStartingPositionMode.LeadingSet_LeftToRight -> ()
-            // ------------------------------
-            | FindNextStartingPositionMode.LeadingString_RightToLeft ->
-                state.Flags <- state.Flags ||| RegexStateFlags.UseDotnetOptimizations
-            | FindNextStartingPositionMode.LeadingChar_RightToLeft
-            | FindNextStartingPositionMode.LeadingSet_RightToLeft -> ()
-            | _ -> ()
-    // failwith $"todo optimizations: {_cache.Optimizations.FindMode}"
 
     let _getOrCreateState(node, isInitial) =
         match _stateCache.TryGetValue(node) with
@@ -207,7 +185,8 @@ type RegexMatcher<'t when 't: struct>
 
             // TODO: grow state space if needed (? probably never needed)
             if _stateArray.Length = state.Id then
-                if _stateArray.Length > 50000 then
+                // if _stateArray.Length > 50000 then
+                if _stateArray.Length > 1000000 then
                     failwith "state space blowup!"
                 // failwith "TODO: resize DFA"
                 let newsize = _stateArray.Length * 2
@@ -216,7 +195,6 @@ type RegexMatcher<'t when 't: struct>
 
             _stateArray[state.Id] <- state
             state.BuildFlags(_cache)
-            // let isInitial = refEq trueStarredNode node
             if isInitial then
                 state.Flags <- state.Flags ||| RegexStateFlags.InitialFlag
 
@@ -230,28 +208,9 @@ type RegexMatcher<'t when 't: struct>
                 state.Flags <- state.Flags ||| RegexStateFlags.CanSkipFlag
             else
                 ()
-            // failwith $"can not skip: {state.Node.ToString()}"
 
-            // state depends on counter
-            // let rec stateDependsOnCounter (node:RegexNode<TSet>) =
-            //     if node.HasCounter then true else
-            //     match node with
-            //     // | Concat(head, tail, info) when head.CanBeNullable -> stateDependsOnCounter tail
-            //     | Or(nodes, info) when head.CanBeNullable -> stateDependsOnCounter tail
-            //     | _ -> false
-
-            // if stateDependsOnCounter node then
             if node.HasCounter then
                 state.Flags <- state.Flags ||| RegexStateFlags.HasCounterFlag
-            // | HasCounterFlag = 128uy
-
-            // workaround to detect match end
-            // match node with
-            // | Or(nodes, info) when info.NodeFlags.HasCounter ->
-            //     if nodes.Count = 2 && nodes.Contains(initialNode) then
-            //         state.Flags <- state.Flags ||| RegexStateFlags.InitialFlag
-            // | _ -> ()
-
             state
 
     // T*R
@@ -507,7 +466,7 @@ type RegexMatcher<'t when 't: struct>
                     this.IsNullable (state, &loc, head) && this.IsNullable (state, &loc, tail)
 
             // lookaround optimization
-            | LookAround(Singleton pred, lookBack, negate) ->
+            | LookAround(Singleton pred, lookBack, negate, _) ->
                 match lookBack with
                 | true ->
                     match _cache.PrevChar(loc) with
@@ -526,9 +485,10 @@ type RegexMatcher<'t when 't: struct>
 
 
 
-            | LookAround(body, lookBack, negate) ->
+            | LookAround(body, lookBack, negate, _) ->
                 let mutable _tlo = _cache.False
-                let rstate = RegexState(_cache.NumOfMinterms())
+                // let rstate = RegexState(_cache.NumOfMinterms())
+                let rstate = state
                 let startstate = this.GetOrCreateState(body)
                 match lookBack, negate with
                 // Nullx ((?=R)) = IsMatch(x, R)
@@ -566,11 +526,7 @@ type RegexMatcher<'t when 't: struct>
     ) : RegexNode<TSet> =
 
         let result =
-            let info = node.GetFlags()
-            if info.IsCounter then
-                failwith "counter"
-                // createCounterDerivative(cache,state,&loc,loc_pred,node)
-            else
+            // let info = node.GetFlags()
 
             match node with
             // Derx (R) = ⊥ if R ∈ ANC or R = ()
@@ -578,7 +534,6 @@ type RegexMatcher<'t when 't: struct>
             | Epsilon -> _cache.False
             // Der s⟨i⟩ (ψ) = if si ∈ [[ψ]] then () else ⊥
             | Singleton pred ->
-                // if c.Solver.isElemOfSet(pred,loc_pred) then Epsilon else c.False
                 if Solver.elemOfSet pred loc_pred then Epsilon else _cache.False
 
             // Derx (R{m, n}) =
@@ -617,14 +572,12 @@ type RegexMatcher<'t when 't: struct>
 
             // Derx (R | S) = Derx (R) | Derx (S)
             | Or(xs, info) ->
-                let isWordBorder =
-                    refEq node _cache.Builder.anchors._wordBorder.Value
+                // let isWordBorder =
+                //     refEq node _cache.Builder.anchors._wordBorder.Value
 
                 // if isWordBorder then
                 //     _cache.False
                 // else
-
-                let dbg = 1
                 let derivatives = ResizeArray()
                 for n in xs do
                     derivatives.Add (this.CreateDerivative( state,&loc, loc_pred, n))
@@ -642,12 +595,12 @@ type RegexMatcher<'t when 't: struct>
                                 this.HandleOptimizedNullable(OptimizedUnique.WordBorder, &loc)
                             not isWordBorder
                         | _ -> false
-                if failed then _cache.False else
 
+                let mutable foundFalse = failed
                 //
                 let derivatives = ResizeArray()
                 use mutable e = xs.GetEnumerator()
-                let mutable foundFalse = false
+
                 while not foundFalse && e.MoveNext() do
                     let der = this.CreateDerivative (state,&loc, loc_pred, e.Current)
                     if refEq _cache.False der then
@@ -709,11 +662,7 @@ type RegexMatcher<'t when 't: struct>
             if flags.IsDeadend then
                 looping <- false
             else
-
             if flags.CanSkip then
-                // if flags &&& RegexStateFlags.UseDotnetOptimizations = RegexStateFlags.UseDotnetOptimizations then
-                //     _cache.Optimizations.TryFindNextStartingPositionLeftToRight(loc.Input, &loc.Position, loc.Position) |> ignore
-                // else
                 let ss = dfaState.Startset
                 _cache.TryNextStartsetLocation(&loc, ss)
 
@@ -722,14 +671,6 @@ type RegexMatcher<'t when 't: struct>
                 currentMax <- loc.Position
 
             if loc.Position < loc.Input.Length then
-                // let mintermId = _cache.MintermId(&loc)
-                // if flags.HasCounter then
-                //     failwith "todo: counters"
-                //     let mintermId = _cache.MintermId(&loc)
-                //     CountingSet.bumpCounters rstate (_cache.MintermById(mintermId)) dfaState.Node
-                // if flags.HasCounter then
-                //     rstate.ActiveCounters |> Seq.iter (_.Value.TryReset())
-                //     CountingSet.stepCounters rstate (_cache.MintermById(mintermId))
                 this.TakeTransition(rstate, flags, &currentStateId, &loc)
 
                 loc.Position <- Location.nextPosition loc
@@ -771,23 +712,14 @@ type RegexMatcher<'t when 't: struct>
                 | _ -> ()
 
             if not (Location.isFinal loc) then
-                // let mintermId = _cache.MintermId(&loc)
-                // if flags.HasCounter then
-                //     failwith "todo: counters"
-                //     let mintermId = _cache.MintermId(&loc)
-                //     CountingSet.bumpCounters rstate (_cache.MintermById(mintermId)) dfaState.Node
-                // if flags.HasCounter then
-                //     rstate.ActiveCounters |> Seq.iter (_.Value.TryReset())
-                //     CountingSet.stepCounters rstate (_cache.MintermById(mintermId))
                 this.TakeTransition(rstate, flags, &currentStateId, &loc)
-
                 loc.Position <- Location.nextPosition loc
             else
                 looping <- false
 
         currentMax
 
-    member this.TrySkipInitial(loc:byref<Location>, dfaState:byref<MatchingState>, currentStateId:byref<int>) =
+    member this.TrySkipInitialRev(loc:byref<Location>, dfaState:byref<MatchingState>, currentStateId:byref<int>) =
         match _initialOptimizations with
         | InitialOptimizations.NoOptimizations -> ()
         | InitialOptimizations.StringPrefix(prefix, transitionNodeId) ->
@@ -820,7 +752,7 @@ type RegexMatcher<'t when 't: struct>
                 loc.Position <- Location.final loc
 
 
-    member this.TrySkipActive(loc:byref<Location>, dfaState:byref<MatchingState>, flags, rstate, acc: SharedResizeArray<int>) =
+    member this.TrySkipActiveRev(loc:byref<Location>, dfaState:byref<MatchingState>, flags, rstate, acc: SharedResizeArray<int>) =
         let tmp_loc = loc.Position
         _cache.TryNextStartsetLocationRightToLeft(
             &loc,
@@ -850,9 +782,9 @@ type RegexMatcher<'t when 't: struct>
             let flags = dfaState.Flags
 #if SKIP
             if flags.IsInitial then
-                this.TrySkipInitial(&loc, &dfaState, &currentStateId)
+                this.TrySkipInitialRev(&loc, &dfaState, &currentStateId)
             elif flags.CanSkip  then
-                this.TrySkipActive(&loc, &dfaState, flags, rstate, acc)
+                this.TrySkipActiveRev(&loc, &dfaState, flags, rstate, acc)
 #endif
             if this.StateIsNullable(flags, rstate, &loc, dfaState) then
                 acc.Add loc.Position
@@ -881,8 +813,7 @@ type RegexMatcher<'t when 't: struct>
         loc.Reversed <- false
         let mutable nextValidStart = 0
         let startSpans = allPotentialStarts.AsSpan()
-        // last reverse nullable pos: first match start
-        // for i = (allPotentialStarts.Count - 1) downto 0 do
+
         for i = (startSpans.Length - 1) downto 0 do
             let currStart = startSpans[i]
             if currStart >= nextValidStart then
@@ -916,8 +847,6 @@ type RegexMatcher<'t when 't: struct>
         loc.Reversed <- false
         let mutable nextValidStart = 0
         let startSpans = allPotentialStarts.AsSpan()
-        // last reverse nullable pos: first match start
-        // for i = (allPotentialStarts.Count - 1) downto 0 do
         for i = (startSpans.Length - 1) downto 0 do
             let currStart = startSpans[i]
             if currStart >= nextValidStart then
@@ -956,7 +885,6 @@ module Helpers =
             minterms: BDD array,
             charsetSolver,
             converter,
-            // trueStarPattern,
             symbolicBddnode,
             regexTree: RegexTree
         )
@@ -994,12 +922,7 @@ module Helpers =
 
             if not (regexTree.Root.Options.HasFlag(RegexOptions.RightToLeft)) then
                 regexTree.Root.Options <- RegexOptions.RightToLeft
-            // let reverseRegexRoot = RegexNode(RegexNodeKind.Capture, RegexOptions.NonBacktracking)
-            // for i = regexTree.Root.ChildCount() - 1 downto 0 do
-            //     reverseRegexRoot.AddChild(regexTree.Root.Child(i))
-            // let optimizations = RegexFindOptimizations(regexTree.Root, RegexOptions.RightToLeft )
-            // these only work left to right
-            let optimizations = RegexFindOptimizations(regexTree.Root, RegexOptions.RightToLeft)
+
             let reverseNode = RegexNode.rev uintbuilder rawNode
 
             let cache =
@@ -1009,17 +932,10 @@ module Helpers =
                     _implicitDotstarPattern = trueStarredNode,
                     _rawPattern = rawNode,
                     _reversePattern = reverseNode,
-                    _builder = uintbuilder,
-                    _optimizations = optimizations
+                    _builder = uintbuilder
                 )
 
             let revTrueStarred = cache.Builder.mkConcat2 (cache.TrueStar, reverseNode)
-
-
-            // let rev_optimizations =
-            //     Optimizations.tryGetReversePrefix cache reverseNode
-
-
             RegexMatcher<uint64>(trueStarredNode, revTrueStarred, rawNode, reverseNode, cache) //:> GenericRegexMatcher
         | n -> failwith $"bitvector too large, size: {n}"
 

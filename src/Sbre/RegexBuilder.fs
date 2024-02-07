@@ -153,8 +153,6 @@ module private BuilderHelpers =
 [<Sealed>]
 type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
     (converter: RegexNodeConverter, solver: ISolver< 't >, bcss: CharSetSolver) as b =
-    let runtimeBuilder = SymbolicRegexBuilder< 't>(solver, bcss)
-
     let _createInfo flags containsMinterms =
         RegexNodeInfo<'t>(NodeFlags = flags, Minterms = containsMinterms)
 
@@ -192,13 +190,13 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 LanguagePrimitives.PhysicalHash x ^^^ LanguagePrimitives.PhysicalHash y
         }
 
-    let _lookaroundComparer: IEqualityComparer<struct (RegexNode<'t> * bool * bool)> =
-        { new IEqualityComparer<struct (RegexNode<'t> * bool * bool)> with
-            member this.Equals(struct (x1, y1, z1), struct (x2, y2, z2)) =
-                y1 = y2 && z1 = z2
+    let _lookaroundComparer: IEqualityComparer<struct (RegexNode<'t> * bool * bool * int)> =
+        { new IEqualityComparer<struct (RegexNode<'t> * bool * bool * int)> with
+            member this.Equals(struct (x1, y1, z1, k1), struct (x2, y2, z2, k2)) =
+                y1 = y2 && z1 = z2 && k1 = k2
                 && refEq x1 x2
 
-            member this.GetHashCode(struct (x, y, z)) =
+            member this.GetHashCode(struct (x, y, z, k)) =
                 LanguagePrimitives.PhysicalHash x //^^^ LanguagePrimitives.PhysicalHash y
         }
 
@@ -247,7 +245,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
         Dictionary(_orCacheComparer)
 
     let _notCache: Dictionary<RegexNode< 't >, RegexNode< 't >> = Dictionary(_refComparer)
-    let _lookaroundCache: Dictionary<struct (RegexNode< 't >*bool*bool), RegexNode< 't >> = Dictionary(_lookaroundComparer)
+    let _lookaroundCache: Dictionary<struct (RegexNode< 't >*bool*bool*int), RegexNode< 't >> = Dictionary(_lookaroundComparer)
 
     let _andCache: Dictionary<RegexNode<'t>[], RegexNode<'t>> = Dictionary(_andCacheComparer)
 
@@ -257,7 +255,6 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
     let _uniques = {|
         _false = _false
         _true = _true
-        _epsilon = RegexNode< 't>.Epsilon
         _trueStar =
             RegexNode.Loop(
                 _true,
@@ -284,10 +281,9 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
 
     let _anchors =
         let __z_anchor =
-            lazy RegexNode.LookAround(_true, lookBack = false, negate = true)
-
+            lazy b.mkLookaround(_true,false,true)
         let __big_a_anchor =
-            lazy RegexNode.LookAround(_true, lookBack = true, negate = true)
+            lazy b.mkLookaround(_true,true,true)
 
         {|
             _zAnchor = __z_anchor
@@ -299,7 +295,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                     Or(
                         ofSeq [
                             __z_anchor.Value
-                            RegexNode.LookAround(b.one '\n', lookBack = false, negate = false)
+                            b.mkLookaround(b.one '\n',false,false)
                         ],
                         info
                     )
@@ -308,93 +304,56 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             // (?<=\A|\A\n) ≡ \a
             _aAnchor =
                 lazy
-                    let info = _createInfo (RegexNodeFlags.CanBeNullableFlag  ||| RegexNodeFlags.ContainsLookaroundFlag) solver.Full
                     let seqv =
                         ofSeq [
                             __big_a_anchor.Value
-                            b.mkConcat [ __big_a_anchor.Value; b.one '\n' ]
+                            b.mkConcat2(__big_a_anchor.Value, b.one '\n')
                         ]
-
-                    RegexNode.LookAround(Or(seqv, info), lookBack = true, negate = true)
+                    let node = b.mkOr(seqv)
+                    b.mkLookaround(node,true,true)
 
 
             _nonWordBorder =
                 lazy
-                    let info = _createInfo (RegexNodeFlags.CanBeNullableFlag  ||| RegexNodeFlags.ContainsLookaroundFlag) solver.Full
-
                     // (?!ψ\w)
                     let c1 = [
-                        RegexNode.LookAround(
-                            _uniques._wordChar.Value,
-                            lookBack = true,
-                            negate = true
-                        ) // (?<!ψ\w)
-                        RegexNode.LookAround(
-                            _uniques._wordChar.Value,
-                            lookBack = false,
-                            negate = true
-                        )
+                        b.mkLookaround(_uniques._wordChar.Value,true,true)
+                        // (?<!ψ\w)
+                        b.mkLookaround(_uniques._wordChar.Value,false,true)
                     ]
                     // (?=ψ\w)
                     let c2 = [
-                        RegexNode.LookAround(
-                            _uniques._wordChar.Value,
-                            lookBack = true,
-                            negate = false
-                        ) // (?<=ψ\w)
-                        RegexNode.LookAround(
-                            _uniques._wordChar.Value,
-                            lookBack = false,
-                            negate = false
-                        )
+                        b.mkLookaround(_uniques._wordChar.Value,true,false)
+                        // (?<=ψ\w)
+                        b.mkLookaround(_uniques._wordChar.Value,false,false)
                     ]
+                    b.mkOr(ofSeq [ b.mkConcat c1; b.mkConcat c2 ])
 
-                    Or(ofSeq [ b.mkConcat c1; b.mkConcat c2 ], info)
 
             _wordBorder =
                 lazy
-                    let info = _createInfo (RegexNodeFlags.CanBeNullableFlag ||| RegexNodeFlags.ContainsLookaroundFlag) solver.Full
-
-                    Or(
+                    b.mkOr(
                         ofSeq [
                             b.mkConcat [
-                                RegexNode.LookAround(
-                                    _uniques._wordChar.Value,
-                                    lookBack = true,
-                                    negate = false
-                                ) // (?<=ψ\w)
-                                RegexNode.LookAround(
-                                    _uniques._wordChar.Value,
-                                    lookBack = false,
-                                    negate = true
-                                )
+                                b.mkLookaround(_uniques._wordChar.Value,true,false)
+                                // (?<=ψ\w)
+                                b.mkLookaround(_uniques._wordChar.Value,false,true)
                             ]
                             b.mkConcat [
-                                RegexNode.LookAround(
-                                    _uniques._wordChar.Value,
-                                    lookBack = true,
-                                    negate = true
-                                ) // (?<!ψ\w)
-                                RegexNode.LookAround(
-                                    _uniques._wordChar.Value,
-                                    lookBack = false,
-                                    negate = false
-                                )
+                                b.mkLookaround(_uniques._wordChar.Value,true,true)
+                                b.mkLookaround(_uniques._wordChar.Value,false,false)
                             ]
-                        ],
-                        info
+                        ]
                     )
 
             // ^ ≡ \A|(?<=\n)
             _caretAnchor =
                 lazy
-                    let info = _createInfo (RegexNodeFlags.CanBeNullableFlag ||| RegexNodeFlags.ContainsLookaroundFlag) solver.Full
-                    Or(
+                    b.mkOr(
                         ofSeq [
                             __big_a_anchor.Value
-                            RegexNode.LookAround(b.one '\n', lookBack = true, negate = false)
-                        ],
-                        info
+                            b.mkLookaround(b.one '\n',true,false)
+                        ]
                     )
 
 
@@ -408,7 +367,6 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
 
 
     member this.trueStar = _uniques._trueStar
-    member this.epsilon = _uniques._epsilon
     member this.uniques = _uniques
     member this.anchors = _anchors
     member this.PrefixCache = _prefixCache
@@ -704,6 +662,13 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             nodes: RegexNode<'t> seq
         ) : RegexNode<'t> =
 
+        let key = nodes |> Seq.toArray
+        Array.sortInPlaceBy LanguagePrimitives.PhysicalHash key
+
+        match _andCache.TryGetValue(key) with
+        | true, v -> v
+        | _ ->
+
         let mutable enumerating = true
         let mutable status = MkAndFlags.None
         let derivatives = ResizeArray()
@@ -785,16 +750,13 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                     let newAnd = RegexNode.And(ofSeq twoormore, mergedInfo)
                     newAnd
 
-            //
             let asArray = derivatives |> this.trySubsumeAnd |> Seq.toArray
-
             Array.sortInPlaceBy LanguagePrimitives.PhysicalHash asArray
-
             match _andCache.TryGetValue(asArray) with
             | true, v -> v
             | _ ->
                 let v = createNode (asArray)
-                _andCache.Add(asArray, v)
+                _andCache.Add(key, v)
                 v
 
     member this.mkOr
@@ -802,6 +764,13 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             nodes: RegexNode<'t> seq
 
         ) : RegexNode<_> =
+
+        let key = nodes |> Seq.toArray
+        Array.sortInPlaceBy LanguagePrimitives.PhysicalHash key
+
+        match _orCache.TryGetValue(key) with
+        | true, v -> v
+        | _ ->
 
         let mutable enumerating = true
         let mutable status = MkOrFlags.None
@@ -898,12 +867,10 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
 
                     RegexNode.Or(ofSeq twoormore, mergedInfo)
 
-            let key = nodeSet
-
-            match _orCache.TryGetValue(key) with
+            match _orCache.TryGetValue(nodeSet) with
             | true, v -> v
             | _ ->
-                let v = createNode key
+                let v = createNode nodeSet
                 _orCache.Add(key, v)
                 v
 
@@ -970,12 +937,13 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             v
 
 
-    member this.mkLookaround(body: RegexNode< 't >, lookBack:bool, negate:bool) : RegexNode< 't > =
-        let key = struct (body, lookBack, negate)
+    member this.mkLookaround(body: RegexNode< 't >, lookBack:bool, negate:bool, ?pendingNullable) : RegexNode< 't > =
+        let pendingNullable = defaultArg pendingNullable 0
+        let key = struct (body, lookBack, negate, pendingNullable)
         match _lookaroundCache.TryGetValue(key) with
         | true, v -> v
         | _ ->
-            let node = LookAround(body, lookBack = lookBack, negate = negate)
+            let node = LookAround(body, lookBack = lookBack, negate = negate, pendingNullable=pendingNullable)
             _lookaroundCache.Add(key, node)
             node
 
@@ -1007,7 +975,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
     member this.mkLoop(struct(body: RegexNode< 't >, lower: int, upper: int)) =
         let createNode(struct (body: RegexNode< 't >, lower: int, upper: int)) =
             match body, struct (lower, upper) with
-            | _, LoopKind LoopKind.EmptyLoop -> _uniques._epsilon
+            | _, LoopKind LoopKind.EmptyLoop -> Epsilon
             | _, LoopKind LoopKind.Single -> body
             | Singleton minterm, LoopKind LoopKind.Plus when solver.IsFull(minterm) ->
                 _uniques._trueStar
@@ -1040,8 +1008,6 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
     member this.CreateInfo(flags: RegexNodeFlags, containsMinterms:'t) : RegexNodeInfo<_> =
         _createInfo flags containsMinterms
 
-
-        // _regexInfoCache.Add(struct (flags, startset), v)
 
 
 // trivia:

@@ -30,7 +30,7 @@ let rec transform
     | Loop (xs, lower, upper,info) ->
         let xs' = transformInner xs
         builder.mkLoop(xs',lower,upper)
-    | LookAround (body, back, neg) -> LookAround (transformInner body, back, neg)
+    | LookAround (body, back, neg, pendingNullable) -> LookAround (transformInner body, back, neg, pendingNullable)
     | Concat(head,tail, info) ->
         let head' = transformInner head
         let tail' = transformInner tail
@@ -51,7 +51,7 @@ let collectSets (node: RegexNode<'tset>) =
             collectList xs
         | Loop (node=node) -> collect node
         | Not (node,info) -> collect node
-        | LookAround (body, _, _) -> collect body
+        | LookAround (node=body) -> collect body
         | Concat(head,tail, info) ->
             collect head
             collect tail

@@ -183,7 +183,9 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
     | LookAround of
         node: RegexNode<'tset> *  // anchors
         lookBack: bool *
-        negate: bool
+        negate: bool *
+        pendingNullable : int
+
     // optimized cases
 
     // | Star of  (* RE* *) node: RegexNode<'tset> * info: RegexNodeInfo<'tset>
@@ -252,7 +254,7 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
 
 
 
-        | LookAround(body, lookBack, negate) ->
+        | LookAround(body, lookBack, negate, _) ->
             let inner = body.ToString()
 
             match lookBack, negate with
@@ -291,7 +293,7 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
         | Epsilon ->
             RegexNodeFlags.CanBeNullableFlag ||| RegexNodeFlags.IsAlwaysNullableFlag ||| RegexNodeFlags.ContainsEpsilonFlag
         | Singleton foo -> RegexNodeFlags.None
-        | LookAround(node, lookBack, negate) ->
+        | LookAround(node, lookBack, negate, _) ->
             RegexNodeFlags.CanBeNullableFlag ||| RegexNodeFlags.ContainsLookaroundFlag
 
     member this.CanBeNullable =
@@ -330,7 +332,7 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
             info.Minterms
         | Epsilon -> solver.Empty
         | Singleton pred -> pred
-        | LookAround(node, lookBack, negate) -> node.SubsumedByMinterm solver
+        | LookAround(node, lookBack, negate, _) -> node.SubsumedByMinterm solver
 
 
 [<Flags>]
@@ -345,7 +347,7 @@ type PredStartset = {
     Flags: StartsetFlags
     Chars: char[]
 } with
-    static member Of(inverted, (startset:char[])) = { Flags = inverted; Chars = startset }
+    static member Of(inverted, startset:char[]) = { Flags = inverted; Chars = startset }
 
 [<AutoOpen>]
 module Common =

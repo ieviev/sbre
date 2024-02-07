@@ -34,8 +34,7 @@ type RegexCache< 't
         _implicitDotstarPattern: RegexNode<TSet>,
         _rawPattern: RegexNode<TSet>,
         _reversePattern: RegexNode<TSet>,
-        _builder: RegexBuilder<TSet>,
-        _optimizations: RegexFindOptimizations
+        _builder: RegexBuilder<TSet>
     ) =
     let classifier =
         if typeof<TSet> = typeof<uint64> then
@@ -594,7 +593,7 @@ type RegexCache< 't
             | true -> $"{inner}*"
             | false -> inner + loopCount
 
-        | LookAround(body, lookBack, negate) ->
+        | LookAround(body, lookBack, negate, pendingNullable) ->
             let inner = this.PrettyPrintNode body
             match lookBack, negate with
             // | true, true when this.isFull body.Head -> "\\A"
@@ -607,5 +606,4 @@ type RegexCache< 't
         | Concat(h, t, _) -> this.PrettyPrintNode h + this.PrettyPrintNode t
         | Epsilon -> "ε"
 #endif
-    member this.Optimizations = _optimizations
     member this.OptimizedUniques = _optimizedUniques
