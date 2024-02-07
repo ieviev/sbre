@@ -1,5 +1,7 @@
 module rec Sbre.Optimizations
 
+open System.Buffers
+open System.Collections.Generic
 open Sbre.Algorithm
 open Sbre.Types
 open Sbre.Pat
@@ -16,6 +18,7 @@ type InitialOptimizations =
     | PotentialStartPrefix of prefix:Memory<TSet>
 
 type ActiveBranchOptimizations =
+    | LimitedSkip of distance:int * termPred:SearchValues<char> * termTransitionId:int * nonTermTransitionId:int
     | ReverseStringPrefix of string
     | ReverseSetsPrefix of TSet array
     | NoOptimizations
@@ -334,3 +337,46 @@ let tryJumpToStartset2 (c:RegexCache<TSet>)(loc:byref<Location>) (node:RegexNode
     //     | ValueSome newPos -> loc.Position <- newPos
     // | _ -> ()
     //
+
+let tryGetLimitedSkip (nodeToId:RegexNode<TSet> -> int) (getStartset:RegexNode<_> -> TSet) (c:RegexCache<_>) (initial:RegexNode<_>) (node:RegexNode<_>) =
+    assert(not node.ContainsLookaround)
+    let redundant = HashSet([initial])
+    let skipTerm = getStartset initial // m.GetOrCreateState(initial).Startset
+    match node with
+    | Or(nodes, info) ->
+        let nonInitial = nodes |> Seq.where (fun v -> not (refEq v initial)) |> c.Builder.mkOr
+        let nonTermDerivatives (node: RegexNode<TSet>) =
+            let ders1 = Optimizations.getNonRedundantDerivatives c redundant node
+            ders1 |> Array.where (fun (mt,_) -> not (Solver.contains skipTerm mt) )
+
+        let nonInitialNonTerm =
+            nonTermDerivatives nonInitial
+
+        match nonInitialNonTerm with
+        | [| singlePath |] ->
+            let path = ResizeArray()
+            let rec loop (node: RegexNode<_>) =
+                match nonTermDerivatives node with
+                | [| (mt,single) |] when (not (node.CanBeNullable || refEq c.False node || c.Solver.IsFull(mt))) ->
+                    redundant.Add(node) |> ignore
+                    path.Add(mt)
+                    loop single
+                | _ -> node
+            let finalNode = loop (snd singlePath)
+            if path.Count < 2 then None else
+                if c.MintermIsInverted(skipTerm) then
+                    failwith "todo: inverted minterm"
+                let chrs = c.MintermChars(skipTerm)
+                if chrs.Length > 50 then
+                    failwith "todo: too many chars in set"
+                Some (
+                    ActiveBranchOptimizations.LimitedSkip(
+                    distance=path.Count + 1,
+                    termPred= c.MintermSearchValues(skipTerm),
+                    termTransitionId=nodeToId (createStartsetDerivative (c,  skipTerm, node)),
+                    nonTermTransitionId= nodeToId (c.Builder.mkOr [finalNode; initial])
+                    // nonTermTransitionId= nodeToId (node)
+                    )
+                )
+        | _ -> None
+    | _ -> None

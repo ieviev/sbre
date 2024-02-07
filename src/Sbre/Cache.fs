@@ -491,6 +491,11 @@ type RegexCache< 't
         | false -> _nonAscii.Find(i)
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    member this.MintermIsInverted(mt: TSet) : _ =
+        _solver.isElemOfSet (mt,minterms[0])
+
+
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.CharToMinterm(chr: char) : _ =
         let i = int chr
         match i < 128 with

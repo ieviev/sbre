@@ -4,6 +4,7 @@ module Sbre.Test._12_OptimizationTests
 open Sbre
 open Sbre.Benchmarks.Jobs
 open Sbre.CountingSet
+open Sbre.Optimizations
 open Sbre.Types
 open Xunit
 open Common
@@ -234,6 +235,25 @@ let ``initialOptimizations 8``() =
         Assert.Equal("\s;[nr];[en];[iy];[A-Za-z];\s", prefixString)
     | _ -> failwith "invalid optimization result"
 
+
+[<Fact>]
+let ``activeOptimizations 1``() =
+    let regex = Regex("""["'][^"']{0,30}[?!\.]["']""")
+    let matcher = regex.TSetMatcher
+    let c = matcher.Cache
+    let der1 = Algorithm.createStartsetDerivative(c, c.CharToMinterm('"'), matcher.ReverseTrueStarredPattern)
+    let der2 = Algorithm.createStartsetDerivative(c, c.CharToMinterm('.'), der1)
+    let optimizations =
+        Optimizations.tryGetLimitedSkip
+            (fun node -> matcher.GetOrCreateState(node).Id)
+            (fun node -> matcher.GetOrCreateState(node).Startset)
+            matcher.Cache matcher.ReverseTrueStarredPattern der2
+    match optimizations with
+    | Some (Optimizations.ActiveBranchOptimizations.LimitedSkip(distance=_)) ->
+        ()
+        // let prefixString = Optimizations.printPrefixSets matcher.Cache (prefix.ToArray() |> Seq.toList)
+        // Assert.Equal("\s;[nr];[en];[iy];[A-Za-z];\s", prefixString)
+    | _ -> failwith "invalid optimization result"
 
 
 

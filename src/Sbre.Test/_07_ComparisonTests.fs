@@ -100,6 +100,9 @@ let ``regex with label 1``() =
     testSameAsRuntime pattern input
 
 
+
+
+
 [<Fact>]
 let ``regex with label 2``() =
     let pattern = """^(?:0?[1-9]:[0-5]|1(?=[012])\d:[0-5])\d(?:[ap]m)?"""
@@ -131,6 +134,19 @@ let ``deduplication test 2 ``() =
         "T.F. Johnson"
         "T.F. Johnson"
     // ? no test
+
+[<Fact>]
+let ``deduplication test 3``() =
+    let pattern = """(\/\*(\s*|.*)*\*\/)|(\/\/.*)""" // multiline comments
+    let input = "/* This is a multi-line comment */"
+    let matcher = Sbre.Regex(pattern)
+    let result = matcher.Matches(input)
+    let result2 = System.Text.RegularExpressions.Regex(pattern).Matches(input)
+    assertAllEqual
+        (result2 |> Seq.map (fun v -> v.Index,v.Length))
+        (result |> Seq.map (fun v -> v.Index,v.Length))
+
+
 
 
 [<Fact>]

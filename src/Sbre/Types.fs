@@ -90,6 +90,7 @@ type RegexStateFlags =
     | UseDotnetOptimizations = 128
     | ContainsInitialFlag = 256
     | AlwaysNullableFlag = 512
+    | ActiveBranchOptimizations = 1024
     // todo: fixed length
     // todo: can be subsumed
     // todo: singleton loop

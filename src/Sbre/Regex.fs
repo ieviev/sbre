@@ -61,6 +61,7 @@ type MatchingState(node: RegexNode<TSet>) =
     member val Flags: RegexStateFlags = RegexStateFlags.None with get, set
 
     // -- optimizations
+    member val ActiveOptimizations: ActiveBranchOptimizations = ActiveBranchOptimizations.NoOptimizations with get, set
     member val StartsetChars: SearchValues<char> = Unchecked.defaultof<_> with get, set
     member val StartsetIsInverted: bool = Unchecked.defaultof<_> with get, set
 
@@ -82,6 +83,8 @@ type MatchingState(node: RegexNode<TSet>) =
 
         if refEq c.False node then
             flags <- flags ||| RegexStateFlags.DeadendFlag
+
+        // TODO: limitedSkip
 
         this.Flags <- flags
 
@@ -175,7 +178,7 @@ type RegexMatcher<'t when 't: struct>
         // invert empty startset (nothing to skip to)
         state.SetStartset(_cache, startsetPredicate)
 
-    let _getOrCreateState(node, isInitial) =
+    let rec _getOrCreateState(node, isInitial) =
         match _stateCache.TryGetValue(node) with
         | true, v -> v // a dfa state already exists for this regex
         | _ ->
@@ -211,16 +214,43 @@ type RegexMatcher<'t when 't: struct>
 
             if node.HasCounter then
                 state.Flags <- state.Flags ||| RegexStateFlags.HasCounterFlag
+
+            if not isInitial
+               && not (state.Flags.HasFlag(RegexStateFlags.CanSkipFlag))
+               && not (state.Flags.HasFlag(RegexStateFlags.ContainsLookaroundFlag)) then
+                // see if limited skip possible
+                let limitedSkip =
+                    Optimizations.tryGetLimitedSkip
+                        (fun v -> _getOrCreateState(v,false).Id )
+                        (fun v -> _getOrCreateState(v,false).Startset )
+                        _cache
+                            reverseTrueStarredNode
+                            state.Node
+                match limitedSkip with
+                | Some ls ->
+                    state.ActiveOptimizations <- ls
+                    state.Flags <-
+                        state.Flags |||
+                        RegexStateFlags.CanSkipFlag |||
+                        RegexStateFlags.ActiveBranchOptimizations
+                | _ ->
+                    ()
+
+
+                ()
+
+
             state
 
-    // T*R
-    let DFA_TR = _getOrCreateState(trueStarredNode, true).Id // T*R: 1
-    // R
-    let DFA_R = _getOrCreateState(initialNode, false).Id // R: 2
-    // R_rev
-    let DFA_R_rev = _getOrCreateState(reverseNode, false).Id
     // ⊤*(R_rev)
     let DFA_TR_rev = _getOrCreateState(reverseTrueStarredNode, true).Id // R_rev
+
+    // T*R
+    let DFA_TR = _getOrCreateState(trueStarredNode, true).Id
+    // R_rev
+    let DFA_R_rev = _getOrCreateState(reverseNode, false).Id
+    // R
+    let DFA_R = _getOrCreateState(initialNode, false).Id
 
     let _initialOptimizations =
         Optimizations.findInitialOptimizations
@@ -238,7 +268,7 @@ type RegexMatcher<'t when 't: struct>
         let mutable _toplevelOr = _cache.False
         let rstate = RegexState(_cache.NumOfMinterms())
 
-        match this.DfaEndPosition(rstate, &startLocation, 1) with
+        match this.DfaMatchEnd(rstate, &startLocation, DFA_TR, searchMode=RegexSearchMode.FirstNullable) with
         | -2 -> false
         | _ -> true
 
@@ -288,6 +318,7 @@ type RegexMatcher<'t when 't: struct>
         mr
 
     /// counts the number of matches
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     override this.Count(input) = this.llmatch_all_count_only (input)
 
     member this.CreateStartset(state: MatchingState, initial: bool) =
@@ -365,8 +396,8 @@ type RegexMatcher<'t when 't: struct>
             loc: byref<Location>,
             dfaState: MatchingState
         ) : bool =
-        flags.CanBeNullable && flags.IsAlwaysNullable
-        || this.IsNullable (rstate, &loc, dfaState.Node)
+        // flags.CanBeNullable && (flags.IsAlwaysNullable || this.IsNullable (rstate, &loc, dfaState.Node))
+        flags.CanBeNullable && flags.IsAlwaysNullable || this.IsNullable (rstate, &loc, dfaState.Node)
 
 
     member this.HandleOptimizedNullable(unique:OptimizedUnique, loc: inref<Location>) : bool =
@@ -387,6 +418,7 @@ type RegexMatcher<'t when 't: struct>
 
     member this.IsNullable(state:RegexState, loc: inref<Location>, node: RegexNode<_>) : bool =
             // short-circuit
+            // if Info.Node.canNotBeNullable node then
             if node.CanNotBeNullable then
                 false
             elif node.IsAlwaysNullable then
@@ -719,18 +751,21 @@ type RegexMatcher<'t when 't: struct>
 
         currentMax
 
-    member this.TrySkipInitialRev(loc:byref<Location>, dfaState:byref<MatchingState>, currentStateId:byref<int>) =
+    member this.TrySkipInitialRev(loc:byref<Location>, dfaState:byref<MatchingState>, currentStateId:byref<int>, flags:byref<RegexStateFlags>) : bool =
+        let currPos = loc.Position
         match _initialOptimizations with
-        | InitialOptimizations.NoOptimizations -> ()
+        | InitialOptimizations.NoOptimizations -> false
         | InitialOptimizations.StringPrefix(prefix, transitionNodeId) ->
             let slice = loc.Input.Slice(0, loc.Position)
             let resultStart = slice.LastIndexOf(prefix)
             if resultStart = -1 then
                 loc.Position <- Location.final loc
+                false
             else
                 currentStateId <- transitionNodeId
                 dfaState <- _stateArray[transitionNodeId]
                 loc.Position <- resultStart
+                true
         | InitialOptimizations.SetsPrefix(prefix, transitionNodeId) ->
             let skipResult = _cache.TryNextStartsetLocationArrayReversed( &loc, prefix.Span )
             match skipResult with
@@ -739,30 +774,58 @@ type RegexMatcher<'t when 't: struct>
                 currentStateId <- transitionNodeId
                 dfaState <- _stateArray[transitionNodeId]
                 loc.Position <- suffixStart
+                true
             | ValueNone ->
                 // no matches remaining
                 loc.Position <- Location.final loc
+                false
         | InitialOptimizations.PotentialStartPrefix prefix ->
             let skipResult = _cache.TryNextStartsetLocationArrayReversed( &loc, prefix.Span )
             match skipResult with
             | ValueSome resultEnd ->
                 loc.Position <- resultEnd
+                currPos <> loc.Position
             | ValueNone ->
                 // no matches remaining
                 loc.Position <- Location.final loc
+                false
 
 
-    member this.TrySkipActiveRev(loc:byref<Location>, dfaState:byref<MatchingState>, flags, rstate, acc: SharedResizeArray<int>) =
-        let tmp_loc = loc.Position
-        _cache.TryNextStartsetLocationRightToLeft(
-            &loc,
-            dfaState.StartsetChars,
-            dfaState.StartsetIsInverted
-        )
-        // adding all skipped locations todo: optimize this to ranges
-        if tmp_loc > loc.Position && this.StateIsNullable(flags, rstate, &loc, dfaState) then
-            for i = tmp_loc downto loc.Position + 1 do
-                acc.Add(i)
+    member this.TrySkipActiveRev(loc:byref<Location>, dfaState:byref<MatchingState>, currentStateId:byref<int>, flags:byref<RegexStateFlags>, rstate, acc: SharedResizeArray<int>) : bool =
+        if flags.HasFlag(RegexStateFlags.ActiveBranchOptimizations) then
+            match dfaState.ActiveOptimizations with
+            | LimitedSkip(distance, termPred, termTransitionId, nonTermTransitionId) ->
+                let limitedSlice = loc.Input.Slice(loc.Position - distance, distance)
+                match limitedSlice.LastIndexOfAny(termPred) with
+                | -1 ->
+                    loc.Position <- loc.Position - distance
+                    currentStateId <- nonTermTransitionId
+                    dfaState <- _stateArray[nonTermTransitionId]
+                    true
+                | idx ->
+                    let newPos = loc.Position - distance + idx
+                    // let relativepos = loc.Input.Slice(loc.Position - distance + idx, 10)
+                    // let debug = relativepos.ToString()
+                    loc.Position <- newPos
+                    currentStateId <- termTransitionId
+                    dfaState <- _stateArray[termTransitionId]
+                    flags <- dfaState.Flags
+                    true
+            | _ -> failwith "todo"
+        else
+            let tmp_loc = loc.Position
+            _cache.TryNextStartsetLocationRightToLeft(
+                &loc,
+                dfaState.StartsetChars,
+                dfaState.StartsetIsInverted
+            )
+            // adding all skipped locations todo: optimize this to ranges
+            if tmp_loc > loc.Position && this.StateIsNullable(flags, rstate, &loc, dfaState) then
+                for i = tmp_loc downto loc.Position + 1 do
+                    acc.Add(i)
+                true
+            else
+                false
 
     /// unoptimized collect all nullable positions
     member this.CollectReverseNullablePositions
@@ -779,12 +842,13 @@ type RegexMatcher<'t when 't: struct>
 
         while looping do
             dfaState <- _stateArray[currentStateId]
-            let flags = dfaState.Flags
+            let mutable flags = dfaState.Flags
 #if SKIP
-            if flags.IsInitial then
-                this.TrySkipInitialRev(&loc, &dfaState, &currentStateId)
-            elif flags.CanSkip  then
-                this.TrySkipActiveRev(&loc, &dfaState, flags, rstate, acc)
+            if flags.IsInitial && this.TrySkipInitialRev(&loc, &dfaState, &currentStateId, &flags) then
+                ()
+            elif flags.CanSkip && this.TrySkipActiveRev(&loc, &dfaState, &currentStateId, &flags, rstate, acc) then
+                ()
+            else
 #endif
             if this.StateIsNullable(flags, rstate, &loc, dfaState) then
                 acc.Add loc.Position

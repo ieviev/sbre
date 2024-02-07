@@ -90,6 +90,17 @@ let twain_counts_6() =
 
 
 
+//
+
+
+[<Fact>]
+let twain_ranges_1() =
+    let pat = @"[""'][^""']{0,30}[?!\.][""']"
+    assertAllEqual
+        (System.Text.RegularExpressions.Regex(pat).Matches(twain_input) |> Seq.map (fun v -> struct (v.Index,v.Length)))
+        (Sbre.Regex(pat).Matches(twain_input) |> Seq.map (fun v -> struct (v.Index,v.Length)))
+
+
 // [<Fact>]
 // let ``paragraphs-huck``() =
 //     let m = Regex(@"~(⊤*\n\n⊤*)&⊤*Huck⊤*")

@@ -3,6 +3,7 @@ module Sbre.Test.Common
 #if DEBUG
 
 open System
+open System.Collections
 open Sbre
 open Sbre.Algorithm
 open Sbre.CountingSet
@@ -54,6 +55,8 @@ let der1rawlocs (reg: Regex) (location: Location) =
 
 
 let inline assertEqual (x1:'t) (x2:'t) = Assert.Equal<'t>(x1, x2)
+let inline assertAllEqual (x1:seq<'t>) (x2:seq<'t>) = Assert.Equal<'t>(x1, x2)
+let inline assertEqualMatchesRuntime (x1:seq<'t>) (x2:seq<'t>) = Assert.Equal<'t>(x1, x2)
 let inline assertTrue (x1:_) (msg:string) = Assert.True(x1, msg)
 let inline assertFalse (x1:_) (msg:string) = Assert.False(x1, msg)
 
