@@ -12,6 +12,7 @@ type InitialOptimizations =
     | NoOptimizations
     /// ex. Twain ==> (ε|Twain)
     | StringPrefix of prefix:Memory<char> * transitionNodeId:int
+    | SearchValuesPrefix of prefix:Memory<SearchValues<char>> * transitionNodeId:int
     /// ex. [Tt][Ww][Aa][Ii][Nn] ==> (ε|(?i)Twain)
     | SetsPrefix of prefix:Memory<TSet> * transitionNodeId:int
     /// ex. (Twain|Huck) ==> potential start:[TH][wu][ac][ik]
@@ -19,8 +20,6 @@ type InitialOptimizations =
 
 type ActiveBranchOptimizations =
     | LimitedSkip of distance:int * termPred:SearchValues<char> * termTransitionId:int * nonTermTransitionId:int
-    | ReverseStringPrefix of string
-    | ReverseSetsPrefix of TSet array
     | NoOptimizations
 
 
@@ -274,8 +273,15 @@ let findInitialOptimizations
             InitialOptimizations.StringPrefix(singleCharPrefixes,nodeToId applied)
         else
             let applied = Optimizations.applyPrefixSets c trueStarredNode prefix
-            let mem = Memory(Seq.toArray prefix)
-            InitialOptimizations.SetsPrefix(mem,nodeToId applied)
+            let containsSmallSets =
+                prefix |> Seq.forall (fun v -> not (c.MintermIsInverted(v)))
+                && prefix |> Seq.forall (fun v -> c.MintermChars(v).Length <= 5)
+            if containsSmallSets then
+                let searchPrefix = prefix |> Seq.map c.MintermSearchValues |> Seq.toArray |> Memory
+                InitialOptimizations.SearchValuesPrefix(searchPrefix,nodeToId applied)
+            else
+                let mem = Memory(Seq.toArray prefix)
+                InitialOptimizations.SetsPrefix(mem,nodeToId applied)
     | _ ->
         match Optimizations.calcPotentialMatchStart nodeToStateFlags c node with
         | potentialStart when potentialStart.Length > 0 ->

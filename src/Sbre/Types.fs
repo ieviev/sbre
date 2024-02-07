@@ -452,23 +452,8 @@ type SharedResizeArray<'t>(initialSize:int) =
 
 
 
-// [<Struct; IsByRefLike>]
-// type Utf8Enumerator =
-//     val mutable Remaining: ReadOnlySpan<byte>
-//     val mutable BytesConsumed: int
-//     val mutable Current: Rune
-//     member this.MoveNext() =
-//         let opStatus = Rune.DecodeFromUtf8(this.Remaining, &this.Current, &this.BytesConsumed)
-//         this.Remaining <- this.Remaining.Slice(this.BytesConsumed)
-//         opStatus = OperationStatus.Done
-//     new(bytes: ReadOnlySpan<byte>) =
-//         {
-//             Remaining = bytes
-//             Current = Unchecked.defaultof<_>
-//             BytesConsumed = 0
-//         }
-
-[<Struct; IsByRefLike>]
+[<Struct; IsByRefLike; >]
+// [<Struct>]
 type SharedResizeArrayStruct<'t> =
     val mutable size : int
     val mutable limit : int

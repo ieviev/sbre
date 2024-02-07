@@ -355,7 +355,7 @@ type RegexMatcher<'t when 't: struct>
             currentState: byref<int>,
             loc: inref<Location>
         ) =
-        let mintermId = _cache.MintermId(&loc)
+        let mintermId = _cache.MintermId(loc)
         let dfaOffset = this.GetDeltaOffset(currentState, mintermId)
         let nextStateId = _dfaDelta[dfaOffset]
 
@@ -748,6 +748,18 @@ type RegexMatcher<'t when 't: struct>
                 currentStateId <- transitionNodeId
                 loc.Position <- resultStart
                 true
+        | InitialOptimizations.SearchValuesPrefix(prefix, transitionNodeId) ->
+            let skipResult = _cache.TryNextStartsetLocationSearchValuesReversed( &loc, prefix.Span )
+            match skipResult with
+            | ValueSome resultEnd ->
+                let suffixStart = resultEnd - prefix.Length
+                currentStateId <- transitionNodeId
+                loc.Position <- suffixStart
+                true
+            | ValueNone ->
+                // no matches remaining
+                loc.Position <- Location.final loc
+                false
         | InitialOptimizations.SetsPrefix(prefix, transitionNodeId) ->
             let skipResult = _cache.TryNextStartsetLocationArrayReversed( &loc, prefix.Span )
             match skipResult with
@@ -773,7 +785,8 @@ type RegexMatcher<'t when 't: struct>
                 false
 
 
-    member this.TrySkipActiveRev(flags:RegexStateFlags,loc:byref<Location>, currentStateId:byref<int>, acc: SharedResizeArray<int>) : bool =
+
+    member this.TrySkipActiveRev(flags:RegexStateFlags,loc:byref<Location>, currentStateId:byref<int>, acc: byref<SharedResizeArrayStruct<int>>) : bool =
         let dfaState = _stateArray[currentStateId]
         if flags.HasFlag(RegexStateFlags.ActiveBranchOptimizations) then
             match dfaState.ActiveOptimizations with
@@ -810,9 +823,9 @@ type RegexMatcher<'t when 't: struct>
     /// unoptimized collect all nullable positions
     member this.CollectReverseNullablePositions
         (
-            acc: SharedResizeArray<int>,
+            acc: byref<SharedResizeArrayStruct<int>>,
             loc: byref<Location>
-        ) : SharedResizeArray<int> =
+        ) : SharedResizeArrayStruct<int> =
         assert (loc.Position > -1)
         assert (loc.Reversed = true)
         let mutable looping = true
@@ -823,7 +836,7 @@ type RegexMatcher<'t when 't: struct>
 #if SKIP
             if flags.IsInitial && this.TrySkipInitialRev(&loc, &currentStateId) then
                 ()
-            elif flags.CanSkip && this.TrySkipActiveRev(flags,&loc, &currentStateId, acc) then
+            elif flags.CanSkip && this.TrySkipActiveRev(flags,&loc, &currentStateId, &acc) then
                 ()
             else
 #endif
@@ -842,14 +855,14 @@ type RegexMatcher<'t when 't: struct>
 
         let matches = ResizeArray(100)
         let mutable loc = Location.createReversedSpan input
-        use acc = new SharedResizeArray<int>(100)
+        use mutable acc = new SharedResizeArrayStruct<int>(100)
         let allPotentialStarts =
             if reverseTrueStarredNode.CanBeNullable then
                 for i = loc.Input.Length downto 0 do
                     acc.Add(i)
                 acc
             else
-                this.CollectReverseNullablePositions(acc, &loc)
+                this.CollectReverseNullablePositions(&acc, &loc)
         loc.Reversed <- false
         let mutable nextValidStart = 0
         let startSpans = allPotentialStarts.AsSpan()
@@ -875,14 +888,15 @@ type RegexMatcher<'t when 't: struct>
 
         let mutable matchCount = 0
         let mutable loc = Location.createReversedSpan input
-        use acc = new SharedResizeArray<int>(100)
+        // use acc = new SharedResizeArray<int>(100)
+        use mutable acc = new SharedResizeArrayStruct<int>(100)
         let allPotentialStarts =
             if _flagsArray[DFA_TR_rev].CanBeNullable then
                 for i = loc.Input.Length downto 0 do
                     acc.Add(i)
                 acc
             else
-                this.CollectReverseNullablePositions(acc, &loc)
+                this.CollectReverseNullablePositions(&acc, &loc)
         loc.Reversed <- false
         let mutable nextValidStart = 0
         let startSpans = allPotentialStarts.AsSpan()

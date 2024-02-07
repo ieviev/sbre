@@ -275,6 +275,53 @@ type RegexCache< 't
 
 
 
+    member this.TryNextStartsetLocationSearchValuesReversed(loc: inref<Location>, setSpan: ReadOnlySpan<SearchValues<char>>) =
+        assert loc.Reversed
+        assert (not (setSpan.Length < 2))
+
+        let inputSpan = loc.Input
+        let mutable currpos = loc.Position
+        let mutable skipping = true
+        let mutable resultEnd = ValueNone
+        let mutable slice: ReadOnlySpan<char> = inputSpan.Slice(0, currpos)
+
+        /// vectorize the search for the first character
+        let firstSetChars = setSpan[0]
+        let tailPrefixSpan = setSpan.Slice(1)
+
+        while skipping do
+            let sharedIndex =
+                slice <- inputSpan.Slice(0, currpos)
+                slice.LastIndexOfAny(firstSetChars)
+
+
+            if sharedIndex = -1 then
+                skipping <- false
+            else
+                let potential = sharedIndex + 1
+                let mutable couldBe = true
+
+                // exit if too far
+                if potential < setSpan.Length then
+                    skipping <- false
+                    resultEnd <- ValueSome(potential)
+                    couldBe <- false
+
+                // l to r
+                let mutable i = tailPrefixSpan.Length - 1
+                while couldBe && i >= 0 do
+                    if not (tailPrefixSpan[i].Contains(inputSpan[potential - i - 2])) then
+                        couldBe <- false
+                    i <- i - 1
+
+                if couldBe then
+                    skipping <- false
+                    resultEnd <- ValueSome(potential)
+                else
+                    currpos <- potential - 1
+
+        resultEnd
+
     member this.TryNextStartsetLocationArrayReversed(loc: inref<Location>, setSpan: ReadOnlySpan<TSet>) =
         assert loc.Reversed
 
@@ -479,7 +526,7 @@ type RegexCache< 't
         ValueSome loc.Input[pos]
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    member this.MintermId(loc: inref<Location>) : _ =
+    member this.MintermId(loc: Location) : _ =
         let c =
             if not loc.Reversed then
                 loc.Input[loc.Position]

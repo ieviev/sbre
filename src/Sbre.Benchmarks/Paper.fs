@@ -362,11 +362,11 @@ type TwainRegexesMatchOnly() =
     inherit
         Jobs.TestAllEnginesAllPatternsMatchOnly(
             [
-               "Twain"
-               "(?i)Twain"
-               "[a-z]shing"
+               // "Twain"
+               // "(?i)Twain"
+               // "[a-z]shing"
             //    @"Huck[a-zA-Z]+|Saw[a-zA-Z]+" // ++
-            //    "[a-q][^u-z]{13}x"
+               // "[a-q][^u-z]{13}x"
             //    "Tom|Sawyer|Huckleberry|Finn" // ++
             //    "(?i)Tom|Sawyer|Huckleberry|Finn" // ++compiled
             //    ".{0,2}(Tom|Sawyer|Huckleberry|Finn)"
@@ -375,7 +375,7 @@ type TwainRegexesMatchOnly() =
             //    "[a-zA-Z]+ing"
             //    "\s[a-zA-Z]{0,12}ing\s"
             //    "\s([A-Za-z]awyer|[A-Za-z]inn)\s" // ++
-            //    """["'][^"']{0,30}[?!\.]["']""" // ++
+            """["'][^"']{0,30}[?!\.]["']""" // ++
             ],
             fullInput
         )
@@ -413,19 +413,19 @@ type SampleRegexes() =
         Jobs.TestSbreAllPatternsMatchOnly(
             [
                "Twain"
-               // "(?i)Twain"
-               // "[a-z]shing"
-               // @"Huck[a-zA-Z]+|Saw[a-zA-Z]+"
-               // "[a-q][^u-z]{13}x"
-               // "Tom|Sawyer|Huckleberry|Finn"
-               // "(?i)Tom|Sawyer|Huckleberry|Finn"
-               // ".{0,2}(Tom|Sawyer|Huckleberry|Finn)"
-               // ".{2,4}(Tom|Sawyer|Huckleberry|Finn)"
-               // "Tom.{10,25}river|river.{10,25}Tom"
-               // "[a-zA-Z]+ing"
-               // "\s[a-zA-Z]{0,12}ing\s"
-               // "\s([A-Za-z]awyer|[A-Za-z]inn)\s"
-               // """["'][^"']{0,30}[?!\.]["']"""
+               "(?i)Twain"
+               "[a-z]shing"
+               @"Huck[a-zA-Z]+|Saw[a-zA-Z]+"
+               "[a-q][^u-z]{13}x"
+               "Tom|Sawyer|Huckleberry|Finn"
+               "(?i)Tom|Sawyer|Huckleberry|Finn"
+               ".{0,2}(Tom|Sawyer|Huckleberry|Finn)"
+               ".{2,4}(Tom|Sawyer|Huckleberry|Finn)"
+               "Tom.{10,25}river|river.{10,25}Tom"
+               "[a-zA-Z]+ing"
+               "\s[a-zA-Z]{0,12}ing\s"
+               "\s([A-Za-z]awyer|[A-Za-z]inn)\s"
+               """["'][^"']{0,30}[?!\.]["']"""
                // -----------------
                // @"[a-z][a-z]shing"
                // @"[a-z][a-z]sh(?=ing)"
