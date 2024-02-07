@@ -431,6 +431,21 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
         | _ -> ()
 
 
+    member this.setFromNode(node: RegexNode) =
+        let bdd = (converter.CreateBDDFromSetString(node.Str))
+        let a2 = solver.ConvertFromBDD(bdd, bcss)
+        if solver.IsFull(a2) then
+            _uniques._true
+        elif solver.IsEmpty(a2) then
+            _uniques._false
+        else
+            match _singletonCache.TryGetValue(a2) with
+            | true, v -> v
+            | _ ->
+                let v = RegexNode.Singleton(a2)
+                _singletonCache.Add(a2, v)
+                v
+
 
     member this.one(char: char) : RegexNode< 't > =
         let a1: BDD = bcss.CreateBDDFromChar char
@@ -898,6 +913,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 _notCache.Add(key, v)
                 v
 
+
     member this.setFromStr(setPattern: string) =
         let tree =
             RegexParser.Parse(
@@ -909,12 +925,11 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
         let setStr = tree.Root.Child(0).Str
         let bdd = converter.CreateBDDFromSetString(setStr)
         let converted = solver.ConvertFromBDD(bdd, bcss)
-        RegexNode.Singleton(converted)
+        this.one converted
 
     member this.bddFromSetString(setPattern: string) = converter.CreateBDDFromSetString(setPattern)
 
-    member this.setFromNode(node: RegexNode) =
-        RegexNode.Singleton(converter.CreateBDDFromSetString(node.Str))
+
 
     member this.mkConcat2(head: RegexNode< 't >, tail: RegexNode< 't >) : RegexNode< 't > =
         match head with

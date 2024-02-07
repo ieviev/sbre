@@ -12,7 +12,6 @@ let children2Seq(node: System.Text.RuntimeRegexCopy.RegexNode) =
 let convertToSymbolicRegexNode
     (
         css: CharSetSolver,
-        runtimeBuilder: SymbolicRegexBuilder<BDD>,
         builder: RegexBuilder<BDD>,
         rootNode: System.Text.RuntimeRegexCopy.RegexNode
     )
@@ -65,9 +64,7 @@ let convertToSymbolicRegexNode
             else
                 if node.Options.HasFlag(RegexOptions.Negated) then
                     let inner = convertChildren node |> b.mkConcat
-                    let flags = Info.Flags.inferNot inner
-                    let info = builder.CreateInfo(flags, inner.SubsumedByMinterm(css))
-                    RegexNode.Not(inner, info)
+                    b.mkNot(inner)
                     :: acc
                 else
                     convertChildren node
@@ -82,7 +79,7 @@ let convertToSymbolicRegexNode
                 | false -> css.CreateBDDFromChar(node.Ch)
 
             // let single = n.one bdd
-            let single = Singleton bdd
+            let single = b.one bdd
             // TBD: explore possibilities of rewrites here
             match node.M, node.N with
             // +

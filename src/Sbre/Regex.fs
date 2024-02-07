@@ -1008,7 +1008,6 @@ type Regex(pattern: string, [<Optional; DefaultParameterValue(false)>] _experime
     let symbolicBddnode: RegexNode<BDD> =
         RegexNodeConverter.convertToSymbolicRegexNode (
             charsetSolver,
-            runtimeBddBuilder,
             regexBuilder,
             regexTree.Root
         )

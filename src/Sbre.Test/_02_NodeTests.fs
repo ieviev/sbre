@@ -70,7 +70,6 @@ let ``collectSets has same behavior``() =
     let sbreSets =
         RegexNodeConverter.convertToSymbolicRegexNode (
             Helpers.charSetSolver,
-            Helpers.bddBuilder,
             Helpers.bddBuilder2,
             tree.Root
         )
@@ -178,32 +177,22 @@ let equalSeq (xs1: seq<'t>) (xs2: seq<'t>) : unit = Assert.Equal<'t>(xs1, xs2)
 //
 
 let assertConverted (pattern: string) (expected: string list) =
-    let regexTree =
-        ExtendedRegexParser.Parse(
-            pattern,
-            RegexOptions.ExplicitCapture ||| RegexOptions.NonBacktracking,
-            CultureInfo.InvariantCulture
-        )
+    // let regexTree =
+    //     ExtendedRegexParser.Parse(
+    //         pattern,
+    //         RegexOptions.ExplicitCapture ||| RegexOptions.NonBacktracking,
+    //         CultureInfo.InvariantCulture
+    //     )
 
-    let symbolicBddnode: RegexNode<BDD> =
-        RegexNodeConverter.convertToSymbolicRegexNode (
-            debugcharSetSolver,
-            bddBuilder,
-            Helpers.bddBuilder2,
-            regexTree.Root
-        )
+    // let symbolicBddnode: RegexNode<BDD> =
+    //     RegexNodeConverter.convertToSymbolicRegexNode (
+    //         debugcharSetSolver,
+    //         Helpers.bddBuilder2,
+    //         regexTree.Root
+    //     )
 
     let reg = Regex(pattern)
-
-    let asstr =
-        try
-            reg.TSetMatcher.Cache.PrettyPrintNode reg.TSetMatcher.RawPattern
-        with e ->
-            try
-                reg.UInt16Matcher.Cache.PrettyPrintNode reg.UInt16Matcher.RawPattern
-            with e ->
-                reg.UInt16Matcher.Cache.PrettyPrintNode reg.TSetMatcher.RawPattern
-
+    let asstr = reg.TSetMatcher.Cache.PrettyPrintNode reg.TSetMatcher.RawPattern
     Assert.Contains<string>(asstr,expected)
 
 [<Fact>]
