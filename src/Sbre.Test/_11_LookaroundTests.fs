@@ -85,6 +85,14 @@ let ``anchor null 1``() =
 let ``neg lookahead 1``() =
     assertNullablePositions "bb(?!aa)" "__bbaa__" [ ]
 
+[<Fact>]
+let ``neg lookahead 2``() =
+    assertNullablePositions "bb(?!aa)" "__bb" [ 2 ]
+
+[<Fact>]
+let ``neg lookahead 3``() =
+    assertNullablePositions "bb(?!aa)" "__bb_" [ 2 ]
+
 // [<Fact>]
 // let ``anchor null 2``() =
 //     let matcher = Regex("^\\d$")
