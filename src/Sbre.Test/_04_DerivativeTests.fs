@@ -82,8 +82,6 @@ let test2ndDerivatives(pattern: string, input: string, expectedDerivatives: stri
         let matcher = Regex(pattern).TSetMatcher
         let cache = matcher.Cache
         let node = matcher.TrueStarredPattern
-        let state = RegexState(cache.NumOfMinterms())
-
         let der1 = matcher.CreateDerivative  (  &location, cache.MintermForLocation(location), node)
         let der2 = matcher.CreateDerivative (  &location1, cache.MintermForLocation(location1), der1)
         cache.PrettyPrintNode der2
@@ -101,6 +99,10 @@ let testRawDerivative(pattern: string, input: string, expectedDerivative: string
     let result = der1 matcher input true
     Assert.Equal(expectedDerivative, result)
 
+let testRevDerivative(pattern: string, input: string, expectedDerivatives: string list) =
+    let matcher = Regex(pattern)
+    let result = der1Rev matcher input
+    Assert.Contains(matcher.TSetMatcher.Cache.PrettyPrintNode(result),expectedDerivatives)
 
 
 
@@ -160,6 +162,7 @@ let testPartDerivativesLoc
     let result = Common.der1rawlocs matcher loc
 
     Assert.Contains(result, expectedDerivatives)
+
 
 
 [<Fact>]
@@ -337,28 +340,82 @@ let ``derivative eats node from set``() =
 // let ``subsumption true star epsilon`` () = testPartDerivative (@"(aa&⊤*)", "aa", @"a")
 
 
-[<Fact>]
-let ``neg lookaround 1``() = testPartDerivative (@"(?<!a)b", "ab", "⊥")
+// [<Fact>]
+// let ``neg lookaround 1``() = testPartDerivative (@"(?<!a)b", "ab", "⊥")
+//
+// [<Fact>]
+// let ``neg lookaround 2``() = testPartDerivative (@"(?<!a)b", "bb", "ε")
+//
+// [<Fact>]
+// let ``neg lookaround 3``() = testPartDerivative (@"(?!b)b", "bb", "⊥")
+//
+// [<Fact>]
+// let ``neg lookaround 4``() = testPartDerivative (@"(?!a)b", "bb", "ε")
+//
+// [<Fact>]
+// let ``neg lookaround 5``() = testPartDerivative (@"(?!b)", "b", "(?!ε)")
+//
+// [<Fact>] // means that pos 0 is nullable!!
+// let ``neg lookaround 6``() = testPartDerivative (@"(?!a)", "b", "(?!⊥)")
+//
+// [<Fact>] // can only be sure of this in pos 0
+// let ``neg lookaround 7``() = testPartDerivative (@"(?<!a)", "b", "(?<!⊥)")
+//
+// [<Fact>] // can not be sure of this
+// let ``neg lookaround 8``() = testPartDerivative (@"(?<!a)b", "b", "ε")
+//
+// [<Fact>] // can not be sure of this
+// let ``neg lookaround 9``() = test2ndDerivatives (@"(?<!a)bb", "abb", [
+//     // @"(b|⊤*(?<!a)bb)" is not valid!
+//     @"⊤*(?<!a)bb)"
+// ])
+
+// [<Fact>]
+// let ``neg lookaround to pos 1``() = testPartDerivative (@"(?=~(|b))", "b", "(?=⊤+)")
+//
+// [<Fact>]
+// let ``neg lookaround to pos 2``() = testPartDerivative (@"~(|b|bb)", "b", "~((b|ε))")
+
+// let neg_neg_lookahead = @"~(\z|⊤\z|bb)"
+//
+// // L (?!bb)  = { ε\Z, ⊤\Z, ⊤[^b] }
+//
+// [<Fact>]
+// let ``neg ismatch 1``() = assertMatchEnd neg_neg_lookahead "" 0 -2
+// [<Fact>]
+// let ``neg ismatch 2``() = assertMatchEnd neg_neg_lookahead "b" 0 -2
+// [<Fact>]
+// let ``neg ismatch 3``() = assertMatchEnd neg_neg_lookahead "bb" 0 -2
+// [<Fact>]
+// let ``neg ismatch 4``() = assertMatchEnd neg_neg_lookahead "ba" 0 2
+//
+// [<Fact>]
+// let ``pos lookaround 1``() = testPartDerivative (@"(?<!a)b", "ab", "⊥")
+
 
 [<Fact>]
-let ``neg lookaround 2``() = testPartDerivative (@"(?<!a)b", "bb", "ε")
+let ``neg anchor 1``() = testRevDerivative (@"(?!b)","b",[ @"⊥"; ])
 
 [<Fact>]
-let ``neg lookaround 3``() = testPartDerivative (@"(?!b)b", "bb", "⊥")
+let ``neg anchor 2``() = testRevDerivative (@"(?!b)","a",[ @"ε"; ])
 
 [<Fact>]
-let ``neg lookaround 4``() = testPartDerivative (@"(?!a)b", "bb", "ε")
+let ``neg anchor 3``() = testRevDerivative (@"bb(?!b)","b",[ @"⊥"; ])
 
 [<Fact>]
-let ``neg lookaround 5``() = testPartDerivative (@"(?!b)", "b", "(?!ε)")
+let ``neg anchor 4``() = testRevDerivative (@"bb(?!a)","b",[ @"b"; ])
 
-[<Fact>] // means that pos 0 is nullable!!
-let ``neg lookaround 6``() = testPartDerivative (@"(?!a)", "b", "(?!⊥)")
+[<Fact>]
+let ``neg anchor lb 1``() = testPartDerivative (@"(?<!a)b", "ab", "⊥")
 
-[<Fact>] // means that pos 0 is nullable!!
-let ``neg lookaround 7``() = testPartDerivative (@"(?<!a)", "b", "(?<!⊥)")
+[<Fact>]
+let ``neg anchor lb 2``() = testPartDerivative (@"(?<!a)b", "bb", "ε")
 
 
+
+// [<Fact>] // difficult case, can start match from bb|aa
+// let ``neg lookahead 2``() =
+//     assertNullablePositions "bb(?!aa)" "__bbaa" [ ]
 
 #endif
 

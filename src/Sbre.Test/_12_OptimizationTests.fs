@@ -4,6 +4,7 @@ module Sbre.Test._12_OptimizationTests
 open Sbre
 open Sbre.Benchmarks.Jobs
 open Sbre.CountingSet
+open Sbre.Info
 open Sbre.Optimizations
 open Sbre.Types
 open Xunit
@@ -16,14 +17,14 @@ open Common
 let ``fixed length 1``() =
     let regex = Regex("Twain")
     let matcher = regex.TSetMatcher
-    let prefixLen = Optimizations.getFixedLength matcher.ReversePattern
+    let prefixLen = Node.getFixedLength matcher.ReversePattern
     Assert.Equal(Some 5, prefixLen)
 
 [<Fact>]
 let ``fixed length 2``() =
     let regex = Regex("[a-q][^u-z]{13}x")
     let matcher = regex.TSetMatcher
-    let prefixLen = Optimizations.getFixedLength matcher.ReversePattern
+    let prefixLen = Node.getFixedLength matcher.ReversePattern
     Assert.Equal(Some 15, prefixLen)
 
 

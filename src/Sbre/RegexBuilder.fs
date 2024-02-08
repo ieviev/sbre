@@ -286,6 +286,10 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             lazy b.mkLookaround(_true,true,true)
 
         {|
+            _endZAnchor = lazy b.mkOr([
+                b.mkLookaround(_true,false,true)
+                b.mkLookaround(b.mkConcat2(b.one '\n',_true),false,true)
+            ])
             _zAnchor = __z_anchor
             _dollarAnchor =
                 lazy

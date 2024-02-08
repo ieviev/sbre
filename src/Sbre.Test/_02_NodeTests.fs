@@ -283,6 +283,14 @@ let ``flags 5``() =
         Assert.True(flags.HasFlag(Flag.CanBeNullableFlag))
 
 
+[<Fact>]
+let ``flags 6``() =
+    let matcher = Regex(@"~(\z)").TSetMatcher
+    let flags = matcher.RawPattern.GetFlags()
+    Assert.False(flags.HasFlag(Flag.IsAlwaysNullableFlag))
+
+
+
 
 [<Fact>]
 let ``identity derivative 2``() =

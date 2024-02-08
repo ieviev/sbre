@@ -66,6 +66,7 @@ type RegexNodeFlags =
     | HasCounterFlag = 16uy
     | IsCounterFlag = 32uy
     | IsImmediateLookaroundFlag = 64uy
+    | IsAnchor = 128uy
 
 [<AutoOpen>]
 module RegexNodeFlagsExtensions =
@@ -163,6 +164,10 @@ type RegexNodeInfo<'tset when 'tset :> IEquatable<'tset> and 'tset: equality >()
     member inline this.DoesNotContainEpsilon =
         (this.NodeFlags &&& RegexNodeFlags.ContainsEpsilonFlag) = RegexNodeFlags.None
 
+[<ReferenceEquality>]
+type RegexAnchor =
+    | End
+    | Begin
 
 [<ReferenceEquality>]
 [<DebuggerDisplay("{ToString()}")>]
@@ -192,6 +197,7 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
         lookBack: bool *
         negate: bool *
         relativeNullablePos : int
+    | Anchor of RegexAnchor
 
     // optimized cases
 
@@ -278,7 +284,11 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
                 $"⟨{body}⟩"
             else body
         | Epsilon -> "ε"
-        // | Star(node, low, up, info) -> $"{node.ToString()}*"
+        | Anchor regexAnchor ->
+            match regexAnchor with
+            | End -> @"\z"
+            | Begin -> @"\a"
+
 #endif
 
 
@@ -302,6 +312,7 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
         | Singleton foo -> RegexNodeFlags.None
         | LookAround(node, lookBack, negate, _) ->
             RegexNodeFlags.CanBeNullableFlag ||| RegexNodeFlags.ContainsLookaroundFlag
+        | Anchor _ -> RegexNodeFlags.IsAnchor ||| RegexNodeFlags.CanBeNullableFlag
 
     member this.CanBeNullable =
         this.GetFlags().HasFlag(RegexNodeFlags.CanBeNullableFlag)
@@ -324,14 +335,7 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
         | Singleton _ -> false
         | LookAround _ -> false
         | Epsilon -> true
-
-    member this.DoesNotContainEpsilon =
-        match this with
-        | Or(info = info) | Loop(info = info) | And(info = info) | Not(info = info) | Concat(info = info) ->
-            info.DoesNotContainEpsilon
-        | Singleton _ -> true
-        | LookAround _ -> true
-        | Epsilon -> false
+        | Anchor regexAnchor -> false
 
     member this.SubsumedByMinterm (solver:ISolver<'tset>) =
         match this with
@@ -340,6 +344,7 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
         | Epsilon -> solver.Empty
         | Singleton pred -> pred
         | LookAround(node, lookBack, negate, _) -> node.SubsumedByMinterm solver
+        | Anchor _ -> solver.Empty
 
 
 [<Flags>]

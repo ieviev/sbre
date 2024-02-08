@@ -35,13 +35,10 @@ let der1Node (reg: Regex) (input: string) (raw:bool) =
     der1
 
 let der1Rev (reg: Regex) (input: string) =
-    let location = (Location.create input 0)
+    let location = (Location.createReversedSpan (input.AsSpan()))
     let matcher = reg.TSetMatcher
     let cache = matcher.Cache
     let node = matcher.ReversePattern
-    let state = RegexState(cache.NumOfMinterms())
-    let minterm = cache.MintermForLocation(location)
-    CountingSet.stepCounters state minterm
     let der1 = matcher.CreateDerivative  (  &location, cache.MintermForLocation(location), node)
     der1
 
@@ -135,36 +132,24 @@ let assertCounterStates (regex:Regex) (input:string) (expectedStates:(CounterSta
       |}
 
 
-let assertAllStates (regex:Regex) (input:string) (expectedRegexesList:string list list)  =
+let assertRevStates (pattern:string) (input:string) (expectedRegexesList:string list list)  =
+    let regex = Regex(pattern)
     let matcher = regex.TSetMatcher
-    let state = RegexState(matcher.Cache.NumOfMinterms())
     let cache = matcher.Cache
-    let mutable loc = (Location.create input 0)
-    let mutable currNode = matcher.TrueStarredPattern
+    let mutable loc = (Location.createReversedSpan (input.AsSpan()))
+    let mutable currNode = matcher.ReverseTrueStarredPattern
     let mutable remainingStates = expectedRegexesList
 
-    while (not (Location.isFinal loc)) && not (refEq currNode cache.False) && not remainingStates.IsEmpty do
-
-        let minterm = cache.MintermForLocation(loc)
-        CountingSet.stepCounters state minterm
-
-        let counters =
-            state.ActiveCounters.Values
-            |> Seq.toList
-
-        // bump counters
-        assertAlternation remainingStates.Head currNode
+    while (not (Location.isFinal loc)) && not remainingStates.IsEmpty do
+        assertPatternIn remainingStates.Head currNode
+        // assertAlternation remainingStates.Head currNode
         let deriv = matcher.CreateDerivative ( &loc, cache.MintermForLocation(loc), currNode)
         currNode <- deriv
         remainingStates <- remainingStates.Tail
-        loc.Position <- loc.Position + 1
+        loc.Position <- loc.Position - 1
 
-    let endNullable = matcher.IsNullable( &loc, currNode)
-    {|
-      Node = currNode
-      State = state
-      IsNullable = endNullable
-      |}
+    ()
+
 
 
 let assertNullability (regex:Regex) (input:string) (expectedRegexesList:string list list)  =
@@ -214,6 +199,8 @@ let assertDfaMatches (pattern:string) (input:string) (expected: (int*int) list) 
     let matcher = regex.TSetMatcher
     let result = matcher.MatchPositions(input)
     Assert.Equal(expected, result |> Seq.map (fun v -> v.Index,v.Length))
+
+
 
 let printRegexState (matcher:RegexMatcher<_>) (state:RegexState) (node:RegexNode<TSet>) (loc:string) =
     let nodestr =
@@ -357,11 +344,21 @@ let assertNoMatch (pattern:string) (input:string)  =
     let regex = Regex(pattern)
     let matcher = regex.TSetMatcher
     let mutable loc = Location.createReversedSpan (input.AsSpan())
-    let rstate = RegexState(matcher.Cache.NumOfMinterms())
     use mutable acc = new SharedResizeArrayStruct<int>(100)
     let result = matcher.CollectReverseNullablePositions(&acc,&loc)
     Assert.Equal(0, result.Length)
 
+let assertNoMatchRaw (pattern:string) (input:string)  =
+    let regex = Regex(pattern)
+    let matcher = regex.TSetMatcher
+    let mutable loc = Location.createReversedSpan (input.AsSpan())
+    use mutable acc = new SharedResizeArrayStruct<int>(100)
+    let result = matcher.CollectReverseNullablePositions(&acc,&loc)
+    Assert.Equal(0, result.Length)
+
+let assertIsMatch (pattern:string) (input:string)  =
+    let regex = Regex(pattern)
+    Assert.True(regex.IsMatch(input))
 
 
 let assertAllLLmatches (pattern:string) (input:string) (expected) =
@@ -388,5 +385,8 @@ let assertMatchEnd (pattern:string) (input:string) (startPos:int) (expectedEndPo
 
 let assertNodeOneOf (node:RegexNode<_>) (options:string seq) =
     Assert.Contains(node.ToString() , options)
+
+let matchPosToTuples (items:MatchPosition seq) =
+    items |> Seq.map (fun v -> v.Index,v.Length) |> Seq.toArray
 
 #endif

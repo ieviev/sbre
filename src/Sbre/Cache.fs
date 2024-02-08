@@ -659,5 +659,6 @@ type RegexCache< 't
 
         | Concat(h, t, _) -> this.PrettyPrintNode h + this.PrettyPrintNode t
         | Epsilon -> "ε"
+        | Anchor _ -> node.ToString()
 #endif
     member this.OptimizedUniques = _optimizedUniques

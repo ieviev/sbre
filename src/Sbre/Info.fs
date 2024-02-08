@@ -152,6 +152,7 @@ module rec Flags =
         | And(nodes, info) -> info.NodeFlags
         | Not(node, info) -> info.NodeFlags
         | LookAround(node, lookBack, negate, _) -> Flag.CanBeNullableFlag ||| Flag.ContainsLookaroundFlag
+        | Anchor regexAnchor -> Flag.IsAnchor ||| Flag.CanBeNullableFlag
 
 
     let inferNot(inner: RegexNode<'t>) =
@@ -198,6 +199,8 @@ module rec Flags =
 
         | Concat(head, tail, _) -> inferConcat head tail
 
+        | Anchor regexAnchor -> Flag.IsAnchor
+
 
 // let defaultInfo()(solver: ISolver<'t>) : RegexNodeInfo<'t> =
 //
@@ -210,6 +213,27 @@ module rec Flags =
 
 [<AutoOpen>]
 module Node =
+
+    let getFixedLength (node: RegexNode<_>) =
+        let rec loop (acc:int) node : int option =
+            match node with
+            | Concat(head, tail, info) ->
+                loop acc head
+                |> Option.bind (fun headLen ->
+                    loop headLen tail
+                )
+            | Epsilon -> Some 0
+            | Or(nodes, info) -> None
+            | Singleton _ -> Some (1 + acc)
+            | Loop(Singleton node, low, up, info) ->
+                if low = up then Some (low + acc) else None
+            | Loop(node, low, up, info) -> None
+            | And(nodes, info) -> None
+            | Not(node, info) -> None
+            | LookAround(_) -> None
+            | Anchor _ -> Some 0
+        loop 0 node
+
     let inline isAlwaysNullable(node: RegexNode<'t>) =
         match node with
         | Or(info = info)
@@ -220,6 +244,7 @@ module Node =
         | Singleton _ -> false
         | LookAround _ -> false
         | Epsilon -> false
+        | Anchor _ -> false
 
 
     let inline isAlwaysNullableV(vinfo: RegexNodeInfo<'t> voption, node:RegexNode<'t>) =
@@ -234,6 +259,7 @@ module Node =
         | Singleton _ -> false
         | LookAround _ -> true
         | Epsilon -> true
+        | Anchor _ -> true
 
     let inline canBeNullableV(vinfo: RegexNodeInfo<'t> voption, node:RegexNode<'t>)=
         match vinfo with
@@ -250,6 +276,7 @@ module Node =
         | LookAround _ -> true
         | Concat(info = info) -> info.ContainsLookaround
         | Epsilon -> false
+        | Anchor _ -> false
 
     let inline canNotBeNullable(node: RegexNode<'t>) =
         match node with
@@ -261,3 +288,4 @@ module Node =
         | LookAround _ -> false
         | Concat(info = info) -> not info.CanBeNullable
         | Epsilon -> false
+        | Anchor _ -> false

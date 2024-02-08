@@ -23,24 +23,7 @@ type ActiveBranchOptimizations =
     | NoOptimizations
 
 
-let getFixedLength (node: RegexNode<TSet>) =
-    let rec loop (acc:int) node : int option =
-        match node with
-        | Concat(head, tail, info) ->
-            loop acc head
-            |> Option.bind (fun headLen ->
-                loop headLen tail
-            )
-        | Epsilon -> None
-        | Or(nodes, info) -> None
-        | Singleton foo -> Some (1 + acc)
-        | Loop(Singleton node, low, up, info) ->
-            if low = up then Some (low + acc) else None
-        | Loop(node, low, up, info) -> None
-        | And(nodes, info) -> None
-        | Not(node, info) -> None
-        | LookAround(_) -> None
-    loop 0 node
+
 
 #if DEBUG
 let printPrefixSets (cache:RegexCache<_>) (sets:TSet list) =

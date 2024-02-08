@@ -3,11 +3,59 @@ module internal rec Sbre.RegexNodeConverter
 open System
 open System.Text.RuntimeRegexCopy
 open System.Text.RuntimeRegexCopy.Symbolic
+open Sbre.Info
 open Sbre.Types
 open Sbre
 
 let children2Seq(node: System.Text.RuntimeRegexCopy.RegexNode) =
     seq { for i = 0 to node.ChildCount() - 1 do yield node.Child(i) }
+
+
+
+
+let rewriteNegativeLookaround (b:RegexBuilder<BDD>) (node:RegexNode<BDD>) : RegexNode<BDD> =
+    match node with
+    | LookAround(regexNode, lookBack, negate, relativeNullablePos) ->
+        let fixLen = Node.getFixedLength regexNode
+        match fixLen with
+        | None -> failwith "TODO: could not rewrite lookaround"
+        | Some minLength ->
+            match lookBack with
+            | false ->
+                // aa(?!bb) => aa(?=~(⊤{0,1}\z|bb⊤*))
+                let earlyEnd = b.mkConcat2(b.mkLoop(b.uniques._true,0,minLength - 1), Anchor End)
+                let requiredDistance =
+                    b.mkLoop(b.uniques._true,minLength,minLength)
+                let rewrittenNode =
+                    b.mkConcat([b.uniques._trueStar;regexNode;b.uniques._trueStar])
+                let rewrittenCompl =
+                    b.mkOr([
+                        // earlyEnd // either end of string
+                        b.mkAnd([
+                            requiredDistance
+                            b.mkNot(rewrittenNode)
+                        ])
+                        // or NOT end of string & pattern
+                        // b.mkNot(b.mkOr([b.mkConcat2(minDistance,b.uniques._trueStar);rewrittenNode]))
+                        // b.mkNot(b.mkOr([b.mkConcat2(minDistance,b.uniques._trueStar);rewrittenNode]))
+                        // b.mkNot(b.mkOr([rewrittenNode]))
+                    ])
+                let rewrittenLookaround =
+                    b.mkLookaround( rewrittenCompl, false, false, 0 )
+                rewrittenLookaround
+            | true ->
+                // (?<!aa)bb => (?<=~(\a⊤{0,1}|aa))bb
+                let minLengthSpan =
+                    b.mkConcat2(Anchor Begin, b.mkLoop(b.uniques._true,0,minLength - 1))
+                let rewrittenNode =
+                    b.mkConcat2(regexNode,b.uniques._trueStar)
+                let rewrittenCompl =
+                    b.mkNot(b.mkOr([minLengthSpan;rewrittenNode]))
+                let rewrittenLookaround =
+                    b.mkLookaround( rewrittenCompl, true, false, 0 )
+                rewrittenLookaround
+    | _ -> failwith "TODO: could not rewrite lookaround"
+
 
 let convertToSymbolicRegexNode
     (
@@ -90,7 +138,8 @@ let convertToSymbolicRegexNode
         | RegexNodeKind.Bol -> b.anchors._caretAnchor.Value :: acc
         | RegexNodeKind.Beginning -> b.anchors._bigAAnchor.Value :: acc
         | RegexNodeKind.Eol -> b.anchors._dollarAnchor.Value :: acc
-        | RegexNodeKind.EndZ -> b.anchors._zAnchor.Value :: acc
+        | RegexNodeKind.EndZ -> b.anchors._endZAnchor.Value :: acc
+        | RegexNodeKind.End -> Anchor RegexAnchor.End :: acc //b.anchors._zAnchor.Value :: acc // end of string only
         | RegexNodeKind.Boundary ->
             failwith "TODO: reimplement word border"
             b.anchors._wordBorder.Value :: acc
@@ -125,7 +174,9 @@ let convertToSymbolicRegexNode
             builder.mkLookaround(b.mkConcat (convertChildren node),node.Options.HasFlag(RegexOptions.RightToLeft),false)
             :: acc
         | RegexNodeKind.NegativeLookaround ->
-            builder.mkLookaround(b.mkConcat (convertChildren node),node.Options.HasFlag(RegexOptions.RightToLeft),true)
+            let negLookaround = builder.mkLookaround(b.mkConcat (convertChildren node),node.Options.HasFlag(RegexOptions.RightToLeft),true)
+            let rewrittenLookaround = rewriteNegativeLookaround b negLookaround
+            rewrittenLookaround
             :: acc
         | other -> failwith $"RegexNodeKind conversion not implemented: {other}, \n{rootNode}"
 

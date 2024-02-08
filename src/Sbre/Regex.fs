@@ -11,6 +11,7 @@ open System.Text.RuntimeRegexCopy
 open Microsoft.FSharp.Core
 open Sbre.Algorithm
 open Sbre.CountingSet
+open Sbre.Info
 open Sbre.Optimizations
 open Sbre.Types
 open Sbre.Pat
@@ -278,7 +279,7 @@ type RegexMatcher<'t when 't: struct>
             _cache reverseNode reverseTrueStarredNode
 
     let _initialFixedLength =
-        Optimizations.getFixedLength reverseNode
+        Node.getFixedLength reverseNode
 
 
     override this.IsMatch(input) =
@@ -552,6 +553,12 @@ type RegexMatcher<'t when 't: struct>
                         (this.IsNullable(&loc,body))
                     else
                         failwith ""
+
+            | Anchor regexAnchor ->
+                match regexAnchor with
+                | End -> loc.Position = loc.Input.Length
+                | Begin -> loc.Position = 0
+
                 // let mutable _tlo = _cache.False
                 // match lookBack, negate with
                 // // Nullx ((?=R)) = IsMatch(x, R)
@@ -721,9 +728,19 @@ type RegexMatcher<'t when 't: struct>
                     else
                         pendingLookaround
                 | true ->
-                    failwith "todo"
+                    if this.IsNullable(&loc,lookBody) then
+                        Epsilon
+                    else
+                        let remainingLookaround = this.CreateDerivative (&loc, loc_pred, lookBody)
+                        if this.IsNullable(&loc,remainingLookaround) then Epsilon
+                        else
+                            let pendingLookaround = _cache.Builder.mkLookaround(remainingLookaround, lookBack, false, relativeNullablePos + 1)
+                            // pendingLookaround
+                            _cache.False
 
-        if not node.ContainsLookaround && not node.HasCounter then
+            | Anchor _ -> _cache.False
+
+        if not node.ContainsLookaround && not (node.GetFlags().HasFlag(Flag.IsAnchor)) then
             _cache.Builder.AddTransitionInfo(loc_pred, node, result)
 
         result
@@ -737,7 +754,7 @@ type RegexMatcher<'t when 't: struct>
         | Concat(LookAround(lookBody, lookBack, negate, pendingNullable), tail, info) ->
             assert (not tail.ContainsLookaround) // what to do here
             let lookDer = this.CreateDerivative (&loc, loc_pred, lookBody)
-            let lookDerNullable = this.IsNullable(&loc, lookDer)
+            let lookBodyNullable = this.IsNullable(&loc, lookBody)
             let S' = this.CreateDerivative (&loc, loc_pred, tail)
 
             if refEq _cache.False lookDer then
@@ -750,12 +767,15 @@ type RegexMatcher<'t when 't: struct>
             | true, false ->
                 match lookDer with
                 | Epsilon -> tail
+                | c when refEq c _cache.TrueStar -> this.CreateDerivative (&loc, loc_pred, tail)
                 | _ ->
                     let pendingLookaround = _cache.Builder.mkLookaround(lookDer, lookBack, negate, pendingNullable + 1)
                     let R'S = _cache.Builder.mkConcat2 (pendingLookaround, tail)
-                    if this.IsNullable(&loc, lookDer) then
+                    if lookBodyNullable then
                         let S' = this.CreateDerivative (&loc, loc_pred, tail)
-                        _cache.Builder.mkOr ( seq { R'S ;S' } )
+                        S'
+                        // failwith "unsure about this case"
+                        // _cache.Builder.mkOr ( seq { R'S ;S' } )
                     else
                         R'S
 
@@ -775,13 +795,14 @@ type RegexMatcher<'t when 't: struct>
                         R'S'
             // negated lookback
             | true, true ->
-                if lookDerNullable then _cache.False else
+                if lookBodyNullable then _cache.False else
                 let pendingLookaround = _cache.Builder.mkLookaround(lookDer, lookBack, negate, pendingNullable + 1)
+
                 let R'S = _cache.Builder.mkConcat2 (pendingLookaround, tail)
                 _cache.Builder.mkOr ( seq { R'S ;S' } )
             // negated lookahead
             | _ ->
-                if lookDerNullable then _cache.False else
+                if lookBodyNullable then _cache.False else
                 let pendingLookaround = _cache.Builder.mkLookaround(lookDer, lookBack, negate, pendingNullable + 1)
                 let R'S = _cache.Builder.mkConcat2 (pendingLookaround, tail)
                 _cache.Builder.mkOr ( seq { R'S ;S' } )

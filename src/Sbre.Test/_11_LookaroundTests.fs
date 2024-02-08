@@ -11,17 +11,6 @@ open Common
 #if DEBUG
 
 
-let getDfaMatcher (pat:string) =
-    let regex = Regex(pat)
-    let matcher = regex.Matcher :?> RegexMatcher<TSet>
-    let mutable _toplevelOr = matcher.TrueStarredPattern
-    matcher
-
-
-let getMatcher (pat:string) =
-    let regex = Regex(pat)
-    let matcher = regex.Matcher :?> RegexMatcher<TSet>
-    matcher
 
 
 [<Fact>]
@@ -66,25 +55,14 @@ let ``anchor eol 1``() =
     _04_DerivativeTests.testPartDerivatives
         (@"1$", "1", [ @"((?=\n)|(?!⊤))"; @"((?!⊤)|(?=\n))" ])
 
-// [<Fact>]
-// let ``anchor eol 2``() =
-//     let matcher = Regex(@"\d$")
-//     let ism = matcher.IsMatch("1")
-//     Assert.True(ism)
 
-
-// [<Fact>]
-// let ``anchor null 1``() =
-//     let matcher = Regex("^1$")
-//     let ism = matcher.IsMatch("111")
-//     Assert.False(ism)
-
+//
 
 [<Fact>]
 let ``neg lookahead 1``() =
     assertNullablePositions "bb(?!aa)" "__bb__" [ 2 ]
 
-[<Fact>]
+[<Fact>] // difficult case, can start match from bb|aa
 let ``neg lookahead 2``() =
     assertNullablePositions "bb(?!aa)" "__bbaa" [ ]
 
@@ -96,32 +74,51 @@ let ``neg lookahead 3``() =
 let ``neg lookahead 4``() =
     assertNullablePositions "bb(?!aa)" "__bb_" [ 2 ]
 
+
+[<Fact>]
+let ``neg simple 1``() =
+    assertNullablePositions "b(?!a)" "b" [ 0 ]
+
+
+[<Fact>]
+let ``neg simple 2``() = assertNullablePositions "b(?!a)" "bb" [ 1; 0 ]
+
+[<Fact>]
+let ``neg simple 3``() = assertNullablePositions "b(?!aa)" "bb" [ 1; 0 ]
+
+[<Fact>]
+let ``neg simple 4``() = assertNullablePositions "b(?!aaa)" "bb" [ 1; 0 ]
+
+
+[<Fact>]
+let ``neg simple 5``() = assertNullablePositions "b(?!a)" "ba" [ ]
+
+
+[<Fact>]
+let ``neg states 1``() =
+    assertRevStates "b(?!a)" "bb" [
+        [ @"⊤*(?<=((~(a)&\z⊤)|\z))b" ]
+        [ "b(?!a)" ]
+        [ "⊤*(?<=((⊤&~(a))|\z))b" ]
+    ]
+
+
+
+
+// [<Fact>] // difficult case, can start match from bb|aa
+// let ``neg lookahead 2``() =
+//     assertNullablePositions "bb(?!aa)" "__bbaa" [ ]
+
 // [<Fact>]
-// let ``anchor null 2``() =
-//     let matcher = Regex("^\\d$")
-//     let ism = matcher.IsMatch("324")
-//     Assert.False(ism)
-
+// let ``lookahead comparison 1``() =
+//     // let _ = getAllLLmatches "aa(?!bb)" "aabb_aa_aab" [5,2; 8,2]
+//     let expected = [5,2; 8,2] // expected for "aa(?!bb)"
+//     // |bb - not null, b|b - not null, bb| - null,
+//     // let matches = getAllLLmatches "aa(?=~(bb))" "aabb_aa_aab" |> matchPosToTuples
+//     // let matches = getAllLLmatches "aa(?=~(⊤*))" "aabb_aa_aab" |> matchPosToTuples
+//     let matches = getAllLLmatches "aa(?=~(|b|bb))" "aabb_aa_aab" |> matchPosToTuples
+//     assertAllEqual expected matches
 //
-// [<Fact>]
-// let ``csa der 01`` () =
-//     let matcher = getDfaMatcher "a{1,3}b"
-//     let w  =1
-//     Assert.Equal(4, 2)
-//
-//
-//
-// [<Fact>]
-// let ``csa 01`` () =
-//     let endPos = dfaFindMatchEnd "a{1,3}b" "baaabc"
-//     Assert.Equal(4, endPos)
-//
-
-
-
-
-// T*.*a{3,7}b
-
 
 
 

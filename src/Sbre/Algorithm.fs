@@ -61,6 +61,11 @@ module RegexNode =
             let reversedList = revConcatNode [] node
             builder.mkConcat reversedList
         | Epsilon -> Epsilon
+        | Anchor regexAnchor -> node
+            // match regexAnchor with
+            // | End -> Anchor Begin
+            // | Begin -> Anchor End
+
 
     let inline getTransitionInfo(pred: ^t, node: RegexNode< ^t >) =
         let mutable result = ValueNone
@@ -192,6 +197,7 @@ let rec createStartsetDerivative
                         cache.Builder.mkOr ( seq { R'S ;S' } )
                 else
                     R'S
+            | Anchor _ -> cache.False
 
         if not (containsLookaround node) && not node.HasCounter then
             cache.Builder.AddTransitionInfo(loc_pred, node, result)
