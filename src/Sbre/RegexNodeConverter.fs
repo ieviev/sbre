@@ -91,8 +91,12 @@ let convertToSymbolicRegexNode
         | RegexNodeKind.Beginning -> b.anchors._bigAAnchor.Value :: acc
         | RegexNodeKind.Eol -> b.anchors._dollarAnchor.Value :: acc
         | RegexNodeKind.EndZ -> b.anchors._zAnchor.Value :: acc
-        | RegexNodeKind.Boundary -> b.anchors._wordBorder.Value :: acc
-        | RegexNodeKind.NonBoundary -> b.anchors._nonWordBorder.Value :: acc
+        | RegexNodeKind.Boundary ->
+            failwith "TODO: reimplement word border"
+            b.anchors._wordBorder.Value :: acc
+        | RegexNodeKind.NonBoundary ->
+            failwith "TODO: reimplement word border"
+            b.anchors._nonWordBorder.Value :: acc
         | RegexNodeKind.Setlazy
         | RegexNodeKind.Setloop ->
             let set = node.Str

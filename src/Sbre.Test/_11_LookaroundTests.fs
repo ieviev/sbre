@@ -56,8 +56,40 @@ let ``lookback full 1``() =
     ]
 
 
+[<Fact>]
+let ``anchor bol 1``() =
+    _04_DerivativeTests.testPartDerivatives
+        (@"^\d+", "123", [ @"φ*" ])
+
+[<Fact>]
+let ``anchor eol 1``() =
+    _04_DerivativeTests.testPartDerivatives
+        (@"1$", "1", [ @"((?=\n)|(?!⊤))"; @"((?!⊤)|(?=\n))" ])
+
+[<Fact>]
+let ``anchor eol 2``() =
+    let matcher = Regex(@"\d$")
+    let ism = matcher.IsMatch("1")
+    Assert.True(ism)
 
 
+[<Fact>]
+let ``anchor null 1``() =
+    let matcher = Regex("^1$")
+    let ism = matcher.IsMatch("111")
+    Assert.False(ism)
+
+
+
+[<Fact>]
+let ``neg lookahead 1``() =
+    assertNullablePositions "bb(?!aa)" "__bbaa__" [ ]
+
+// [<Fact>]
+// let ``anchor null 2``() =
+//     let matcher = Regex("^\\d$")
+//     let ism = matcher.IsMatch("324")
+//     Assert.False(ism)
 
 //
 // [<Fact>]

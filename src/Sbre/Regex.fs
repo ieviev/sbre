@@ -243,10 +243,17 @@ type RegexMatcher<'t when 't: struct>
                 ()
             if node.ContainsLookaround && node.CanBeNullable then
                 match Optimizations.tryGetPendingNullable (fun v -> _getOrCreateState(v,false).Flags.CanBeNullable ) state.Node with
-                | ValueSome rel ->
+                | (false,true,0) -> ()
+                | (canBeNull,true,rel) ->
+                    if canBeNull then
+                        state.RelativeNullable <- rel
+                        state.Flags <- state.Flags ||| RegexStateFlags.IsRelativeNullableFlag
+                    else ()
+                | (canBeNull,false,rel) ->
                     state.RelativeNullable <- rel
-                    state.Flags <- state.Flags ||| RegexStateFlags.IsRelativeNullableFlag
-                | ValueNone -> ()
+                    state.Flags <- state.Flags ||| RegexStateFlags.IsRelativeNegatedNullableFlag
+                | _ ->
+                    failwith "todo lookaround nullability"
             _flagsArray[state.Id] <- state.Flags
             state
 
@@ -390,13 +397,28 @@ type RegexMatcher<'t when 't: struct>
 
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    member private this.RelativeNegatedIsNullable
+        (
+            flags: RegexStateFlags,
+            loc: byref<Location>,
+            stateId: int
+        ) : bool =
+        let dfaState = _stateArray[stateId]
+        let isNull = this.IsNullable(&loc,dfaState.Node)
+        isNull
+
+
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member private this.StateIsNullable
         (
             flags: RegexStateFlags,
             loc: byref<Location>,
             stateId: int
         ) : bool =
-        flags.CanBeNullable && (flags.IsAlwaysNullable || this.IsNullable (&loc, _stateArray[stateId].Node))
+        flags.CanBeNullable && (
+            flags.IsAlwaysNullable ||
+            (flags.HasFlag(RegexStateFlags.IsRelativeNegatedNullableFlag) && this.RelativeNegatedIsNullable(flags,&loc,stateId)) ||
+            this.IsNullable (&loc, _stateArray[stateId].Node))
 
 
     member this.HandleOptimizedNullable(unique:OptimizedUnique, loc: inref<Location>) : bool =
@@ -414,6 +436,12 @@ type RegexMatcher<'t when 't: struct>
 
         | StartOfString -> failwith "todo"
         | NotStartOfString -> loc.Position > 0
+        | Bol ->
+            loc.Position = 0 ||
+            match prevCharOpt with
+            | ValueSome c -> c = '\n'
+            | _ -> false
+
 
     member this.IsNullable(loc: inref<Location>, node: RegexNode<_>) : bool =
             // short-circuit
@@ -516,7 +544,14 @@ type RegexMatcher<'t when 't: struct>
 
 
             | LookAround(body, lookBack, negate, _) ->
-                this.IsNullable(&loc,body)
+                if not negate then this.IsNullable(&loc,body)
+                else
+                    if not lookBack then
+                        // neg.lookahead
+                        let w = 1
+                        (this.IsNullable(&loc,body))
+                    else
+                        failwith ""
                 // let mutable _tlo = _cache.False
                 // match lookBack, negate with
                 // // Nullx ((?=R)) = IsMatch(x, R)
@@ -703,16 +738,6 @@ type RegexMatcher<'t when 't: struct>
                             _cache.Builder.mkOr ( seq { R'S ;S' } )
                         else
                             R'S
-
-                    // let R'S = _cache.Builder.mkConcat2 (R', tail)
-
-                // if this.IsNullable (&loc, lookBody) then
-                //     let S' = this.CreateDerivative (&loc, loc_pred, tail)
-                //     if refEq _cache.Builder.uniques._false S' then
-                //         R'S
-                //     else
-                //         if refEq R'S _cache.False then S' else
-                //         _cache.Builder.mkOr ( seq { R'S ;S' } )
             | false ->
                 // pending lookahead
                 let remainingLookaround = this.CreateDerivative (&loc, loc_pred, lookBody)
@@ -727,8 +752,19 @@ type RegexMatcher<'t when 't: struct>
                     | false ->
                         let R'S' = _cache.Builder.mkConcat2 (pendingLookaround, S')
                         R'S'
+        | Concat(head, tail, info) ->
+            match _cache.OptimizedUniques.TryGetValue(head) with
+            | true, v ->
+                match this.HandleOptimizedNullable(v,&loc) with
+                | true ->
+                    let S' = this.CreateDerivative (&loc, loc_pred, tail)
+                    S'
+                | false -> _cache.False
+            | _ ->
+                failwith $"todo implement derivative for {head}"
+
         | _ ->
-            failwith "todo lookaround der"
+            failwith $"todo lookaround der for {head}"
 
     /// end position with DFA
     member this.DfaEndPosition

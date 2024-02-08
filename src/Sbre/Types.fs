@@ -94,6 +94,7 @@ type RegexStateFlags =
     | AlwaysNullableFlag = 512
     | ActiveBranchOptimizations = 1024
     | IsRelativeNullableFlag = 2048
+    | IsRelativeNegatedNullableFlag = 4096
     // todo: fixed length
     // todo: can be subsumed
     // todo: singleton loop

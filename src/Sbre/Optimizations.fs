@@ -336,25 +336,36 @@ let tryGetLimitedSkip (nodeToId:RegexNode<TSet> -> int) (getStartset:RegexNode<_
 
 let rec tryGetPendingNullable
     (canBeNull:RegexNode<_> -> bool)
-    (node:RegexNode<_>)
+    (node:RegexNode<_>): struct(bool * bool * int) // canBeNull, isPositive, relativePos,
         =
+    let baseCase = struct(false,true,0)
     match node with
-    | LookAround(lookBody, lookBack, negate, relativeNullablePos) ->
-        if lookBack = false && canBeNull lookBody then
-            ValueSome relativeNullablePos
-        else ValueNone
+    // pos. lookahead
+    | LookAround(node=lookBody; lookBack=false; negate=false; relativeNullablePos=relativeNullablePos) ->
+        let canBeNull = canBeNull lookBody
+        (canBeNull,true,relativeNullablePos)
+            // struct(bool * bool * int)
+    // neg. lookahead
+    | LookAround(node=lookBody; lookBack=false; negate=true; relativeNullablePos=relativeNullablePos) ->
+        let canBeNull = canBeNull lookBody
+        (canBeNull,false,relativeNullablePos)
     | Or(nodes, info) ->
         let pendingNullables =
-            nodes |> chooseV (tryGetPendingNullable canBeNull) |> Seq.toArray
+            nodes
+            |> Seq.map (tryGetPendingNullable canBeNull)
+            |> Seq.where (fun v -> v <> baseCase)
+            |> Seq.toArray
         match pendingNullables with
-        | [||] -> ValueNone
+        | [||] -> (false,true,0)
+        | [| single |] -> single
         | atleastOne ->
             let h = atleastOne[0]
             match Seq.forall (fun v -> v = h) atleastOne with
-            | true -> ValueSome h
-            | _ -> ValueNone
+            | true -> h
+            | _ ->
+                failwith "todo: complex anchor conditions"
     | _ ->
-        ValueNone
+        (false,true,0)
 
 let rec nodeWithoutLookbackPrefix
     (node:RegexNode<_>) =
