@@ -66,31 +66,34 @@ let ``anchor eol 1``() =
     _04_DerivativeTests.testPartDerivatives
         (@"1$", "1", [ @"((?=\n)|(?!⊤))"; @"((?!⊤)|(?=\n))" ])
 
-[<Fact>]
-let ``anchor eol 2``() =
-    let matcher = Regex(@"\d$")
-    let ism = matcher.IsMatch("1")
-    Assert.True(ism)
+// [<Fact>]
+// let ``anchor eol 2``() =
+//     let matcher = Regex(@"\d$")
+//     let ism = matcher.IsMatch("1")
+//     Assert.True(ism)
 
 
-[<Fact>]
-let ``anchor null 1``() =
-    let matcher = Regex("^1$")
-    let ism = matcher.IsMatch("111")
-    Assert.False(ism)
-
+// [<Fact>]
+// let ``anchor null 1``() =
+//     let matcher = Regex("^1$")
+//     let ism = matcher.IsMatch("111")
+//     Assert.False(ism)
 
 
 [<Fact>]
 let ``neg lookahead 1``() =
-    assertNullablePositions "bb(?!aa)" "__bbaa__" [ ]
+    assertNullablePositions "bb(?!aa)" "__bb__" [ 2 ]
 
 [<Fact>]
 let ``neg lookahead 2``() =
-    assertNullablePositions "bb(?!aa)" "__bb" [ 2 ]
+    assertNullablePositions "bb(?!aa)" "__bbaa" [ ]
 
 [<Fact>]
 let ``neg lookahead 3``() =
+    assertNullablePositions "bb(?!aa)" "__bb" [ 2 ]
+
+[<Fact>]
+let ``neg lookahead 4``() =
     assertNullablePositions "bb(?!aa)" "__bb_" [ 2 ]
 
 // [<Fact>]

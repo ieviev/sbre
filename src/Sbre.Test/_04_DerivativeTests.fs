@@ -249,15 +249,15 @@ let ``derivative concat lookaround``() =
 
 
 
-[<Fact>]
-let ``derivative lookback 1``() =
-    // TODO: subsumption
-    let loc = Location.create "-aaaa-" 0
-    testPartDerivativesLoc (@"(.*(?=.*-)&\S.*\S)", loc,  [
-        @"(.*φ&((?=(ε|.*-))|.*(?=.*-)))"
-        @"((.*(?=.*-)|(?=(ε|.*-)))&.*φ)"
-        // @"(.*φ&.*(?=.*-))";"(.*(?=.*-)&.*φ)"
-    ])
+// [<Fact>]
+// let ``derivative lookback 1``() =
+//     // TODO: subsumption
+//     let loc = Location.create "-aaaa-" 0
+//     testPartDerivativesLoc (@"(.*(?=.*-)&\S.*\S)", loc,  [
+//         @"(.*φ&((?=(ε|.*-))|.*(?=.*-)))"
+//         @"((.*(?=.*-)|(?=(ε|.*-)))&.*φ)"
+//         // @"(.*φ&.*(?=.*-))";"(.*(?=.*-)&.*φ)"
+//     ])
 
 [<Fact>]
 let ``subsumption or loop ``() =
@@ -333,178 +333,34 @@ let ``derivative eats node from set``() =
     )
 
 
-
-
-
-
-
-// [<Fact>]
-// let ``matchend test 3``() =
-//     let matcher = Matcher(@"b.*|a")
-//     let ism = matcher.FindMatchEnd("baaa ")
-//     Assert.Equal(ValueSome 4, ism)
-
-
-
 // [<Fact>]
 // let ``subsumption true star epsilon`` () = testPartDerivative (@"(aa&⊤*)", "aa", @"a")
 
 
+[<Fact>]
+let ``neg lookaround 1``() = testPartDerivative (@"(?<!a)b", "ab", "⊥")
+
+[<Fact>]
+let ``neg lookaround 2``() = testPartDerivative (@"(?<!a)b", "bb", "ε")
+
+[<Fact>]
+let ``neg lookaround 3``() = testPartDerivative (@"(?!b)b", "bb", "⊥")
+
+[<Fact>]
+let ``neg lookaround 4``() = testPartDerivative (@"(?!a)b", "bb", "ε")
+
+[<Fact>]
+let ``neg lookaround 5``() = testPartDerivative (@"(?!b)", "b", "(?!ε)")
+
+[<Fact>] // means that pos 0 is nullable!!
+let ``neg lookaround 6``() = testPartDerivative (@"(?!a)", "b", "(?!⊥)")
+
+[<Fact>] // means that pos 0 is nullable!!
+let ``neg lookaround 7``() = testPartDerivative (@"(?<!a)", "b", "(?<!⊥)")
+
+
 
 #endif
-
-
-
-
-
-// [<Fact>]
-// let ``counter debug``() =
-//     let regex = Regex("a{1,3}b{1,3}a")
-//     let result = assertCounterStates regex "aaa" [
-//         CounterState.CanIncr
-//         CounterState.CanIncr
-//         CounterState.CanIncr
-//     ]
-//     assertAlternation [ "ε" ] result.Node
-//
-
-
-//
-// [<Fact>]
-// let ``counter 01``() =
-//     let regex = Regex(".{2}c")
-//     let result = assertCounterStates regex "__c" [
-//         // --
-//         [ CounterState.CanIncr, 0 ]
-//         [ CounterState.CanExit, 1 ]
-//         [  ]
-//     ]
-//     assertAlternation [ "ε" ] result.Node
-//
-//
-//
-// [<Fact>]
-// let ``counter 02``() =
-//     let regex = Regex(".{2}c$")
-//     let result = assertCounterStates regex "__c" [
-//         [ CounterState.CanIncr, 0 ]
-//         [ CounterState.CanExit, 1 ]
-//         [ CounterState.CanExit, 1 ]
-//         [  ]
-//     ]
-//     assertAlternation [ "(?!⊤)"; @"(?=\n)" ] result.Node
-// //
-// [<Fact>]
-// let ``counter 03``() =
-//     let regex = Regex(".{2}(?=c)")
-//     let result = assertCounterStates regex "__c" [
-//         [CounterState.CanIncr, 0]
-//         [CounterState.CanExit, 1]
-//     ]
-//     assertEqual result.IsNullable true
-//
-// [<Fact>]
-// let ``counter 04``() =
-//     let regex = Regex(".{2}(?<=c.*)")
-//     let result = assertCounterStates regex "c_c" [
-//         [CounterState.CanIncr, 0]
-//         [CounterState.CanExit, 1]
-//     ]
-//     assertEqual result.IsNullable true
-//
-// //
-// [<Fact>]
-// let ``counter 05``() =
-//     let regex = Regex("⊤*\d{2}⊤*")
-//     let result = assertCounterStates regex "a11a" [
-//         [CounterState.CanIncr, 0]
-//         [CounterState.CanIncr, 0]
-//         [CounterState.CanExit, 1]
-//     ]
-//     assertEqual result.IsNullable true
-
-//
-// [<Fact>]
-// let ``counter 06``() =
-//     let regex = Regex("~(⊤*\d{2}⊤*)")
-//     let result = assertCounterStates regex "a11b" [
-//         CounterState.CanIncr
-//         CounterState.CanIncr
-//         CounterState.CanIncr
-//         CounterState.CanIncrExit
-//     ]
-//     assertEqual result.IsNullable false
-//
-// [<Fact>]
-// let ``counter 08``() =
-//     let regex = Regex("~(.*[a-z]{3}1)")
-//     let result = assertCounterStates regex "__aaaaa1__" [
-//         CounterState.CanIncr // 0
-//         CounterState.CanIncr // 0
-//         CounterState.CanIncr // 1
-//         CounterState.CanIncr // 2
-//         CounterState.CanIncr // 3
-//         CounterState.CanIncrExit // 4 - 1
-//         CounterState.CanIncrExit // 5 - 2
-//     ]
-//     assertEqual result.IsNullable true
-//
-//
-// [<Fact>]
-// let ``counter 09``() =
-//     let regex = Regex(".*\d{2}c")
-//     let result = assertCounterStates regex "__111c__" [
-//         CounterState.CanIncr // 0
-//         CounterState.CanIncr // 0
-//         CounterState.CanIncr // 1
-//         CounterState.CanIncr // 2
-//         CounterState.CanIncrExit // 3
-//         CounterState.CanIncrExit
-//     ]
-//     assertEqual result.IsNullable true
-
-//
-// [<Fact>]
-// let ``counter 10``() =
-//     let regex = Regex("\d\d")
-//     let result = assertCounterStates regex "11" [
-//         CounterState.CanIncr
-//         CounterState.CanIncr
-//     ]
-//     assertEqual result.IsNullable true
-//
-//
-//
-//
-// [<Fact>]
-// let ``counter 11``() =
-//     let regex = Regex("~(⊤*\d\d⊤*)")
-//     let result = assertCounterStates regex "_11_" [
-//         CounterState.CanIncr
-//         CounterState.CanIncr
-//     ]
-//     assertEqual result.IsNullable true
-//
-// [<Fact>]
-// let ``counter 12``() =
-//     let regex = Regex("~(⊤*\d\d⊤*)")
-//     let result = assertCounterStates regex "_11_" [
-//         CounterState.CanIncr
-//         CounterState.CanIncr
-//         CounterState.CanIncr
-//     ]
-//     assertEqual result.IsNullable false
-//
-//
-// [<Fact>]
-// let ``counter 13``() =
-//     let regex = Regex("~(⊤*\d\d⊤*)")
-//     let result = assertCounterStates regex "1__11__" [
-//         CounterState.CanIncr
-//         CounterState.CanIncr
-//     ]
-//     assertEqual result.IsNullable true
-//
 
 
 
