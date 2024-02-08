@@ -49,7 +49,7 @@
     <PackageOutputPath>./nupkg</PackageOutputPath>
     <Authors>ieviev</Authors>
     <Title>$(ProjectName)</Title>
-    <Version>0.0.24</Version>
+    <Version>0.0.25</Version>
   </PropertyGroup>
   <ItemGroup>
     <!-- <Reference Include="RuntimeRegexCopy" Condition="'$(Configuration)'=='Release'">

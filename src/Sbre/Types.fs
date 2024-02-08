@@ -65,6 +65,7 @@ type RegexNodeFlags =
     | ContainsEpsilonFlag = 8uy
     | HasCounterFlag = 16uy
     | IsCounterFlag = 32uy
+    | IsImmediateLookaroundFlag = 64uy
 
 [<AutoOpen>]
 module RegexNodeFlagsExtensions =
@@ -75,6 +76,7 @@ module RegexNodeFlagsExtensions =
         member this.ContainsEpsilon = (this &&& RegexNodeFlags.ContainsEpsilonFlag) = RegexNodeFlags.ContainsEpsilonFlag
         member this.HasCounter = (this &&& RegexNodeFlags.HasCounterFlag) = RegexNodeFlags.HasCounterFlag
         member this.IsCounter = (this &&& RegexNodeFlags.IsCounterFlag) = RegexNodeFlags.IsCounterFlag
+        member this.IsImmediateLookaround = (this &&& RegexNodeFlags.IsImmediateLookaroundFlag) = RegexNodeFlags.IsImmediateLookaroundFlag
 
 //
 [<Flags>]
@@ -91,6 +93,7 @@ type RegexStateFlags =
     | ContainsInitialFlag = 256
     | AlwaysNullableFlag = 512
     | ActiveBranchOptimizations = 1024
+    | IsRelativeNullableFlag = 2048
     // todo: fixed length
     // todo: can be subsumed
     // todo: singleton loop
@@ -114,6 +117,8 @@ module RegexStateFlagsExtensions =
         member this.CanSkip = this &&& (RegexStateFlags.CanSkipFlag ||| RegexStateFlags.InitialFlag) = RegexStateFlags.CanSkipFlag
         [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
         member this.HasPrefix = this &&& RegexStateFlags.HasPrefixFlag = RegexStateFlags.HasPrefixFlag
+        [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+        member this.IsRelativeNullable = this &&& RegexStateFlags.IsRelativeNullableFlag = RegexStateFlags.IsRelativeNullableFlag
         // [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
         // member this.HasCounter = this &&& RegexStateFlags.HasCounterFlag = RegexStateFlags.HasCounterFlag
         [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
@@ -185,7 +190,7 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
         node: RegexNode<'tset> *  // anchors
         lookBack: bool *
         negate: bool *
-        pendingNullable : int
+        relativeNullablePos : int
 
     // optimized cases
 
@@ -395,6 +400,16 @@ module Common =
         while found.IsNone  && e.MoveNext() do
             found <- f e.Current
         found
+
+    let inline chooseV ([<InlineIfLambda>] f) (coll: seq<_>) =
+        seq {
+            use mutable e = coll.GetEnumerator()
+            while e.MoveNext() do
+                match f e.Current with
+                | ValueSome v -> yield v
+                | _ -> ()
+        }
+
 
 
 

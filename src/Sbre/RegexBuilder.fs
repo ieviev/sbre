@@ -958,7 +958,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
         match _lookaroundCache.TryGetValue(key) with
         | true, v -> v
         | _ ->
-            let node = LookAround(body, lookBack = lookBack, negate = negate, pendingNullable=pendingNullable)
+            let node = LookAround(body, lookBack = lookBack, negate = negate, relativeNullablePos=pendingNullable)
             _lookaroundCache.Add(key, node)
             node
 

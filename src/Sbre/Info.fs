@@ -87,30 +87,27 @@ let (|ContainsLookaround|_|)(x: RegexNodeInfo<'t>) =
 module rec Flags =
     let rec inferLoop(R, lower, upper) =
 
-// todo:
-#if NO_COUNTERS
-        let hasCounterFlag = RegexNodeFlags.None
-#else
-        let innerFlags = inferNodeOptimized R
-        let counterFlags =
-            match R, upper with
-            // TODO: more monadic regexes
-            // decide counter threshold
-            | (Singleton _, upper) when
-                upper <> Int32.MaxValue && upper > 1 ->
-                // Flag.HasCounterFlag ||| Flag.IsCounterFlag
-                Flag.None
-            | _ ->
-                if innerFlags.HasCounter then Flag.HasCounterFlag else
-                Flag.None
-#endif
+        // counter flags
+        // let innerFlags = inferNodeOptimized R
+        // let counterFlags =
+        //     match R, upper with
+        //     // TODO: more monadic regexes
+        //     // decide counter threshold
+        //     | (Singleton _, upper) when
+        //         upper <> Int32.MaxValue && upper > 1 ->
+        //         // Flag.HasCounterFlag ||| Flag.IsCounterFlag
+        //         Flag.None
+        //     | _ ->
+        //         if innerFlags.HasCounter then Flag.HasCounterFlag else
+        //         Flag.None
+
 
         let nullableLoopFlag =
             match lower with
             | 0 -> RegexNodeFlags.CanBeNullableFlag ||| RegexNodeFlags.IsAlwaysNullableFlag
             | _ -> RegexNodeFlags.None
 
-        inferNodeOptimized R ||| nullableLoopFlag ||| counterFlags
+        inferNodeOptimized R ||| nullableLoopFlag
 
     let inferAnd(xs: seq<RegexNode<'t>>) : RegexNodeFlags =
         xs

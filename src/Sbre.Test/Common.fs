@@ -307,6 +307,17 @@ let assertNullablePositions (pattern:string) (input:string) (expected) =
     Assert.Equal<int>(expected, result.AsArray())
 
 
+let getDfaMatchEnd (pattern:string) (input:string) (startPos:int)  =
+    let regex = Regex(pattern)
+    let matcher = regex.TSetMatcher
+    let mutable loc = Location.createReversedSpan (input.AsSpan())
+    let R_id = matcher.GetOrCreateState(matcher.RawPattern).Id
+    let matchStart = startPos
+    loc.Position <- matchStart
+    loc.Reversed <- false
+    let endPos = matcher.DfaEndPosition(&loc,R_id)
+    endPos
+
 let getFirstLLmatch (pattern:string) (input:string) =
     let regex = Regex(pattern)
     let matcher = regex.TSetMatcher
@@ -369,6 +380,12 @@ let assertAllLLmatchTexts (pattern:string) (input:string) (expected) =
         getAllLLmatches pattern input
         |> Seq.map _.GetText(input)
     Assert.Equal<string>(expected, result)
+
+let assertMatchEnd (pattern:string) (input:string) (startPos:int) (expectedEndPos:int)  =
+    let endPos = getDfaMatchEnd pattern input startPos
+    assertEqual expectedEndPos endPos
+
+
 
 let assertNodeOneOf (node:RegexNode<_>) (options:string seq) =
     Assert.Contains(node.ToString() , options)

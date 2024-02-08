@@ -332,3 +332,34 @@ let tryGetLimitedSkip (nodeToId:RegexNode<TSet> -> int) (getStartset:RegexNode<_
                 )
         | _ -> None
     | _ -> None
+
+
+let rec tryGetPendingNullable
+    (canBeNull:RegexNode<_> -> bool)
+    (node:RegexNode<_>)
+        =
+    match node with
+    | LookAround(lookBody, lookBack, negate, relativeNullablePos) ->
+        if lookBack = false && canBeNull lookBody then
+            ValueSome relativeNullablePos
+        else ValueNone
+    | Or(nodes, info) ->
+        let pendingNullables =
+            nodes |> chooseV (tryGetPendingNullable canBeNull) |> Seq.toArray
+        match pendingNullables with
+        | [||] -> ValueNone
+        | atleastOne ->
+            let h = atleastOne[0]
+            match Seq.forall (fun v -> v = h) atleastOne with
+            | true -> ValueSome h
+            | _ -> ValueNone
+    | _ ->
+        ValueNone
+
+let rec nodeWithoutLookbackPrefix
+    (node:RegexNode<_>) =
+    match node with
+    | Concat(head=LookAround(lookBack = true); tail=tail) ->
+        nodeWithoutLookbackPrefix tail
+    | _ ->
+        node
