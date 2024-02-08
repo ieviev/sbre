@@ -49,7 +49,6 @@ let der1rawlocs (reg: Regex) (location: Location) =
     let matcher = reg.TSetMatcher
     let cache = matcher.Cache
     let node = matcher.RawPattern
-    let state = RegexState(cache.NumOfMinterms())
     let der1 = matcher.CreateDerivative  (  &location, cache.MintermForLocation(location), node)
     cache.PrettyPrintNode der1
 

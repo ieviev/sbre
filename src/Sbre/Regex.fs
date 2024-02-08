@@ -714,7 +714,19 @@ type RegexMatcher<'t when 't: struct>
                 //         if refEq R'S _cache.False then S' else
                 //         _cache.Builder.mkOr ( seq { R'S ;S' } )
             | false ->
-                failwith "todo Lookahead"
+                // pending lookahead
+                let remainingLookaround = this.CreateDerivative (&loc, loc_pred, lookBody)
+                let pendingLookaround = _cache.Builder.mkLookaround(remainingLookaround, lookBack, negate, pendingNullable + 1)
+                if refEq _cache.False remainingLookaround then
+                    _cache.False
+                else
+                    let S' = this.CreateDerivative (&loc, loc_pred, tail)
+                    match this.IsNullable(&loc, remainingLookaround) with
+                    | true ->
+                        S'
+                    | false ->
+                        let R'S' = _cache.Builder.mkConcat2 (pendingLookaround, S')
+                        R'S'
         | _ ->
             failwith "todo lookaround der"
 
