@@ -94,8 +94,9 @@ type RegexStateFlags =
     | ContainsInitialFlag = 256
     | AlwaysNullableFlag = 512
     | ActiveBranchOptimizations = 1024
-    | IsRelativeNullableFlag = 2048
+    | IsPendingNullableFlag = 2048
     | IsRelativeNegatedNullableFlag = 4096
+    | CanHaveMultipleNullables = 8192
     // todo: fixed length
     // todo: can be subsumed
     // todo: singleton loop
@@ -120,7 +121,7 @@ module RegexStateFlagsExtensions =
         [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
         member this.HasPrefix = this &&& RegexStateFlags.HasPrefixFlag = RegexStateFlags.HasPrefixFlag
         [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-        member this.IsRelativeNullable = this &&& RegexStateFlags.IsRelativeNullableFlag = RegexStateFlags.IsRelativeNullableFlag
+        member this.IsRelativeNullable = this &&& RegexStateFlags.IsPendingNullableFlag = RegexStateFlags.IsPendingNullableFlag
         // [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
         // member this.HasCounter = this &&& RegexStateFlags.HasCounterFlag = RegexStateFlags.HasCounterFlag
         [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
@@ -196,7 +197,7 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
         node: RegexNode<'tset> *  // anchors
         lookBack: bool *
         negate: bool *
-        relativeNullablePos : int
+        pendingNullables : (int * int list)
     | Anchor of RegexAnchor
 
     // optimized cases
@@ -227,20 +228,14 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
         | Singleton v -> tostr v
         | Or(items, _) ->
             let setItems: string list =
-                if not (obj.ReferenceEquals(items, null)) then
-                    items |> Seq.map (fun v ->  v.ToString() ) |> Seq.toList
-                else
-                    []
-
+                items |> Seq.map (_.ToString() ) |> Seq.toList
             let combinedList = setItems
 
             combinedList |> String.concat "|" |> paren
         | And(items, _) ->
             let setItems: string list =
-                if not (obj.ReferenceEquals(items, null)) then
-                    items |> Seq.map string |> Seq.toList
-                else
-                    []
+                items |> Seq.map string |> Seq.toList
+
 
             setItems |> String.concat "&" |> paren
         | Not(items, info) ->
@@ -267,9 +262,11 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
 
 
 
-        | LookAround(body, lookBack, negate, _) ->
+        | LookAround(body, lookBack, negate, (rel,pending)) ->
             let inner = body.ToString()
-
+            let pending =
+                if pending.IsEmpty then ""
+                else $"%A{pending}"
             match lookBack, negate with
             // | true, true when this.isFull body.Head -> "\\A"
             // | false, true when this.isFull body.Head -> "\\z"
@@ -277,6 +274,7 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
             | false, false -> $"(?={inner})"
             | true, true -> $"(?<!{inner})"
             | true, false -> $"(?<={inner})"
+            + pending
 
         | Concat(h, t, info) ->
             let body = h.ToString() + t.ToString()

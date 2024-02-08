@@ -190,14 +190,15 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 LanguagePrimitives.PhysicalHash x ^^^ LanguagePrimitives.PhysicalHash y
         }
 
-    let _lookaroundComparer: IEqualityComparer<struct (RegexNode<'t> * bool * bool * int)> =
-        { new IEqualityComparer<struct (RegexNode<'t> * bool * bool * int)> with
-            member this.Equals(struct (x1, y1, z1, k1), struct (x2, y2, z2, k2)) =
+    let _lookaroundComparer: IEqualityComparer<struct (RegexNode<'t> * bool * bool * int * int list)> =
+        { new IEqualityComparer<struct (RegexNode<'t> * bool * bool * int * int list)> with
+            member this.Equals(struct (x1, y1, z1, r1, k1), struct (x2, y2, z2, r2, k2)) =
                 y1 = y2 && z1 = z2 && k1 = k2
                 && refEq x1 x2
 
-            member this.GetHashCode(struct (x, y, z, k)) =
-                LanguagePrimitives.PhysicalHash x //^^^ LanguagePrimitives.PhysicalHash y
+            member this.GetHashCode(struct (x, y, z, r, k)) =
+                LanguagePrimitives.PhysicalHash x ^^^ r
+                //^^^ LanguagePrimitives.PhysicalHash y
         }
 
 
@@ -245,7 +246,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
         Dictionary(_orCacheComparer)
 
     let _notCache: Dictionary<RegexNode< 't >, RegexNode< 't >> = Dictionary(_refComparer)
-    let _lookaroundCache: Dictionary<struct (RegexNode< 't >*bool*bool*int), RegexNode< 't >> = Dictionary(_lookaroundComparer)
+    let _lookaroundCache: Dictionary<struct (RegexNode< 't >*bool*bool*int*int list), RegexNode< 't >> = Dictionary(_lookaroundComparer)
 
     let _andCache: Dictionary<RegexNode<'t>[], RegexNode<'t>> = Dictionary(_andCacheComparer)
 
@@ -957,12 +958,12 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
 
 
     member this.mkLookaround(body: RegexNode< 't >, lookBack:bool, negate:bool, ?pendingNullable) : RegexNode< 't > =
-        let pendingNullable = defaultArg pendingNullable 0
-        let key = struct (body, lookBack, negate, pendingNullable)
+        let (rel,pending) = defaultArg pendingNullable (0,[])
+        let key = struct (body, lookBack, negate, rel,pending)
         match _lookaroundCache.TryGetValue(key) with
         | true, v -> v
         | _ ->
-            let node = LookAround(body, lookBack = lookBack, negate = negate, relativeNullablePos=pendingNullable)
+            let node = LookAround(body, lookBack = lookBack, negate = negate, pendingNullables=(rel,pending))
             _lookaroundCache.Add(key, node)
             node
 

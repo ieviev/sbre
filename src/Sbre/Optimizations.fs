@@ -317,38 +317,27 @@ let tryGetLimitedSkip (nodeToId:RegexNode<TSet> -> int) (getStartset:RegexNode<_
     | _ -> None
 
 
-let rec tryGetPendingNullable
+let rec collectPendingNullables
     (canBeNull:RegexNode<_> -> bool)
-    (node:RegexNode<_>): struct(bool * bool * int) // canBeNull, isPositive, relativePos,
+    (node:RegexNode<_>): Set<int> // canBeNull, isPositive, relativePos,
         =
-    let baseCase = struct(false,true,0)
     match node with
     // pos. lookahead
-    | LookAround(node=lookBody; lookBack=false; negate=false; relativeNullablePos=relativeNullablePos) ->
+    | LookAround(node=lookBody; lookBack=false; negate=false; pendingNullables=rel,relativeNullablePos) ->
         let canBeNull = canBeNull lookBody
-        (canBeNull,true,relativeNullablePos)
-            // struct(bool * bool * int)
-    // neg. lookahead
-    | LookAround(node=lookBody; lookBack=false; negate=true; relativeNullablePos=relativeNullablePos) ->
-        let canBeNull = canBeNull lookBody
-        (canBeNull,false,relativeNullablePos)
+        if canBeNull && not relativeNullablePos.IsEmpty then
+            relativeNullablePos
+            |> Seq.map (fun v -> rel + v ) |> set
+            // |> Seq.map (fun v -> rel - v ) |> set
+            // |> Seq.map (fun v ->  v - rel ) |> set
+            // |> Seq.map (fun v -> rel - v) |> set
+        else Set.empty
     | Or(nodes, info) ->
         let pendingNullables =
             nodes
-            |> Seq.map (tryGetPendingNullable canBeNull)
-            |> Seq.where (fun v -> v <> baseCase)
-            |> Seq.toArray
-        match pendingNullables with
-        | [||] -> (false,true,0)
-        | [| single |] -> single
-        | atleastOne ->
-            let h = atleastOne[0]
-            match Seq.forall (fun v -> v = h) atleastOne with
-            | true -> h
-            | _ ->
-                failwith "todo: complex anchor conditions"
-    | _ ->
-        (false,true,0)
+            |> Seq.collect (collectPendingNullables canBeNull)
+        Set.ofSeq pendingNullables
+    | _ -> Set.empty
 
 let rec nodeWithoutLookbackPrefix
     (node:RegexNode<_>) =
@@ -357,3 +346,24 @@ let rec nodeWithoutLookbackPrefix
         nodeWithoutLookbackPrefix tail
     | _ ->
         node
+
+
+let rec canHaveMultipleNullables
+    (node:RegexNode<_>)
+        =
+    match node with
+    // ignore lookarounds
+    | LookAround(_) -> false
+    | Anchor _ -> true
+    | Epsilon -> true
+    | Not(regexNode, regexNodeInfo) -> regexNodeInfo.CanBeNullable
+    | Or(nodes, info) ->
+        nodes
+        |> Seq.exists canHaveMultipleNullables
+    | And(nodes, regexNodeInfo) ->
+        nodes
+        |> Seq.forall canHaveMultipleNullables
+    | Concat(head, tail, info) ->
+        canHaveMultipleNullables head && canHaveMultipleNullables tail
+    | Singleton foo -> false
+    | Loop(node, low, up, info) -> info.CanBeNullable

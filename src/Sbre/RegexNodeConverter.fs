@@ -30,29 +30,31 @@ let rewriteNegativeLookaround (b:RegexBuilder<BDD>) (node:RegexNode<BDD>) : Rege
                     b.mkConcat([b.uniques._trueStar;regexNode;b.uniques._trueStar])
                 let rewrittenCompl =
                     b.mkOr([
-                        // earlyEnd // either end of string
+                        earlyEnd // either end of string
                         b.mkAnd([
                             requiredDistance
                             b.mkNot(rewrittenNode)
                         ])
-                        // or NOT end of string & pattern
-                        // b.mkNot(b.mkOr([b.mkConcat2(minDistance,b.uniques._trueStar);rewrittenNode]))
-                        // b.mkNot(b.mkOr([b.mkConcat2(minDistance,b.uniques._trueStar);rewrittenNode]))
-                        // b.mkNot(b.mkOr([rewrittenNode]))
                     ])
                 let rewrittenLookaround =
-                    b.mkLookaround( rewrittenCompl, false, false, 0 )
+                    b.mkLookaround( rewrittenCompl, false, false )
                 rewrittenLookaround
             | true ->
-                // (?<!aa)bb => (?<=~(\a⊤{0,1}|aa))bb
-                let minLengthSpan =
-                    b.mkConcat2(Anchor Begin, b.mkLoop(b.uniques._true,0,minLength - 1))
+                let earlyStart = b.mkConcat2(Anchor Begin,b.mkLoop(b.uniques._true,0,minLength - 1))
+                let requiredDistance =
+                    b.mkLoop(b.uniques._true,minLength,minLength)
                 let rewrittenNode =
-                    b.mkConcat2(regexNode,b.uniques._trueStar)
+                    b.mkConcat([b.uniques._trueStar;regexNode;b.uniques._trueStar])
                 let rewrittenCompl =
-                    b.mkNot(b.mkOr([minLengthSpan;rewrittenNode]))
+                    b.mkOr([
+                        earlyStart // either end of string
+                        b.mkAnd([
+                            requiredDistance
+                            b.mkNot(rewrittenNode)
+                        ])
+                    ])
                 let rewrittenLookaround =
-                    b.mkLookaround( rewrittenCompl, true, false, 0 )
+                    b.mkLookaround( rewrittenCompl, true, false )
                 rewrittenLookaround
     | _ -> failwith "TODO: could not rewrite lookaround"
 

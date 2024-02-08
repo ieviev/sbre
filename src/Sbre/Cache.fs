@@ -594,71 +594,7 @@ type RegexCache< 't
 #if DEBUG
     member cache.PrettyPrintMinterm(xs: _) : string = cache.Solver.PrettyPrint(xs, _charsetSolver)
     member this.PrettyPrintNode(node: RegexNode<TSet>) : string =
-        let display(nodes: RegexNode<TSet>) = this.PrettyPrintNode(nodes)
-        let paren str = $"({str})"
-
-        let tostr(v: TSet) =
-                if v = _solver.Full then
-                    "⊤"
-                elif _solver.IsEmpty(v) then
-                    "⊥"
-                else
-                    match _solver.PrettyPrint(v, debugcharSetSolver) with
-                    | @"[^\n]" -> "."
-                    | c when c.Length > 12 -> "φ" // dont expand massive sets
-                    | c -> c
-
-        match node with
-        | Singleton v -> tostr v
-        | Or(items, _) ->
-            let setItems: string list =
-                if not (obj.ReferenceEquals(items, null)) then
-                    items |> Seq.map (fun v -> this.PrettyPrintNode v ) |> Seq.toList
-                else
-                    []
-
-            let combinedList = setItems
-
-            combinedList |> String.concat "|" |> paren
-        | And(items, _) ->
-            let setItems: string list =
-                if not (obj.ReferenceEquals(items, null)) then
-                    items |> Seq.map display |> Seq.toList
-                else
-                    []
-
-            setItems |> String.concat "&" |> paren
-        | Not(items, _) ->
-            let inner = this.PrettyPrintNode items
-
-            $"~({inner})"
-        | Loop(body, lower, upper, _) ->
-            let inner = this.PrettyPrintNode body
-            let isStar = lower = 0 && upper = Int32.MaxValue
-            let inner = $"{inner}"
-
-            let loopCount =
-                if isStar then "*"
-                elif lower = 1 && upper = Int32.MaxValue then "+"
-                elif lower = 0 && upper = 1 then "?"
-                else $"{{{lower},{upper}}}"
-
-            match isStar with
-            | true -> $"{inner}*"
-            | false -> inner + loopCount
-
-        | LookAround(body, lookBack, negate, pendingNullable) ->
-            let inner = this.PrettyPrintNode body
-            match lookBack, negate with
-            // | true, true when this.isFull body.Head -> "\\A"
-            // | false, true when this.isFull body.Head -> "\\z"
-            | false, true -> $"(?!{inner})"
-            | false, false -> $"(?={inner})"
-            | true, true -> $"(?<!{inner})"
-            | true, false -> $"(?<={inner})"
-
-        | Concat(h, t, _) -> this.PrettyPrintNode h + this.PrettyPrintNode t
-        | Epsilon -> "ε"
-        | Anchor _ -> node.ToString()
+        Debug.debuggerSolver <- Some this.Solver
+        node.ToString()
 #endif
     member this.OptimizedUniques = _optimizedUniques
