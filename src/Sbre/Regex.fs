@@ -721,6 +721,8 @@ type RegexMatcher<'t when 't: struct>
                         _cache.Builder.mkLookaround(
                             updatedLookaroundBody, false, false, (updatedRel, updatedNullables)
                     )
+                    // S'
+                    // todo: ??
                     _cache.Builder.mkOr([
                         R'S
                         S'
@@ -764,9 +766,12 @@ type RegexMatcher<'t when 't: struct>
 
                     let bodyIsNullable = this.IsNullable(&loc, remainingLookaround)
                     // add pending nullable only if hasnt matched yet
+                    // TODO : complex case
                     let updatedPositions =
                         if bodyIsNullable then relativeNullablePos
-                        else rel :: relativeNullablePos
+                        else
+                            // rel :: relativeNullablePos
+                            relativeNullablePos
                     let pendingLookaround = _cache.Builder.mkLookaround(
                         remainingLookaround, lookBack, false, ((rel+1),updatedPositions))
                     if refEq _cache.False remainingLookaround then

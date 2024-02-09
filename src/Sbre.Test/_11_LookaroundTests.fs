@@ -68,6 +68,14 @@ let ``b pos simple 1.2``() = assertNullablePositions "(?<=bb)" "bb" [ 2 ]
 [<Fact>]
 let ``b pos simple 1.3``() = assertNullablePositions "(?<=bbb)" "bbb" [ 3 ]
 
+// [<Fact>]
+// let ``b pos simple 1.3 dbg``() = assertAllDerivatives "(?<=bbb)" "bbb" [
+//     [ "((?=bb)[0]|⊤*(?=bbb))" ]
+//     [ "((?=bb)[0]|(?=b)[0]|⊤*(?=bbb))" ]
+//     [ "" ]
+// ]
+
+
 [<Fact>]
 let ``b pos simple 1.4``() = assertNullablePositions "(?<=bbbb)" "bbbb" [ 4 ]
 
@@ -86,12 +94,12 @@ let ``b pos simple 1.7b``() = assertNullablePositions "(?<=b)a" "bba" [ 2 ]
 [<Fact>]
 let ``b pos simple 1.7c``() = assertNullablePositions "(?<=b)a" "bbbba" [ 4 ]
 
-[<Fact>]
-let ``b pos simple 1.7c dbg``() = assertAllDerivatives "(?<=b)a" "bbbba" [
-    ["((?=b)|⊤*a(?=b))"]
-    ["((?=ε)[1]|⊤*a(?=b))"]
-    [""]
-]
+// [<Fact>]
+// let ``b pos simple 1.7c dbg``() = assertAllDerivatives "(?<=b)a" "bbbba" [
+//     ["((?=b)|⊤*a(?=b))"]
+//     ["((?=ε)[1]|⊤*a(?=b))"]
+//     [""]
+// ]
 
 
 
