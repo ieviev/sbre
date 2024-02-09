@@ -262,7 +262,45 @@ let ``f wordborder constraint 1.1e``() =
     assertNullablePositions @"(?<=a.*)(\bx\b)(?=.*c)" "a xx c" []
 
 
-//"b"
+[<Fact>]
+let ``f wordborder constraint 1.2a``() =
+    assertNullablePositions @"(?<=\W)hello(?=\W)" " hello " [ 1 ]
+
+[<Fact>]
+let ``f wordborder constraint 1.2b``() =
+    assertNullablePositions @"(?<=\W)hello(?=\W)" " helloworld " [ ]
+
+let bibtexEntry =
+    @"@article{de2000thyroid,
+  title={Thyroid cancer in French Polynesia between 1985 and 1995: influence of atmospheric nuclear bomb tests performed at Mururoa and Fangataufa between 1966 and 1974},
+  author={De Vathaire, Florent and Le Vu, B{\'e}atrice and Challeton-de Vathaire, C{\'e}cile},
+  journal={Cancer Causes \& Control},
+  volume={11},
+  number={1},
+  pages={59--63},
+  year={2000},
+  publisher={Springer}
+}"
+
+
+[<Fact>]
+let ``g bibtex extraction 1.1``() =
+    assertAllLLmatchTexts @"(?<=or=\{.*)\b(~(.*and.*)&\S[\w-{}\\' ,]+\S)\b(?=.*\},)" bibtexEntry [
+        "De Vathaire, Florent"; "Le Vu, B{\\'e}atrice"; "Challeton-de Vathaire, C{\\'e}cile"
+    ]
+
+[<Fact>]
+let ``g bibtex extraction 1.2``() =
+    assertAllLLmatchTexts @"(?<=or=(\{|.*\W))(~(.*and.*)&\S[\w-{}\\' ,]+\S)\b(?=.*\},)" bibtexEntry [
+        "De Vathaire, Florent"; "Le Vu, B{\\'e}atrice"; "Challeton-de Vathaire, C{\\'e}cile"
+    ]
+
+[<Fact>]
+let ``g bibtex extraction 1.3``() =
+    assertAllLLmatchTexts @"(?<=or=(\{|.*\W))(~(.*and.*)&\S[\w-{}\\' ,]+\w)(?=(\W.*|)\},)" bibtexEntry [
+        "De Vathaire, Florent"; "Le Vu, B{\\'e}atrice"; "Challeton-de Vathaire, C{\\'e}cile"
+    ]
+
 
 
 //

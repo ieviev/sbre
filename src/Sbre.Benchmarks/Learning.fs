@@ -64,8 +64,20 @@ type Learning3() =
     inherit Jobs.TestSbreAllPatternsMatchOnly(
         [
             // @"(?<=(\s\s|e\s|n\s).*).*(?=.*(\n\n|\.\n|,\s|\s\())&(?<=(\s\s|e\s|n\s)|[a-z,\)]?\s(\s\n|\s\s)?).*&.*(?=(\n\n|\.\n|,\s|\s\()|.{2})&\b.*\b"
-            @"(?<=author=\{).+(?=.*\},)"
+            """(?<=or=\{.*)\b(~(.*and.*)&\S[\w-{}\\' ,]+\S)\b(?=.*\},)"""
         ],
         bibtexEntry
     )
+
+[<BenchmarkDotNet.Attributes.MemoryDiagnoser>]
+[<ShortRunJob>]
+type Learning4() =
+    inherit Jobs.TestSbreAllPatternsMatchOnly(
+        [
+            // @"(?<=(\s\s|e\s|n\s).*).*(?=.*(\n\n|\.\n|,\s|\s\())&(?<=(\s\s|e\s|n\s)|[a-z,\)]?\s(\s\n|\s\s)?).*&.*(?=(\n\n|\.\n|,\s|\s\()|.{2})&\b.*\b"
+            @"(?<=or=(\{|.*\W))(~(.*and.*)&\S[\w-{}\\' ,]+\w)(?=(\W.*|)\},)"
+        ],
+        bibtexEntry
+    )
+
 

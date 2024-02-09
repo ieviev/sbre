@@ -78,6 +78,7 @@ let main argv =
     | "learning1" -> BenchmarkRunner.Run(typeof<Learning.Learning1>,config) |> ignore
     | "learning2" -> BenchmarkRunner.Run(typeof<Learning.Learning2>,config) |> ignore
     | "learning3" -> BenchmarkRunner.Run(typeof<Learning.Learning3>,config) |> ignore
+    | "learning4" -> BenchmarkRunner.Run(typeof<Learning.Learning4>,config) |> ignore
     // ---
     | "outer-none" -> BenchmarkRunner.Run(typeof<ParagraphOuter.None1>,config) |> ignore
     | "outer-nonb" -> BenchmarkRunner.Run(typeof<ParagraphOuter.NonBack1>,config) |> ignore

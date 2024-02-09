@@ -119,7 +119,7 @@ module RegexStateFlagsExtensions =
 
         [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
         member this.CannotBeCached = this &&& (
-            RegexStateFlags.ContainsLookaroundFlag |||
+            // RegexStateFlags.ContainsLookaroundFlag |||
             RegexStateFlags.DependsOnAnchor) <> RegexStateFlags.None
 
         [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
