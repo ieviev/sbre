@@ -58,6 +58,9 @@ let bibtexEntry =
   publisher={Springer}
 }"
 
+let allBibtexEntries =
+    System.IO.File.ReadAllText( __SOURCE_DIRECTORY__ + "/data/bibtexAuthors.txt")
+
 [<BenchmarkDotNet.Attributes.MemoryDiagnoser>]
 [<ShortRunJob>]
 type Learning3() =
@@ -77,7 +80,7 @@ type Learning4() =
             // @"(?<=(\s\s|e\s|n\s).*).*(?=.*(\n\n|\.\n|,\s|\s\())&(?<=(\s\s|e\s|n\s)|[a-z,\)]?\s(\s\n|\s\s)?).*&.*(?=(\n\n|\.\n|,\s|\s\()|.{2})&\b.*\b"
             @"(?<=or=(\{|.*\W))(~(.*and.*)&\S[\w-{}\\' ,]+\w)(?=(\W.*|)\},)"
         ],
-        bibtexEntry
+        allBibtexEntries
     )
 
 

@@ -1,0 +1,2215 @@
+
+@book{capp1979astrology,
+  title={Astrology and the popular press: English almanacs, 1500-1800},
+  author={Capp, Bernard Stuart and Capp, Bernard},
+  year={1979},
+  publisher={Faber}
+}
+
+
+
+@article{cunliffe1999rotavirus,
+  title={Rotavirus G and P types in children with acute diarrhea in Blantyre, Malawi, from 1997 to 1998: predominance of novel P [6] G8 strains},
+  author={Cunliffe, Nigel A and Gondwe, Jailosi S and Broadhead, Robin L and Molyneux, Malcolm E and Woods, Patricia A and Bresee, Joseph S and Glass, Roger I and Gentsch, Jon R and Hart, C Anthony},
+  journal={Journal of medical virology},
+  volume={57},
+  number={3},
+  pages={308--312},
+  year={1999},
+  publisher={Wiley Online Library}
+}
+
+
+
+@article{zlokovic1997cellular,
+  title={Cellular and molecular neurosurgery: Pathways from concept to reality-Part II: Vector systems and delivery methodologies for gene therapy of the central nervous system},
+  author={Zlokovic, Berislav V and Apuzzo, Michael LJ},
+  journal={Neurosurgery},
+  volume={40},
+  number={4},
+  pages={805--813},
+  year={1997},
+  publisher={LWW}
+}
+
+
+
+@article{davis1989user,
+  title={User acceptance of computer technology: a comparison of two theoretical models},
+  author={Davis, Fred D and Bagozzi, Richard P and Warshaw, Paul R},
+  journal={Management science},
+  volume={35},
+  number={8},
+  pages={982--1003},
+  year={1989},
+  publisher={INFORMS}
+}
+
+
+
+@article{tharin2007functional,
+  title={Functional brain mapping and its applications to neurosurgery},
+  author={Tharin, Suzanne and Golby, Alexandra},
+  journal={Neurosurgery},
+  volume={60},
+  number={4},
+  pages={185--202},
+  year={2007},
+  publisher={LWW}
+}
+
+
+
+@article{burns1996protective,
+  title={Protective effect of rotavirus VP6-specific IgA monoclonal antibodies that lack neutralizing activity},
+  author={Burns, John W and Siadat-Pajouh, Majid and Krishnaney, Ajit A and Greenberg, Harry B},
+  journal={Science},
+  volume={272},
+  number={5258},
+  pages={104--107},
+  year={1996},
+  publisher={American Association for the Advancement of Science}
+}
+
+
+
+@article{parashar2006rotavirus,
+  title={Rotavirus and severe childhood diarrhea},
+  author={Parashar, Umesh D and Gibson, Christopher J and Bresee, Joseph S and Glass, Roger I and others},
+  journal={Emerging infectious diseases},
+  volume={12},
+  number={2},
+  pages={304--306},
+  year={2006},
+  publisher={Centers for Disease Control and Prevention}
+}
+
+
+
+@article{kurucz1993atlas9,
+  title={ATLAS9 Stellar Atmosphere Programs and 2 km/s grid.},
+  author={Kurucz, Robert},
+  journal={ATLAS9 Stellar Atmosphere Programs and 2 km/s grid. Kurucz CD-ROM No. 13. Cambridge, Mass.: Smithsonian Astrophysical Observatory, 1993.},
+  volume={13},
+  year={1993}
+}
+
+
+
+@article{winter2000active,
+  title={Active tectonics and sismic hazard in Sundgau area},
+  author={Winter, Th and Niviere, B and Giamboni, M},
+  journal={EUCORURGENT Annual Report},
+  year={2000}
+}
+
+
+
+@article{gilbert1998thyroid,
+  title={Thyroid cancer rates and 131I doses from Nevada atmospheric nuclear bomb tests},
+  author={Gilbert, Ethel S and Tarone, Robert and Ron, Elaine and Bouville, Andr{\'e}},
+  journal={Journal of the National Cancer Institute},
+  volume={90},
+  number={21},
+  pages={1654--1660},
+  year={1998},
+  publisher={Oxford University Press}
+}
+
+
+
+@misc{diaz2006automatic,
+  title={AUTOMATIC ROCKING DEVICE},
+  author={Diaz, Navarro David and Gines, Rodriguez Noe},
+  year={2006},
+  month=jul # "~12",
+  note={EP Patent 1,678,025}
+}
+
+
+
+@book{smoller1994history,
+  title={History, Prophecy, and the Stars: The Christian Astrology of Pierre D'Ailly, 1350-1420},
+  author={Smoller, Laura Ackerman},
+  year={1994},
+  publisher={Princeton University Press}
+}
+
+
+
+@article{louat1982sismic,
+  title={Sismic$\neg$ ite de I'arc des Tonga-Rermadec: in Contribution a l'Etude Geodynamique du Sud-Ouest Pacifique: Equipe Geologie-Geophysique Noumea},
+  author={Louat, R and Dupont, J},
+  journal={Travaux et Docu ments de l'ORSTOM},
+  pages={299--318},
+  year={1982}
+}
+
+
+
+@article{shaikh2002pakistan,
+  title={Pakistan’s nuclear bomb: beyond the non-proliferation regime},
+  author={Shaikh, Farzana},
+  journal={International Affairs},
+  volume={78},
+  number={1},
+  pages={29--48},
+  year={2002},
+  publisher={Wiley Online Library}
+}
+
+
+
+@book{delmay1986personaggi,
+  title={I personaggi della Divina Commedia},
+  author={Delmay, Bernard},
+  volume={201},
+  year={1986},
+  publisher={Olschki}
+}
+
+
+
+@article{herring1982rapid,
+  title={Rapid diagnosis of rotavirus infection by direct detection of viral nucleic acid in silver-stained polyacrylamide gels.},
+  author={Herring, AJ and Inglis, NF and Ojeh, CK and Snodgrass, DR and Menzies, JD},
+  journal={Journal of Clinical Microbiology},
+  volume={16},
+  number={3},
+  pages={473--477},
+  year={1982},
+  publisher={Am Soc Microbiol}
+}
+
+
+
+@article{de2008review,
+  title={Review: durability and degradation issues of PEM fuel cell components},
+  author={De Bruijn, FA and Dam, VAT and Janssen, GJM},
+  journal={Fuel Cells},
+  volume={8},
+  number={1},
+  pages={3--22},
+  year={2008},
+  publisher={Wiley Online Library}
+}
+
+
+
+@article{weiser1991computer,
+  title={The computer for the 21st century},
+  author={Weiser, Mark},
+  journal={Scientific american},
+  volume={265},
+  number={3},
+  pages={94--104},
+  year={1991},
+  publisher={Nature Publishing Group}
+}
+
+
+
+@article{le1990evidence,
+  title={Evidence of an imbricate crustal thrust belt in the southern British Variscides. Contribution of SWAT deep sismic reflection profiling recorded in the English Channel and the Celtic Sea},
+  author={Le Gall, B},
+  journal={Tectonics},
+  volume={9},
+  number={2},
+  pages={283--302},
+  year={1990}
+}
+
+
+
+@book{rogers1989mathematical,
+  title={Mathematical elements for computer graphics},
+  author={Rogers, David F and Adams, J Alan},
+  year={1989},
+  publisher={McGraw-Hill Higher Education}
+}
+
+
+
+@article{simon2009curriculum,
+  title={Curriculum Vitae},
+  author={SIMON, ERIC EDWARD},
+  journal={Neurosurgery},
+  volume={70},
+  pages={1--3},
+  year={2009}
+}
+
+
+
+@article{austin2002simplescalar,
+  title={SimpleScalar: An infrastructure for computer system modeling},
+  author={Austin, Todd and Larson, Eric and Ernst, Dan},
+  journal={Computer},
+  volume={35},
+  number={2},
+  pages={59--67},
+  year={2002},
+  publisher={IEEE}
+}
+
+
+
+@book{pagliaro1967ulisse,
+  title={Ulisse: ricerche semantiche sulla Divina commedia},
+  author={Pagliaro, Antonino},
+  volume={1},
+  year={1967},
+  publisher={D'Anna}
+}
+
+
+
+@article{sarin1985computer,
+  title={Computer-based real-time conferencing systems},
+  author={Sarin, Sunil and Greif, Irene},
+  journal={Computer},
+  volume={18},
+  number={10},
+  pages={33--45},
+  year={1985},
+  publisher={IEEE}
+}
+
+
+
+@article{velazquez1996rotavirus,
+  title={Rotavirus infection in infants as protection against subsequent infections},
+  author={Vel{\'a}zquez, F Ra{\'u}l and Matson, David O and Calva, Juan J and Guerrero, M Lourdes and Morrow, Ardythe L and Carter-Campbell, Shelly and Glass, Roger I and Estes, Mary K and Pickering, Larry K and Ruiz-Palacios, Guillermo M},
+  journal={New England Journal of Medicine},
+  volume={335},
+  number={14},
+  pages={1022--1028},
+  year={1996},
+  publisher={Mass Medical Soc}
+}
+
+
+
+@article{cetraro2008indagini,
+  title={Indagini geofisiche del suolo},
+  author={CETRARO, FAUSTINO},
+  journal={Metodi geoelettrici, prospezione sismica, tomografia, tecniche GPR-Georadar, metodologia TDEM, archeometria, EPC Libri, Roma},
+  year={2008}
+}
+
+
+
+@book{andrewes1987middle,
+  title={Middle atmosphere dynamics},
+  author={Andrewes, David G and Holton, James R and Leovy, Conway B},
+  number={40},
+  year={1987},
+  publisher={Academic press}
+}
+
+
+
+@book{warneck1999chemistry,
+  title={Chemistry of the natural atmosphere},
+  author={Warneck, Peter},
+  volume={71},
+  year={1999},
+  publisher={Access Online via Elsevier}
+}
+
+
+
+@book{d1901studii,
+  title={Studii sulla Divina commedia},
+  author={d'Ovidio, Francesco},
+  year={1901},
+  publisher={R. Sandron}
+}
+
+
+
+@article{nakajima1997computer,
+  title={Computer-assisted surgical planning for cerebrovascular neurosurgery},
+  author={Nakajima, Shin and Atsumi, Hideki and Bhalerao, Abhir H and Jolesz, Ferenc A and Kikinis, Ron and Yoshimine, Toshiki and Moriarty, Thomas M and Stieg, Philip E},
+  journal={Neurosurgery},
+  volume={41},
+  number={2},
+  pages={403--410},
+  year={1997},
+  publisher={LWW}
+}
+
+
+
+@article{rudhyar1970astrology,
+  title={The astrology of personality},
+  author={Rudhyar, Dane},
+  journal={Garden City, NY},
+  year={1970}
+}
+
+
+
+@article{chapin2008increasing,
+  title={Increasing wildfire in Alaska's boreal forest: pathways to potential solutions of a wicked problem},
+  author={Chapin III, F Stuart and Trainor, Sarah F and Huntington, Orville and Lovecraft, Amy L and Zavaleta, Erika and Natcher, David C and McGuire, A David and Nelson, Joanna L and Ray, Lily and Calef, Monika and others},
+  journal={BioScience},
+  volume={58},
+  number={6},
+  pages={531--540},
+  year={2008},
+  publisher={BioOne}
+}
+
+
+
+@inproceedings{arellano2004study,
+  title={Study of the structure changes caused by earthquakes in Chile applying the lineament analysis to the Aster (Terra) satellite data.},
+  author={Arellano-Baeza, A and Zverev, A and Malinnikov, V},
+  booktitle={35th COSPAR Scientific Assembly},
+  volume={35},
+  pages={3229},
+  year={2004}
+}
+
+
+
+@article{hoshino1985independent,
+  title={Independent segregation of two antigenic specificities (VP3 and VP7) involved in neutralization of rotavirus infectivity},
+  author={Hoshino, Yasutaka and Sereno, Mitzi M and Midthun, Karen and Flores, Jorge and Kapikian, Albert Z and Chanock, Robert M},
+  journal={Proceedings of the National Academy of Sciences},
+  volume={82},
+  number={24},
+  pages={8701--8704},
+  year={1985},
+  publisher={National Acad Sciences}
+}
+
+
+
+@article{patacca2007stratigraphic,
+  title={Stratigraphic constraints on the CROP-04 sismic line interpretation: San Fele 1, Monte Foi 1 and San Gregorio Magno 1 wells (Southern Apennines, Italy)},
+  author={PATACCA, Etta},
+  journal={Bollettino della Societ{\`a} Geologica Italiana. Volume speciale},
+  number={7},
+  pages={185--239},
+  year={2007},
+  publisher={Societ{\`a} Geologica Italiana.}
+}
+
+
+
+@article{parashar2003global,
+  title={Global illness and deaths caused by rotavirus disease in children},
+  author={Parashar, Umesh D and Hummelman, Erik G and Bresee, Joseph S and Miller, Mark A and Glass, Roger I},
+  journal={Emerging infectious diseases},
+  volume={9},
+  number={5},
+  pages={565},
+  year={2003},
+  publisher={Centers for Disease Control}
+}
+
+
+
+@article{bernstein1977protein,
+  title={The Protein Data Bank: a computer-based archival file for macromolecular structures},
+  author={Bernstein, Frances C and Koetzle, Thomas F and Williams, Graheme JB and Meyer Jr, Edgar F and Brice, Michael D and Rodgers, John R and Kennard, Olga and Shimanouchi, Takehiko and Tasumi, Mitsuo},
+  journal={Journal of molecular biology},
+  volume={112},
+  number={3},
+  pages={535--542},
+  year={1977},
+  publisher={Elsevier}
+}
+
+
+
+@book{cumont1912astrology,
+  title={Astrology and Religion among the Greeks and Romans},
+  author={Cumont, Franz Valery Marie},
+  year={1912},
+  publisher={GP Putnam}
+}
+
+
+
+
+@book{parodi1965poesia,
+  title={Poesia e storia nella" Divina Commedia"},
+  author={Parodi, Ernesto Giacomo},
+  volume={28},
+  year={1965},
+  publisher={N. Pozza}
+}
+
+
+
+}@article{park2000direct,
+  title={Direct oxidation of hydrocarbons in a solid-oxide fuel cell},
+  author={Park, Seungdoo and Vohs, John M and Gorte, Raymond J},
+  journal={Nature},
+  volume={404},
+  number={6775},
+  pages={265--267},
+  year={2000},
+  publisher={Nature Publishing Group}
+}
+
+
+
+@article{warneke2001smart,
+  title={Smart dust: Communicating with a cubic-millimeter computer},
+  author={Warneke, Brett and Last, Matt and Liebowitz, Brian and Pister, Kristofer SJ},
+  journal={Computer},
+  volume={34},
+  number={1},
+  pages={44--51},
+  year={2001},
+  publisher={IEEE}
+}
+
+
+
+@book{gauquelin1967cosmic,
+  title={The cosmic clocks: From astrology to a modern science},
+  author={Gauquelin, Michel},
+  year={1967},
+  publisher={H. Regnery Company}
+}
+
+
+
+@book{joshi1980hp,
+  title={HP Lovecraft, four decades of criticism},
+  author={Joshi, Sunand Tryambak},
+  year={1980},
+  publisher={Ohio University Press}
+}
+
+
+
+@book{lovecraft2005hp,
+  title={HP Lovecraft: Tales: Tales},
+  author={Lovecraft, Howard Phillips},
+  year={2005},
+  publisher={Library of America}
+}
+
+
+
+@book{jenkins1975will,
+  title={Will terrorists go nuclear?},
+  author={Jenkins, Brian Michael},
+  year={1975},
+  publisher={Rand Corporation}
+}
+
+
+
+@article{carrette2001fuel,
+  title={Fuel cells--fundamentals and applications},
+  author={Carrette, L and Friedrich, KA and Stimming, U1},
+  journal={Fuel cells},
+  volume={1},
+  number={1},
+  pages={5--39},
+  year={2001},
+  publisher={Wiley Online Library}
+}
+
+
+
+
+@article{hickner2005chemical,
+  title={The chemical and structural nature of proton exchange membrane fuel cell properties},
+  author={Hickner, MA and Pivovar, BS},
+  journal={Fuel cells},
+  volume={5},
+  number={2},
+  pages={213--229},
+  year={2005},
+  publisher={Wiley Online Library}
+}
+
+
+
+@article{bonnin1987protezione,
+  title={La Protezione e conservazione del patrimonio cultura le nelle zone a rischio sismico: atti del corso europeo di formzione= Protection an d conservation of cultural heritage in regions of sismic (ie seismic)},
+  author={Bonnin, J and Hackens, Tony and Helly, Bruno},
+  year={1987},
+  publisher={Conseil de l'Europe. Centre universitaire europ{\'e}en pours biens cultur. FORMEZ}
+}
+
+
+
+@article{hamilton1994venous,
+  title={Venous thromboembolism in neurosurgery and neurology patients: a review},
+  author={Hamilton, Mark G and Hull, Russell D and Pineo, Graham F},
+  journal={Neurosurgery},
+  volume={34},
+  number={2},
+  pages={280--296},
+  year={1994},
+  publisher={LWW}
+}
+
+
+
+@article{barrie1988ozone,
+  title={Ozone destruction and photochemical reactions at polar sunrise in the lower Arctic atmosphere},
+  author={Barrie, LA and Bottenheim, JW and Schnell, RC and Crutzen, PJ and Rasmussen, RA},
+  year={1988},
+  publisher={Nature Publishing Group}
+}
+
+
+
+@article{socco2001integrazione,
+  title={Integrazione di dati sismici ed elettrici per la caratterizzazione di un sito campione presso gli argini del fiume Po},
+  author={Socco, LV and Strobbia, C and Sambuelli, L and Foti, S},
+  journal={Proceedings of GNGTS, Roma, November},
+  pages={6--8},
+  year={2001}
+}
+
+
+
+@book{eysenck1982astrology,
+  title={Astrology: Science or superstition?},
+  author={Eysenck, Hans Jurgen and Nias, David KB},
+  year={1982},
+  publisher={Temple Smith}
+}
+
+
+
+@article{trenberth1994decadal,
+  title={Decadal atmosphere-ocean variations in the Pacific},
+  author={Trenberth, Kevin E and Hurrell, James W},
+  journal={Climate Dynamics},
+  volume={9},
+  number={6},
+  pages={303--319},
+  year={1994},
+  publisher={Springer}
+}
+
+
+
+@book{finlayson1999chemistry,
+  title={Chemistry of the upper and lower atmosphere: theory, experiments, and applications},
+  author={Finlayson-Pitts, Barbara J and Pitts Jr, James N},
+  year={1999},
+  publisher={Access Online via Elsevier}
+}
+
+
+
+@article{murphy2001intussusception,
+  title={Intussusception among infants given an oral rotavirus vaccine},
+  author={Murphy, Trudy V and Gargiullo, Paul M and Massoudi, Mehran S and Nelson, David B and Jumaan, Aisha O and Okoro, Catherine A and Zanardi, Lynn R and Setia, Sabeena and Fair, Elizabeth and LeBaron, Charles W and others},
+  journal={New England Journal of Medicine},
+  volume={344},
+  number={8},
+  pages={564--572},
+  year={2001},
+  publisher={Mass Medical Soc}
+}
+
+
+
+@article{duncan1990survey,
+  title={A survey of parallel computer architectures},
+  author={Duncan, Ralph},
+  journal={Computer},
+  volume={23},
+  number={2},
+  pages={5--16},
+  year={1990},
+  publisher={IEEE}
+}
+
+
+
+@article{gubler2005radiation,
+  title={Radiation grafted membranes for polymer electrolyte fuel cells},
+  author={Gubler, L and G{\"u}rsel, S Alkan and Scherer, GG},
+  journal={Fuel Cells},
+  volume={5},
+  number={3},
+  pages={317--335},
+  year={2005},
+  publisher={Wiley Online Library}
+}
+
+
+
+@article{lacis1974parameterization,
+  title={A parameterization for the absorption of solar radiation in the earth's atmosphere},
+  author={Lacis, Andrew A and Hansen, James},
+  journal={Journal of the Atmospheric Sciences},
+  volume={31},
+  number={1},
+  pages={118--133},
+  year={1974}
+}
+
+
+
+@book{matson1969neurosurgery,
+  title={Neurosurgery of infancy and childhood},
+  author={Matson, Donald Darrow and Ingraham, Franc Douglas},
+  volume={749},
+  year={1969},
+  publisher={Thomas Springfield, Ill}
+}
+
+
+
+@article{kasai1997sismic,
+  title={Sismic Performance of Partially Concrete-Filled Steel Bridge Piers},
+  author={Kasai, A and Ge, HB and Usami, T},
+  journal={Bridge and Foundation Engineering},
+  volume={31},
+  number={9},
+  pages={23--29},
+  year={1997}
+}
+
+
+
+@book{lovecraft1971selected,
+  title={Selected letters},
+  author={Lovecraft, Howard Phillips and Turner, James},
+  volume={3},
+  year={1971},
+  publisher={Arkham house}
+}
+
+
+
+@article{brown2000cuneiform,
+  title={CUNEIFORM MONOGRAPHS 18 MESOPOTAMIAN PLANETARY ASTRONOMY-ASTROLOGY},
+  author={Brown, David},
+  year={2000}
+}
+
+
+
+@article{shao2004high,
+  title={A high-performance cathode for the next generation of solid-oxide fuel cells},
+  author={Shao, Zongping and Haile, Sossina M},
+  journal={Nature},
+  volume={431},
+  number={7005},
+  pages={170--173},
+  year={2004},
+  publisher={Nature Publishing Group}
+}
+
+
+
+@article{linzer2005iran,
+  title={Iran is judged 10 years from nuclear bomb},
+  author={Linzer, Dafna},
+  journal={Washington Post},
+  volume={2},
+  pages={A01},
+  year={2005}
+}
+
+
+
+@book{brutsaert1982evaporation,
+  title={Evaporation into the atmosphere: theory, history, and applications},
+  author={Brutsaert, Wilfried},
+  year={1982},
+  publisher={Reidel Dordrecht}
+}
+
+
+
+@article{pingree1963astronomy,
+  title={Astronomy and astrology in India and Iran},
+  author={Pingree, David},
+  journal={Isis},
+  volume={54},
+  number={2},
+  pages={229--246},
+  year={1963},
+  publisher={JSTOR}
+}
+
+
+
+@book{capp1979english,
+  title={English almanacs, 1500-1800: astrology and the popular press},
+  author={Capp, Bernard Stuart},
+  year={1979},
+  publisher={Cornell University Press Ithaca, New York}
+}
+
+
+
+
+@book{o2006fuel,
+  title={Fuel cell fundamentals},
+  author={O'Hayre, Ryan P and Cha, Suk-Won and Colella, Whitney and Prinz, Fritz B},
+  year={2006},
+  publisher={John Wiley \& Sons New York}
+}
+
+
+
+@article{kondrat1969radiation,
+  title={Radiation in the Atmosphere.},
+  author={Kondrat'ev, K Ya},
+  journal={Radiation in the atmosphere., by Kondrat'ev, K. Ya.. New York, NY (USA): Academic Press, 915 p.},
+  volume={1},
+  year={1969}
+}
+
+
+
+@article{vesikari2006safety,
+  title={Safety and efficacy of a pentavalent human--bovine (WC3) reassortant rotavirus vaccine},
+  author={Vesikari, Timo and Matson, David O and Dennehy, Penelope and Van Damme, Pierre and Santosham, Mathuram and Rodriguez, Zoe and Dallas, Michael J and Heyse, Joseph F and Goveia, Michelle G and Black, Steven B and others},
+  journal={New England Journal of Medicine},
+  volume={354},
+  number={1},
+  pages={23--33},
+  year={2006},
+  publisher={Mass Medical Soc}
+}
+
+
+
+@incollection{silvagni1981ricostruzione,
+  title={Ricostruzione in friuli: nota in margine ad una analisi tutta da fare},
+  author={Silvagni, Stefano},
+  booktitle={Coscienza della citta: edilizia e territorio nella realta italiana},
+  pages={127--135},
+  year={1981},
+  publisher={Ente autonomo fiere di bologna}
+}
+
+
+
+@book{garin1983astrology,
+  title={Astrology in the Renaissance: The Zodiac of Life},
+  author={Garin, Eugenio and Jackson, Carolyn and Allen, June},
+  year={1983},
+  publisher={Routledge \& Kegan Paul}
+}
+
+
+
+@book{lovecraft1969epouvante,
+  title={Epouvante et surnaturel en litt{\'e}rature: Supernatural horror in literature},
+  author={Lovecraft, Howard Phillips and Bergier, Jacques and Truchaud, Fran{\c{c}}ois},
+  year={1969},
+  publisher={C. Bourgois}
+}
+
+
+
+@article{xiao2005synthesis,
+  title={Synthesis and Characterization of Pyridine-Based Polybenzimidazoles for High Temperature Polymer Electrolyte Membrane Fuel Cell Applications},
+  author={Xiao, L and Zhang, H and Jana, T and Scanlon, E and Chen, R and Choe, E-W and Ramanathan, LS and Yu, S and Benicewicz, BC},
+  journal={Fuel Cells},
+  volume={5},
+  number={2},
+  pages={287--295},
+  year={2005},
+  publisher={Wiley Online Library}
+}
+
+
+
+@book{lovecraft2002horror,
+  title={El horror en la literatura},
+  author={Lovecraft, Howard Phillips},
+  year={2002},
+  publisher={Alianza Editorial}
+}
+
+
+
+@article{wirtz2000clinical,
+  title={Clinical evaluation and follow-up results for intraoperative magnetic resonance imaging in neurosurgery},
+  author={Wirtz, Christian Rainer and Knauth, Michael and Staubert, Andreas and Bonsanto, Matteo Mario and Sartor, Klaus and Kunze, Stefan and Tronnier, Volker Martin},
+  journal={Neurosurgery},
+  volume={46},
+  number={5},
+  pages={1112--1122},
+  year={2000},
+  publisher={LWW}
+}
+
+
+
+@article{mander2006incremental,
+  title={Incremental dynamic analysis applied to seismic risk assessment of bridges},
+  author={Mander, JB and Dhakal, RP and Mashiko, N},
+  year={2006},
+  publisher={University of Canterbury. Civil Engineering.}
+}
+
+
+
+@article{nakajima1997use,
+  title={Use of cortical surface vessel registration for image-guided neurosurgery},
+  author={Nakajima, Shin and Atsumi, Hideki and Kikinis, Ron and Moriarty, Thomas M and Metcalf, David C and Jolesz, Ferenc A and Black, Peter McL},
+  journal={Neurosurgery},
+  volume={40},
+  number={6},
+  pages={1201--1210},
+  year={1997},
+  publisher={LWW}
+}
+
+
+
+@article{northrop1964long,
+  title={Long-Range Multiple Arrivals Received at Deep Hydrophones from Shots in the Gulf of Maine},
+  author={Northrop, John and Tyson, Loring E and Ransone, Morris A},
+  journal={The Journal of the Acoustical Society of America},
+  volume={36},
+  pages={215},
+  year={1964}
+}
+
+
+
+@article{kennan1982nuclear,
+  title={Nuclear delusion: Soviet-American relations in the atomic age},
+  author={Kennan, George Frost},
+  year={1982},
+  publisher={Pantheon Books, New York, NY}
+}
+
+
+
+@article{tronnier1997intraoperative,
+  title={Intraoperative diagnostic and interventional magnetic resonance imaging in neurosurgery},
+  author={Tronnier, Volker M and Wirtz, Christian R and Knauth, Michael and Lenz, Gerald and Pastyr, Otto and Bonsanto, Mario M and Albert, Friedrich K and Kuth, Rainer and Staubert, Andreas and Schlegel, Wolfgang and others},
+  journal={Neurosurgery},
+  volume={40},
+  number={5},
+  pages={891--902},
+  year={1997},
+  publisher={LWW}
+}
+
+
+
+@article{webster1999coupled,
+  title={Coupled ocean--atmosphere dynamics in the Indian Ocean during 1997--98},
+  author={Webster, Peter J and Moore, Andrew M and Loschnigg, Johannes P and Leben, Robert R},
+  journal={Nature},
+  volume={401},
+  number={6751},
+  pages={356--360},
+  year={1999},
+  publisher={Nature Publishing Group}
+}
+
+
+
+@article{giuffre1988restauro,
+  title={Restauro e sicurezza in zona sismica. La Cattedrale di S. Angelo dei Lombardi},
+  author={Giuffr{\'e}, Antonino},
+  journal={Palladio},
+  number={1},
+  pages={95--120},
+  year={1988}
+}
+
+
+
+@article{louis1979parametric,
+  title={A parametric model of vertical eddy fluxes in the atmosphere},
+  author={Louis, Jean-Francois},
+  journal={Boundary-Layer Meteorology},
+  volume={17},
+  number={2},
+  pages={187--202},
+  year={1979},
+  publisher={Springer}
+}
+
+
+
+@book{jerome1977astrology,
+  title={Astrology disproved},
+  author={Jerome, Lawrence E},
+  volume={424},
+  year={1977},
+  publisher={Prometheus Books Buffalo, NY}
+}
+
+
+
+@article{minh1993ceramic,
+  title={Ceramic fuel cells},
+  author={Minh, Nguyen Q},
+  journal={Journal of the American Ceramic Society},
+  volume={76},
+  number={3},
+  pages={563--588},
+  year={1993},
+  publisher={Wiley Online Library}
+}
+
+
+
+@techreport{thinon2004leves,
+  title={Lev{\'e}s sismique et magn{\'e}tiques du plateau occidental de l’{\^\i}le de Basse-Terre, Guadeloupe (campagne GEOBERYX03), Apport {\`a} la compr{\'e}hension du contexte structural du champ de Bouillante= Sismic and Magnetic of western Basse-Terre (campaign GEOBERYX03), Implications for the structure of Bouillante geothermal field},
+  author={Thinon, I and Bitri, A and Guennoc, P and Truffert, C},
+  year={2004},
+  institution={BRGM/RP-53152-FR, BRGM report, Orleans, France}
+}
+
+
+
+@article{rezai1996interactive,
+  title={The interactive use of magnetoencephalography in stereotactic image-guided neurosurgery},
+  author={Rezai, Ali R and Hund, Margret and Kronberg, Eugene and Zonenshayn, Marty and Cappell, Joshua and Ribary, Urs and Kall, Bruce and Llin{\'a}s, Rodolfo and Kelly, Patrick J},
+  journal={Neurosurgery},
+  volume={39},
+  number={1},
+  pages={92--102},
+  year={1996},
+  publisher={LWW}
+}
+
+
+
+@techreport{ishihara1968chromosome,
+  title={CHROMOSOME STUDIES ON JAPANESE EXPOSED TO RADIATION RESULTING FROM NUCLEAR BOMB EXPLOSIONS.},
+  author={Ishihara, Takaaki and Kumatori, Toshiyuki},
+  year={1968},
+  institution={National Inst. of Radiological Sciences, Chiba, Japan}
+}
+
+
+
+@article{taojing2011bi,
+  title={Bi Directional Coupled Effect of Friction Pendulum System on Sismic Responses of an Isolated Bridge [J]},
+  author={Taojing, WU and Jianzhong, LI and Zhongguo, GUAN},
+  journal={Journal of Vibration and Shock},
+  volume={30},
+  number={2},
+  pages={119--122},
+  year={2011}
+}
+
+
+
+@article{spicer2003virtual,
+  title={Virtual reality surgery: Neurosurgery and the contemporary landscape},
+  author={Spicer, Mark A and Apuzzo, Michael LJ},
+  journal={Neurosurgery},
+  volume={52},
+  number={3},
+  pages={489--498},
+  year={2003},
+  publisher={LWW}
+}
+
+
+
+@article{santos2005global,
+  title={Global distribution of rotavirus serotypes/genotypes and its implication for the development and implementation of an effective rotavirus vaccine},
+  author={Santos, Norma and Hoshino, Yasutaka},
+  journal={Reviews in medical virology},
+  volume={15},
+  number={1},
+  pages={29--56},
+  year={2005},
+  publisher={Wiley Online Library}
+}
+
+
+
+@article{atmosphere1976national,
+  title={National Oceanic and Atmospheric Administration},
+  author={Atmosphere, US Standard},
+  journal={National Aeronautics and Space Administration, and United States Air Force, Washington, DC},
+  year={1976}
+}
+
+
+
+@book{lovecraft1998horror,
+  title={Horror Sobrenatural em Literatura, O},
+  author={Lovecraft, Howard Phillips},
+  year={1998},
+  publisher={Editora Iluminuras Ltda}
+}
+
+
+
+@article{kerres2005blended,
+  title={Blended and cross-linked ionomer membranes for application in membrane fuel cells},
+  author={Kerres, JA},
+  journal={Fuel Cells},
+  volume={5},
+  number={2},
+  pages={230--247},
+  year={2005},
+  publisher={Wiley Online Library}
+}
+
+
+
+@techreport{mcclatchey1972optical,
+  title={Optical properties of the atmosphere},
+  author={McClatchey, Robert A and Fenn, RW and Selby, JE Al and Volz, FE and Garing, JS},
+  year={1972},
+  institution={DTIC Document}
+}
+
+
+
+@book{lovecraft1945supernatural,
+  title={Supernatural horror in literature},
+  author={Lovecraft, Howard Phillips},
+  year={1945},
+  publisher={Courier Dover Publications}
+}
+
+
+
+@article{meyer1977homemade,
+  title={Homemade nuclear bomb syndrome},
+  author={Meyer, Walter and Loyalka, SK and Nelson, WE and Williams, RW},
+  journal={Nucl. Saf.;(United States)},
+  volume={18},
+  number={4},
+  year={1977}
+}
+
+
+
+@article{standefer1984sitting,
+  title={The sitting position in neurosurgery: a retrospective analysis of 488 cases},
+  author={Standefer, Michael and Bay, Janet W and Trusso, Russell},
+  journal={Neurosurgery},
+  volume={14},
+  number={6},
+  pages={649--658},
+  year={1984},
+  publisher={LWW}
+}
+
+
+
+@article{beier2009growth,
+  title={Growth and collapse of a resource system: an adaptive cycle of change in public lands governance and forest management in Alaska},
+  author={Beier, Colin M and Lovecraft, Amy Lauren and Chapin, F Stuart},
+  journal={Ecology and Society},
+  volume={14},
+  number={2},
+  pages={5},
+  year={2009},
+  publisher={Resilience Alliance}
+}
+
+
+
+@article{cockburn2001agile,
+  title={Agile software development, the people factor},
+  author={Cockburn, Alistair and Highsmith, Jim},
+  journal={Computer},
+  volume={34},
+  number={11},
+  pages={131--133},
+  year={2001},
+  publisher={IEEE}
+}
+
+
+
+@inproceedings{zhao2011sismic,
+  title={Sismic response analysis for continuous curved rigid-framed bridges under excitation of traveling waves},
+  author={Zhao, Qing},
+  booktitle={Remote Sensing, Environment and Transportation Engineering (RSETE), 2011 International Conference on},
+  pages={3461--3464},
+  year={2011},
+  organization={IEEE}
+}
+
+
+
+@article{spalding2008dynamics,
+  title={Dynamics of fat cell turnover in humans},
+  author={Spalding, Kirsty L and Arner, Erik and Westermark, P{\aa}l O and Bernard, Samuel and Buchholz, Bruce A and Bergmann, Olaf and Blomqvist, Lennart and Hoffstedt, Johan and N{\"a}slund, Erik and Britton, Tom and others},
+  journal={Nature},
+  volume={453},
+  number={7196},
+  pages={783--787},
+  year={2008},
+  publisher={Nature Publishing Group}
+}
+
+
+
+@article{spalding2005forensics,
+  title={Forensics: age written in teeth by nuclear tests},
+  author={Spalding, Kirsty L and Buchholz, Bruce A and Bergman, Lars-Eric and Druid, Henrik and Fris{\'e}n, Jonas},
+  journal={Nature},
+  volume={437},
+  number={7057},
+  pages={333--334},
+  year={2005},
+  publisher={Nature Publishing Group}
+}
+
+
+
+@article{flamm1978preliminary,
+  title={Preliminary experience with ultrasonic aspiration in neurosurgery},
+  author={Flamm, Eugene S and Ransohoff, Joseph and Wuchinich, David and Broadwin, Alan},
+  journal={Neurosurgery},
+  volume={2},
+  number={3},
+  pages={240--245},
+  year={1978},
+  publisher={LWW}
+}
+
+
+
+@article{gray1991high,
+  title={High-availability computer systems},
+  author={Gray, Jim and Siewiorek, Daniel P.},
+  journal={Computer},
+  volume={24},
+  number={9},
+  pages={39--48},
+  year={1991},
+  publisher={IEEE}
+}
+
+
+
+@article{gossard1975waves,
+  title={Waves in the atmosphere: atmospheric infrasound and gravity waves-their generation and propagation},
+  author={Gossard, Earl E and Hooke, William H},
+  journal={Atmospheric Science},
+  volume={2},
+  year={1975}
+}
+
+
+
+@article{steele2001materials,
+  title={Materials for fuel-cell technologies},
+  author={Steele, Brian CH and Heinzel, Angelika},
+  journal={Nature},
+  volume={414},
+  number={6861},
+  pages={345--352},
+  year={2001},
+  publisher={Nature Publishing Group}
+}
+
+
+
+@article{donovan1982store,
+  title={Store atmosphere: an environmental psychology approach},
+  author={Donovan, Robert J and Rossiter, John R},
+  journal={Journal of retailing},
+  volume={58},
+  number={1},
+  pages={34--57},
+  year={1982}
+}
+
+
+
+@book{cerulli1949libro,
+  title={Il" Libro della scala" e la question delle fonti arabo-spagnole della Divina commedia},
+  author={Cerulli, Enrico},
+  volume={150},
+  year={1949},
+  publisher={Biblioteca apostolica vaticana}
+}
+
+
+
+@book{barnaby2009build,
+  title={How to Build a Nuclear Bomb: And Other Weapons of Mass Destruction},
+  author={Barnaby, Frank},
+  year={2009},
+  publisher={Nation Books}
+}
+
+
+
+@article{grudin1994computer,
+  title={Computer-supported cooperative work: History and focus},
+  author={Grudin, Jonathan},
+  journal={Computer},
+  volume={27},
+  number={5},
+  pages={19--26},
+  year={1994},
+  publisher={IEEE}
+}
+
+
+
+@book{kordesch1996fuel,
+  title={Fuel cells and their applications},
+  author={Kordesch, Karl and Simader, G{\"u}nter and Wiley, John},
+  volume={117},
+  year={1996},
+  publisher={VCH Weinheim}
+}
+
+
+
+@book{alighieri1829divina,
+  title={La divina commedia},
+  author={Alighieri, Dante and Landino, Cristoforo and da Figino, Pietro and Capcasa, Matteo},
+  year={1829},
+  publisher={G. Silvestri}
+}
+
+
+
+@article{bergmann2009evidence,
+  title={Evidence for cardiomyocyte renewal in humans},
+  author={Bergmann, Olaf and Bhardwaj, Ratan D and Bernard, Samuel and Zdunek, Sofia and Barnab{\'e}-Heider, Fanie and Walsh, Stuart and Zupicich, Joel and Alkass, Kanar and Buchholz, Bruce A and Druid, Henrik and others},
+  journal={Science},
+  volume={324},
+  number={5923},
+  pages={98--102},
+  year={2009},
+  publisher={American Association for the Advancement of Science}
+}
+
+
+
+@article{diarrhoea1980rotavirus,
+  title={Rotavirus and other viral diarrhoeas},
+  author={DIARRHOEA, ROTAVIRUS},
+  journal={Bulletin of the World Health Organization},
+  volume={58},
+  number={2},
+  pages={183--198},
+  year={1980}
+}
+
+
+
+@article{hedin1991extension,
+  title={Extension of the MSIS thermosphere model into the middle and lower atmosphere},
+  author={Hedin, Alan E},
+  journal={Journal of Geophysical Research: Space Physics (1978--2012)},
+  volume={96},
+  number={A2},
+  pages={1159--1172},
+  year={1991},
+  publisher={Wiley Online Library}
+}
+
+
+
+@article{saavedra1994feeding,
+  title={Feeding of Bifidobacterium bifidum and Streptococcus thermophilus to infants in hospital for prevention of diarrhoea and shedding of rotavirus},
+  author={Saavedra, JOSE M and Bauman, NA and Perman, JA and Yolken, RH and Oung, I},
+  journal={The Lancet},
+  volume={344},
+  number={8929},
+  pages={1046--1049},
+  year={1994},
+  publisher={Elsevier}
+}
+
+
+
+@article{kockro2000planning,
+  title={Planning and simulation of neurosurgery in a virtual reality environment},
+  author={Kockro, Ralf A and Serra, Luis and Tseng-Tsai, Yeo and Chan, Chumpon and Yih-Yian, Sitoh and Gim-Guan, Chua and Lee, Eugene and Hoe, Lee Yen and Hern, Ng and Nowinski, Wieslaw L},
+  journal={Neurosurgery},
+  volume={46},
+  number={1},
+  pages={118--137},
+  year={2000},
+  publisher={LWW}
+}
+
+
+
+@article{caldwell1980leukemia,
+  title={Leukemia among participants in military maneuvers at a nuclear bomb test},
+  author={Caldwell, Glyn G and Kelley, Delle B and Heath Jr, Clark W},
+  journal={JAMA: the journal of the American Medical Association},
+  volume={244},
+  number={14},
+  pages={1575--1578},
+  year={1980},
+  publisher={Am Med Assoc}
+}
+
+
+
+@book{craig1965deuterium,
+  title={Deuterium and oxygen 18 variations in the ocean and the marine atmosphere},
+  author={Craig, Harmon and Gordon, Louis Irwin},
+  year={1965},
+  publisher={Consiglio nazionale delle richerche, Laboratorio de geologia nucleare}
+}
+
+
+
+@article{chapin2006policy,
+  title={Policy strategies to address sustainability of Alaskan boreal forests in response to a directionally changing climate},
+  author={Chapin, F Stuart and Lovecraft, Amy L and Zavaleta, Erika S and Nelson, Joanna and Robards, Martin D and Kofinas, Gary P and Trainor, Sarah F and Peterson, Garry D and Huntington, Henry P and Naylor, Rosamond L},
+  journal={Proceedings of the National Academy of Sciences},
+  volume={103},
+  number={45},
+  pages={16637--16643},
+  year={2006},
+  publisher={National Acad Sciences}
+}
+
+
+
+@article{ha2004direct,
+  title={Direct formic acid fuel cells with 600 mA cm--2 at 0.4 V and 22 C},
+  author={Ha, S and Larsen, R and Zhu, Y and Masel, RI},
+  journal={Fuel Cells},
+  volume={4},
+  number={4},
+  pages={337--343},
+  year={2004},
+  publisher={Wiley Online Library}
+}
+
+
+
+@book{lovecraft2008dunwich,
+  title={The Dunwich Horror},
+  author={Lovecraft, Howard Phillips},
+  volume={1},
+  year={2008},
+  publisher={Penguin UK}
+}
+
+
+
+@incollection{baglioni1981coscienza,
+  title={La coscienza del rischio e la protezione delle citta},
+  author={Baglioni, Adriana},
+  booktitle={Coscienza della citta: edilizia e territorio nella realta italiana},
+  pages={119--126},
+  year={1981},
+  publisher={Ente autonomo fiere di bologna}
+}
+
+
+
+@article{majamaa1995lactic,
+  title={Lactic acid bacteria in the treatment of acute rotavirus gastroenteritis},
+  author={Majamaa, Heli and Isolauri, Erika and Saxelin, Maija and Vesikari, Timo},
+  journal={Journal of pediatric gastroenterology and nutrition},
+  volume={20},
+  number={3},
+  pages={333--338},
+  year={1995},
+  publisher={LWW}
+}
+
+
+
+@book{shneiderman2003designing,
+  title={Designing The User Interface: Strategies for Effective Human-Computer Interaction, 4/e (New Edition)},
+  author={Shneiderman, Ben and Ben, Shneiderman},
+  year={2003},
+  publisher={Pearson Education India}
+}
+
+
+
+@book{lovecraft1964mountains,
+  title={At the mountains of madness},
+  author={Lovecraft, Howard Phillips},
+  year={1964},
+  publisher={United Holdings Group}
+}
+
+
+
+@book{perkovich2001india,
+  title={India's nuclear bomb: the impact on global proliferation},
+  author={Perkovich, George},
+  year={2001},
+  publisher={University of California Pr}
+}
+
+
+
+@book{lovecraft2000annotated,
+  title={The Annotated Supernatural Horror in Literature},
+  author={Lovecraft, Howard Phillips},
+  year={2000},
+  publisher={Hippocampus}
+}
+
+
+
+@book{grandgent1933divina,
+  title={La divina commedia},
+  author={Grandgent, Charles Hall},
+  year={1933},
+  publisher={DC Heath}
+}
+
+
+
+@article{winston1992hair,
+  title={Hair and neurosurgery},
+  author={Winston, Ken R},
+  journal={Neurosurgery},
+  volume={31},
+  number={2},
+  pages={320--329},
+  year={1992},
+  publisher={LWW}
+}
+
+
+
+@article{ruiz2006safety,
+  title={Safety and efficacy of an attenuated vaccine against severe rotavirus gastroenteritis},
+  author={Ruiz-Palacios, Guillermo M and P{\'e}rez-Schael, Irene and Vel{\'a}zquez, F Ra{\'u}l and Abate, Hector and Breuer, Thomas and Clemens, SueAnn Costa and Cheuvart, Brigitte and Espinoza, F{\'e}lix and Gillard, Paul and Innis, Bruce L and others},
+  journal={New England Journal of Medicine},
+  volume={354},
+  number={1},
+  pages={11--22},
+  year={2006},
+  publisher={Mass Medical Soc}
+}
+
+
+
+@book{marzot1956linguaggio,
+  title={Il linguaggio biblico nella Divina Commedia},
+  author={Marzot, Giulio},
+  volume={17},
+  year={1956},
+  publisher={Nistri-Lischi}
+}
+
+
+
+@book{dante2002divina,
+  title={La divina commedia: Purgatorio},
+  author={Dante (Alighieri.) and Sapegno, Natalino and Cremascoli, Ferdinanda},
+  year={2002},
+  publisher={La Nuova Italia}
+}
+
+
+
+@book{curry1989prophecy,
+  title={Prophecy and power: astrology in early modern England},
+  author={Curry, Patrick},
+  year={1989},
+  publisher={Princeton University Press}
+}
+
+
+
+@book{geneva1995astrology,
+  title={Astrology and the Seventeenth Century mind: William Lilly and the language of the stars},
+  author={Geneva, Ann},
+  year={1995},
+  publisher={Manchester University Press Manchester}
+}
+
+
+
+@book{dante1965divina,
+  title={La divina commedia},
+  author={Dante, Alighieri and Casini, Tommaso and Barbi, SA},
+  year={1965},
+  publisher={Mursia}
+}
+
+
+
+@book{lovecraft2008call,
+  title={The call of Cthulhu},
+  author={Lovecraft, Howard Phillips},
+  year={2008},
+  publisher={United Holdings Group}
+}
+
+
+
+@book{gill1982atmosphere,
+  title={Atmosphere-ocean dynamics},
+  author={Gill, Adrian E},
+  volume={30},
+  year={1982},
+  publisher={Academic press}
+}
+
+
+
+@article{einhorn2002ending,
+  title={Ending Russian assistance to Iran's nuclear bomb},
+  author={Einhorn, Robert J and Samore, Gary},
+  journal={Survival},
+  volume={44},
+  number={2},
+  pages={51--70},
+  year={2002},
+  publisher={Taylor \& Francis}
+}
+
+
+
+@article{gentsch1992identification,
+  title={Identification of group A rotavirus gene 4 types by polymerase chain reaction.},
+  author={GenTSCH, JoN R and Glass, RI and Woods, P and Gouvea, V and Gorziglia, M and Flores, J and Das, BK and Bhan, MK},
+  journal={Journal of Clinical Microbiology},
+  volume={30},
+  number={6},
+  pages={1365--1373},
+  year={1992},
+  publisher={Am Soc Microbiol}
+}
+
+
+
+@article{bernstein1995evaluation,
+  title={Evaluation of rhesus rotavirus monovalent and tetravalent reassortant vaccines in US children},
+  author={Bernstein, David I and Glass, Roger I and Rodgers, George and Davidson, Bruce L and Sack, David A and Anderson, E and Bernstein, D and Ward, R and Chartrand, S and Cherry, J and others},
+  journal={JAMA: the journal of the American Medical Association},
+  volume={273},
+  number={15},
+  pages={1191--1196},
+  year={1995},
+  publisher={American Medical Association}
+}
+
+
+
+@book{vossler1927divina,
+  title={La divina commedia studiata nella sua genesi e interpretata. Traduzione di Stefano Jacini: pt. 1. La genesi letteraria},
+  author={Vossler, Karl},
+  volume={2},
+  year={1927},
+  publisher={G. Laterza \& figli}
+}
+
+
+
+@book{alighieri2002divina,
+  title={La divina commedia. Inferno},
+  author={Alighieri, Dante},
+  year={2002},
+  publisher={Armando Editore}
+}
+
+
+
+@book{sarolli1971prolegomena,
+  title={Prolegomena alla Divina commedia},
+  author={Sarolli, Gian Roberto},
+  volume={112},
+  year={1971},
+  publisher={LS Olschki}
+}
+
+
+
+@article{wuthnow1976astrology,
+  title={Astrology and marginality},
+  author={Wuthnow, Robert},
+  journal={Journal for the Scientific Study of Religion},
+  pages={157--168},
+  year={1976},
+  publisher={JSTOR}
+}
+
+
+
+@article{li2004pbi,
+  title={PBI-Based Polymer Membranes for High Temperature Fuel Cells--Preparation, Characterization and Fuel Cell Demonstration},
+  author={Li, Q and He, R and Jensen, JO and Bjerrum, NJ},
+  journal={Fuel Cells},
+  volume={4},
+  number={3},
+  pages={147--159},
+  year={2004},
+  publisher={Wiley Online Library}
+}
+
+
+
+@book{lovecraft2004dreams,
+  title={The Dreams in the Witch House and Other Weird Stories},
+  author={Lovecraft, Howard Phillips},
+  year={2004},
+  publisher={Penguin. com}
+}
+
+
+
+@article{alighieri1957divina,
+  title={La Divina Commedia, a cura di N},
+  author={Alighieri, Dante},
+  journal={Sapegno (Firenze: La Nuova Italia, 1955)},
+  year={1957}
+}
+
+
+
+@book{singleton1978poesia,
+  title={La poesia della Divina commedia},
+  author={Singleton, Charles Southward},
+  year={1978},
+  publisher={Societ{\`a} editrice il Mulino}
+}
+
+
+
+@article{tichy1998should,
+  title={Should computer scientists experiment more?},
+  author={Tichy, Walter F},
+  journal={Computer},
+  volume={31},
+  number={5},
+  pages={32--40},
+  year={1998},
+  publisher={IEEE}
+}
+
+
+
+@article{sheperd1971volcano,
+  title={Volcano-sismic crisis in Montserrat, West Indies, 1966-1967},
+  author={Sheperd, JB and Tomblin, JF and Wood, A},
+  journal={Bull. Vole},
+  volume={35},
+  pages={143--163},
+  year={1971}
+}
+
+
+
+@article{hopf1998endoscopic,
+  title={Endoscopic neurosurgery and endoscope-assisted microneurosurgery for the treatment of intracranial cysts},
+  author={Hopf, Nikolai J and Perneczky, Axel},
+  journal={Neurosurgery},
+  volume={43},
+  number={6},
+  pages={1330--1336},
+  year={1998},
+  publisher={LWW}
+}
+
+
+
+@article{eicken2009sea,
+  title={Sea-ice system services: A framework to help identify and meet information needs relevant for Arctic observing networks},
+  author={Eicken, Hajo and Lovecraft, Amy Lauren and Druckenmiller, Matthew L},
+  journal={Arctic},
+  pages={119--136},
+  year={2009},
+  publisher={JSTOR}
+}
+
+
+
+@book{farin1996curves,
+  title={Curves and Surfaces for Computer-Aided Geometric Design: A Practical Code},
+  author={Farin, Gerald E},
+  year={1996},
+  publisher={Academic Press, Inc.}
+}
+
+
+
+@book{cramer1996astrology,
+  title={Astrology in Roman law and politics},
+  author={Cramer, Frederick H},
+  year={1996},
+  publisher={Ares Chicago\^{} eIL IL}
+}
+
+
+
+@book{allen1989computer,
+  title={Computer simulation of liquids},
+  author={Allen, Michael P and Tildesley, Dominic J},
+  year={1989},
+  publisher={Oxford university press}
+}
+
+
+
+@book{boccaccio1918comento,
+  title={Il comento alla Divina Commedia e gli altri scritti intorno a Dante},
+  author={Boccaccio, Giovanni and Guerri, Domenico and Alighieri, Dante Dante},
+  year={1918},
+  publisher={Laterza}
+}
+
+
+
+@article{de2000thyroid,
+  title={Thyroid cancer in French Polynesia between 1985 and 1995: influence of atmospheric nuclear bomb tests performed at Mururoa and Fangataufa between 1966 and 1974},
+  author={De Vathaire, Florent and Le Vu, B{\'e}atrice and Challeton-de Vathaire, C{\'e}cile},
+  journal={Cancer Causes \& Control},
+  volume={11},
+  number={1},
+  pages={59--63},
+  year={2000},
+  publisher={Springer}
+}
+
+
+
+@article{cordaro1997testi,
+  title={Testi normativi per il restauro di edifici storici a rischio sismico},
+  author={Cordaro, Michele and Gallo Curcio, Antonino},
+  journal={Materiali e strutture: problemi di conservazione},
+  volume={7},
+  number={1},
+  pages={1--26},
+  year={1997}
+}
+
+
+
+@article{das1994characterization,
+  title={Characterization of rotavirus strains from newborns in New Delhi, India.},
+  author={Das, Bimal K and Gentsch, Jon R and Cicirello, Helen G and Woods, Patricia A and Gupta, Aarti and Ramachandran, Madhumati and Kumar, Ramesh and Bhan, MK and Glass, Roger I},
+  journal={Journal of Clinical Microbiology},
+  volume={32},
+  number={7},
+  pages={1820--1822},
+  year={1994},
+  publisher={Am Soc Microbiol}
+}
+
+
+
+@book{baldick1993oxford,
+  title={The Oxford Book of Gothic Tales},
+  author={Baldick, Chris and Aiken, Anna Laetitia and Cumberland, Richard and Crookenden, Isaac and Borel, Petrus and Wadham, J and Poe, Edgar Allan and Le Fanu, Sheridan and Hawthorne, Nathaniel and Harte, Bret and others},
+  year={1993},
+  publisher={Oxford University Press Oxford}
+}
+
+
+
+@article{gregory1961microbiology,
+  title={The microbiology of the atmosphere.},
+  author={Gregory, Philip Herries and others},
+  journal={The microbiology of the atmosphere.},
+  year={1961},
+  publisher={London: Leonard Hill. New York: Interscience Publishers}
+}
+
+
+
+@book{lovecraft1989orrore,
+  title={L'orrore soprannaturale in letteratura},
+  author={Lovecraft, Howard Phillips and Skey, Malcolm and Aliotta, Silvia Roberti},
+  year={1989},
+  publisher={Edizioni Theoria}
+}
+
+
+
+@book{tester1987history,
+  title={A history of western astrology},
+  author={Tester, S Jim},
+  year={1987},
+  publisher={Boydell \& Brewer}
+}
+
+
+
+@book{ciacci1935aldobrandeschi,
+  title={Gli Aldobrandeschi nella storia e nella storia e nella" Divina commedia"...},
+  author={Ciacci, Gaspero},
+  volume={1},
+  year={1935},
+  publisher={Biblioteca d'arte editrice}
+}
+
+
+
+@book{barton2002ancient,
+  title={Ancient astrology},
+  author={Barton, Tamysn},
+  year={2002},
+  publisher={Routledge}
+}
+
+
+
+
+@article{de1996postoperative,
+  title={Postoperative pain in neurosurgery: a pilot study in brain surgery},
+  author={De Benedittis, Giuseppe and Lorenzetti, Ariberto and Migliore, Matteo and Spagnoli, Diego and Tiberio, Francesca and Villani, Roberto M},
+  journal={Neurosurgery},
+  volume={38},
+  number={3},
+  pages={466--470},
+  year={1996},
+  publisher={LWW}
+}
+
+
+
+@book{hartley2000multiple,
+  title={Multiple view geometry in computer vision},
+  author={Hartley, Richard and Zisserman, Andrew},
+  volume={2},
+  year={2000},
+  publisher={Cambridge Univ Press}
+}
+
+
+
+@book{alighieri1903divina,
+  title={La divina commedia},
+  author={Alighieri, Dante},
+  year={1903},
+  publisher={GC Sansoni}
+}
+
+
+
+@article{macaskill2003saudis,
+  title={Saudis consider nuclear bomb},
+  author={MacAskill, Ewen and Traynor, Ian},
+  journal={The Guardian},
+  volume={18},
+  year={2003}
+}
+
+
+
+@book{wedel1920mediaeval,
+  title={The mediaeval attitude toward astrology: particularly in England},
+  author={Wedel, Theodore Otto},
+  volume={60},
+  year={1920},
+  publisher={Yale University Press}
+}
+
+
+@article{ponce2011computer,
+  title={Computer vision: a modern approach},
+  author={Ponce, Jean and Forsyth, David and Willow, Equipe-projet and Antipolis-M{\'e}diterran{\'e}e, Sophia and d'activit{\'e}-RAweb, Rapports and Inria, Logo and Alumni, Inria},
+  journal={Computer},
+  volume={16},
+  pages={11},
+  year={2011}
+}
+
+
+
+@book{lovecraft1999call,
+  title={The call of Cthulhu and other weird stories},
+  author={Lovecraft, Howard Phillips},
+  year={1999},
+  publisher={Penguin. com}
+}
+
+
+
+@article{reinstrup2000intracerebral,
+  title={Intracerebral microdialysis in clinical practice: baseline values for chemical markers during wakefulness, anesthesia, and neurosurgery},
+  author={Reinstrup, Peter and St{\aa}hl, Nils and Mellerg{\aa}rd, Pekka and Uski, Tore and Ungerstedt, Urban and Nordstr{\"o}m, Carl-Henrik},
+  journal={Neurosurgery},
+  volume={47},
+  number={3},
+  pages={701--710},
+  year={2000},
+  publisher={LWW}
+}
+
+
+
+@book{alighieri1907divina,
+  title={La Divina commedia...: Inferno},
+  author={Alighieri, Dante},
+  volume={5},
+  year={1907},
+  publisher={Chatto \& Windus}
+}
+
+
+
+@article{sarantaridis2007redox,
+  title={Redox Cycling of Ni-Based Solid Oxide Fuel Cell Anodes: A Review},
+  author={Sarantaridis, D and Atkinson, A},
+  journal={Fuel Cells},
+  volume={7},
+  number={3},
+  pages={246--258},
+  year={2007},
+  publisher={Wiley Online Library}
+}
+
+
+
+@book{mazzoni1967saggio,
+  title={Saggio di un nuovo commento alla Divina commedia: Inferno, canti I-III.},
+  author={Mazzoni, Francesco and Mazzoni, F},
+  year={1967},
+  publisher={Sansoni}
+}
+
+
+
+@article{healy2005aspects,
+  title={Aspects of the chemical degradation of PFSA ionomers used in PEM fuel cells},
+  author={Healy, J and Hayden, C and Xie, T and Olson, K and Waldo, R and Brundage, M and Gasteiger, H and Abbott, J},
+  journal={Fuel cells},
+  volume={5},
+  number={2},
+  pages={302--308},
+  year={2005},
+  publisher={Wiley Online Library}
+}
+
+
+
+@book{parhami2009computer,
+  title={Computer arithmetic: algorithms and hardware designs},
+  author={Parhami, Behrooz},
+  year={2009},
+  publisher={Oxford University Press, Inc.}
+}
+
+
+
+@article{gouvea1990polymerase,
+  title={Polymerase chain reaction amplification and typing of rotavirus nucleic acid from stool specimens.},
+  author={Gouvea, Vera and Glass, Roger I and Woods, Patricia and Taniguchi, K and Clark, H Fred and Forrester, B and Fang, Zhao-Yin},
+  journal={Journal of Clinical Microbiology},
+  volume={28},
+  number={2},
+  pages={276--282},
+  year={1990},
+  publisher={Am Soc Microbiol}
+}
+
+
+
+@article{hall2000safety,
+  title={Safety, efficacy, and functionality of high-field strength interventional magnetic resonance imaging for neurosurgery},
+  author={Hall, Walter A and Liu, Haiying and Martin, Alastair J and Pozza, Christopher H and Maxwell, Robert E and Truwit, Charles L},
+  journal={Neurosurgery},
+  volume={46},
+  number={3},
+  pages={632--642},
+  year={2000},
+  publisher={LWW}
+}
+
+
+
+@article{trainor2009vulnerability,
+  title={Vulnerability and adaptation to climate-related fire impacts in rural and urban interior Alaska},
+  author={Trainor, Sarah F and Calef, Monika and Natcher, David and Chapin, F Stuart and McGuire, A David and Huntington, Orville and Duffy, Paul and Rupp, T Scott and DeWilde, La'Ona and Kwart, Mary and others},
+  journal={Polar Research},
+  volume={28},
+  number={1},
+  pages={100--118},
+  year={2009},
+  publisher={Wiley Online Library}
+}
+
+
+
+@book{bhatia1979india,
+  title={India's nuclear bomb},
+  author={Bhatia, Shyam},
+  year={1979},
+  publisher={Vikas Ghaziabad}
+}
+
+
+
+@book{bundy1990danger,
+  title={Danger and survival: Choices about the bomb in the first fifty years},
+  author={Bundy, McGeorge},
+  year={1990},
+  publisher={Vintage Books}
+}
+
+
+
+@article{ruuska1990rotavirus,
+  title={Rotavirus disease in Finnish children: use of numerical scores for clinical severity of diarrhoeal episodes},
+  author={Ruuska, Tarja and Vesikari, Timo},
+  journal={Scandinavian journal of infectious diseases},
+  volume={22},
+  number={3},
+  pages={259--267},
+  year={1990},
+  publisher={Informa UK Ltd UK}
+}
+
+
+
+@book{lovecraft1987dagon,
+  title={Dagon and other macabre tales},
+  author={Lovecraft, Howard Phillips},
+  volume={3},
+  year={1987},
+  publisher={Arkham House Pub}
+}
+
+
+
+
+@article{kreuer2001development,
+  title={On the development of proton conducting polymer membranes for hydrogen and methanol fuel cells},
+  author={Kreuer, KD},
+  journal={Journal of membrane science},
+  volume={185},
+  number={1},
+  pages={29--39},
+  year={2001},
+  publisher={Elsevier}
+}
+
+
+
+@article{arico2001dmfcs,
+  title={DMFCs: from fundamental aspects to technology development},
+  author={Arico, AS and Srinivasan, S and Antonucci, V1},
+  journal={Fuel cells},
+  volume={1},
+  number={2},
+  pages={133--161},
+  year={2001},
+  publisher={Wiley Online Library}
+}
+
+
+
+@article{estes1989rotavirus,
+  title={Rotavirus gene structure and function.},
+  author={Estes, Mary K and Cohen, JEAN},
+  journal={Microbiological Reviews},
+  volume={53},
+  number={4},
+  pages={410},
+  year={1989},
+  publisher={American Society for Microbiology (ASM)}
+}
+
+
+
+@article{rubino2000magnetic,
+  title={Magnetic resonance imaging-guided neurosurgery in the magnetic fringe fields: the next step in neuronavigation},
+  author={Rubino, Gregory J and Farahani, Keyvan and McGill, David and Van de Wiele, Barbara and Villablanca, J Pablo and Wang-Mathieson, Anna},
+  journal={Neurosurgery},
+  volume={46},
+  number={3},
+  pages={643--654},
+  year={2000},
+  publisher={LWW}
+}
+
+
+
+@article{tatarskii1971effects,
+  title={The effects of the turbulent atmosphere on wave propagation},
+  author={Tatarskii, Valerian Ilitch},
+  year={1971},
+  publisher={Nauka}
+}
+
+
+
+@article{appleby1988fuel,
+  title={Fuel cell handbook},
+  author={Appleby, A John},
+  year={1988},
+  publisher={New York, NY; Van Nostrand Reinhold Co. Inc.}
+}
+
+
+
+@article{welch1984technique,
+  title={A technique for high-performance data compression},
+  author={Welch, Terry A.},
+  journal={Computer},
+  volume={17},
+  number={6},
+  pages={8--19},
+  year={1984},
+  publisher={IEEE}
+}
+
+
+
+@article{feely1960tungsten,
+  title={Tungsten-185 from nuclear bomb tests as a tracer for stratospheric meteorology},
+  author={Feely, Herbert W and Spar, Jerome},
+  journal={Nature},
+  volume={188},
+  year={1960},
+  publisher={Isotopes, Inc., Westwood, NJ}
+}
+
+
+
+@article{varcoe2005prospects,
+  title={Prospects for Alkaline Anion-Exchange Membranes in Low Temperature Fuel Cells},
+  author={Varcoe, John R and Slade, Robert CT},
+  journal={Fuel cells},
+  volume={5},
+  number={2},
+  pages={187--200},
+  year={2005},
+  publisher={Wiley Online Library}
+}
+
+
+
+@book{barton2002power,
+  title={Power and knowledge: astrology, physiognomics, and medicine under the Roman Empire},
+  author={Barton, Tamsyn},
+  year={2002},
+  publisher={University of Michigan Press}
+}
+
+
+
+
+@book{kaushik1980pakistan,
+  title={Pakistan's nuclear bomb},
+  author={Kaushik, Brij Mohan and Mehrotra, ON},
+  year={1980},
+  publisher={Sopan Publishing House}
+}
+
+
+
+@book{sachau1962alberuni,
+  title={Alberuni's India: An Account of the Religion, Philosophy, Literature, Geography, Chronology, Astronomy, Customs, Laws and Astrology of India, about AD 1030},
+  author={Sachau, Edward C and others},
+  volume={2},
+  year={1962},
+  publisher={Taylor \& Francis}
+}
