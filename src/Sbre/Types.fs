@@ -169,6 +169,7 @@ type RegexNodeInfo<'tset when 'tset :> IEquatable<'tset> and 'tset: equality >()
 type RegexAnchor =
     | End
     | Begin
+    | WordBorder
 
 [<ReferenceEquality>]
 [<DebuggerDisplay("{ToString()}")>]
@@ -286,6 +287,7 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
             match regexAnchor with
             | End -> @"\z"
             | Begin -> @"\a"
+            | WordBorder -> @"\b"
 
 #endif
 

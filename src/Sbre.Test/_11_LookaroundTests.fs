@@ -192,19 +192,6 @@ let ``multiple nullables 2``() =
 //     assertNullablePositions "bb(?!aa)" "__bb_" [ 2 ]
 //
 
-
-
-[<Fact>]
-let ``neg states 1``() =
-    assertRevStates "b(?!a)" "bb" [
-        [ @"⊤*(?<=((~(a)&\z⊤)|\z))b" ]
-        [ "b(?!a)" ]
-        [ "⊤*(?<=((⊤&~(a))|\z))b" ]
-    ]
-
-
-
-
 // [<Fact>] // difficult case, can start match from bb|aa
 // let ``neg lookahead 2``() =
 //     assertNullablePositions "bb(?!aa)" "__bbaa" [ ]

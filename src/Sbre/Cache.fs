@@ -14,9 +14,9 @@ open Info
 
 
 type OptimizedUnique =
-    | WordBorder
-    | Bol // beginning of line
-    | Eol // end of line
+    // | WordBorder
+    // | Bol // beginning of line
+    // | Eol // end of line
     | StartOfString
     | NotStartOfString
 
@@ -56,9 +56,9 @@ type RegexCache< 't
     let mutable _optimizedUniques: Dictionary<RegexNode<TSet>,OptimizedUnique> = Dictionary(Common.equalityComparer)
 
     let initUniques() =
-        _optimizedUniques.Add(_builder.anchors._wordBorder.Value, OptimizedUnique.WordBorder)
-        _optimizedUniques.Add(_builder.anchors._caretAnchor.Value, OptimizedUnique.Bol)
-        _optimizedUniques.Add(_builder.anchors._dollarAnchor.Value, OptimizedUnique.Eol)
+        // _optimizedUniques.Add(_builder.anchors._wordBorder.Value, OptimizedUnique.WordBorder)
+        // _optimizedUniques.Add(_builder.anchors._caretAnchor.Value, OptimizedUnique.Bol)
+        // _optimizedUniques.Add(_builder.anchors._dollarAnchor.Value, OptimizedUnique.Eol)
         let notStartOfString = _builder.mkLookaround(_builder.uniques._true,true,false)
         _optimizedUniques.Add(notStartOfString, OptimizedUnique.NotStartOfString)
 

@@ -291,7 +291,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 b.mkLookaround(_true,false,true)
                 b.mkLookaround(b.mkConcat2(b.one '\n',_true),false,true)
             ])
-            _zAnchor = __z_anchor
+            _zAnchor = RegexNode<'t>.Anchor End
             _dollarAnchor =
                 lazy
 
@@ -305,7 +305,8 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                         info
                     )
             // \A ≡ (?<!⊤)
-            _bigAAnchor = __big_a_anchor
+            _bigAAnchor = RegexNode<'t>.Anchor Begin
+                // __big_a_anchor
             // (?<=\A|\A\n) ≡ \a
             _aAnchor =
                 lazy
@@ -337,19 +338,20 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
 
             _wordBorder =
                 lazy
-                    b.mkOr(
-                        ofSeq [
-                            b.mkConcat [
-                                b.mkLookaround(_uniques._wordChar.Value,true,false)
-                                // (?<=ψ\w)
-                                b.mkLookaround(_uniques._wordChar.Value,false,true)
-                            ]
-                            b.mkConcat [
-                                b.mkLookaround(_uniques._wordChar.Value,true,true)
-                                b.mkLookaround(_uniques._wordChar.Value,false,false)
-                            ]
-                        ]
-                    )
+                    // b.mkOr(
+                    //     ofSeq [
+                    //         b.mkConcat [
+                    //             // (?<=ψ\w)
+                    //             b.mkLookaround(_uniques._wordChar.Value,true,false)
+                    //             b.mkLookaround(_uniques._wordChar.Value,false,true)
+                    //         ]
+                    //         b.mkConcat [
+                    //             b.mkLookaround(_uniques._wordChar.Value,true,true)
+                    //             b.mkLookaround(_uniques._wordChar.Value,false,false)
+                    //         ]
+                    //     ]
+                    // )
+                    RegexNode<'t>.Anchor WordBorder
 
             // ^ ≡ \A|(?<=\n)
             _caretAnchor =
@@ -382,12 +384,12 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
 
     member this.InitializeUniqueMap(oldBuilder:RegexBuilder<BDD>) =
         _uniquesDict.Add(oldBuilder.anchors._aAnchor.Value,this.anchors._aAnchor.Value)
-        _uniquesDict.Add(oldBuilder.anchors._bigAAnchor.Value,this.anchors._bigAAnchor.Value)
+        _uniquesDict.Add(oldBuilder.anchors._bigAAnchor,this.anchors._bigAAnchor)
         _uniquesDict.Add(oldBuilder.anchors._caretAnchor.Value,this.anchors._caretAnchor.Value)
         _uniquesDict.Add(oldBuilder.anchors._dollarAnchor.Value,this.anchors._dollarAnchor.Value)
         _uniquesDict.Add(oldBuilder.anchors._nonWordBorder.Value,this.anchors._nonWordBorder.Value)
         _uniquesDict.Add(oldBuilder.anchors._wordBorder.Value,this.anchors._wordBorder.Value)
-        _uniquesDict.Add(oldBuilder.anchors._zAnchor.Value,this.anchors._zAnchor.Value)
+        _uniquesDict.Add(oldBuilder.anchors._zAnchor,this.anchors._zAnchor)
         ()
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
@@ -939,6 +941,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
     member this.mkConcat2(head: RegexNode< 't >, tail: RegexNode< 't >) : RegexNode< 't > =
         match head with
         | Epsilon -> tail // ()R -> R
+        // | LookAround(node=Epsilon; lookBack=true; negate=false) -> tail
         | _ when refEq head _uniques._false -> _uniques._false // ⊥R -> ⊥
         | _ ->
 
@@ -963,9 +966,12 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
         match _lookaroundCache.TryGetValue(key) with
         | true, v -> v
         | _ ->
-            let node = LookAround(body, lookBack = lookBack, negate = negate, pendingNullables=(rel,pending))
-            _lookaroundCache.Add(key, node)
-            node
+            let newNode =
+                match body, lookBack, negate with
+                | Epsilon, true, false -> Epsilon
+                | _ -> LookAround(body, lookBack = lookBack, negate = negate, pendingNullables=(rel,pending))
+            _lookaroundCache.Add(key, newNode)
+            newNode
 
 
 

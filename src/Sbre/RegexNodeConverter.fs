@@ -138,12 +138,11 @@ let convertToSymbolicRegexNode
 
         // anchors
         | RegexNodeKind.Bol -> b.anchors._caretAnchor.Value :: acc
-        | RegexNodeKind.Beginning -> b.anchors._bigAAnchor.Value :: acc
+        | RegexNodeKind.Beginning -> b.anchors._bigAAnchor :: acc
         | RegexNodeKind.Eol -> b.anchors._dollarAnchor.Value :: acc
         | RegexNodeKind.EndZ -> b.anchors._endZAnchor.Value :: acc
-        | RegexNodeKind.End -> Anchor RegexAnchor.End :: acc //b.anchors._zAnchor.Value :: acc // end of string only
+        | RegexNodeKind.End -> b.anchors._zAnchor :: acc //b.anchors._zAnchor.Value :: acc // end of string only
         | RegexNodeKind.Boundary ->
-            failwith "TODO: reimplement word border"
             b.anchors._wordBorder.Value :: acc
         | RegexNodeKind.NonBoundary ->
             failwith "TODO: reimplement word border"

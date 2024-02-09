@@ -427,23 +427,15 @@ type RegexMatcher<'t when 't: struct>
         let currChar = _cache.CurrentChar(loc)
         let prevCharOpt = _cache.PrevChar(loc)
         match unique with
-        | WordBorder ->
-            match prevCharOpt, currChar with
-            | ValueNone, ValueSome c |  ValueSome c, ValueNone -> RegexCharClass.IsBoundaryWordChar(c)
-            | ValueSome prev, ValueSome curr ->
-                let c1 = not (RegexCharClass.IsBoundaryWordChar(prev)) && RegexCharClass.IsBoundaryWordChar(curr)
-                let c2 = (RegexCharClass.IsBoundaryWordChar(prev)) && not (RegexCharClass.IsBoundaryWordChar(curr))
-                c1 || c2
-            | _ -> true// impossible case
 
         | StartOfString -> failwith "todo"
         | NotStartOfString -> loc.Position > 0
-        | Bol ->
-            loc.Position = 0 ||
-            match prevCharOpt with
-            | ValueSome c -> c = '\n'
-            | _ -> false
-        | Eol -> failwith "todo"
+        // | Bol ->
+        //     loc.Position = 0 ||
+        //     match prevCharOpt with
+        //     | ValueSome c -> c = '\n'
+        //     | _ -> false
+        // | Eol -> failwith "todo"
 
 
     member this.IsNullable(loc: inref<Location>, node: RegexNode<_>) : bool =
@@ -472,29 +464,6 @@ type RegexMatcher<'t when 't: struct>
                 found
             // Nullx (R) and Nullx (S)
             | And(xs, info) ->
-                // short-circuit failure condition
-                let canNotBeNullableCheck =
-                    match info.LookupPrev with
-                    | false -> false
-                    | _ ->
-                        let c1 =
-                            match info.MustStartWithWordBorder with
-                            | Some true ->
-                                let isWordBorder =
-                                    this.HandleOptimizedNullable(OptimizedUnique.WordBorder, &loc)
-                                not isWordBorder
-                            | _ -> false
-                        let c2 =
-                            match info.PrevCharRequired with
-                            | Some v ->
-                                match _cache.PrevChar(loc) with
-                                | ValueNone -> true
-                                | ValueSome s ->
-                                    Solver.notElemOfSet v (_cache.CharToMinterm(s))
-                            | _ -> false
-                        c1 || c2
-                if canNotBeNullableCheck then false else
-
                 use mutable e = xs.GetEnumerator()
                 let mutable forall = true
                 while forall && e.MoveNext() do
@@ -560,6 +529,16 @@ type RegexMatcher<'t when 't: struct>
                 match regexAnchor with
                 | End -> loc.Position = loc.Input.Length
                 | Begin -> loc.Position = 0
+                | WordBorder ->
+                    let currChar = _cache.CurrentChar(loc)
+                    let prevCharOpt = _cache.PrevChar(loc)
+                    match prevCharOpt, currChar with
+                    | ValueNone, ValueSome c |  ValueSome c, ValueNone -> RegexCharClass.IsBoundaryWordChar(c)
+                    | ValueSome prev, ValueSome curr ->
+                        let c1 = not (RegexCharClass.IsBoundaryWordChar(prev)) && RegexCharClass.IsBoundaryWordChar(curr)
+                        let c2 = (RegexCharClass.IsBoundaryWordChar(prev)) && not (RegexCharClass.IsBoundaryWordChar(curr))
+                        c1 || c2
+                    | _ -> true// impossible case
 
                 // let mutable _tlo = _cache.False
                 // match lookBack, negate with
@@ -657,32 +636,8 @@ type RegexMatcher<'t when 't: struct>
 
             // Derx (R & S) = Derx (R) & Derx (S)
             | And(xs, info) as head ->
-                let failed =
-                    match info.LookupPrev with
-                    | false -> false
-                    | _ ->
-                        match info.MustStartWithWordBorder with
-                        | Some true ->
-                            let isWordBorder =
-                                this.HandleOptimizedNullable(OptimizedUnique.WordBorder, &loc)
-                            not isWordBorder
-                        | _ -> false
-
-                let mutable foundFalse = failed
-                //
                 let derivatives = ResizeArray()
-                use mutable e = xs.GetEnumerator()
-
-                while not foundFalse && e.MoveNext() do
-                    let der = this.CreateDerivative (&loc, loc_pred, e.Current)
-                    if refEq _cache.False der then
-                        foundFalse <- true
-                    else
-                        derivatives.Add(der)
-                if foundFalse then _cache.False else
-                // --
-                // for n in xs do
-                //     derivatives.Add (this.CreateDerivative (state,&loc, loc_pred, n))
+                for n in xs do derivatives.Add (this.CreateDerivative (&loc, loc_pred, n))
                 _cache.Builder.mkAnd(derivatives)
 
             // Derx(~R) = ~Derx (R)

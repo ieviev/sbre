@@ -219,7 +219,12 @@ let ``conversion label``() = assertConverted "(?<Time>^\d)" [@"((?<!⊤)|(?<=\n)
 
 
 [<Fact>]
-let ``conversion neg lookahead ``() = assertConverted "1(?! Sep)" ["1(?! Sep)"]
+let ``conversion neg lookahead ``() = assertConverted "1(?! Sep)" [
+    @"1(?=(⊤{0,3}\z|(⊤{4,4}&~(⊤* Sep⊤*))))" // rewritten pos
+    @"1(?=((⊤{4,4}&~(⊤* Sep⊤*))|⊤{0,3}\z))"
+    @"1(?=(⊤{0,3}\z|(~(⊤* Sep⊤*)&⊤{4,4})))"
+    "1(?! Sep)"
+]
 
 [<Fact>]
 let ``conversion conc ``() = assertConverted "Twain" ["Twain"]

@@ -217,11 +217,7 @@ let ``derivative boundary 1``() =
 
 [<Fact>]
 let ``derivative boundary 2``() =
-    testPartDerivativeFromLocation (@"\b22", "1 2", 1, "22")
-
-
-// [<Fact>]
-// let ``derivative boundary 3`` () = testPartDerivativeFromLocation (@"\b1\b", "1 ", 0, "((?<!φ)(?=φ)|(?<=φ)(?!φ))")
+    testPartDerivativeFromLocation (@"\b22", "1 2", 2, "2")
 
 
 [<Fact>]
