@@ -88,11 +88,6 @@ let twain_counts_6() =
         (System.Text.RegularExpressions.Regex(twainPatterns[idx]).Count(twain_input))
         (Sbre.Regex(twainPatterns[idx]).Count(twain_input))
 
-
-
-//
-
-
 [<Fact>]
 let twain_ranges_1() =
     let pat = @"[""'][^""']{0,30}[?!\.][""']"

@@ -36,7 +36,6 @@ let getImmediateDerivatives (cache: RegexCache<_>) (node: RegexNode<TSet>) =
     cache.Minterms()
     |> Array.map (fun minterm ->
         let loc = Pat.Location.getDefault ()
-        let state = Sbre.CountingSet.RegexState(cache.NumOfMinterms())
         let der = Algorithm.createStartsetDerivative (cache, minterm, node)
         minterm, der
     )
@@ -44,7 +43,6 @@ let getImmediateDerivativesMerged (cache: RegexCache<_>) (node: RegexNode<TSet>)
     cache.Minterms()
     |> Array.map (fun minterm ->
         let loc = Pat.Location.getDefault ()
-        let state = Sbre.CountingSet.RegexState(cache.NumOfMinterms())
         let der = Algorithm.createStartsetDerivative (cache,  minterm, node)
         minterm, der
     )
@@ -224,8 +222,6 @@ let rec applyPrefixSets (cache:RegexCache<_>) (node:RegexNode<TSet>) (sets:TSet 
     match sets with
     | [] -> node
     | head :: tail ->
-        let loc = Pat.Location.getDefault ()
-        let state = Sbre.CountingSet.RegexState(cache.NumOfMinterms())
         let der = Algorithm.createStartsetDerivative (cache, head, node)
         applyPrefixSets cache der tail
 
@@ -337,13 +333,44 @@ let rec collectPendingNullables
             nodes
             |> Seq.collect (collectPendingNullables canBeNull)
         Set.ofSeq pendingNullables
-    | _ -> Set.empty
+    | And(nodes, regexNodeInfo) ->
+        let pendingNullables =
+            nodes
+            |> Seq.collect (collectPendingNullables canBeNull)
+        Set.ofSeq pendingNullables
+    | Loop(node=node) | Not (node=node) ->
+        let pending = (collectPendingNullables canBeNull) node
+        if not pending.IsEmpty then
+            failwith $"todo: collect pending nullables inside: {node}"
+        else Set.empty
+    | Epsilon | Anchor _ | Singleton _ -> Set.empty
+    // | Concat(head, tail, info) -> failwith "todo"
+    // | Epsilon -> failwith "todo"
+    | LookAround(_) | Concat(head=LookAround(_)) -> Set.empty
+    | Concat(info=info) when info.CanNotBeNullable() -> Set.empty
+    | Concat(head=head; tail=tail) when head.IsAlwaysNullable ->
+        let pendingTail = collectPendingNullables canBeNull tail
+        pendingTail
+    | Concat(head=Anchor _; tail=tail) ->
+        let pendingTail = collectPendingNullables canBeNull tail
+        pendingTail
+    | _ ->
+        failwith $"todo: nullables inside: {node}"
+        Set.empty
 
 let rec nodeWithoutLookbackPrefix
+    (b:RegexBuilder<_>)
     (node:RegexNode<_>) =
     match node with
     | Concat(head=LookAround(lookBack = true); tail=tail) ->
-        nodeWithoutLookbackPrefix tail
+        nodeWithoutLookbackPrefix b tail
+    | And(nodes=xs) | Or(nodes=xs) ->
+        xs
+        |> Seq.map (nodeWithoutLookbackPrefix b)
+        |> b.mkAnd
+    | Not(_) ->
+        assert (not node.ContainsLookaround)
+        node
     | _ ->
         node
 

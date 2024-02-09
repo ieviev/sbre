@@ -23,7 +23,6 @@ module Helpers =
 let ``nullable 01``() =
     let regex = Regex(".{2}c")
     let matcher = regex.TSetMatcher
-    let state = RegexState(matcher.Cache.NumOfMinterms())
     let loc = Location.create "" 0
     let node = matcher.RawPattern
     let nullable = matcher.IsNullable(&loc,node)

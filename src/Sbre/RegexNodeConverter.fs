@@ -137,13 +137,13 @@ let convertToSymbolicRegexNode
             | _ -> b.mkLoop (single, node.M, node.N) :: acc
 
         // anchors
-        | RegexNodeKind.Bol -> b.anchors._caretAnchor.Value :: acc
+        | RegexNodeKind.Bol -> b.anchors._caretAnchor :: acc
         | RegexNodeKind.Beginning -> b.anchors._bigAAnchor :: acc
-        | RegexNodeKind.Eol -> b.anchors._dollarAnchor.Value :: acc
+        | RegexNodeKind.Eol -> b.anchors._dollarAnchor :: acc
         | RegexNodeKind.EndZ -> b.anchors._endZAnchor.Value :: acc
         | RegexNodeKind.End -> b.anchors._zAnchor :: acc //b.anchors._zAnchor.Value :: acc // end of string only
         | RegexNodeKind.Boundary ->
-            b.anchors._wordBorder.Value :: acc
+            b.anchors._wordBorder :: acc
         | RegexNodeKind.NonBoundary ->
             failwith "TODO: reimplement word border"
             b.anchors._nonWordBorder.Value :: acc
@@ -175,10 +175,11 @@ let convertToSymbolicRegexNode
             builder.mkLookaround(b.mkConcat (convertChildren node),node.Options.HasFlag(RegexOptions.RightToLeft),false)
             :: acc
         | RegexNodeKind.NegativeLookaround ->
-            let negLookaround = builder.mkLookaround(b.mkConcat (convertChildren node),node.Options.HasFlag(RegexOptions.RightToLeft),true)
-            let rewrittenLookaround = rewriteNegativeLookaround b negLookaround
-            rewrittenLookaround
-            :: acc
+            failwith "negative lookarounds not supported"
+            // let negLookaround = builder.mkLookaround(b.mkConcat (convertChildren node),node.Options.HasFlag(RegexOptions.RightToLeft),true)
+            // let rewrittenLookaround = rewriteNegativeLookaround b negLookaround
+            // rewrittenLookaround
+            // :: acc
         | other -> failwith $"RegexNodeKind conversion not implemented: {other}, \n{rootNode}"
 
     let result = loop [] rootNode

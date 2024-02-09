@@ -29,10 +29,8 @@ module Extensions =
 #nowarn "42"
 
 module Solver =
-    // todo
     let inline elemOfSet predicate locationMinterm =
         predicate &&& locationMinterm <> LanguagePrimitives.GenericZero
-
     let inline il_and (x:'t) (y:'t) =
         (# "and" x y : 't #)
     let inline notElemOfSet predicate locationMinterm =
@@ -41,7 +39,6 @@ module Solver =
         (larger: ^d when ^d : struct)
         (smaller: ^d): bool =
             (larger &&& smaller) = smaller
-    // let inline notElemOfSetU64 predicate locationMinterm = predicate &&& locationMinterm = 0uL
     let inline not' predicate = ~~~predicate
     let inline isEmpty predicate = predicate = 0UL
     let inline mapOr (s:ISolver<^t>) ([<InlineIfLambda>]f: 'a -> ^t) xs: ^t =

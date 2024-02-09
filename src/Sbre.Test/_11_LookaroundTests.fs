@@ -58,6 +58,33 @@ let ``a pos simple 3.1``() = assertAllLLmatchTexts "a(?=b)" "_ab_ab_" [ "a"; "a"
 let ``a pos simple 3.2``() = assertAllLLmatchTexts "bb(?=aa)" "__bbaa__" [ "bb" ]
 
 
+// let idx,len = getFirstLLmatch @".*(?=.*-)&\S.*\S" @"-aaaa-"
+
+[<Fact>]
+let ``a pos complex 1.1`` () =
+    assertNullablePositions @".*(?=.*-)&\S.*\S" @"-aaaa-" [
+        yield! List.rev [ 0..4 ]
+    ]
+
+[<Fact>]
+let ``a pos complex 1.2`` () =
+    assertMatchEnd @".*(?=.*-)&.*" @"a-" 0 1
+
+
+[<Fact>]
+let ``a pos complex 1.3`` () =
+    assertMatchEnd @".*(?=.*-)&.*" @"-aaaa-" 0 5
+
+[<Fact>]
+let ``a pos complex 1.4`` () =
+    assertMatchEnd @".*(?=.*-)&\S.*\S" @"-aaaa-" 0 5
+
+
+// TODO: maybe not support this at all?
+// [<Fact>]
+// let ``a pos complex 2``() = // TODO:
+//     assertFirstMatchText @".*(?=.*E)&~(.*and.*)" @"___and__E" "___an"
+
 
 [<Fact>]
 let ``b pos simple 1.1``() = assertNullablePositions "(?<=b)" "b" [ 1 ]
@@ -110,19 +137,149 @@ let ``b pos simple 1.8``() = assertNullablePositions "(?<=bb)a" "bbbba" [ 4 ]
 let ``b pos simple 1.9``() = assertNullablePositions "(?<=bbb)a" "bbbba" [ 4 ]
 
 
+[<Fact>]
+let ``b pos complex 1.1a``() =
+    assertNullablePositions """(?<=aaa).*""" "aaabbb" [3]
 
 [<Fact>]
-let ``lookback nulls 1``() =
-    assertNullablePositions "(?<=aa)bb" "__aabb__" [
-        4
-    ]
+let ``b pos complex 1.1b``() =
+    assertMatchEndNoLookback """(?<=aaa).*""" "aaabbb" 3 6
+
+
 
 
 [<Fact>]
-let ``lookback full 1``() =
-    assertAllLLmatchTexts "(?<=aa)bb" "__aabb__" [
-        "bb"
-    ]
+let ``b pos complex 1.2``() =
+    assertFirstMatchText """(?<=aaa).*""" "aaabbb" "bbb"
+
+
+[<Fact>]
+let ``b pos complex 2``() =
+    assertFirstMatchText """(?<=aaa\{).*(?=\})""" "aaa{bbb {ccc}}" "bbb {ccc}"
+
+
+[<Fact>]
+let ``c intersect 1.1``() =
+    assertFirstMatchText """(?<=author).*""" "author: abc and def" ": abc and def"
+
+[<Fact>]
+let ``c intersect 1.2a``() =
+    assertNullablePositions """(?<=author).*&.*""" "author: abc and def" [6]
+
+[<Fact>]
+let ``c intersect 1.2b``() =
+    assertMatchEndNoLookback """(?<=author).*&.*and.*""" "author: abc and def" 6 19
+
+[<Fact>]
+let ``c intersect 1.2c``() =
+    assertFirstMatchText """(?<=author).*&.*""" "author: abc and def" ": abc and def"
+
+[<Fact>]
+let ``c intersect 1.3a``() =
+    assertFirstMatchText """(?<=__).*&~(.*and.*)""" "__ abc and def" " abc an"
+
+[<Fact>]
+let ``c intersect 1.3b``() =
+    assertFirstMatchText """(?<=__).*(?=.*def)&.*and.*""" "__abc and def" "abc and "
+
+
+// TODO: maybe not support this at all?
+// [<Fact>]
+// let ``c intersect 1.4a``() =
+//     assertFirstMatchText """.*(?=.*def)&~(.*and.*)""" "__abc and def" "__abc an"
+
+// this works
+[<Fact>]
+let ``c intersect 1.4b``() =
+    assertFirstMatchText """~(.*and.*)(?=.*def)""" "__abc and def" "__abc an"
+
+
+[<Fact>]
+let ``d compl 1.1a``() =
+    assertNullablePositions """~(.*and.*)""" "__A and B" [ yield! List.rev [ 0..9 ] ]
+[<Fact>]
+let ``d compl 1.1b``() =
+    assertMatchEnd """~(.*and.*)""" "__A and B" 0 6
+
+[<Fact>]
+let ``d compl 1.1c``() =
+    assertMatchEnd """~(.*and.*)""" "__A and B" 6 9
+
+// [<Fact>]
+// let ``d compl 1.1d``() =
+//     assertNullablePositions """.*(?=.*B)&~(.*A.*)""" "_A_B" [
+//         yield! List.rev [ 0..3 ]
+//     ]
+//
+// [<Fact>]
+// let ``d compl 1.1e``() =
+//     assertNullablePositions """.*(?=.*B)&~(.*and.*)""" "__A and B" [
+//         yield! List.rev [ 0..8 ]
+//     ]
+
+[<Fact>]
+let ``e range constraint 1.1a``() = assertNullablePositions @".(?=.*c)" "abc" [1; 0]
+
+[<Fact>]
+let ``e range constraint 1.1b``() = assertNullablePositions @"(?<=a.*).(?=.*c)" "abc" [1]
+
+
+[<Fact>]
+let ``e range constraint 1.2a``() = assertMatchEndNoLookback @".(?=.*c)" "bc" 0 1
+
+[<Fact>]
+let ``e range constraint 1.2b``() = assertMatchEndNoLookback @"(?<=a.*).(?=.*c)" "abc" 1 2
+
+[<Fact>]
+let ``e range constraint 1.3a``() = assertNullablePositions @"(?<=a.*).(?=.*c)" "a__c" [ 2; 1]
+
+[<Fact>]
+let ``e range constraint 1.3b``() =
+    assertMatchEndNoLookback @"(?<=a.*).(?=.*c)" "a__c" 1 2
+
+[<Fact>]
+let ``e range constraint 1.3c``() =
+    assertMatchEndNoLookback @"(?<=a.*).(?=.*c)" "a__c" 2 3
+
+[<Fact>]
+let ``f wordborder constraint 1.1a``() =
+    assertNullablePositions @"(?<=a.*)(x)(?=.*c)" "a x c" [2]
+
+[<Fact>]
+let ``f wordborder constraint 1.1b``() =
+    assertNullablePositions @"(\bx)" "a x c" [2]
+
+[<Fact>]
+let ``f wordborder constraint 1.1c``() =
+    assertNullablePositions @"(?<=a.*)(\bx)(?=.*c)" "a x c" [2]
+
+[<Fact>]
+let ``f wordborder constraint 1.1d``() =
+    assertNullablePositions @"(?<=a.*)(\bx\b)(?=.*c)" "a x c" [2]
+
+[<Fact>]
+let ``f wordborder constraint 1.1e``() =
+    assertNullablePositions @"(?<=a.*)(\bx\b)(?=.*c)" "a xx c" []
+
+
+//"b"
+
+
+//
+// [<Fact>]
+// let ``complex pos 1.2``() = assertNullablePositions @"(?=.*A)(?=.*a)(?=.*1)..." "Aa1" [ 0 ]
+
+// [<Fact>]
+// let ``derivative boundary 5``() =
+//     testPartDerivativeFromLocation (@"(?=\w)a", "1a", 1, "ε")
+
+
+// (?=(.*A⊤*&.*a⊤*&.*1⊤*))
+// (?=.*a).*b => (.*a⊤*&.*b)
+
+// [<Fact>]
+// let ``complex pos 12``() = assertFirstMatchText @"(?=.*A)(?=.*a)(?=.*1)..." "Aa1" "Aa1"
+
 
 
 [<Fact>]
@@ -208,6 +365,40 @@ let ``multiple nullables 2``() =
 //
 
 
+[<Fact>]
+let ``testing anchors 1.1``() = assertRawDerivative """\ba""" "a " ["ε"]
+
+[<Fact>]
+let ``testing anchors 1.2``() = assertRawDerivative """⊤*\ba""" "a " [
+    @"(⊤*\ba|ε)"
+    @"(ε|⊤*\ba)"
+]
+
+[<Fact>]
+let ``testing anchors 1.3``() = assertNullablePositions """a\b""" "a " [ 0 ]
+
+[<Fact>]
+let ``testing anchors 1.4a``() = assertNullablePositions """\b1\b""" "1" [ 0 ]
+
+[<Fact>]
+let ``testing anchors 1.4b``() = assertMatchEnd """\b1\b""" "1" 0 1
+
+
+[<Fact>]
+let ``testing anchors 1.4c``() =
+    assertFirstMatchText
+        """\b1\b"""
+        "1"
+        "1"
+
+
+
+// [<Fact>]
+// let ``testing anchors 1``() =
+//     assertFirstMatchText
+//         """a\b"""
+//         "a "
+//         "a"
 
 
 #endif

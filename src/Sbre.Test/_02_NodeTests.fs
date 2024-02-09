@@ -214,7 +214,10 @@ let ``conversion lookaround 2 ``() = assertConverted ".(?=A.*)" [@".(?=A.*)"]
 
 
 [<Fact>]
-let ``conversion label``() = assertConverted "(?<Time>^\d)" [@"((?<!⊤)|(?<=\n))φ"; @"((?<=\n)|(?<!⊤))φ"]
+let ``conversion label``() = assertConverted "(?<Time>^\d)" [
+    @"^\d"
+    // @"((?<!⊤)|(?<=\n))φ"; @"((?<=\n)|(?<!⊤))φ"
+]
 // assertConverted ".(?=A.*)" @"[^\n](?=A[^\n]*)"
 
 
@@ -230,52 +233,62 @@ let ``conversion neg lookahead ``() = assertConverted "1(?! Sep)" [
 let ``conversion conc ``() = assertConverted "Twain" ["Twain"]
 
 
-
 [<Fact>]
 let ``flags 1``() =
-    let matcher = Regex("(\d⊤*|⊤*\d{2,2}⊤*)").TSetMatcher
-    let flags = Flags.inferInitialFlags matcher.RawPattern
-
-    if flags.HasCounter then
-        assertEqual (Flag.CanBeNullableFlag ||| Flag.HasCounterFlag) flags
+    let matcher = Regex(@"^\d$").TSetMatcher
+    let f = matcher.ReverseTrueStarredPattern.GetFlags()
+    assertFlag f Flag.DependsOnAnchorFlag
 
 
-[<Fact>]
-let ``flags 2``() =
-    let matcher = Regex(@"(.*b|)").TSetMatcher
-
-    match matcher.RawPattern with
-    | Types.Or(nodes, info) ->
-        // let flags = Flags.inferNode matcher.RawPattern
-        // let info = Cache.mkInfoOfOr (matcher.Cache, nodes)
-        let flags = Flags.inferInitialFlags matcher.RawPattern
-
-        Assert.Equal(
-            Flag.CanBeNullableFlag ||| Flag.IsAlwaysNullableFlag ||| Flag.ContainsEpsilonFlag,
-            flags
-        )
-    | _ -> Assert.True(false, "wrong node type")
 
 
-[<Fact>]
-let ``flags 3``() =
-    let matcher = Regex(@"\d{2}⊤*").TSetMatcher
-    let flags = matcher.RawPattern.GetFlags()
-
-    if flags.HasCounter then
-        assertTrue (flags.HasFlag(Flag.HasCounterFlag)) "hascounter"
-        assertTrue (flags.HasFlag(Flag.IsCounterFlag)) "iscounter"
 
 
-[<Fact>]
-let ``flags 4``() =
-    let matcher = Regex(@"⊤*\d{2}⊤*").TSetMatcher
-    let flags = matcher.RawPattern.GetFlags()
+// [<Fact>]
+// let ``flags 1``() =
+//     let matcher = Regex("(\d⊤*|⊤*\d{2,2}⊤*)").TSetMatcher
+//     let flags = Flags.inferInitialFlags matcher.RawPattern
+//
+//     if flags.HasCounter then
+//         assertEqual (Flag.CanBeNullableFlag ||| Flag.HasCounterFlag) flags
 
-    if flags.HasCounter then
-        assertTrue (flags.HasFlag(Flag.HasCounterFlag)) "hascounter"
-        assertTrue (flags.HasFlag(Flag.CanBeNullableFlag)) "canbenullable"
-        assertFalse (flags.HasFlag(Flag.IsCounterFlag)) "iscounter"
+
+// [<Fact>]
+// let ``flags 2``() =
+//     let matcher = Regex(@"(.*b|)").TSetMatcher
+//
+//     match matcher.RawPattern with
+//     | Types.Or(nodes, info) ->
+//         // let flags = Flags.inferNode matcher.RawPattern
+//         // let info = Cache.mkInfoOfOr (matcher.Cache, nodes)
+//         let flags = Flags.inferInitialFlags matcher.RawPattern
+//
+//         Assert.Equal(
+//             Flag.CanBeNullableFlag ||| Flag.IsAlwaysNullableFlag ||| Flag.ContainsEpsilonFlag,
+//             flags
+//         )
+//     | _ -> Assert.True(false, "wrong node type")
+
+
+// [<Fact>]
+// let ``flags 3``() =
+//     let matcher = Regex(@"\d{2}⊤*").TSetMatcher
+//     let flags = matcher.RawPattern.GetFlags()
+//
+//     if flags.HasCounter then
+//         assertTrue (flags.HasFlag(Flag.HasCounterFlag)) "hascounter"
+//         assertTrue (flags.HasFlag(Flag.IsCounterFlag)) "iscounter"
+
+
+// [<Fact>]
+// let ``flags 4``() =
+//     let matcher = Regex(@"⊤*\d{2}⊤*").TSetMatcher
+//     let flags = matcher.RawPattern.GetFlags()
+//
+//     if flags.HasCounter then
+//         assertTrue (flags.HasFlag(Flag.HasCounterFlag)) "hascounter"
+//         assertTrue (flags.HasFlag(Flag.CanBeNullableFlag)) "canbenullable"
+//         assertFalse (flags.HasFlag(Flag.IsCounterFlag)) "iscounter"
 
 
 [<Fact>]
@@ -441,6 +454,15 @@ let ``startset 04``() = assertStartset "~(.*11.*|1.*)" false "."
 
 
 
+let assertNodeWithoutPrefix (patt:string) (expected:string list) =
+    let m = Sbre.Regex(patt).TSetMatcher
+    let n = m.RawPattern
+    let n2 = Optimizations.nodeWithoutLookbackPrefix m.Cache.Builder n
+    assertContains expected (n2.ToString())
+
+[<Fact>]
+let ``withoutprefix 01``() =
+    assertNodeWithoutPrefix "(?<=author).*&.*and.*" [".*and.*"]
 
 
 

@@ -1,5 +1,5 @@
 [<Xunit.Collection("Sequential")>]
-module Sbre.Test._12_OptimizationTests
+module Sbre.Test._13_OptimizationTests
 
 open Sbre
 open Sbre.Benchmarks.Jobs
@@ -26,6 +26,13 @@ let ``fixed length 2``() =
     let matcher = regex.TSetMatcher
     let prefixLen = Node.getFixedLength matcher.ReversePattern
     Assert.Equal(Some 15, prefixLen)
+
+[<Fact>]
+let ``fixed length 3``() =
+    let regex = Regex("""\b1\b""")
+    let matcher = regex.TSetMatcher
+    let prefixLen = Node.getFixedLength matcher.ReversePattern
+    Assert.Equal(Some 1, prefixLen)
 
 
 

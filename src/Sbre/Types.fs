@@ -64,9 +64,11 @@ type RegexNodeFlags =
     | ContainsLookaroundFlag = 4uy
     | ContainsEpsilonFlag = 8uy
     | HasCounterFlag = 16uy
-    | IsCounterFlag = 32uy
-    | IsImmediateLookaroundFlag = 64uy
-    | IsAnchor = 128uy
+    // | IsCounterFlag = 32uy
+    | DependsOnAnchorFlag = 32uy
+    // | IsImmediateLookaroundFlag = 64uy
+    | IsAnchorFlag = 128uy
+
 
 [<AutoOpen>]
 module RegexNodeFlagsExtensions =
@@ -76,8 +78,9 @@ module RegexNodeFlagsExtensions =
         member this.ContainsLookaround = byte (this &&& RegexNodeFlags.ContainsLookaroundFlag) <> 0uy
         member this.ContainsEpsilon = (this &&& RegexNodeFlags.ContainsEpsilonFlag) = RegexNodeFlags.ContainsEpsilonFlag
         member this.HasCounter = (this &&& RegexNodeFlags.HasCounterFlag) = RegexNodeFlags.HasCounterFlag
-        member this.IsCounter = (this &&& RegexNodeFlags.IsCounterFlag) = RegexNodeFlags.IsCounterFlag
-        member this.IsImmediateLookaround = (this &&& RegexNodeFlags.IsImmediateLookaroundFlag) = RegexNodeFlags.IsImmediateLookaroundFlag
+        member this.DependsOnAnchor = (this &&& RegexNodeFlags.DependsOnAnchorFlag) = RegexNodeFlags.DependsOnAnchorFlag
+        // member this.IsCounter = (this &&& RegexNodeFlags.IsCounterFlag) = RegexNodeFlags.IsCounterFlag
+        // member this.IsImmediateLookaround = (this &&& RegexNodeFlags.IsImmediateLookaroundFlag) = RegexNodeFlags.IsImmediateLookaroundFlag
 
 //
 [<Flags>]
@@ -97,6 +100,7 @@ type RegexStateFlags =
     | IsPendingNullableFlag = 2048
     | IsRelativeNegatedNullableFlag = 4096
     | CanHaveMultipleNullables = 8192
+    | DependsOnAnchor = 16384
     // todo: fixed length
     // todo: can be subsumed
     // todo: singleton loop
@@ -105,13 +109,19 @@ type RegexStateFlags =
 module RegexStateFlagsExtensions =
     type Sbre.Types.RegexStateFlags with
         [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-        member this.IsInitial =
-            this &&& RegexStateFlags.InitialFlag = RegexStateFlags.InitialFlag
+        member this.CanSkipInitial =
+            this &&& (RegexStateFlags.InitialFlag ||| RegexStateFlags.DependsOnAnchor) = RegexStateFlags.InitialFlag
         [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
         member this.IsDeadend =
             this &&& RegexStateFlags.DeadendFlag = RegexStateFlags.DeadendFlag
         [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
         member this.IsAlwaysNullable = this &&& RegexStateFlags.AlwaysNullableFlag = RegexStateFlags.AlwaysNullableFlag
+
+        [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+        member this.CannotBeCached = this &&& (
+            RegexStateFlags.ContainsLookaroundFlag |||
+            RegexStateFlags.DependsOnAnchor) <> RegexStateFlags.None
+
         [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
         member this.CanBeNullable = this &&& RegexStateFlags.CanBeNullableFlag = RegexStateFlags.CanBeNullableFlag
         [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
@@ -121,7 +131,7 @@ module RegexStateFlagsExtensions =
         [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
         member this.HasPrefix = this &&& RegexStateFlags.HasPrefixFlag = RegexStateFlags.HasPrefixFlag
         [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-        member this.IsRelativeNullable = this &&& RegexStateFlags.IsPendingNullableFlag = RegexStateFlags.IsPendingNullableFlag
+        member this.IsPendingNullable = this &&& RegexStateFlags.IsPendingNullableFlag = RegexStateFlags.IsPendingNullableFlag
         // [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
         // member this.HasCounter = this &&& RegexStateFlags.HasCounterFlag = RegexStateFlags.HasCounterFlag
         [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
@@ -170,6 +180,8 @@ type RegexAnchor =
     | End
     | Begin
     | WordBorder
+    | Bol
+    | Eol
 
 [<ReferenceEquality>]
 [<DebuggerDisplay("{ToString()}")>]
@@ -288,6 +300,8 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
             | End -> @"\z"
             | Begin -> @"\a"
             | WordBorder -> @"\b"
+            | Bol -> "^"
+            | Eol -> "$"
 
 #endif
 
@@ -312,7 +326,7 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
         | Singleton foo -> RegexNodeFlags.None
         | LookAround(node, lookBack, negate, _) ->
             RegexNodeFlags.CanBeNullableFlag ||| RegexNodeFlags.ContainsLookaroundFlag
-        | Anchor _ -> RegexNodeFlags.IsAnchor ||| RegexNodeFlags.CanBeNullableFlag
+        | Anchor _ -> RegexNodeFlags.IsAnchorFlag ||| RegexNodeFlags.CanBeNullableFlag
 
     member this.CanBeNullable =
         this.GetFlags().HasFlag(RegexNodeFlags.CanBeNullableFlag)
@@ -325,8 +339,10 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
     member this.HasCounter =
         this.GetFlags().HasFlag(RegexNodeFlags.HasCounterFlag)
 
-    member this.IsCounter =
-        this.GetFlags().HasFlag(RegexNodeFlags.IsCounterFlag)
+    // member this.IsCounter =
+    //     this.GetFlags().HasFlag(RegexNodeFlags.IsCounterFlag)
+    member this.DependsOnAnchor =
+        this.GetFlags().HasFlag(RegexNodeFlags.DependsOnAnchorFlag)
 
     member this.IsAlwaysNullable =
         match this with

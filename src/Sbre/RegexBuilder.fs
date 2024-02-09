@@ -254,6 +254,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
     let _false = RegexNode.Singleton(solver.Empty)
     // singleton instances
     let _uniques = {|
+        _eps = RegexNode<'t>.Epsilon
         _false = _false
         _true = _true
         _trueStar =
@@ -292,18 +293,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 b.mkLookaround(b.mkConcat2(b.one '\n',_true),false,true)
             ])
             _zAnchor = RegexNode<'t>.Anchor End
-            _dollarAnchor =
-                lazy
 
-                    let info = _createInfo (RegexNodeFlags.CanBeNullableFlag ||| RegexNodeFlags.ContainsLookaroundFlag) solver.Full
-
-                    Or(
-                        ofSeq [
-                            __z_anchor.Value
-                            b.mkLookaround(b.one '\n',false,false)
-                        ],
-                        info
-                    )
             // \A ≡ (?<!⊤)
             _bigAAnchor = RegexNode<'t>.Anchor Begin
                 // __big_a_anchor
@@ -337,7 +327,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
 
 
             _wordBorder =
-                lazy
+
                     // b.mkOr(
                     //     ofSeq [
                     //         b.mkConcat [
@@ -355,15 +345,27 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
 
             // ^ ≡ \A|(?<=\n)
             _caretAnchor =
-                lazy
-                    b.mkOr(
-                        ofSeq [
-                            __big_a_anchor.Value
-                            b.mkLookaround(b.one '\n',true,false)
-                        ]
-                    )
-
-
+                RegexNode<'t>.Anchor Bol
+                // lazy
+                //     b.mkOr(
+                //         ofSeq [
+                //             __big_a_anchor.Value
+                //             b.mkLookaround(b.one '\n',true,false)
+                //         ]
+                //     )
+            _dollarAnchor =
+                RegexNode<'t>.Anchor Eol
+                // lazy
+                //
+                //     let info = _createInfo (RegexNodeFlags.CanBeNullableFlag ||| RegexNodeFlags.ContainsLookaroundFlag) solver.Full
+                //
+                //     Or(
+                //         ofSeq [
+                //             __z_anchor.Value
+                //             b.mkLookaround(b.one '\n',false,false)
+                //         ],
+                //         info
+                //     )
         |}
 
     let mutable _prefixCache: Dictionary<RegexNode<'t>, InitialStartset<'t>> =
@@ -385,10 +387,10 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
     member this.InitializeUniqueMap(oldBuilder:RegexBuilder<BDD>) =
         _uniquesDict.Add(oldBuilder.anchors._aAnchor.Value,this.anchors._aAnchor.Value)
         _uniquesDict.Add(oldBuilder.anchors._bigAAnchor,this.anchors._bigAAnchor)
-        _uniquesDict.Add(oldBuilder.anchors._caretAnchor.Value,this.anchors._caretAnchor.Value)
-        _uniquesDict.Add(oldBuilder.anchors._dollarAnchor.Value,this.anchors._dollarAnchor.Value)
+        _uniquesDict.Add(oldBuilder.anchors._caretAnchor,this.anchors._caretAnchor)
+        _uniquesDict.Add(oldBuilder.anchors._dollarAnchor,this.anchors._dollarAnchor)
         _uniquesDict.Add(oldBuilder.anchors._nonWordBorder.Value,this.anchors._nonWordBorder.Value)
-        _uniquesDict.Add(oldBuilder.anchors._wordBorder.Value,this.anchors._wordBorder.Value)
+        _uniquesDict.Add(oldBuilder.anchors._wordBorder,this.anchors._wordBorder)
         _uniquesDict.Add(oldBuilder.anchors._zAnchor,this.anchors._zAnchor)
         ()
 
@@ -705,20 +707,19 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 | And(nodes, _) ->
                     for node in nodes do
                         handleNode node
-
-                // todo: careful in case of epsilon here
                 // ~(.*) -> always false (?)
-                | Not(node, info) when info.CanNotBeNullable() && info.DoesNotContainEpsilon ->
-                    enumerating <- false
-                    status <- MkAndFlags.IsFalse
+                // | Not(node, info) when info.CanNotBeNullable() && info.DoesNotContainEpsilon ->
+                //     enumerating <- false
+                //     status <- MkAndFlags.IsFalse
                 | Epsilon ->
                     status <- MkAndFlags.ContainsEpsilon
-                    derivatives.Add(deriv)
-
+                    // derivatives.Add(deriv)
                 | _ -> derivatives.Add(deriv)
 
             handleNode e.Current
 
+        if status.HasFlag(MkAndFlags.ContainsEpsilon) then
+            derivatives.Add(_uniques._eps)
 
         match status with
         | MkAndFlags.IsFalse -> _uniques._false
@@ -726,9 +727,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             _uniques._false
         | _ ->
 
-        if derivatives.Count = 1 then
-            derivatives[0]
-        else
+
 
             let createNode(nodes: RegexNode<_>[]) =
                 match nodes with
@@ -742,42 +741,23 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                         |> Seq.fold (fun acc v -> solver.Or(acc,v) ) solver.Empty
                     let mergedInfo =
                         this.CreateInfo(flags, minterms2)
-
-                    let immediateLookbehinds =
-                        twoormore
-                        |> Seq.choose (fun v ->
-                            match v with
-                            | Concat(head=head) ->
-                                match head with
-                                | LookAround(lookBack = true;node=body;negate=false) -> Some (body)
-                                | _ when refEq _anchors._wordBorder.Value head ->
-                                    mergedInfo.LookupPrev <- true
-                                    mergedInfo.MustStartWithWordBorder <- Some true
-                                    None
-                                | _ -> None
-                            | _ -> None
-                        )
-                        |> Seq.choose (fun (v) ->
-                            match v with
-                            | Singleton pred -> Some pred
-                            // | Concat(last tail=Singleton pred) -> Some pred
-                            | _ -> None
-                        )
-                        |> Seq.toArray
-                    if immediateLookbehinds.Length <> 0 then
-                        let merged = Solver.mergeSets solver immediateLookbehinds
-                        if not (solver.IsFull(merged)) then
-                            mergedInfo.PrevCharRequired <- Some merged
+                    //
+                    match twoormore with
+                    | _ when twoormore.Length = 0 -> _uniques._trueStar
+                    | _ when twoormore.Length = 1 -> twoormore[0]
+                    | _ ->
 
                     let newAnd = RegexNode.And(ofSeq twoormore, mergedInfo)
                     newAnd
 
             let asArray = derivatives |> this.trySubsumeAnd |> Seq.toArray
             Array.sortInPlaceBy LanguagePrimitives.PhysicalHash asArray
+
             match _andCache.TryGetValue(asArray) with
             | true, v -> v
             | _ ->
                 let v = createNode (asArray)
+
                 _andCache.Add(key, v)
                 v
 
@@ -944,20 +924,25 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
         // | LookAround(node=Epsilon; lookBack=true; negate=false) -> tail
         | _ when refEq head _uniques._false -> _uniques._false // ⊥R -> ⊥
         | _ ->
+            let _ =
+                match head with
+                | LookAround(lookBack=false;negate=false) when not tail.IsAlwaysNullable ->
+                    failwith "inner lookarounds are not supported!"
+                | _ -> ()
 
-        let key = struct (head, tail)
+            let key = struct (head, tail)
 
-        match _concatCache.TryGetValue(key) with
-        | true, v -> v
-        | _ ->
-            let v =
-                let flags = Flags.inferConcat head tail
-                let mergedMinterms = solver.Or(head.SubsumedByMinterm(solver),tail.SubsumedByMinterm(solver))
-                let info = this.CreateInfo(flags, mergedMinterms)
-                Concat(head, tail, info)
+            match _concatCache.TryGetValue(key) with
+            | true, v -> v
+            | _ ->
+                let v =
+                    let flags = Flags.inferConcat head tail
+                    let mergedMinterms = solver.Or(head.SubsumedByMinterm(solver),tail.SubsumedByMinterm(solver))
+                    let info = this.CreateInfo(flags, mergedMinterms)
+                    Concat(head, tail, info)
 
-            _concatCache.Add(key, v)
-            v
+                _concatCache.Add(key, v)
+                v
 
 
     member this.mkLookaround(body: RegexNode< 't >, lookBack:bool, negate:bool, ?pendingNullable) : RegexNode< 't > =

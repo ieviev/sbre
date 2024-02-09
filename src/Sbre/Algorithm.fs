@@ -18,8 +18,6 @@ module RegexNode =
         | Singleton _ -> node
         // // (R|S)r = Rr|Sr
         | Or(xs, info) ->
-            if refEq node builder.anchors._wordBorder.Value then node else
-            if refEq node builder.anchors._nonWordBorder.Value then node else
             let xs' = xs |> map (rev builder)
             builder.mkOr (Seq.toArray xs')
         // R{m, n, b}r = Rr{m, n, b}
@@ -62,10 +60,6 @@ module RegexNode =
             builder.mkConcat reversedList
         | Epsilon -> Epsilon
         | Anchor regexAnchor -> node
-            // match regexAnchor with
-            // | End -> Anchor Begin
-            // | Begin -> Anchor End
-
 
     let inline getTransitionInfo(pred: ^t, node: RegexNode< ^t >) =
         let mutable result = ValueNone

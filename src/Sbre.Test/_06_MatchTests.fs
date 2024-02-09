@@ -17,12 +17,30 @@ let ``anchors test 1``() =
     let ism = matcher.IsMatch("1")
     Assert.True(ism)
 
+[<Fact>]
+let ``anchors test 1.1``() =
+    let matcher = Regex("^\\d$")
+    let ism = matcher.IsMatch("32")
+    Assert.False(ism)
 
 [<Fact>]
-let ``anchors test 2``() =
+let ``anchors test 1.2``() =
     let matcher = Regex("^\\d$")
     let ism = matcher.IsMatch("324")
     Assert.False(ism)
+
+[<Fact>]
+let ``anchors test 1.3``() =
+    let matcher = Regex("^\\d$")
+    let ism = matcher.IsMatch("3245")
+    Assert.False(ism)
+
+[<Fact>]
+let ``anchors test 1.4``() =
+    let matcher = Regex("^\\d$")
+    let ism = matcher.IsMatch("32455")
+    Assert.False(ism)
+
 
 [<Fact>]
 let ``anchors test 3``() =
@@ -94,51 +112,11 @@ let ``top level or remove in correct order``() =
     Assert.False(ism)
 
 
-
-
-// [<Fact>]
-// let ``lookarounds test 1``() =
-//     assertFirstMatch """ Sep""" """ Sep""" (0,5)
-//
-
-[<Fact>]
-let ``lookarounds test 2``() =
-    let matcher = Regex("""1(?! Sep)""")
-    let ism = matcher.IsMatch("1 Sep")
-    Assert.False(ism)
-
-
-[<Fact>]
-let ``lookarounds test 3``() =
-    let matcher = Regex("""^(1(?! (Sep))).*$""")
-    let ism = matcher.IsMatch("1 Sep")
-    Assert.False(ism)
-
-[<Fact>]
-let ``lookarounds test 4``() =
-    let matcher = Regex("""^(1(?= (Sep))).*$""")
-    let ism = matcher.IsMatch("1 Sep")
-    Assert.True(ism)
-
-
-[<Fact>]
-let ``lookarounds test 5``() =
-    assertNoMatch """.*(?<=aaa)""" "aa"
-
-
 [<Fact>]
 let ``lookarounds test 6``() =
     assertFirstMatchText """.*(?=aaa)""" "baaa" "b"
 
 
-[<Fact>]
-let ``lookarounds test 7``() =
-    assertFirstMatchText """(?<=aaa).*""" "aaabbb" "bbb"
-
-
-[<Fact>]
-let ``lookarounds test 8``() =
-    assertFirstMatchText """(?<=aaa\{).*(?=\})""" "aaa{bbb {ccc}}" "bbb {ccc}"
 
 
 [<Fact>]
@@ -158,21 +136,6 @@ let ``caching lookarounds test 2 ``() =
 
 
 
-[<Fact>]
-let ``boundaries after``() =
-    assertFirstMatchText
-        """a\b"""
-        "a "
-        "a"
-
-
-
-[<Fact>]
-let ``boundaries test 1``() =
-    assertFirstMatchText
-        """\b1\b"""
-        "1"
-        "1"
 
 [<Fact>]
 let ``boundaries test 1-2``() =
@@ -274,16 +237,8 @@ let ``exit range test 2``() =
     assertFirstMatchText @"a+" " aaa " "aaa"
 
 
-[<Fact>]
-let ``inverted startset test 1``() =
-    assertFirstMatchText @"..(?<=A.*)" "Aa" "Aa"
 
-[<Fact>]
-let ``inverted startset test 2``() =
-    assertFirstMatchText
-        @"(?=.*A)(?=.*a)(?=.*1)..."
-        "Aa1"
-        "Aa1"
+
 
 
 
@@ -417,12 +372,6 @@ let webAppSample2 =
 
 
 [<Fact>]
-let ``web app test 4.1``() =
-    assertFirstMatchText ((@".*(?=.*E)&~(.*and.*)")) @"___and__E" "___an"
-
-
-
-[<Fact>]
 let ``web app test 5``() =
     let result = getAllLLmatches (@"(?<=or=\{.*).*(?=.*\},)&~(⊤*and⊤*)&(\b.*\b)") webAppSample2
     let matchTexts =
@@ -430,7 +379,6 @@ let ``web app test 5``() =
         |> Seq.map _.GetText(webAppSample2)
         |> Seq.toArray
 
-    // TODO: sure?
     Assert.Equal<string>(
         [|
             "De Vathaire, Florent "

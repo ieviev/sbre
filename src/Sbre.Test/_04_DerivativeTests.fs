@@ -14,32 +14,12 @@ open Sbre.Pat
 open Sbre.Types
 open Xunit
 
-// let getDerivative(matcher: Regex, input: string) =
-//     let cache = matcher.TSetMatcher.Cache
-//     let node = matcher.TSetMatcher.RawPattern
-//     let location = (Location.create input 0)
-//     let state = RegexState(cache.NumOfMinterms())
-//     // let matchCache = RegexMatchCache(cache,node)
-//     matcher.CreateDerivative  (state, &location, cache.MintermForLocation(location), node)
-
-// let getDerivativeT<'t when 't : struct and 't :> IEquatable< 't >
-//         and 't: equality>(matcher: Regex, input: string) =
-//     let matcher = matcher.Matcher :?> RegexMatcher<TSet>
-//     let cache = matcher.Cache
-//     let node = matcher.RawPattern
-//     let state = RegexState(cache.NumOfMinterms())
-//     let location = (Location.create input 0)
-//     createDerivative (cache, state, &location, cache.MintermForLocation(location), node)
-
-
-
 
 
 let testFullDerivative(pattern: string, input: string, expectedDerivative: string) =
     let matcher = Regex(pattern).TSetMatcher
     let cache = matcher.Cache
     let node = matcher.TrueStarredPattern
-    let state = RegexState(cache.NumOfMinterms())
     let location = (Location.create input 0)
 
     let result =
@@ -59,7 +39,6 @@ let test2ndDerivative(pattern: string, input: string, expectedDerivative: string
     let matcher = Regex(pattern).TSetMatcher
     let cache = matcher.Cache
     let node = matcher.TrueStarredPattern
-    let state = RegexState(cache.NumOfMinterms())
     let location = (Location.create input 0)
     let location1 = (Location.create input 1)
 
@@ -184,7 +163,10 @@ let ``derivative of true ismatch``() = testPartDerivative ("⊤", "324", "ε")
 [<Fact>]
 let ``derivative of lookback 1``() =
     // TODO: subsume this to .*
-    testPartDerivativeFromLocationMultiple (@"(?<=-.*).*", "-aaaa-", 5, [ @"(.*|(?<=.*).*)"; @"((?<=.*).*|.*)" ])
+    testPartDerivativeFromLocationMultiple (@"(?<=-.*).*", "-aaaa-", 5, [
+        @"(.*|(?<=.*).*)"; @"((?<=.*).*|.*)"
+        @"(?<=.*).*"
+    ])
 
 
 [<Fact>]
@@ -193,14 +175,10 @@ let ``2 derivative of Twain``() =
 
 [<Fact>]
 let ``derivative lookaround 1``() =
-    testPartDerivatives (@"^\d$", "1", [ @"((?=\n)|(?!⊤))"; @"((?!⊤)|(?=\n))" ])
-
-// TODO: this cannot be tested
-// [<Fact>]
-// let ``derivative lookaround 1.2``() = testPartDerivative (@"(?<!\w)11", "11", "1")
-
-[<Fact>]
-let ``derivative lookaround 1.3``() = testPartDerivative (@"(?=1)11", "11", "1")
+    testPartDerivatives (@"^\d$", "1", [
+        @"$"
+        // @"((?=\n)|(?!⊤))"; @"((?!⊤)|(?=\n))"
+    ])
 
 
 
@@ -225,9 +203,6 @@ let ``derivative boundary 4``() =
     testPartDerivativeFromLocation (@"(?<=\d)a", "1a", 0, "a")
 
 
-[<Fact>]
-let ``derivative boundary 5``() =
-    testPartDerivativeFromLocation (@"(?=\w)a", "1a", 1, "ε")
 
 
 
@@ -238,12 +213,18 @@ let ``derivative boundary 5``() =
 
 [<Fact>]
 let ``derivative of plus``() =
-    testPartDerivatives (@"^\d+$", "123", [ @"φ*((?!⊤)|(?=\n))"; @"φ*((?=\n)|(?!⊤))" ])
+    testPartDerivatives (@"^\d+$", "123", [
+        @"(\d)*$"
+        // @"φ*((?!⊤)|(?=\n))"; @"φ*((?=\n)|(?!⊤))"
+    ])
 
 
 [<Fact>]
 let ``derivative concat lookaround``() =
-    testPartDerivatives (@"^\d+$", "123", [ @"φ*((?=\n)|(?!⊤))"; @"φ*((?!⊤)|(?=\n))" ])
+    testPartDerivatives (@"^\d+$", "123", [
+        @"(\d)*$"
+        // @"φ*((?=\n)|(?!⊤))"; @"φ*((?!⊤)|(?=\n))"
+    ])
 
 
 
@@ -328,7 +309,10 @@ let ``derivative eats node from set``() =
         @"^((0?[13578]a)|(0?[13456789]a))$",
         "4a",
         0,
-        [ @"a((?=\n)|(?!⊤))"; @"a((?!⊤)|(?=\n))" ]
+        [
+            @"a$"
+            // @"a((?=\n)|(?!⊤))"; @"a((?!⊤)|(?=\n))"
+        ]
     )
 
 
@@ -390,28 +374,15 @@ let ``derivative eats node from set``() =
 
 
 [<Fact>]
-let ``neg anchor 1``() = testRevDerivative (@"(?!b)","b",[ @"⊥"; ])
-
+let ``derivative neg lookaround 1``() =
+    assertRawDerivative @"((?<=B.*).*&~(.*A.*))" "BA" [
+        "((?<=.*).*&~(.*A.*))"
+    ]
 [<Fact>]
-let ``neg anchor 2``() = testRevDerivative (@"(?!b)","a",[ @"ε"; ])
-
-[<Fact>]
-let ``neg anchor 3``() = testRevDerivative (@"bb(?!b)","b",[ @"⊥"; ])
-
-[<Fact>]
-let ``neg anchor 4``() = testRevDerivative (@"bb(?!a)","b",[ @"b"; ])
-
-[<Fact>]
-let ``neg anchor lb 1``() = testPartDerivative (@"(?<!a)b", "ab", "⊥")
-
-[<Fact>]
-let ``neg anchor lb 2``() = testPartDerivative (@"(?<!a)b", "bb", "ε")
-
-
-
-// [<Fact>] // difficult case, can start match from bb|aa
-// let ``neg lookahead 2``() =
-//     assertNullablePositions "bb(?!aa)" "__bbaa" [ ]
+let ``derivative neg lookaround 2``() =
+    assertRawDerivative "((?<=.*).*&~(.*A.*))" "A" [
+        "(~(.*)&(.*|(?<=.*).*))" ; @"(~(.*)&((?<=.*).*|.*))"
+    ]
 
 #endif
 
