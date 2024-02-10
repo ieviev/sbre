@@ -245,6 +245,23 @@ let ``initialOptimizations 8``() =
 
 
 [<Fact>]
+let ``initialOptimizations 9``() =
+    let regex = Regex(@"\b\w+nn\b")
+    let matcher = regex.TSetMatcher
+    let optimizations =
+        Optimizations.findInitialOptimizations
+            (fun node -> matcher.GetOrCreateState(node).Id)
+            (fun node -> matcher.GetOrCreateState(node).Flags)
+            matcher.Cache matcher.ReversePattern matcher.ReverseTrueStarredPattern
+    match optimizations with
+    | Optimizations.InitialOptimizations.PotentialStartPrefix(prefix) ->
+        let prefixString = Optimizations.printPrefixSets matcher.Cache (prefix.ToArray() |> Seq.toList)
+        Assert.Equal("\s;[nr];[en];[iy];[A-Za-z];\s", prefixString)
+    | _ -> failwith "invalid optimization result"
+
+
+
+[<Fact>]
 let ``activeOptimizations 1``() =
     let regex = Regex("""["'][^"']{0,30}[?!\.]["']""")
     let matcher = regex.TSetMatcher

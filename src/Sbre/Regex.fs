@@ -10,7 +10,6 @@ open System.Text.RuntimeRegexCopy.Symbolic
 open System.Text.RuntimeRegexCopy
 open Microsoft.FSharp.Core
 open Sbre.Algorithm
-open Sbre.CountingSet
 open Sbre.Info
 open Sbre.Optimizations
 open Sbre.Types
@@ -76,10 +75,8 @@ type MatchingState(node: RegexNode<TSet>) =
 
         if nodeFlags.CanBeNullable then
             flags <- flags ||| RegexStateFlags.CanBeNullableFlag
-
         if nodeFlags.ContainsLookaround then
             flags <- flags ||| RegexStateFlags.ContainsLookaroundFlag
-        // TODO: could be optimized
         if c.InitialPatternWithoutDotstar.ContainsLookaround then
             flags <- flags ||| RegexStateFlags.ContainsLookaroundFlag
 
@@ -170,7 +167,6 @@ type RegexMatcher<'t when 't: struct>
             else
                 (fun d -> not (refEq d state.Node))
 
-        // TODO: check for sequences
         let startsetPredicate =
             Seq.zip minterms derivatives
             |> Seq.where (fun (_, d) -> condition d)
@@ -208,7 +204,6 @@ type RegexMatcher<'t when 't: struct>
             // generate startset
             _createStartset (state, isInitial)
 
-            // TODO: skipping
             if
                 not (_cache.Solver.IsEmpty(state.Startset) || _cache.Solver.IsFull(state.Startset))
             then
@@ -240,25 +235,14 @@ type RegexMatcher<'t when 't: struct>
                 | _ ->
                     ()
 
-
-                ()
             if node.ContainsLookaround && node.CanBeNullable && not isInitial then
                 match Optimizations.collectPendingNullables (fun v -> _getOrCreateState(v,false).Flags.CanBeNullable ) state.Node with
                 | n when n.IsEmpty -> ()
                 | nullables ->
                     state.PendingNullablePositions <- nullables |> Seq.toArray
                     state.Flags <- state.Flags ||| RegexStateFlags.IsPendingNullableFlag
-
             if node.DependsOnAnchor then
                 state.Flags <- state.Flags ||| RegexStateFlags.DependsOnAnchor
-            // DependsOnAnchor
-                    // --
-                    //
-                    // let couldBeNullableWithoutAnchor =
-                    //     Optimizations.canHaveMultipleNullables state.Node
-                    // if couldBeNullableWithoutAnchor then
-                    //     state.Flags <- state.Flags ||| RegexStateFlags.CanHaveMultipleNullables
-
 
             _flagsArray[state.Id] <- state.Flags
             state
@@ -426,34 +410,13 @@ type RegexMatcher<'t when 't: struct>
             (flags.HasFlag(RegexStateFlags.IsRelativeNegatedNullableFlag) && this.RelativeNegatedIsNullable(flags,&loc,stateId)) ||
             this.IsNullable (&loc, _stateArray[stateId].Node))
 
-
-    member this.HandleOptimizedNullable(unique:OptimizedUnique, loc: inref<Location>) : bool =
-        let currChar = _cache.CurrentChar(loc)
-        let prevCharOpt = _cache.PrevChar(loc)
-        match unique with
-
-        | StartOfString -> failwith "todo"
-        | NotStartOfString -> loc.Position > 0
-        // | Bol ->
-        //     loc.Position = 0 ||
-        //     match prevCharOpt with
-        //     | ValueSome c -> c = '\n'
-        //     | _ -> false
-        // | Eol -> failwith "todo"
-
-
     member this.IsNullable(loc: inref<Location>, node: RegexNode<_>) : bool =
             // short-circuit
-            // if Info.Node.canNotBeNullable node then
             if node.CanNotBeNullable then
                 false
             elif node.IsAlwaysNullable then
                 true
             else
-            // short-circuit common cases
-            match _cache.OptimizedUniques.TryGetValue(node) with
-            | true, v -> this.HandleOptimizedNullable(v, &loc)
-            | _ ->
             match node with
             // Nullx () = true
             | Epsilon -> true
@@ -477,59 +440,17 @@ type RegexMatcher<'t when 't: struct>
             | Loop(R, low, _, info) -> low = 0 || (this.IsNullable (&loc, R))
             // not(Nullx (R))
             | Not(inner, info) ->
-                // if info.NodeFlags.IsCounter then
-                //     failwith "counter nullability"
-                //     // match state.CounterCanExit(node) with
-                //     // | ValueSome(true) -> not (this.IsNullable (cache,&loc, inner))
-                //     // | ValueSome(false) -> true
-                //     // | _ -> not (this.IsNullable (cache,state, &loc, inner))
-                // else
-                    not (this.IsNullable (&loc, inner))
+                not (this.IsNullable (&loc, inner))
             // Nullx (R) and Nullx (S)
             | Concat(head, tail, info) ->
-                // if info.NodeFlags.IsCounter then
-                //     let counter = state.TryGetCounter(node)
-                //     match counter with
-                //     | ValueNone -> false
-                //     | ValueSome counter ->
-                //     let canExit = counter.CanExit()
-                //     match canExit with
-                //     | true -> this.IsNullable (&loc, tail)
-                //     | false -> false
-                // else
-                    this.IsNullable (&loc, head) && this.IsNullable (&loc, tail)
-
-            // lookaround optimization
-            // | LookAround(Singleton pred, lookBack, negate, _) ->
-            //     match lookBack with
-            //     | true ->
-            //         match _cache.PrevChar(loc) with
-            //         | ValueNone -> negate
-            //         | ValueSome prevc ->
-            //             let mt = _cache.CharToMinterm(prevc)
-            //             let isSet = Solver.elemOfSet pred mt
-            //             if negate then not isSet else isSet
-            //     | _ ->
-            //         match _cache.CurrentChar(loc) with
-            //         | ValueNone -> negate
-            //         | ValueSome nextc ->
-            //             let mt = _cache.CharToMinterm(nextc)
-            //             let isSet = Solver.elemOfSet pred mt
-            //             if negate then not isSet else isSet
-
-
+                this.IsNullable (&loc, head) && this.IsNullable (&loc, tail)
 
             | LookAround(body, lookBack, negate, _) ->
-                if not negate then this.IsNullable(&loc,body)
-                else
-                    if not lookBack then
-                        // neg.lookahead
-                        let w = 1
-                        (this.IsNullable(&loc,body))
-                    else
-                        failwith ""
+                if negate then failwith "negated lookarounds not supported" else
+                this.IsNullable(&loc,body)
 
             | Anchor regexAnchor ->
+                // only 2 edge cases
                 let currChar = _cache.CurrentChar(loc)
                 let prevCharOpt = _cache.PrevChar(loc)
                 match regexAnchor with
@@ -553,8 +474,6 @@ type RegexMatcher<'t when 't: struct>
                     match currChar with
                     | ValueSome c -> c = '\n'
                     | _ -> false
-
-           
 
     member this.CreateDerivative (
         loc: inref<Location>,
