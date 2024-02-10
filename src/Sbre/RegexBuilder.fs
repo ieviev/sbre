@@ -327,21 +327,25 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
 
 
             _wordBorder =
-
-                    // b.mkOr(
-                    //     ofSeq [
-                    //         b.mkConcat [
-                    //             // (?<=ψ\w)
-                    //             b.mkLookaround(_uniques._wordChar.Value,true,false)
-                    //             b.mkLookaround(_uniques._wordChar.Value,false,true)
-                    //         ]
-                    //         b.mkConcat [
-                    //             b.mkLookaround(_uniques._wordChar.Value,true,true)
-                    //             b.mkLookaround(_uniques._wordChar.Value,false,false)
-                    //         ]
-                    //     ]
-                    // )
-                    RegexNode<'t>.Anchor WordBorder
+                    lazy
+                        b.mkOr(
+                        ofSeq [
+                            b.mkConcat [
+                                // (?<=ψ\w)
+                                b.mkLookaround(_uniques._wordChar.Value,true,false)
+                                b.mkLookaround(_uniques._wordChar.Value,false,true)
+                            ]
+                            b.mkConcat [
+                                b.mkLookaround(_uniques._wordChar.Value,true,true)
+                                b.mkLookaround(_uniques._wordChar.Value,false,false)
+                            ]
+                        ]
+                    )
+            // (?<=\W)
+            _nonWordLeft = lazy b.mkLookaround(_uniques._nonWordChar.Value,true,false)
+            // (?=\W)
+            _nonWordRight = lazy b.mkLookaround(_uniques._nonWordChar.Value,false,false)
+                    // RegexNode<'t>.Anchor WordBorder
 
             // ^ ≡ \A|(?<=\n)
             _caretAnchor =
@@ -390,7 +394,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
         _uniquesDict.Add(oldBuilder.anchors._caretAnchor,this.anchors._caretAnchor)
         _uniquesDict.Add(oldBuilder.anchors._dollarAnchor,this.anchors._dollarAnchor)
         _uniquesDict.Add(oldBuilder.anchors._nonWordBorder.Value,this.anchors._nonWordBorder.Value)
-        _uniquesDict.Add(oldBuilder.anchors._wordBorder,this.anchors._wordBorder)
+        _uniquesDict.Add(oldBuilder.anchors._wordBorder.Value,this.anchors._wordBorder.Value)
         _uniquesDict.Add(oldBuilder.anchors._zAnchor,this.anchors._zAnchor)
         ()
 
@@ -923,25 +927,43 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
         // | LookAround(node=Epsilon; lookBack=true; negate=false) -> tail
         | _ when refEq head _uniques._false -> _uniques._false // ⊥R -> ⊥
         | _ ->
-            let _ =
-                match head with
-                | LookAround(lookBack=false;negate=false) when not tail.IsAlwaysNullable ->
-                    failwith "inner lookarounds are not supported!"
-                | _ -> ()
-
             let key = struct (head, tail)
 
             match _concatCache.TryGetValue(key) with
             | true, v -> v
             | _ ->
-                let v =
-                    let flags = Flags.inferConcat head tail
-                    let mergedMinterms = solver.Or(head.SubsumedByMinterm(solver),tail.SubsumedByMinterm(solver))
-                    let info = this.CreateInfo(flags, mergedMinterms)
-                    Concat(head, tail, info)
+                // try rewrite
+                match head, tail with
+                // (?<=a.*)(?<=\W)aa to (?<=⊤*a.*&⊤*\W)aa
+                | LookAround(node=node1;lookBack=true;negate=false), Concat(head=LookAround(node=node2;lookBack=true;negate=false;);tail=tail2) ->
+                    let combined = this.mkAnd([
+                        this.mkConcat2(this.trueStar,node1)
+                        this.mkConcat2(this.trueStar,node2)
+                    ])
+                    let v = this.mkLookaround(combined, true, false)
+                    let v = this.mkConcat2(v, tail2)
+                    _concatCache.Add(key, v)
+                    v
+                // (?=a.*)(?=\W) to (?=a.*⊤*&\W⊤*)
+                // | LookAround(node=node1;lookBack=false;negate=false), LookAround(node=node2;lookBack=false;negate=false) ->
+                //     let combined = this.mkAnd([
+                //         this.mkConcat2(node1,this.trueStar)
+                //         this.mkConcat2(node2,this.trueStar)
+                //     ])
+                //     let v = this.mkLookaround(combined, true, false)
+                //     _concatCache.Add(key, v)
+                //     v
+                | LookAround(lookBack=false;negate=false), tail when not tail.IsAlwaysNullable ->
+                    failwith "inner lookarounds are not supported!"
+                | _ ->
+                    let v =
+                        let flags = Flags.inferConcat head tail
+                        let mergedMinterms = solver.Or(head.SubsumedByMinterm(solver),tail.SubsumedByMinterm(solver))
+                        let info = this.CreateInfo(flags, mergedMinterms)
+                        Concat(head, tail, info)
 
-                _concatCache.Add(key, v)
-                v
+                    _concatCache.Add(key, v)
+                    v
 
 
     member this.mkLookaround(body: RegexNode< 't >, lookBack:bool, negate:bool, ?pendingNullable) : RegexNode< 't > =

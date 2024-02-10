@@ -239,6 +239,12 @@ let ``flags 1``() =
     let f = matcher.ReverseTrueStarredPattern.GetFlags()
     assertFlag f Flag.DependsOnAnchorFlag
 
+[<Fact>]
+let ``flags 2``() =
+    let matcher = Regex("""(?<=\W)\w+nn(?=\W)""").TSetMatcher
+    let f = matcher.ReverseTrueStarredPattern.GetFlags()
+    assertNotFlag f Flag.DependsOnAnchorFlag
+
 
 
 

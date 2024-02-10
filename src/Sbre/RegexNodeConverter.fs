@@ -59,6 +59,57 @@ let rewriteNegativeLookaround (b:RegexBuilder<BDD>) (node:RegexNode<BDD>) : Rege
     | _ -> failwith "TODO: could not rewrite lookaround"
 
 
+let rec determineWordBorderNodeKind (left:bool) (node:RegexNode) =
+    let edgeIdx =
+        let rtl = node.Options.HasFlag(RegexOptions.RightToLeft)
+        let trueLeft = if rtl then not left else left
+        if trueLeft then node.ChildCount() - 1 else 0
+    match node.Kind with
+    | RegexNodeKind.One ->
+        if RegexCharClass.IsBoundaryWordChar node.Ch then Some true
+        else Some false
+    | RegexNodeKind.Notoneloop ->
+        // todo: only conclude something if loop is fixed length
+        None
+    | RegexNodeKind.Notone -> failwith "todo"
+    | RegexNodeKind.Set -> failwith "todo"
+    | RegexNodeKind.Multi -> failwith "todo"
+    | RegexNodeKind.Oneloop -> failwith "todo"
+    | RegexNodeKind.Conjunction -> failwith "todo"
+    | RegexNodeKind.Concatenate
+    | RegexNodeKind.PositiveLookaround ->
+        let edgeChild = node.Child(edgeIdx)
+        determineWordBorderNodeKind left edgeChild
+    | _ -> None
+
+let toLeft (outer:RegexNode array) idx =
+    match idx with
+    | 0 -> None
+    | n ->
+        let temp = outer[n-1]
+        let kind = determineWordBorderNodeKind true temp
+        kind
+
+let toRight (outer:RegexNode array) idx =
+    match idx with
+    | n when n = outer.Length - 1 -> None
+    | n ->
+        let temp = outer[n+1]
+        let kind = determineWordBorderNodeKind false temp
+        kind
+
+let rewriteWordBorder (b:RegexBuilder<BDD>) (outer:RegexNode array) ((idx,node): (int * RegexNode) ) =
+    let left = toLeft outer idx
+    let right = toRight outer idx
+    match left, right with
+    // wordchar right
+    | _, Some true -> idx,b.anchors._nonWordLeft.Value
+    // wordchar left
+    | Some true, _ -> idx,b.anchors._nonWordRight.Value
+    | _ ->
+        failwith "TODO: REWRITE WORD BORDER"
+
+
 let convertToSymbolicRegexNode
     (
         css: CharSetSolver,
@@ -77,10 +128,50 @@ let convertToSymbolicRegexNode
 
         let inline convertSingle(node: System.Text.RuntimeRegexCopy.RegexNode) = node |> (loop [])
 
-        let inline convertChildren(node: System.Text.RuntimeRegexCopy.RegexNode) =
-            match node.Options.HasFlag(RegexOptions.RightToLeft) with
-            | false -> node |> children2Seq |> Seq.collect (loop []) |> Seq.toList
-            | true -> node |> children2Seq |> Seq.rev |> Seq.collect (loop []) |> Seq.toList
+        let convertChildren(node: System.Text.RuntimeRegexCopy.RegexNode): RegexNode<BDD> list =
+            let nodeseq =
+                match node.Options.HasFlag(RegexOptions.RightToLeft) with
+                | true -> node |> children2Seq |> Seq.rev
+                | _ ->  node |> children2Seq
+                |> Seq.toArray
+
+            let existsWB =
+                nodeseq
+                |> Seq.indexed
+                |> Seq.where (fun (idx,node) -> node.Kind = RegexNodeKind.Boundary )
+                |> Seq.toArray
+            match existsWB with
+            | [| |] ->
+                let defaultResult = nodeseq |> Seq.collect (loop []) |> Seq.toList
+                defaultResult
+            | _ ->
+                let defaultResult = nodeseq |> Seq.collect (loop []) |> Seq.toList
+                if true then defaultResult else
+
+                // have to rewrite word borders here
+                let rewritten =
+                    existsWB
+                    |> Seq.map (rewriteWordBorder b nodeseq)
+                    |> Map.ofSeq
+                let converted =
+                    nodeseq
+                    |> Seq.indexed
+                    |> Seq.map (fun (idx,node) ->
+                        match rewritten |> Map.tryFind idx with
+                        | Some v -> [v]
+                        | _ -> (loop []) node
+                    )
+                    |> Seq.collect id
+                    |> Seq.toList
+                converted
+
+
+
+
+        // let inline convertChildren(node: System.Text.RuntimeRegexCopy.RegexNode) =
+        //     match node.Options.HasFlag(RegexOptions.RightToLeft) with
+        //     | false -> node |> children2Seq |> Seq.collect (loop []) |> Seq.toList
+        //     | true -> node |> children2Seq |> Seq.rev |> Seq.collect (loop []) |> Seq.toList
 
         match node.Kind with
         | RegexNodeKind.One -> b.one node.Ch :: acc
@@ -143,7 +234,10 @@ let convertToSymbolicRegexNode
         | RegexNodeKind.EndZ -> b.anchors._endZAnchor.Value :: acc
         | RegexNodeKind.End -> b.anchors._zAnchor :: acc //b.anchors._zAnchor.Value :: acc // end of string only
         | RegexNodeKind.Boundary ->
-            b.anchors._wordBorder :: acc
+            // failwith "TODO: rewrite to lookaround"
+            // TODO :WB
+            RegexNode<BDD>.Anchor WordBorder :: acc
+            // b.anchors._wordBorder.Value :: acc
         | RegexNodeKind.NonBoundary ->
             failwith "TODO: reimplement word border"
             b.anchors._nonWordBorder.Value :: acc

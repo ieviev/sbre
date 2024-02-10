@@ -254,6 +254,11 @@ let ``f wordborder constraint 1.1c``() =
     assertNullablePositions @"(?<=a.*)(\bx)(?=.*c)" "a x c" [2]
 
 [<Fact>]
+let ``f wordborder constraint 1.1c -``() =
+    assertNullablePositions @"(x\b)(?=.*c)" "a x c" [2]
+
+
+[<Fact>]
 let ``f wordborder constraint 1.1d``() =
     assertNullablePositions @"(?<=a.*)(\bx\b)(?=.*c)" "a x c" [2]
 

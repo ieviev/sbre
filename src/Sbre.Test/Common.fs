@@ -52,6 +52,7 @@ let inline assertEqualMatchesRuntime (x1:seq<'t>) (x2:seq<'t>) = Assert.Equal<'t
 let inline assertTrue (x1:_) (msg:string) = Assert.True(x1, msg)
 let inline assertFalse (x1:_) (msg:string) = Assert.False(x1, msg)
 let inline assertFlag (nf:RegexNodeFlags) (msg:RegexNodeFlags) = Assert.True(nf.HasFlag(msg), $"{msg}")
+let inline assertNotFlag (nf:RegexNodeFlags) (msg:RegexNodeFlags) = Assert.False(nf.HasFlag(msg), $"{msg}")
 let inline assertContains (items:'t list) (data:'t) = Assert.Contains(data, items)
 
 

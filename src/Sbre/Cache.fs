@@ -572,6 +572,7 @@ type RegexCache< 't
     // cached instantiation members
     member val True: RegexNode< _ > = _builder.uniques._true
     member val False: RegexNode< _ > = _builder.uniques._false
+    member val Eps: RegexNode< _ > = _builder.uniques._eps
     member val TrueStar: RegexNode< _ > = _builder.uniques._trueStar
     member val FullMinterm: _ = _solver.Full
 

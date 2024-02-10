@@ -62,7 +62,7 @@ type MatchingState(node: RegexNode<TSet>) =
     member val Flags: RegexStateFlags = RegexStateFlags.None with get, set
 
     // -- optimizations
-    member val PendingNullablePositions: int list = [] with get, set
+    member val PendingNullablePositions: int[] = [||] with get, set
     member val ActiveOptimizations: ActiveBranchOptimizations = ActiveBranchOptimizations.NoOptimizations with get, set
     member val StartsetChars: SearchValues<char> = Unchecked.defaultof<_> with get, set
     member val StartsetIsInverted: bool = Unchecked.defaultof<_> with get, set
@@ -246,7 +246,7 @@ type RegexMatcher<'t when 't: struct>
                 match Optimizations.collectPendingNullables (fun v -> _getOrCreateState(v,false).Flags.CanBeNullable ) state.Node with
                 | n when n.IsEmpty -> ()
                 | nullables ->
-                    state.PendingNullablePositions <- nullables |> Seq.toList
+                    state.PendingNullablePositions <- nullables |> Seq.toArray
                     state.Flags <- state.Flags ||| RegexStateFlags.IsPendingNullableFlag
 
             if node.DependsOnAnchor then
@@ -742,7 +742,7 @@ type RegexMatcher<'t when 't: struct>
                     // start a new pending match
                     | _ when relativeNullablePos.IsEmpty && remainingIsNullable ->
                         _cache.Builder.mkLookaround(
-                        remainingLookaround, lookBack, false, (rel+1,[0]))
+                        remainingLookaround, lookBack, false, (rel+1,zeroList))
                     | _ ->
 
 
@@ -759,10 +759,10 @@ type RegexMatcher<'t when 't: struct>
                         pendingLookaround
                 | true ->
                     if this.IsNullable(&loc,lookBody) then
-                        Epsilon
+                        _cache.Eps
                     else
                         let remainingLookaround = this.CreateDerivative (&loc, loc_pred, lookBody)
-                        if this.IsNullable(&loc,remainingLookaround) then Epsilon
+                        if this.IsNullable(&loc,remainingLookaround) then _cache.Eps
                         else
                             _cache.False
 
@@ -956,7 +956,6 @@ type RegexMatcher<'t when 't: struct>
         while looping do
             let flags = _flagsArray[currentStateId]
             let dfaState = _stateArray[currentStateId]
-            let dbg = 1
 #if SKIP
             if (flags.CanSkipInitial && this.TrySkipInitialRev(&loc, &currentStateId)) ||
                (flags.CanSkip && this.TrySkipActiveRev(flags,&loc, &currentStateId, &acc)) then
@@ -964,13 +963,11 @@ type RegexMatcher<'t when 't: struct>
             else
 #endif
             if this.StateIsNullable(flags, &loc, currentStateId) then
-                    // TODO: multiple nulls here
                 if flags.IsPendingNullable then
-                    for pos in _stateArray[currentStateId].PendingNullablePositions |> Seq.rev do
-                        acc.Add (pos + loc.Position)
-                    // (loc.Position + _stateArray[currentStateId].PendingNullable)
+                    let span = _stateArray[currentStateId].PendingNullablePositions.AsSpan()
+                    for i = span.Length - 1 downto 0 do
+                        acc.Add (span[i] + loc.Position)
                 else acc.Add loc.Position
-
 
             if loc.Position > 0 then
                 this.TakeTransition(flags, &currentStateId, &loc)
@@ -1048,12 +1045,12 @@ type RegexMatcher<'t when 't: struct>
         let mutable loc = Location.createReversedSpan input
         use mutable acc = new SharedResizeArrayStruct<int>(100)
         let allPotentialStarts =
-            if _flagsArray[DFA_TR_rev].IsAlwaysNullable then
-                for i = loc.Input.Length downto 0 do
-                    acc.Add(i)
-                acc
-            else
-                this.CollectReverseNullablePositions(&acc, &loc)
+            // if _flagsArray[DFA_TR_rev].IsAlwaysNullable then
+            //     for i = loc.Input.Length downto 0 do
+            //         acc.Add(i)
+            //     acc
+            // else
+            this.CollectReverseNullablePositions(&acc, &loc)
         loc.Reversed <- false
         let mutable nextValidStart = 0
         let startSpans = allPotentialStarts.AsSpan()
