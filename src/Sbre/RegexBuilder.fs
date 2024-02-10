@@ -738,6 +738,8 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
         let mutable enumerating = true
         let mutable status = MkAndFlags.None
         let derivatives = ResizeArray()
+        let prefixes = ResizeArray()
+        let suffixes = ResizeArray()
         use mutable e = nodes.GetEnumerator()
         while e.MoveNext() = true && enumerating do
             let rec handleNode(deriv) =
@@ -746,13 +748,20 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 | _ when obj.ReferenceEquals(deriv, _uniques._false) ->
                     enumerating <- false
                     status <- MkAndFlags.IsFalse
+                // | HasPrefixLookaround(head,tail) ->
+                //     prefixes.Add(head)
+                //     handleNode tail
+                // | HasSuffixLookaround(suffix) ->
+                //     let stripped, innerSuffixes = this.stripSuffixes deriv
+                //     suffixes.AddRange(innerSuffixes)
+                //     handleNode stripped
                 | And(nodes, _) ->
                     for node in nodes do
                         handleNode node
                 // ~(.*) -> always false (?)
-                // | Not(node, info) when info.CanNotBeNullable() && info.DoesNotContainEpsilon ->
-                //     enumerating <- false
-                //     status <- MkAndFlags.IsFalse
+                | Not(node, info) when info.CanNotBeNullable() && info.DoesNotContainEpsilon ->
+                    enumerating <- false
+                    status <- MkAndFlags.IsFalse
                 | Epsilon ->
                     status <- MkAndFlags.ContainsEpsilon
                     // derivatives.Add(deriv)
@@ -768,6 +777,15 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
         | MkAndFlags.ContainsEpsilon when derivatives.Exists(fun v -> v.CanNotBeNullable) ->
             _uniques._false
         | _ ->
+
+            if prefixes.Count > 0 || suffixes.Count > 0 then
+                let ps = this.mkConcat(Seq.toList prefixes)
+                let ss = this.mkConcat(Seq.toList suffixes)
+                let inner = this.mkAnd(derivatives)
+                let combined = this.mkConcat([ps;inner;ss])
+                _andCache.Add(key, combined)
+                combined
+            else
 
 
 
@@ -972,6 +990,12 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             | _ ->
                 // try rewrite
                 match head, tail with
+                // normalize
+                | Concat(head=h1;tail=h2), tail ->
+                    let merged = this.mkConcat2(h1,this.mkConcat2(h2,tail))
+                    _concatCache.Add(key, merged)
+                    merged
+
                 // (?<=a.*)(?<=\W)aa to (?<=⊤*a.*&⊤*\W)aa
                 | LookAround(node=node1;lookBack=true;negate=false), Concat(head=LookAround(node=node2;lookBack=true;negate=false;);tail=tail2) ->
                     let combined = this.mkAnd([
@@ -1031,6 +1055,19 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             _lookaroundCache.Add(key, newNode)
             newNode
 
+    member this.stripSuffixes(node: RegexNode< 't >)  =
+        match node with
+        | Concat(head=LookAround(lookBack = true) as look; tail=tail) -> node, []
+        | Concat(head=head; tail=LookAround(lookBack = false) as look) -> head, [look]
+        | Concat(head=head; tail=Concat(head=LookAround(lookBack = false) as look1; tail=tail)) ->
+            let innerHead,innerSuffixes = this.stripSuffixes tail
+            assert (innerHead = Epsilon)
+            head, look1 :: innerSuffixes
+        | Concat(head=head; tail=tail) ->
+            let hd2,suf = this.stripSuffixes tail
+            this.mkConcat2(head,hd2), suf
+        | LookAround(lookBack=false) -> this.uniques._eps, [node]
+        | _ -> failwith "todo suffix"
 
 
     member this.mkConcat(nodesCorrectOrder: RegexNode< 't > list) : RegexNode< 't > =

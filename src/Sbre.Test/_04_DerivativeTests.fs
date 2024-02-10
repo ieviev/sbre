@@ -382,6 +382,7 @@ let ``derivative neg lookaround 1``() =
 [<Fact>]
 let ``derivative neg lookaround 2``() =
     assertRawDerivative "((?<=.*).*&~(.*A.*))" "A" [
+        @"⊥"
         "(~(.*)&(.*|(?<=.*).*))" ; @"(~(.*)&((?<=.*).*|.*))" ; @"((.*|(?<=.*).*)&~(.*))"
     ]
 

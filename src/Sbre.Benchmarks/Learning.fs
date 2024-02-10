@@ -22,7 +22,8 @@ let ctx = Provider.GetSample()
 type Learning1() =
     inherit Jobs.TestSbreAllPatternsMatchOnly(
         [
-            @"(?<=\s.*).*(?=.*(\n|\.|,|\s))&(?<=\s|(\s|\n)).*&.*(?=(\n|\.|,|\s)|.)&\b.*\b"
+            // @"(?<=\s.*).*(?=.*(\n|\.|,|\s))&(?<=\s|(\s|\n)).*&.*(?=(\n|\.|,|\s)|.)&\b.*\b"
+            @"(?<=\s.*).*(?=.*(\n|\.|,|\s))&(?<=\s|(\s|\n)).*&.*(?=(\n|\.|,|\s)|.)&\b\w+\b"
         ],
         ctx.Examples[10].String
     )
@@ -34,7 +35,8 @@ type Learning2() =
     inherit Jobs.TestSbreAllPatternsMatchOnly(
         [
             // @"(?<=(\s\s|e\s|n\s).*).*(?=.*(\n\n|\.\n|,\s|\s\())&(?<=(\s\s|e\s|n\s)|[a-z,\)]?\s(\s\n|\s\s)?).*&.*(?=(\n\n|\.\n|,\s|\s\()|.{2})&\b.*\b"
-            @"(?<=(\s\s|e\s|n\s).*).*(?=.*(\n\n|\.\n|,\s|\s\())&(?<=(\s\s|e\s|n\s)|[a-z,\)]?\s(\s\n|\s\s)?).*&.*(?=(\n\n|\.\n|,\s|\s\()|.{2})&\b.*\b&.{8}"
+            // @"(?<=(\s\s|e\s|n\s).*).*(?=.*(\n\n|\.\n|,\s|\s\())&(?<=(\s\s|e\s|n\s)|[a-z,\)]?\s(\s\n|\s\s)?).*&.*(?=(\n\n|\.\n|,\s|\s\()|.{2})&\b.*\b&.{8}"
+            @"(?<=(\s\s|e\s|n\s).*).*(?=.*(\n\n|\.\n|,\s|\s\())&(?<=(\s\s|e\s|n\s)|[a-z,\)]?\s(\s\n|\s\s)?).*&.*(?=(\n\n|\.\n|,\s|\s\()|.{2})&.{8}"
         ],
         ctx.Examples[10].String
     )

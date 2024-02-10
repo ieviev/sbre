@@ -62,6 +62,24 @@ let (|IsAlwaysNullable|_|)(x: RegexNodeInfo<'t>) =
     | _ -> ValueNone
 
 [<return: Struct>]
+let (|HasPrefixLookaround|_|)(x: RegexNode<'t>) =
+    match x with
+    | Concat(head=LookAround(lookBack = true) as look; tail=tail) -> ValueSome(look,tail)
+    | _ -> ValueNone
+
+[<return: Struct>]
+let rec (|HasSuffixLookaround|_|)(x: RegexNode<'t>) =
+    let rec loop node =
+        match node with
+        | Concat(head=LookAround(lookBack = true) as look; tail=tail) -> ValueNone
+        | Concat(head=head; tail=LookAround(lookBack = true) as look) -> ValueSome (look)
+        | Concat(head=head; tail=HasSuffixLookaround(look)) -> ValueSome (look)
+        | LookAround(lookBack=false) -> ValueSome node
+        | _ -> ValueNone
+    loop x
+
+
+[<return: Struct>]
 let (|NodeIsAlwaysNullable|_|)(x: RegexNode<'t>) =
     match x with
     | Or(xs, IsAlwaysNullable) -> ValueSome()
