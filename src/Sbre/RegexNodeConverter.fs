@@ -64,33 +64,38 @@ let rec determineWordBorderNodeKind (left:bool) (node:RegexNode) =
     let trueLeft = if rtl then not left else left
     let edgeIdx = if trueLeft then node.ChildCount() - 1 else 0
     let unhandled() = failwith $"todo: rewrite boundary: {node}"
+
+    let inferSet (setStr:string) =
+        match setStr with
+        | RegexCharClass.NotSpaceClass
+        | RegexCharClass.WordClass -> Some true
+        | RegexCharClass.SpaceClass -> Some false
+        | _ -> unhandled()
+
     match node.Kind with
     | RegexNodeKind.One ->
+        if RegexCharClass.IsBoundaryWordChar node.Ch then Some true
+        else Some false
+    | RegexNodeKind.Oneloop when node.M > 0 ->
         if RegexCharClass.IsBoundaryWordChar node.Ch then Some true
         else Some false
     | RegexNodeKind.Notoneloop ->
         // todo: only conclude something if loop is fixed length
         None
+
     | RegexNodeKind.Setloop ->
         let nonEmpty = node.M > 0
         if not nonEmpty then None
-        else
-            match node.Str with
-            | RegexCharClass.WordClass -> Some true
-            | _ -> unhandled()
+        else inferSet node.Str
     | RegexNodeKind.Notone -> unhandled()
-    | RegexNodeKind.Set ->
-        match node.Str with
-        | RegexCharClass.NotSpaceClass
-        | RegexCharClass.WordClass -> Some true
-        | RegexCharClass.SpaceClass -> Some false
-        | _ -> unhandled()
+    | RegexNodeKind.Set -> inferSet node.Str
+
     | RegexNodeKind.Multi ->
         // AA_ <- last char if to left
         let chr = if trueLeft then node.Str[node.Str.Length - 1] else node.Str[0]
         if RegexCharClass.IsBoundaryWordChar chr then Some true
         else Some false
-    | RegexNodeKind.Oneloop -> unhandled()
+
     | RegexNodeKind.Conjunction ->
         children2Seq node
         |> Seq.map (determineWordBorderNodeKind left)

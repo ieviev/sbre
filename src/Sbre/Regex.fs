@@ -269,7 +269,7 @@ type RegexMatcher<'t when 't: struct>
                     _cache.Builder.mkOr([ R'S ;S' ])
                 else R'S
             // pos.lookahead prefix: (?=\w)a
-            | Concat(LookAround(node=lookBody; lookBack=false; negate=false) as look, tail, info) ->
+            | Concat(LookAround(node=lookBody; lookBack=false; negate=false; pendingNullables = rel,pendingNullables) as look, tail, info) ->
                 // TODO: either rewrite this or throw a not supported exception
                 // but good enough because no one uses this anyway
                 match lookBody with
@@ -279,13 +279,28 @@ type RegexMatcher<'t when 't: struct>
                     )
                     let S' = _createDerivative (&loc, loc_pred, tail)
                     _cache.Builder.mkAnd ( seq { lookDer ;S' } )
-                // | Epsilon -> _createDerivative (&loc, loc_pred, tail)
+                // | Epsilon ->
+                    // let lookDer = _createDerivative (
+                    //     &loc, loc_pred, _cache.Builder.mkConcat2(lookBody,_cache.TrueStar)
+                    // )
+                    // let lookDer = _createDerivative (
+                    //     &loc, loc_pred, _cache.Builder.mkConcat2(lookBody,_cache.TrueStar)
+                    // )
+                    // // lookDer
+                    // _cache.Builder.mkAnd ( seq { lookDer ;tail } )
+                    // let rl = rel
+                    // let pen = pendingNullables
+                    //
+                    // let S' = _createDerivative (&loc, loc_pred, tail)
+                    // _cache.Builder.mkAnd ( seq { Epsilon ;S' } )
+                    // S'
+                    // _cache.Builder.mkConcat2(S', lookDer)
                 | _ -> failwith "complex inner lookarounds not supported"
             // Derx (R·S) = if Nullx (R) then Derx (R)·S|Derx (S) else Derx (R)·S
             | Concat(head, tail, info) ->
-                if head.ContainsLookaround then
-                    failwith "TODO: lookaround edge case"
-                else
+                // if head.ContainsLookaround then
+                //     failwith "TODO: lookaround edge case"
+                // else
                 let R' = _createDerivative (&loc, loc_pred, head)
                 let R'S = _cache.Builder.mkConcat2 (R', tail)
                 if _isNullable (&loc, head) then

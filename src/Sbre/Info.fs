@@ -147,7 +147,7 @@ module rec Flags =
 
                 Flag.None
         let otherFlags =
-            innerInfo &&& (Flag.ContainsEpsilonFlag ||| Flag.ContainsLookaroundFlag ||| Flag.HasCounterFlag)
+            innerInfo &&& (Flag.ContainsEpsilonFlag ||| Flag.ContainsLookaroundFlag ||| Flag.HasCounterFlag ||| Flag.DependsOnAnchorFlag)
         nullableFlags ||| otherFlags
 
 

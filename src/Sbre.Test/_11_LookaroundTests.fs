@@ -79,6 +79,23 @@ let ``a pos complex 1.3`` () =
 let ``a pos complex 1.4`` () =
     assertMatchEnd @".*(?=.*-)&\S.*\S" @"-aaaa-" 0 5
 
+[<Fact>]
+let ``a pos complex 2.1a`` () =
+    assertFirstMatchText @".*(?=.*bbb)(?=.*ccc)" @"aaa bbb ccc" "aaa "
+
+[<Fact>]
+let ``a pos complex 2.1b`` () =
+    assertFirstMatchText @"a+\b(?=.*---)" @"aaa ---" "aaa"
+
+[<Fact>]
+let ``a pos complex 2.1c`` () =
+    assertFirstMatchText @"a+(?=\W)(?=.*___)" @"aaa ___" "aaa"
+
+[<Fact>]
+let ``a pos complex 2.1d`` () =
+    assertFirstMatchText @".*(?=\W)(?=.*___)" @"aaa ___" "aaa"
+
+
 
 // TODO: maybe not support this at all?
 // [<Fact>]
@@ -154,8 +171,29 @@ let ``b pos complex 1.2``() =
 
 
 [<Fact>]
-let ``b pos complex 2``() =
+let ``b pos complex 2.1``() =
     assertFirstMatchText """(?<=aaa\{).*(?=\})""" "aaa{bbb {ccc}}" "bbb {ccc}"
+
+[<Fact>]
+let ``b pos complex 2.2a``() =
+    assertFirstMatchText """(?<=\w)(?<=a)b""" "ab" "b"
+
+[<Fact>]
+let ``b pos complex 2.2b``() =
+    assertFirstMatchText """(?<=\w\w)(?<=aa)b""" "aab" "b"
+
+[<Fact>]
+let ``b pos complex 2.2c``() =
+    assertFirstMatchText """(?<=\w\w)(?<=aa)bb""" "aabb" "bb"
+
+[<Fact>]
+let ``b pos complex 2.2d``() =
+    assertFirstMatchText """(?<=\w)(?<=aa)b""" "aab" "b"
+
+[<Fact>]
+let ``b pos complex 2.2e``() =
+    assertFirstMatchText """(?<=a.*)\bb""" "a  b" "b"
+
 
 
 [<Fact>]
@@ -255,7 +293,7 @@ let ``f wordborder constraint 1.1c``() =
 
 [<Fact>]
 let ``f wordborder constraint 1.1c -``() =
-    assertNullablePositions @"(x\b)(?=.*c)" "a x c" [2]
+    assertNullablePositions @"x\b(?=.*c)" "a x c" [2]
 
 
 [<Fact>]
