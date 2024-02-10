@@ -477,13 +477,22 @@ type RegexMatcher<'t when 't: struct>
             DFA_R_orig
 
     let _initialOptimizations =
-        Optimizations.findInitialOptimizations
-            (fun (mt,node) ->
-                let mutable loc = Location.getNonInitial()
-                _createDerivative(&loc,mt,node) )
-            (fun node -> _getOrCreateState(node,false).Id )
-            (fun node -> _getOrCreateState(node,false).Flags )
-            _cache reverseNode reverseTrueStarredNode
+        let opts =
+            Optimizations.findInitialOptimizations
+                (fun (mt,node) ->
+                    let mutable loc = Location.getNonInitial()
+                    _createDerivative(&loc,mt,node) )
+                (fun node -> _getOrCreateState(node,false).Id )
+                (fun node -> _getOrCreateState(node,false).Flags )
+                _cache reverseNode reverseTrueStarredNode
+        let cannotUsePrefix =
+            match opts with
+            | InitialOptimizations.SetsPrefix(prefix=prefix)
+            | InitialOptimizations.PotentialStartPrefix prefix ->
+                let chrs = _cache.MintermChars(prefix.Span[0])
+                chrs.IsNone
+            | _ -> false
+        if cannotUsePrefix then InitialOptimizations.NoOptimizations else opts
 
     let _initialFixedLength =
         Node.getFixedLength reverseNode
@@ -585,7 +594,7 @@ type RegexMatcher<'t when 't: struct>
         let nextStateId = _dfaDelta[dfaOffset]
 
         // caching workaround until context implementation
-        if flags.CannotBeCached then
+        if flags.CannotBeCached || loc.Position = 0 then
             let nextState = this.TryNextDerivative(&currentState, mintermId, &loc)
             _dfaDelta[dfaOffset] <- nextState
             currentState <- nextState
@@ -754,6 +763,39 @@ type RegexMatcher<'t when 't: struct>
                 // no matches remaining
                 loc.Position <- Location.final loc
                 false
+        | InitialOptimizations.DebugWordBorderPrefix(prefix, transitionNodeId) ->
+            failwith "todo"
+            // let mutable doneLooping = false
+            // let mutable result = ValueNone
+            // let pretty1 = prefix.Span.Slice(1,2).ToArray()
+            // let pretty2 = prefix.Span.Slice(1,2).ToArray() |> Array.map _cache.PrettyPrintMinterm
+            // let m0 = prefix.Span[0]
+            // let m3 = prefix.Span[3]
+            // let p2 = 1
+            // while not doneLooping do
+            //     let skipResult = _cache.TryNextStartsetLocationArrayReversed( &loc, pretty1.AsSpan() )
+            //     match skipResult with
+            //     | ValueSome resultEnd ->
+            //         let suffixStart = resultEnd - prefix.Length
+            //         let mtTail = _cache.CharToMinterm(loc.Input[resultEnd])
+            //         let mtHead = _cache.CharToMinterm(loc.Input[suffixStart])
+            //
+            //         // let currSlice = loc.Input.Slice(suffixStart)
+            //         let currSlice = loc.Input.Slice(suffixStart-5)
+            //         let w = 1
+            //         failwith "todo"
+            //     | ValueNone ->
+            //         doneLooping <- true
+            // match result with
+            // | ValueSome resultEnd ->
+            //     let suffixStart = resultEnd - prefix.Length
+            //     currentStateId <- transitionNodeId
+            //     loc.Position <- suffixStart
+            //     true
+            // | ValueNone ->
+            //     // no matches remaining
+            //     loc.Position <- Location.final loc
+            //     false
         | InitialOptimizations.PotentialStartPrefix prefix ->
             let skipResult = _cache.TryNextStartsetLocationArrayReversed( &loc, prefix.Span )
             match skipResult with

@@ -17,6 +17,7 @@ type InitialOptimizations =
     | SetsPrefix of prefix:Memory<TSet> * transitionNodeId:int
     /// ex. (Twain|Huck) ==> potential start:[TH][wu][ac][ik]
     | PotentialStartPrefix of prefix:Memory<TSet>
+    | DebugWordBorderPrefix of prefix:Memory<TSet> * transitionNodeId:int
 
 type ActiveBranchOptimizations =
     | LimitedSkip of distance:int * termPred:SearchValues<char> * termTransitionId:int * nonTermTransitionId:int
@@ -146,19 +147,19 @@ let rec calcPrefixSets getNonInitialDerivative (getStateFlags: RegexNode<_> -> R
         // if stateFlags.CanSkip && not (refEq startNodeWithoutComplement node) then acc |> List.rev else
         if isRedundant then
             acc |> List.rev
-        else if node.IsAlwaysNullable  then
+        else if node.CanBeNullable  then
             acc |> List.rev
         else
 
             match prefix_derivs with
-            | [| (mt, deriv) |] ->
+            | [| (mt, deriv) |]  ->
                 // stop with pending nullable
-                match deriv with
-                | LookAround(_, false, false, _) ->
-                    acc |> List.rev
-                | _ ->
-                    let acc' = mt :: acc
-                    loop acc' deriv
+                // match deriv with
+                // | LookAround(_, false, false, _) ->
+                //     acc |> List.rev
+                // | _ ->
+                let acc' = mt :: acc
+                loop acc' deriv
             | _ ->
                 // let merged_pred = prefix_derivs |> Seq.map fst |> Seq.fold (|||) cache.Solver.Empty
                 // prefix_derivs |> Seq.map snd |> Seq.iter (redundant.Add >> ignore)
@@ -239,7 +240,7 @@ let findInitialOptimizations
     (nodeToStateFlags:RegexNode<TSet> -> RegexStateFlags)
     (c:RegexCache<TSet>) (node:RegexNode<TSet>) (trueStarredNode:RegexNode<TSet>) =
 #if NO_SKIP_LOOKAROUNDS
-    if node.ContainsLookaround then InitialOptimizations.NoOptimizations else
+    // if node.ContainsLookaround then InitialOptimizations.NoOptimizations else
 #endif
     // if node.ContainsLookaround then InitialOptimizations.NoOptimizations else
     match Optimizations.calcPrefixSets getNonInitialDerivative nodeToStateFlags c node with
@@ -267,16 +268,15 @@ let findInitialOptimizations
             InitialOptimizations.StringPrefix(singleCharPrefixes,nodeToId applied)
         else
             // fail if set too large
-            let smallPrefix =
-                prefix
-                |> Seq.takeWhile (fun v ->
-                    let chrs = c.MintermChars(v)
-                    chrs.IsSome
-                )
-                |> Seq.toArray
-            if smallPrefix.Length = 0 then
-                InitialOptimizations.NoOptimizations
-            else
+//             if smallPrefix.Length = 0 then
+// #if EXPERIMENTAL_LOOKAROUNDS
+//                 let mem = Memory(Seq.toArray prefix)
+//                 let applied = Optimizations.applyPrefixSets getNonInitialDerivative c trueStarredNode prefix
+//                 InitialOptimizations.DebugWordBorderPrefix(mem,nodeToId applied)
+// #else
+//                 InitialOptimizations.NoOptimizations
+// #endif
+//             else
 
             let applied = Optimizations.applyPrefixSets getNonInitialDerivative c trueStarredNode prefix
             let containsSmallSets =

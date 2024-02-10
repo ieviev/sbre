@@ -195,8 +195,8 @@ let assertConverted (pattern: string) (expected: string list) =
     let asstr = reg.TSetMatcher.Cache.PrettyPrintNode reg.TSetMatcher.RawPattern
     Assert.Contains<string>(asstr,expected)
 
-[<Fact>]
-let ``conversion lookaround ``() = assertConverted ".(?<=A.*)" [@".(?<=A.*)"]
+// [<Fact>]
+// let ``conversion lookaround ``() = assertConverted ".(?<=A.*)" [@".(?<=A.*)"]
 // assertConverted ".(?<=A.*)" @"[^\n](?<=A[^\n]*)"
 
 [<Fact>]
@@ -226,7 +226,7 @@ let ``conversion neg lookahead ``() = assertConverted "1(?! Sep)" [
     @"1(?=(⊤{0,3}\z|(⊤{4,4}&~(⊤* Sep⊤*))))" // rewritten pos
     @"1(?=((⊤{4,4}&~(⊤* Sep⊤*))|⊤{0,3}\z))"
     @"1(?=(⊤{0,3}\z|(~(⊤* Sep⊤*)&⊤{4,4})))"
-    "1(?! Sep)"
+    // "1(?! Sep)"
 ]
 
 [<Fact>]

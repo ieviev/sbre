@@ -63,7 +63,7 @@ let rec determineWordBorderNodeKind (left:bool) (node:RegexNode) =
     let rtl = node.Options.HasFlag(RegexOptions.RightToLeft)
     let trueLeft = if rtl then not left else left
     let edgeIdx = if trueLeft then node.ChildCount() - 1 else 0
-    let unhandled() = failwith "todo: rewrite boundary"
+    let unhandled() = failwith $"todo: rewrite boundary: {node}"
     match node.Kind with
     | RegexNodeKind.One ->
         if RegexCharClass.IsBoundaryWordChar node.Ch then Some true
@@ -79,14 +79,24 @@ let rec determineWordBorderNodeKind (left:bool) (node:RegexNode) =
             | RegexCharClass.WordClass -> Some true
             | _ -> unhandled()
     | RegexNodeKind.Notone -> unhandled()
-    | RegexNodeKind.Set -> unhandled()
+    | RegexNodeKind.Set ->
+        match node.Str with
+        | RegexCharClass.NotSpaceClass
+        | RegexCharClass.WordClass -> Some true
+        | RegexCharClass.SpaceClass -> Some false
+        | _ -> unhandled()
     | RegexNodeKind.Multi ->
         // AA_ <- last char if to left
         let chr = if trueLeft then node.Str[node.Str.Length - 1] else node.Str[0]
         if RegexCharClass.IsBoundaryWordChar chr then Some true
         else Some false
     | RegexNodeKind.Oneloop -> unhandled()
-    | RegexNodeKind.Conjunction -> unhandled()
+    | RegexNodeKind.Conjunction ->
+        children2Seq node
+        |> Seq.map (determineWordBorderNodeKind left)
+        |> Seq.tryPick id
+
+    | RegexNodeKind.Capture
     | RegexNodeKind.Concatenate
     | RegexNodeKind.PositiveLookaround ->
         let edgeChild = node.Child(edgeIdx)

@@ -100,14 +100,13 @@ module
         if shouldInvert then
             for i = 1 to predStartsetArray.Length - 1 do
                 let pureMt = uintMinterms[i]
-                let ps = predStartsetArray[i]
-                if ps.Flags.HasFlag(StartsetFlags.TooBig) then
-                    tooBig <- true
-
                 // match _solver.isElemOfSet (startset,pureMt) with
                 match Solver.elemOfSet startset pureMt with
                 | true -> ()
                 | false ->
+                    let ps = predStartsetArray[i]
+                    if ps.Flags.HasFlag(StartsetFlags.TooBig) then
+                        tooBig <- true
                     let targetSpan = mergedCharSpan.Slice(totalLen)
                     let pspan = predStartsetArray[i].Chars.AsSpan()
                     pspan.CopyTo(targetSpan)
@@ -120,13 +119,14 @@ module
         else
             for i = 1 to predStartsetArray.Length - 1 do
                 let pureMt = uintMinterms[i]
-                let ps = predStartsetArray[i]
-                if ps.Flags.HasFlag(StartsetFlags.TooBig) then
-                    tooBig <- true
+
 
                 match Solver.elemOfSet startset pureMt with
                 // match _solver.isElemOfSet (startset,pureMt) with
                 | true ->
+                    let ps = predStartsetArray[i]
+                    if ps.Flags.HasFlag(StartsetFlags.TooBig) then
+                        tooBig <- true
 
 
                     let targetSpan = mergedCharSpan.Slice(totalLen)
@@ -364,9 +364,11 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                         ]
                     )
             // (?<=\W)
-            _nonWordLeft = lazy b.mkLookaround(_uniques._nonWordChar.Value,true,false)
+            // _nonWordLeft = lazy b.mkLookaround(_uniques._nonWordChar.Value,true,false)
+            _nonWordLeft = lazy b.mkOr([b.mkLookaround(_uniques._nonWordChar.Value,true,false);RegexNode<'t>.Anchor Begin])
             // (?=\W)
-            _nonWordRight = lazy b.mkLookaround(_uniques._nonWordChar.Value,false,false)
+            // _nonWordRight = lazy b.mkLookaround(_uniques._nonWordChar.Value,false,false)
+            _nonWordRight = lazy b.mkOr([b.mkLookaround(_uniques._nonWordChar.Value,true,false);RegexNode<'t>.Anchor End])
                     // RegexNode<'t>.Anchor WordBorder
 
             // ^ ≡ \A|(?<=\n)
