@@ -174,7 +174,7 @@ module Node =
             | Loop(node, low, up, info) -> None
             | And(nodes, info) -> None
             | Not(node, info) -> None
-            | LookAround(_) -> None
+            | LookAround(_) -> Some (0 + acc)
             | Anchor _ -> Some (0 + acc)
         loop 0 node
 

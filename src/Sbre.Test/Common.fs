@@ -70,6 +70,54 @@ let assertAlternation (expectedResults:string list) (node:RegexNode<TSet>) =
         for r in expectedResults do
             Assert.Contains(r, node.ToString())
 
+
+let applyPrefix pattern =
+    let regex = Regex(pattern)
+    let matcher = regex.TSetMatcher
+    let getflags = (fun node -> matcher.GetOrCreateState(node).Flags)
+    let getder = (fun (mt,node) ->
+        let loc = Pat.Location.getNonInitial()
+        matcher.CreateDerivative(&loc, mt,node)
+    )
+    let prefix = Optimizations.calcPrefixSets getder getflags matcher.Cache matcher.ReversePattern
+    let applied = Optimizations.applyPrefixSets getder matcher.Cache matcher.ReverseTrueStarredPattern prefix
+    applied
+
+let getInitOptimizations pattern =
+    let regex = Regex(pattern)
+    let matcher = regex.TSetMatcher
+    let getder = (fun (mt,node) ->
+        let loc = Pat.Location.getNonInitial()
+        matcher.CreateDerivative(&loc, mt,node)
+    )
+    let optimizations =
+        Optimizations.findInitialOptimizations
+            getder
+            (fun node -> matcher.GetOrCreateState(node).Id)
+            (fun node -> matcher.GetOrCreateState(node).Flags)
+            matcher.Cache matcher.ReversePattern matcher.ReverseTrueStarredPattern
+    optimizations
+
+let assertPotentialPrefix pattern expected =
+    let regex = Regex(pattern)
+    let matcher = regex.TSetMatcher
+    let getder = (fun (mt,node) ->
+        let loc = Pat.Location.getNonInitial()
+        matcher.CreateDerivative(&loc, mt,node)
+    )
+    let optimizations =
+        Optimizations.findInitialOptimizations
+            getder
+            (fun node -> matcher.GetOrCreateState(node).Id)
+            (fun node -> matcher.GetOrCreateState(node).Flags)
+            matcher.Cache matcher.ReversePattern matcher.ReverseTrueStarredPattern
+    match optimizations with
+    | Optimizations.InitialOptimizations.PotentialStartPrefix(prefix) ->
+        let prefixString = Optimizations.printPrefixSets matcher.Cache (prefix.ToArray() |> Seq.toList)
+        Assert.Equal(expected, prefixString)
+    | _ -> failwith "invalid optimization result"
+
+
 // let assertCounterStates (regex:Regex) (input:string) (expectedStates:(CounterState * int) list list)  =
 //     let matcher = regex.TSetMatcher
 //     let cache = matcher.Cache

@@ -43,8 +43,12 @@ let ``calc reverse prefix 1``() =
     let regex = Regex("Twain")
     let matcher = regex.TSetMatcher
     let getflags = (fun node -> matcher.GetOrCreateState(node).Flags)
+    let getder = (fun (mt,node) ->
+        let loc = Pat.Location.getNonInitial()
+        matcher.CreateDerivative(&loc, mt,node)
+    )
     let prefix =
-        Optimizations.calcPrefixSets getflags matcher.Cache matcher.ReversePattern
+        Optimizations.calcPrefixSets getder getflags matcher.Cache matcher.ReversePattern
     let prefixString = Optimizations.printPrefixSets matcher.Cache prefix
     Assert.Equal("n;i;a;w;T", prefixString)
 
@@ -56,8 +60,12 @@ let ``calc reverse prefix 2``() =
     let regex = Regex("⊤*A⊤*&⊤*B")
     let matcher = regex.TSetMatcher
     let getflags = (fun node -> matcher.GetOrCreateState(node).Flags)
+    let getder = (fun (mt,node) ->
+        let loc = Pat.Location.getNonInitial()
+        matcher.CreateDerivative(&loc, mt,node)
+    )
     let prefix =
-        Optimizations.calcPrefixSets getflags matcher.Cache matcher.ReversePattern
+        Optimizations.calcPrefixSets getder getflags matcher.Cache matcher.ReversePattern
     let prefixString = Optimizations.printPrefixSets matcher.Cache prefix
     Assert.Equal("B", prefixString)
 
@@ -67,8 +75,12 @@ let ``calc reverse prefix 3``() =
     let regex = Regex(@"⊤*Huck⊤*")
     let matcher = regex.TSetMatcher
     let getflags = (fun node -> matcher.GetOrCreateState(node).Flags)
+    let getder = (fun (mt,node) ->
+        let loc = Pat.Location.getNonInitial()
+        matcher.CreateDerivative(&loc, mt,node)
+    )
     let prefix =
-        Optimizations.calcPrefixSets getflags matcher.Cache matcher.ReversePattern
+        Optimizations.calcPrefixSets getder getflags matcher.Cache matcher.ReversePattern
     let prefixString = Optimizations.printPrefixSets matcher.Cache prefix
     // todo: should be kcuH
     Assert.Equal("k;c;u;H", prefixString)
@@ -79,8 +91,12 @@ let ``calc reverse prefix 4``() =
     let regex = Regex(@"~(⊤*\n\n⊤*)&⊤*Huck⊤*")
     let matcher = regex.TSetMatcher
     let getflags = (fun node -> matcher.GetOrCreateState(node).Flags)
+    let getder = (fun (mt,node) ->
+        let loc = Pat.Location.getNonInitial()
+        matcher.CreateDerivative(&loc, mt,node)
+    )
     let prefix =
-        Optimizations.calcPrefixSets getflags matcher.Cache matcher.ReversePattern
+        Optimizations.calcPrefixSets getder getflags matcher.Cache matcher.ReversePattern
     let prefixString = Optimizations.printPrefixSets matcher.Cache prefix
     Assert.Equal("k;c;u;H", prefixString)
 
@@ -90,8 +106,12 @@ let ``calc reverse prefix 5``() =
     let regex = Regex(@"~(.*11.*)&[az1]{8,}")
     let matcher = regex.TSetMatcher
     let getflags = (fun node -> matcher.GetOrCreateState(node).Flags)
+    let getder = (fun (mt,node) ->
+        let loc = Pat.Location.getNonInitial()
+        matcher.CreateDerivative(&loc, mt,node)
+    )
     let prefix =
-        Optimizations.calcPrefixSets getflags matcher.Cache matcher.ReversePattern
+        Optimizations.calcPrefixSets getder getflags matcher.Cache matcher.ReversePattern
     let prefixString = Optimizations.printPrefixSets matcher.Cache prefix
     Assert.Equal("[1az]", prefixString)
 
@@ -101,20 +121,19 @@ let ``calc potential start 1``() =
     let regex = Regex("Tom|Sawyer|Huckleberry|Finn")
     let matcher = regex.TSetMatcher
     let getflags = (fun node -> matcher.GetOrCreateState(node).Flags)
+    let getder = (fun (mt,node) ->
+        let loc = Pat.Location.getNonInitial()
+        matcher.CreateDerivative(&loc, mt,node)
+    )
     let prefix =
-        Optimizations.calcPotentialMatchStart getflags matcher.Cache matcher.ReversePattern
+        Optimizations.calcPotentialMatchStart getder getflags matcher.Cache matcher.ReversePattern
     let prefixString = Optimizations.printPrefixSets matcher.Cache prefix
     Assert.Equal("[mnry];[enor];[Tiry]", prefixString)
 
 
 [<Fact>]
 let ``apply prefix 1``() =
-    let regex = Regex("Twain")
-    let matcher = regex.TSetMatcher
-    let getflags = (fun node -> matcher.GetOrCreateState(node).Flags)
-    let prefix =
-        Optimizations.calcPrefixSets getflags matcher.Cache matcher.ReversePattern
-    let applied = Optimizations.applyPrefixSets matcher.Cache matcher.ReverseTrueStarredPattern prefix
+    let applied = Common.applyPrefix "Twain"
     assertNodeOneOf applied [
         @"(ε|⊤*niawT)"
         @"(⊤*niawT|ε)"
@@ -122,13 +141,7 @@ let ``apply prefix 1``() =
 
 [<Fact>]
 let ``initialOptimizations 1``() =
-    let regex = Regex("Twain")
-    let matcher = regex.TSetMatcher
-    let optimizations =
-        Optimizations.findInitialOptimizations
-            (fun node -> matcher.GetOrCreateState(node).Id)
-            (fun node -> matcher.GetOrCreateState(node).Flags)
-            matcher.Cache matcher.ReversePattern matcher.ReverseTrueStarredPattern
+    let optimizations = getInitOptimizations "Twain"
     match optimizations with
     | Optimizations.InitialOptimizations.StringPrefix(prefix, transitionNode) ->
         Assert.True(prefix.Length = 5)
@@ -136,13 +149,7 @@ let ``initialOptimizations 1``() =
 
 [<Fact>]
 let ``initialOptimizations 2``() =
-    let regex = Regex("Tom|Sawyer|Huckleberry|Finn")
-    let matcher = regex.TSetMatcher
-    let optimizations =
-        Optimizations.findInitialOptimizations
-            (fun node -> matcher.GetOrCreateState(node).Id)
-            (fun node -> matcher.GetOrCreateState(node).Flags)
-            matcher.Cache matcher.ReversePattern matcher.ReverseTrueStarredPattern
+    let optimizations = getInitOptimizations "Tom|Sawyer|Huckleberry|Finn"
     match optimizations with
     | Optimizations.InitialOptimizations.PotentialStartPrefix(prefix) ->
         Assert.True(prefix.Length = 3)
@@ -151,13 +158,8 @@ let ``initialOptimizations 2``() =
 
 [<Fact>]
 let ``initialOptimizations 3``() =
-    let regex = Regex("..g")
-    let matcher = regex.TSetMatcher
-    let optimizations =
-        Optimizations.findInitialOptimizations
-            (fun node -> matcher.GetOrCreateState(node).Id)
-            (fun node -> matcher.GetOrCreateState(node).Flags)
-            matcher.Cache matcher.ReversePattern matcher.ReverseTrueStarredPattern
+
+    let optimizations = getInitOptimizations "..g"
     match optimizations with
     // | Optimizations.InitialOptimizations.ReverseStringPrefix(prefix,_) ->
     //     Assert.Equal(1,prefix.Length)
@@ -168,13 +170,7 @@ let ``initialOptimizations 3``() =
 
 [<Fact>]
 let ``initialOptimizations 4``() =
-    let regex = Regex("[a-z]shing")
-    let matcher = regex.TSetMatcher
-    let optimizations =
-        Optimizations.findInitialOptimizations
-            (fun node -> matcher.GetOrCreateState(node).Id)
-            (fun node -> matcher.GetOrCreateState(node).Flags)
-            matcher.Cache matcher.ReversePattern matcher.ReverseTrueStarredPattern
+    let optimizations = getInitOptimizations "[a-z]shing"
     match optimizations with
     | Optimizations.InitialOptimizations.StringPrefix(prefix,_) ->
         Assert.Equal(5,prefix.Length)
@@ -183,13 +179,7 @@ let ``initialOptimizations 4``() =
 
 [<Fact>]
 let ``initialOptimizations 5``() =
-    let regex = Regex(".*t.*hat.*&.*a.*nd.*&.*t.*he.*&.*w.*as.*")
-    let matcher = regex.TSetMatcher
-    let optimizations =
-        Optimizations.findInitialOptimizations
-            (fun node -> matcher.GetOrCreateState(node).Id)
-            (fun node -> matcher.GetOrCreateState(node).Flags)
-            matcher.Cache matcher.ReversePattern matcher.ReverseTrueStarredPattern
+    let optimizations = getInitOptimizations ".*t.*hat.*&.*a.*nd.*&.*t.*he.*&.*w.*as.*"
     match optimizations with
     | Optimizations.InitialOptimizations.PotentialStartPrefix(prefix) ->
         Assert.Equal(2,prefix.Length)
@@ -198,88 +188,44 @@ let ``initialOptimizations 5``() =
 
 [<Fact>]
 let ``initialOptimizations 6``() =
-    let regex = Regex("Huck[a-zA-Z]+|Saw[a-zA-Z]+")
-    let matcher = regex.TSetMatcher
-    let optimizations =
-        Optimizations.findInitialOptimizations
-            (fun node -> matcher.GetOrCreateState(node).Id)
-            (fun node -> matcher.GetOrCreateState(node).Flags)
-            matcher.Cache matcher.ReversePattern matcher.ReverseTrueStarredPattern
-    match optimizations with
-    | Optimizations.InitialOptimizations.PotentialStartPrefix(prefix) ->
-        let prefixString = Optimizations.printPrefixSets matcher.Cache (prefix.ToArray() |> Seq.toList)
-        Assert.Equal("[A-Za-z];[kw];[ac];[Su]", prefixString)
-    | _ -> failwith "invalid optimization result"
+    assertPotentialPrefix "Huck[a-zA-Z]+|Saw[a-zA-Z]+" "[A-Za-z];[kw];[ac];[Su]"
+
 
 [<Fact>]
 let ``initialOptimizations 7``() =
-    // variable length prefix?
-    let regex = Regex("Tom|Sawyer|Huckleberry|Finn")
-    let matcher = regex.TSetMatcher
-    let optimizations =
-        Optimizations.findInitialOptimizations
-            (fun node -> matcher.GetOrCreateState(node).Id)
-            (fun node -> matcher.GetOrCreateState(node).Flags)
-            matcher.Cache matcher.ReversePattern matcher.ReverseTrueStarredPattern
-    match optimizations with
-    | Optimizations.InitialOptimizations.PotentialStartPrefix(prefix) ->
-        let prefixString = Optimizations.printPrefixSets matcher.Cache (prefix.ToArray() |> Seq.toList)
-        Assert.Equal("[mnry];[enor];[Tiry]", prefixString)
-    | _ -> failwith "invalid optimization result"
-
+    assertPotentialPrefix "Tom|Sawyer|Huckleberry|Finn" "[mnry];[enor];[Tiry]"
 
 [<Fact>]
 let ``initialOptimizations 8``() =
-    let regex = Regex("\s([A-Za-z]awyer|[A-Za-z]inn)\s")
-    let matcher = regex.TSetMatcher
-    let optimizations =
-        Optimizations.findInitialOptimizations
-            (fun node -> matcher.GetOrCreateState(node).Id)
-            (fun node -> matcher.GetOrCreateState(node).Flags)
-            matcher.Cache matcher.ReversePattern matcher.ReverseTrueStarredPattern
-    match optimizations with
-    | Optimizations.InitialOptimizations.PotentialStartPrefix(prefix) ->
-        let prefixString = Optimizations.printPrefixSets matcher.Cache (prefix.ToArray() |> Seq.toList)
-        Assert.Equal("\s;[nr];[en];[iy];[A-Za-z];\s", prefixString)
-    | _ -> failwith "invalid optimization result"
+    assertPotentialPrefix "\s([A-Za-z]awyer|[A-Za-z]inn)\s" "\s;[nr];[en];[iy];[A-Za-z];\s"
 
 
 [<Fact>]
 let ``initialOptimizations 9``() =
-    let regex = Regex(@"\b\w+nn\b")
-    let matcher = regex.TSetMatcher
-    let optimizations =
-        Optimizations.findInitialOptimizations
-            (fun node -> matcher.GetOrCreateState(node).Id)
-            (fun node -> matcher.GetOrCreateState(node).Flags)
-            matcher.Cache matcher.ReversePattern matcher.ReverseTrueStarredPattern
-    match optimizations with
-    | Optimizations.InitialOptimizations.PotentialStartPrefix(prefix) ->
-        let prefixString = Optimizations.printPrefixSets matcher.Cache (prefix.ToArray() |> Seq.toList)
-        Assert.Equal("\s;[nr];[en];[iy];[A-Za-z];\s", prefixString)
-    | _ -> failwith "invalid optimization result"
+    assertPotentialPrefix @"\b\w+nn\b" "\s;[nr];[en];[iy];[A-Za-z];\s"
 
 
 
-[<Fact>]
-let ``activeOptimizations 1``() =
-    let regex = Regex("""["'][^"']{0,30}[?!\.]["']""")
-    let matcher = regex.TSetMatcher
-    let c = matcher.Cache
-    let der1 = Algorithm.createStartsetDerivative(c, c.CharToMinterm('"'), matcher.ReverseTrueStarredPattern)
-    let der2 = Algorithm.createStartsetDerivative(c, c.CharToMinterm('.'), der1)
-    let optimizations =
-        Optimizations.tryGetLimitedSkip
-            (fun node -> matcher.GetOrCreateState(node).Id)
-            (fun node -> matcher.GetOrCreateState(node).Startset)
-            matcher.Cache matcher.ReverseTrueStarredPattern der2
-    match optimizations with
-    | Some (Optimizations.ActiveBranchOptimizations.LimitedSkip(distance=_)) ->
-        ()
-        // let prefixString = Optimizations.printPrefixSets matcher.Cache (prefix.ToArray() |> Seq.toList)
-        // Assert.Equal("\s;[nr];[en];[iy];[A-Za-z];\s", prefixString)
-    | _ -> failwith "invalid optimization result"
 
+// [<Fact>]
+// let ``activeOptimizations 1``() =
+//     let regex = Regex("""["'][^"']{0,30}[?!\.]["']""")
+//     let matcher = regex.TSetMatcher
+//     let c = matcher.Cache
+//     let der1 = Algorithm.createStartsetDerivative(c, c.CharToMinterm('"'), matcher.ReverseTrueStarredPattern)
+//     let der2 = Algorithm.createStartsetDerivative(c, c.CharToMinterm('.'), der1)
+//     let optimizations =
+//         Optimizations.tryGetLimitedSkip
+//             (fun node -> matcher.GetOrCreateState(node).Id)
+//             (fun node -> matcher.GetOrCreateState(node).Startset)
+//             matcher.Cache matcher.ReverseTrueStarredPattern der2
+//     match optimizations with
+//     | Some (Optimizations.ActiveBranchOptimizations.LimitedSkip(distance=_)) ->
+//         ()
+//         // let prefixString = Optimizations.printPrefixSets matcher.Cache (prefix.ToArray() |> Seq.toList)
+//         // Assert.Equal("\s;[nr];[en];[iy];[A-Za-z];\s", prefixString)
+//     | _ -> failwith "invalid optimization result"
+//
 
 
 

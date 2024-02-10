@@ -21,8 +21,13 @@ type StringPrefix(pattern:string) =
     let regex = Sbre.Regex(pattern)
     let matcher = regex.TSetMatcher
     // find optimized prefix for regex
+    let getder = (fun (mt,node) ->
+        let loc = Pat.Location.getNonInitial()
+        matcher.CreateDerivative(&loc, mt,node)
+    )
     let optimizations =
         Sbre.Optimizations.findInitialOptimizations
+            getder
             (fun node -> matcher.GetOrCreateState(node).Id)
             (fun node -> matcher.GetOrCreateState(node).Flags)
             matcher.Cache
@@ -74,9 +79,14 @@ type StringPrefix(pattern:string) =
 type SetsPrefix(pattern:string) =
     let regex = Sbre.Regex(pattern)
     let matcher = regex.TSetMatcher
+    let getder = (fun (mt,node) ->
+        let loc = Pat.Location.getNonInitial()
+        matcher.CreateDerivative(&loc, mt,node)
+    )
     // find optimized prefix for regex
     let optimizations =
         Sbre.Optimizations.findInitialOptimizations
+            getder
             (fun node -> matcher.GetOrCreateState(node).Id)
             (fun node -> matcher.GetOrCreateState(node).Flags)
             matcher.Cache

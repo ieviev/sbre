@@ -60,10 +60,10 @@ let rewriteNegativeLookaround (b:RegexBuilder<BDD>) (node:RegexNode<BDD>) : Rege
 
 
 let rec determineWordBorderNodeKind (left:bool) (node:RegexNode) =
-    let edgeIdx =
-        let rtl = node.Options.HasFlag(RegexOptions.RightToLeft)
-        let trueLeft = if rtl then not left else left
-        if trueLeft then node.ChildCount() - 1 else 0
+    let rtl = node.Options.HasFlag(RegexOptions.RightToLeft)
+    let trueLeft = if rtl then not left else left
+    let edgeIdx = if trueLeft then node.ChildCount() - 1 else 0
+    let unhandled() = failwith "todo: rewrite boundary"
     match node.Kind with
     | RegexNodeKind.One ->
         if RegexCharClass.IsBoundaryWordChar node.Ch then Some true
@@ -71,11 +71,22 @@ let rec determineWordBorderNodeKind (left:bool) (node:RegexNode) =
     | RegexNodeKind.Notoneloop ->
         // todo: only conclude something if loop is fixed length
         None
-    | RegexNodeKind.Notone -> failwith "todo"
-    | RegexNodeKind.Set -> failwith "todo"
-    | RegexNodeKind.Multi -> failwith "todo"
-    | RegexNodeKind.Oneloop -> failwith "todo"
-    | RegexNodeKind.Conjunction -> failwith "todo"
+    | RegexNodeKind.Setloop ->
+        let nonEmpty = node.M > 0
+        if not nonEmpty then None
+        else
+            match node.Str with
+            | RegexCharClass.WordClass -> Some true
+            | _ -> unhandled()
+    | RegexNodeKind.Notone -> unhandled()
+    | RegexNodeKind.Set -> unhandled()
+    | RegexNodeKind.Multi ->
+        // AA_ <- last char if to left
+        let chr = if trueLeft then node.Str[node.Str.Length - 1] else node.Str[0]
+        if RegexCharClass.IsBoundaryWordChar chr then Some true
+        else Some false
+    | RegexNodeKind.Oneloop -> unhandled()
+    | RegexNodeKind.Conjunction -> unhandled()
     | RegexNodeKind.Concatenate
     | RegexNodeKind.PositiveLookaround ->
         let edgeChild = node.Child(edgeIdx)

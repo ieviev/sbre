@@ -306,6 +306,7 @@ let (|TrySubsumeSameTail|_|) (nodes: HashSet<RegexNode<TSet>>) =
 
 module Location =
     let getDefault() : Location = { Input = ReadOnlySpan.Empty; Reversed = false; Position = 0 }
+    let getNonInitial() : Location = { Input = "abc".AsSpan() ; Reversed = false; Position = 1 }
     let inline create (str: string) (p: int32) : Location = { Input = str.AsSpan(); Position = p; Reversed = false }
     let inline createSpan (str: ReadOnlySpan<char>) (p: int32) : Location = { Input = str; Position = p; Reversed = false }
     let inline clone (loc:inref<Location>) : Location =

@@ -32,18 +32,17 @@ let printPrefixSets (cache:RegexCache<_>) (sets:TSet list) =
     |> String.concat ";"
 #endif
 
-let getImmediateDerivatives (cache: RegexCache<_>) (node: RegexNode<TSet>) =
+let getImmediateDerivatives createNonInitialDerivative (cache: RegexCache<_>) (node: RegexNode<TSet>) =
     cache.Minterms()
     |> Array.map (fun minterm ->
         let loc = Pat.Location.getDefault ()
-        let der = Algorithm.createStartsetDerivative (cache, minterm, node)
+        let der = createNonInitialDerivative (minterm, node)
         minterm, der
     )
-let getImmediateDerivativesMerged (cache: RegexCache<_>) (node: RegexNode<TSet>) =
+let getImmediateDerivativesMerged (createNonInitialDerivative) (cache: RegexCache<_>) (node: RegexNode<TSet>) =
     cache.Minterms()
     |> Array.map (fun minterm ->
-        let loc = Pat.Location.getDefault ()
-        let der = Algorithm.createStartsetDerivative (cache,  minterm, node)
+        let der = createNonInitialDerivative (minterm, node)
         minterm, der
     )
     |> Seq.groupBy snd
@@ -52,11 +51,12 @@ let getImmediateDerivativesMerged (cache: RegexCache<_>) (node: RegexNode<TSet>)
     )
 
 let getNonRedundantDerivatives
+    getNonInitialDerivative
     (cache: RegexCache<TSet>)
     (redundantNodes: System.Collections.Generic.HashSet<RegexNode<TSet>>)
     (node: RegexNode<TSet>)
     =
-    getImmediateDerivativesMerged cache node
+    getImmediateDerivativesMerged getNonInitialDerivative cache node
     |> Seq.where (fun (mt, deriv) -> not (redundantNodes.Contains(deriv)))
     |> Seq.toArray
 
@@ -128,7 +128,7 @@ let rec getPrefixNodeAndComplement (cache:RegexCache<_>) (node:RegexNode<_>) : R
     | _ -> node, None
 
 
-let rec calcPrefixSets (getStateFlags: RegexNode<_> -> RegexStateFlags) (cache: RegexCache<_>) (startNode: RegexNode<_>) =
+let rec calcPrefixSets getNonInitialDerivative (getStateFlags: RegexNode<_> -> RegexStateFlags) (cache: RegexCache<_>) (startNode: RegexNode<_>) =
     let redundant = System.Collections.Generic.HashSet<RegexNode<TSet>>([ cache.False ])
 
     // nothing to complement if a match has not started
@@ -139,7 +139,7 @@ let rec calcPrefixSets (getStateFlags: RegexNode<_> -> RegexStateFlags) (cache: 
     let rec loop acc node =
         let isRedundant = not (redundant.Add(node))
         // let all_derivs = getImmediateDerivativesMerged cache node |> Seq.toArray
-        let prefix_derivs = getNonRedundantDerivatives cache redundant node
+        let prefix_derivs = getNonRedundantDerivatives getNonInitialDerivative cache redundant node
         // a -> t
         let stateFlags = getStateFlags node
         if stateFlags.CanSkip && not (refEq prefixStartNode node) then acc |> List.rev else
@@ -164,7 +164,7 @@ let rec calcPrefixSets (getStateFlags: RegexNode<_> -> RegexStateFlags) (cache: 
     | _ when prefix.IsEmpty -> prefix
     | None -> prefix
     | Some compl ->
-        let complementStartset = calcPrefixSets getStateFlags cache compl
+        let complementStartset = calcPrefixSets getNonInitialDerivative getStateFlags cache compl
         let trimmedPrefix =
             prefix
             |> Seq.takeWhile (fun v ->
@@ -176,7 +176,7 @@ let rec calcPrefixSets (getStateFlags: RegexNode<_> -> RegexStateFlags) (cache: 
 
 
 
-let rec calcPotentialMatchStart (getStateFlags: RegexNode<_> -> RegexStateFlags) (cache: RegexCache<_>) (startNode: RegexNode<_>) =
+let rec calcPotentialMatchStart getNonInitialDerivative (getStateFlags: RegexNode<_> -> RegexStateFlags) (cache: RegexCache<_>) (startNode: RegexNode<_>) =
     let redundant = System.Collections.Generic.HashSet<RegexNode<TSet>>([ cache.False ])
     let rec loop acc (nodes:RegexNode<_> list) =
         let stateFlags =
@@ -191,7 +191,7 @@ let rec calcPotentialMatchStart (getStateFlags: RegexNode<_> -> RegexStateFlags)
         else
             let prefixDerivsList =
                 nonRedundant
-                |> List.map (getNonRedundantDerivatives cache redundant)
+                |> List.map (getNonRedundantDerivatives getNonInitialDerivative cache redundant)
 
             let merged_pred =
                 prefixDerivsList
@@ -205,7 +205,7 @@ let rec calcPotentialMatchStart (getStateFlags: RegexNode<_> -> RegexStateFlags)
                 |> Seq.map snd
                 |> Seq.toList
             let acc' = merged_pred :: acc
-            // let dbg = printPrefixSets cache acc'
+            let dbg = printPrefixSets cache acc'
             loop acc' remainingNodes
 
     let prefixStartNode, complementStartset =
@@ -217,20 +217,21 @@ let rec calcPotentialMatchStart (getStateFlags: RegexNode<_> -> RegexStateFlags)
 
 
 
-let rec applyPrefixSets (cache:RegexCache<_>) (node:RegexNode<TSet>) (sets:TSet list) =
-    assert (not node.ContainsLookaround)
+let rec applyPrefixSets getNonInitialDerivative (cache:RegexCache<_>) (node:RegexNode<TSet>) (sets:TSet list) =
+    // assert (not node.ContainsLookaround)
     match sets with
     | [] -> node
     | head :: tail ->
-        let der = Algorithm.createStartsetDerivative (cache, head, node)
-        applyPrefixSets cache der tail
+        let der = getNonInitialDerivative (head, node)
+        applyPrefixSets getNonInitialDerivative cache der tail
 
 let findInitialOptimizations
+    getNonInitialDerivative
     (nodeToId:RegexNode<TSet> -> int)
     (nodeToStateFlags:RegexNode<TSet> -> RegexStateFlags)
     (c:RegexCache<TSet>) (node:RegexNode<TSet>) (trueStarredNode:RegexNode<TSet>) =
-    if node.ContainsLookaround then InitialOptimizations.NoOptimizations else
-    match Optimizations.calcPrefixSets nodeToStateFlags c node with
+    // if node.ContainsLookaround then InitialOptimizations.NoOptimizations else
+    match Optimizations.calcPrefixSets getNonInitialDerivative nodeToStateFlags c node with
     | prefix when prefix.Length > 1 ->
 
         let mts = c.Minterms()
@@ -248,10 +249,10 @@ let findInitialOptimizations
             |> Seq.toArray
             |> Memory
         if singleCharPrefixes.Length > 1 then
-            let applied = Optimizations.applyPrefixSets c trueStarredNode (List.take singleCharPrefixes.Length prefix)
+            let applied = Optimizations.applyPrefixSets getNonInitialDerivative c trueStarredNode (List.take singleCharPrefixes.Length prefix)
             InitialOptimizations.StringPrefix(singleCharPrefixes,nodeToId applied)
         else
-            let applied = Optimizations.applyPrefixSets c trueStarredNode prefix
+            let applied = Optimizations.applyPrefixSets getNonInitialDerivative c trueStarredNode prefix
             let containsSmallSets =
                 prefix |> Seq.forall (fun v -> not (c.MintermIsInverted(v)))
                 && prefix |> Seq.forall (fun v -> c.MintermChars(v).Length <= 5)
@@ -262,14 +263,14 @@ let findInitialOptimizations
                 let mem = Memory(Seq.toArray prefix)
                 InitialOptimizations.SetsPrefix(mem,nodeToId applied)
     | _ ->
-        match Optimizations.calcPotentialMatchStart nodeToStateFlags c node with
+        match Optimizations.calcPotentialMatchStart getNonInitialDerivative nodeToStateFlags c node with
         | potentialStart when potentialStart.Length > 0 ->
             let mem = Memory(Seq.toArray potentialStart)
             InitialOptimizations.PotentialStartPrefix(mem)
         | _ -> InitialOptimizations.NoOptimizations
 
 
-let tryGetLimitedSkip (nodeToId:RegexNode<TSet> -> int) (getStartset:RegexNode<_> -> TSet) (c:RegexCache<_>) (initial:RegexNode<_>) (node:RegexNode<_>) =
+let tryGetLimitedSkip getNonInitialDerivative (nodeToId:RegexNode<TSet> -> int) (getStartset:RegexNode<_> -> TSet) (c:RegexCache<_>) (initial:RegexNode<_>) (node:RegexNode<_>) =
     assert(not node.ContainsLookaround)
     let redundant = HashSet([initial])
     let skipTerm = getStartset initial // m.GetOrCreateState(initial).Startset
@@ -277,7 +278,7 @@ let tryGetLimitedSkip (nodeToId:RegexNode<TSet> -> int) (getStartset:RegexNode<_
     | Or(nodes, info) ->
         let nonInitial = nodes |> Seq.where (fun v -> not (refEq v initial)) |> c.Builder.mkOr
         let nonTermDerivatives (node: RegexNode<TSet>) =
-            let ders1 = Optimizations.getNonRedundantDerivatives c redundant node
+            let ders1 = Optimizations.getNonRedundantDerivatives getNonInitialDerivative c redundant node
             ders1 |> Array.where (fun (mt,_) -> not (Solver.contains skipTerm mt) )
 
         let nonInitialNonTerm =
@@ -304,7 +305,7 @@ let tryGetLimitedSkip (nodeToId:RegexNode<TSet> -> int) (getStartset:RegexNode<_
                     ActiveBranchOptimizations.LimitedSkip(
                     distance=path.Count + 1,
                     termPred= c.MintermSearchValues(skipTerm),
-                    termTransitionId=nodeToId (createStartsetDerivative (c,  skipTerm, node)),
+                    termTransitionId=nodeToId (getNonInitialDerivative (skipTerm, node)),
                     nonTermTransitionId= nodeToId (c.Builder.mkOr [finalNode; initial])
                     // nonTermTransitionId= nodeToId (node)
                     )
