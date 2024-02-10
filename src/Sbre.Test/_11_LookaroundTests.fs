@@ -413,6 +413,8 @@ let ``testing anchors 1.1``() = assertRawDerivative """\ba""" "a " ["ε"]
 
 [<Fact>]
 let ``testing anchors 1.2``() = assertRawDerivative """⊤*\ba""" "a " [
+    @"(ε|⊤*((?<=φ)|\a)a)" // correct definition with anchor
+    @"(⊤*((?<=φ)|\a)a|ε)"
     @"(⊤*\ba|ε)"
     @"(ε|⊤*\ba)"
 ]

@@ -240,7 +240,7 @@ let findInitialOptimizations
     (nodeToStateFlags:RegexNode<TSet> -> RegexStateFlags)
     (c:RegexCache<TSet>) (node:RegexNode<TSet>) (trueStarredNode:RegexNode<TSet>) =
 #if NO_SKIP_LOOKAROUNDS
-    // if node.ContainsLookaround then InitialOptimizations.NoOptimizations else
+    if node.ContainsLookaround then InitialOptimizations.NoOptimizations else
 #endif
     // if node.ContainsLookaround then InitialOptimizations.NoOptimizations else
     match Optimizations.calcPrefixSets getNonInitialDerivative nodeToStateFlags c node with
@@ -390,6 +390,9 @@ let rec collectPendingNullables
         let pendingTail = collectPendingNullables canBeNull tail
         pendingTail
     | Concat(head=Anchor _; tail=tail) ->
+        let pendingTail = collectPendingNullables canBeNull tail
+        pendingTail
+    | Concat(head=head; tail=tail) ->
         let pendingTail = collectPendingNullables canBeNull tail
         pendingTail
     | _ ->

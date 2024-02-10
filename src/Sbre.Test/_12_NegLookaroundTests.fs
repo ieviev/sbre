@@ -111,6 +111,54 @@ let ``derivative lookaround 1.3``() = assertRawDerivative @"(?=1)11" "11" ["1"]
 // let ``neg lookahead 2``() =
 //     assertNullablePositions "bb(?!aa)" "__bbaa" [ ]
 
+let testSameAsRuntime = _07_ComparisonTests.testSameAsRuntime
+
+[<Fact>]
+let ``regex with label 1``() =
+    let pattern = """(?<Time>^(?:0?[1-9]:[0-5]|1(?=[012])\d:[0-5])\d(?:[ap]m)?)"""
+    let input = "12:00am"
+    testSameAsRuntime pattern input
+
+
+[<Fact>]
+let ``regex with label 2``() =
+    let pattern = """^(?:0?[1-9]:[0-5]|1(?=[012])\d:[0-5])\d(?:[ap]m)?"""
+    let input = "12:00am"
+    testSameAsRuntime pattern input
+
+[<Fact>]
+let ``same as runtime 1``() =
+    let pattern = """^((31(?!\ (Feb(ruary)?|Apr(il)?|June?|(Sep(?=\b|t)t?|Nov)(ember)?)))|((30|29)(?!\ Feb(ruary)?))|(29(?=\ Feb(ruary)?\ (((1[6-9]|[2-9][0-9])(0[48]|[2468][048]|[13579][26])|((16|[2468][048]|[3579][26])00)))))|(0?[1-9])|1[0-9]|2[0-8])\ (Jan(uary)?|Feb(ruary)?|Ma(r(ch)?|y)|Apr(il)?|Ju((ly?)|(ne?))|Aug(ust)?|Oct(ober)?|(Sep(?=\b|t)t?|Nov|Dec)(ember)?)\ ((1[6-9]|[2-9][0-9])[0-9]{2})$"""
+    let input = "31 September 2003"
+    testSameAsRuntime pattern input
+
+[<Fact>]
+let ``same as runtime 2``() =
+    let pattern = """^(1(?= ((Sept?)(em)?)) Sept? 1)$"""
+    let input = "1 Sept 1"
+    testSameAsRuntime pattern input
+
+
+
+[<Fact>]
+let ``same as runtime 6``() =
+    let pattern = """^(1(?! ((Sep(?=\b|t)t?|Nov)(ember)?))).*$"""
+    let input = "31 September 2003"
+    testSameAsRuntime pattern input
+
+[<Fact>]
+let ``conversion neg lookahead ``() = _02_NodeTests.assertConverted "1(?! Sep)" [
+    @"1(?=(⊤{0,3}\z|(⊤{4,4}&~(⊤* Sep⊤*))))" // rewritten pos
+    @"1(?=((⊤{4,4}&~(⊤* Sep⊤*))|⊤{0,3}\z))"
+    @"1(?=(⊤{0,3}\z|(~(⊤* Sep⊤*)&⊤{4,4})))"
+    // "1(?! Sep)"
+]
+
+[<Fact>]
+let ``web app test 7``() =
+    let result = getAllLLmatches """(?<=\n\n|\A)~(⊤*\n\n⊤*)(?=\n\n|\Z)&(~(⊤*charity⊤*)|(⊤*honor⊤*))""" _06_MatchTests.webappsample7
+    Assert.Equal([(0, 18)], result |> Seq.map (fun v -> v.Index,v.Length) )
+
 
 
 

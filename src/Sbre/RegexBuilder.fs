@@ -365,10 +365,23 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                     )
             // (?<=\W)
             // _nonWordLeft = lazy b.mkLookaround(_uniques._nonWordChar.Value,true,false)
-            _nonWordLeft = lazy b.mkOr([b.mkLookaround(_uniques._nonWordChar.Value,true,false);RegexNode<'t>.Anchor Begin])
+            // proper definition (?<=\a|\W)
+            _nonWordLeft =
+                lazy
+                    b.mkLookaround(
+                    b.mkOr([
+                        RegexNode<'t>.Anchor Begin
+                        _uniques._nonWordChar.Value
+                    ]
+                    ),true,false)
             // (?=\W)
             // _nonWordRight = lazy b.mkLookaround(_uniques._nonWordChar.Value,false,false)
-            _nonWordRight = lazy b.mkOr([b.mkLookaround(_uniques._nonWordChar.Value,true,false);RegexNode<'t>.Anchor End])
+            // proper definition (?=\z|\W)
+            _nonWordRight =
+                lazy
+                    b.mkLookaround(
+                        b.mkOr([ RegexNode<'t>.Anchor End; _uniques._nonWordChar.Value ])
+                        ,true,false)
                     // RegexNode<'t>.Anchor WordBorder
 
             // ^ ≡ \A|(?<=\n)
@@ -977,6 +990,25 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                     let v = this.mkLookaround(combined, false, false)
                     _concatCache.Add(key, v)
                     v
+                // (?=(φ|\z))x
+                // | LookAround(node=Or(nodes,_);lookBack=false;negate=false), tail when tail.CanNotBeNullable ->
+                //     let removedAnchor =
+                //         nodes
+                //         |> Seq.where (fun v ->
+                //             match v with
+                //             | Anchor End -> false
+                //             | _ -> true
+                //         )
+                //         |> this.mkOr
+                //     if removedAnchor = head then failwith "inner lookaround not supported" else
+                //     let head = this.mkLookaround(removedAnchor, false, false)
+                //     let v =
+                //         let flags = Flags.inferConcat head tail
+                //         let mergedMinterms = solver.Or(head.SubsumedByMinterm(solver),tail.SubsumedByMinterm(solver))
+                //         let info = this.CreateInfo(flags, mergedMinterms)
+                //         Concat(head, tail, info)
+                //     _concatCache.Add(key, v)
+                //     v
                 | LookAround(lookBack=false;negate=false), tail when not tail.IsAlwaysNullable ->
                     failwith "inner lookarounds are not supported!"
                 | _ ->

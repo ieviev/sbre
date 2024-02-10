@@ -291,7 +291,7 @@ let convertToSymbolicRegexNode
             builder.mkLookaround(b.mkConcat (convertChildren node),node.Options.HasFlag(RegexOptions.RightToLeft),false)
             :: acc
         | RegexNodeKind.NegativeLookaround ->
-            failwith "negative lookarounds not supported"
+            failwith $"negative lookarounds not supported: {node}"
             // let negLookaround = builder.mkLookaround(b.mkConcat (convertChildren node),node.Options.HasFlag(RegexOptions.RightToLeft),true)
             // let rewrittenLookaround = rewriteNegativeLookaround b negLookaround
             // rewrittenLookaround

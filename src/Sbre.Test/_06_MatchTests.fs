@@ -548,13 +548,6 @@ this measure which you condemn in so candid language."
 "Save your charity for another occasion, my
 """
 
-[<Fact>]
-let ``web app test 7``() =
-    let result = getAllLLmatches """(?<=\n\n|\A)~(⊤*\n\n⊤*)(?=\n\n|\Z)&(~(⊤*charity⊤*)|(⊤*honor⊤*))""" webappsample7
-    // let result = getAllLLmatches """(?<=\n\n|^)~(⊤*\n\n⊤*)(?=\n\n|\Z)&(~(⊤*charity⊤*)|(⊤*honor⊤*))""" webappsample7
-    // let result = getAllLLmatches """(^a)|(\ab)""" webappsample7
-    Assert.Equal([(0, 18)], result |> Seq.map (fun v -> v.Index,v.Length) )
-
 
 //
 // [<Fact>]

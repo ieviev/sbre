@@ -279,6 +279,7 @@ type RegexMatcher<'t when 't: struct>
                     )
                     let S' = _createDerivative (&loc, loc_pred, tail)
                     _cache.Builder.mkAnd ( seq { lookDer ;S' } )
+                // | Epsilon -> _createDerivative (&loc, loc_pred, tail)
                 | _ -> failwith "complex inner lookarounds not supported"
             // Derx (R·S) = if Nullx (R) then Derx (R)·S|Derx (S) else Derx (R)·S
             | Concat(head, tail, info) ->
@@ -857,7 +858,7 @@ type RegexMatcher<'t when 't: struct>
 
         while looping do
             let flags = _flagsArray[currentStateId]
-            let dfaState = _stateArray[currentStateId]
+            // let dfaState = _stateArray[currentStateId]
 #if SKIP
             if (flags.CanSkipInitial && this.TrySkipInitialRev(&loc, &currentStateId)) ||
                (flags.CanSkip && this.TrySkipActiveRev(flags,&loc, &currentStateId, &acc)) then
