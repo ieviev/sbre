@@ -58,7 +58,7 @@ module RegexNode =
 
             let reversedList = revConcatNode [] node
             builder.mkConcat reversedList
-        | Epsilon -> Epsilon
+        | Epsilon -> node
         | Anchor regexAnchor -> node
 
     let inline getTransitionInfo(pred: ^t, node: RegexNode< ^t >) =
@@ -126,7 +126,7 @@ let rec createStartsetDerivative
             // Der s⟨i⟩ (ψ) = if si ∈ [[ψ]] then () else ⊥
             | Singleton pred ->
                 // if c.Solver.isElemOfSet(pred,loc_pred) then Epsilon else c.False
-                if Solver.elemOfSet pred loc_pred then Epsilon else cache.False
+                if Solver.elemOfSet pred loc_pred then cache.Builder.uniques._eps else cache.False
 
             // Derx (R{m, n}) =
             // if m=0 or Null ∀(R)=true or Nullx (R)=false

@@ -362,7 +362,10 @@ type TwainRegexesMatchOnly() =
     inherit
         Jobs.TestAllEnginesAllPatternsMatchOnly(
             [
-               "Twain"
+               // """\b\w+nn\b"""
+               """(?<=\W)\w+nn(?=\W)"""
+
+               // "Twain"
                // "(?i)Twain"
                // "[a-z]shing"
             //    @"Huck[a-zA-Z]+|Saw[a-zA-Z]+" // ++
@@ -412,9 +415,10 @@ type SampleRegexes() =
     inherit
         Jobs.TestSbreAllPatternsMatchOnly(
             [
-               "Twain"
-               "(?i)Twain"
-               "[a-z]shing"
+
+               // "Twain"
+               // "(?i)Twain"
+               // "[a-z]shing"
                // @"Huck[a-zA-Z]+|Saw[a-zA-Z]+"
                // "[a-q][^u-z]{13}x"
                // "Tom|Sawyer|Huckleberry|Finn"
@@ -425,7 +429,10 @@ type SampleRegexes() =
                // "[a-zA-Z]+ing"
                // "\s[a-zA-Z]{0,12}ing\s"
                // "\s([A-Za-z]awyer|[A-Za-z]inn)\s"
-               """["'][^"']{0,30}[?!\.]["']"""
+               // """["'][^"']{0,30}[?!\.]["']"""
+               // """\b\w+nn\b"""
+               """(?<=\W)\w+nn(?=\W)"""
+               // """\b\w+nn\b"""
                // -----------------
                // @"[a-z][a-z]shing"
                // @"[a-z][a-z]sh(?=ing)"

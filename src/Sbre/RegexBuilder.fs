@@ -778,7 +778,6 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
         let mutable status = MkOrFlags.None
         let mutable zeroloops = 0
         let mutable singletonLoops = 0
-        let mutable singletons = 0
         use mutable e = nodes.GetEnumerator()
         let derivatives = HashSet(_refComparer) //this.DerivativeSet
 
@@ -840,7 +839,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             if derivatives.Any(fun v -> v.IsAlwaysNullable) then
                 ()
             else
-                derivatives.Add(Epsilon) |> ignore
+                derivatives.Add(_uniques._eps) |> ignore
 
         if derivatives.Count = 0 then
             _uniques._false
@@ -947,13 +946,13 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
 
     member this.mkLookaround(body: RegexNode< 't >, lookBack:bool, negate:bool, ?pendingNullable) : RegexNode< 't > =
         let (rel,pending) = defaultArg pendingNullable (0,[])
-        let key = struct (body, lookBack, negate, rel,pending)
+        let key = struct (body, lookBack, negate, rel, pending)
         match _lookaroundCache.TryGetValue(key) with
         | true, v -> v
         | _ ->
             let newNode =
                 match body, lookBack, negate with
-                | Epsilon, true, false -> Epsilon
+                | Epsilon, true, false -> _uniques._eps
                 | _ -> LookAround(body, lookBack = lookBack, negate = negate, pendingNullables=(rel,pending))
             _lookaroundCache.Add(key, newNode)
             newNode

@@ -199,7 +199,7 @@ module Node =
     let inline canBeNullable(node: RegexNode<'t>) =
         match node with
         | Or(info = info) | Loop(info = info) | And(info = info) | Not(info = info) | Concat(info = info) ->
-            info.NodeFlags.HasFlag(Flag.CanBeNullableFlag)
+            info.NodeFlags.CanBeNullable
         | Singleton _ -> false
         | LookAround _ -> true
         | Epsilon -> true
@@ -212,15 +212,13 @@ module Node =
 
     let inline containsLookaround(node: RegexNode<'t>) =
         match node with
-        | Or(info = info) -> info.ContainsLookaround
+        | Or(info = info) | Loop(info = info) | And(info = info) | Not(info = info) | Concat(info = info) ->
+            info.ContainsLookaround
         | Singleton _ -> false
-        | Loop(info = info) -> info.ContainsLookaround
-        | And(info = info) -> info.ContainsLookaround
-        | Not(info = info) -> info.ContainsLookaround
         | LookAround _ -> true
-        | Concat(info = info) -> info.ContainsLookaround
         | Epsilon -> false
         | Anchor _ -> false
+
 
     let inline canNotBeNullable(node: RegexNode<'t>) =
         match node with

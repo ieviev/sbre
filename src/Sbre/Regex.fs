@@ -703,7 +703,7 @@ type RegexMatcher<'t when 't: struct>
                 // TODO; this is not correct because it limits range
                 // but good enough because no one uses this anyway
                 match lookBody with
-                | Singleton pred ->
+                | Singleton _ ->
                     let lookDer = this.CreateDerivative (
                         &loc, loc_pred, _cache.Builder.mkConcat2(lookBody,_cache.TrueStar)
                     )
@@ -736,23 +736,21 @@ type RegexMatcher<'t when 't: struct>
                 | false ->
                     // lookahead
                     let remainingLookaround = this.CreateDerivative (&loc, loc_pred, lookBody)
+                    let remainingIsNullable = this.IsNullable(&loc, remainingLookaround)
 
                     match remainingLookaround with
                     // start a new pending match
-                    | _ when relativeNullablePos.IsEmpty && remainingLookaround.IsAlwaysNullable ->
+                    | _ when relativeNullablePos.IsEmpty && remainingIsNullable ->
                         _cache.Builder.mkLookaround(
                         remainingLookaround, lookBack, false, (rel+1,[0]))
                     | _ ->
 
 
-                    let bodyIsNullable = this.IsNullable(&loc, remainingLookaround)
+
                     // add pending nullable only if hasnt matched yet
-                    // TODO : complex case
                     let updatedPositions =
-                        if bodyIsNullable then relativeNullablePos
-                        else
-                            // rel :: relativeNullablePos
-                            relativeNullablePos
+                        if remainingIsNullable then relativeNullablePos
+                        else relativeNullablePos
                     let pendingLookaround = _cache.Builder.mkLookaround(
                         remainingLookaround, lookBack, false, ((rel+1),updatedPositions))
                     if refEq _cache.False remainingLookaround then

@@ -1155,14 +1155,14 @@ type TestAllEnginesAllPatternsMatchOnly(patterns: string list, input: string) =
     [<GlobalSetup>]
     member this.Setup() =
         this.None_Regex <- System.Text.RegularExpressions.Regex(this.Pattern, opts_None)
-        this.NonBack_Regex <- System.Text.RegularExpressions.Regex(this.Pattern, opts_NonBacktracking)
+        // this.NonBack_Regex <- System.Text.RegularExpressions.Regex(this.Pattern, opts_NonBacktracking)
         this.Compiled_Regex <- System.Text.RegularExpressions.Regex(this.Pattern, opts_Compiled)
         this.Sbre_Regex <- Regex(this.Pattern)
 
 
-    [<Benchmark(Description = "NonBacktrack")>]
-    member this.Symbolic() =
-        this.NonBack_Regex.Count(inputText)
+    // [<Benchmark(Description = "NonBacktrack")>]
+    // member this.Symbolic() =
+    //     this.NonBack_Regex.Count(inputText)
 
     [<Benchmark(Description = "Compiled")>]
     member this.Compiled() =
@@ -1175,7 +1175,7 @@ type TestAllEnginesAllPatternsMatchOnly(patterns: string list, input: string) =
     [<Benchmark(Description = "Sbre")>]
     member this.Sbre() =
         this.Sbre_Regex.Count(inputText)
-
+    //
 
 
 
