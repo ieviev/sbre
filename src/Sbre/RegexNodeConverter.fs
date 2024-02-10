@@ -145,9 +145,10 @@ let convertToSymbolicRegexNode
                 let defaultResult = nodeseq |> Seq.collect (loop []) |> Seq.toList
                 defaultResult
             | _ ->
+#if NO_REWRITE
                 let defaultResult = nodeseq |> Seq.collect (loop []) |> Seq.toList
                 if true then defaultResult else
-
+#endif
                 // have to rewrite word borders here
                 let rewritten =
                     existsWB

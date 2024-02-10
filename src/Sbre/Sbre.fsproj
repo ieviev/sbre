@@ -23,6 +23,7 @@
     <WarnOn>1182</WarnOn>
     <!--    implicit conversion -->
     <WarnOn>3387</WarnOn>
+    <DefineConstants>$(DefineConstants);NO_REWRITE</DefineConstants>
     <DefineConstants>$(DefineConstants);SKIP</DefineConstants>
     <DefineConstants>$(DefineConstants);DFA</DefineConstants>
   </PropertyGroup>

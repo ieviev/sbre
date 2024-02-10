@@ -945,14 +945,14 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                     _concatCache.Add(key, v)
                     v
                 // (?=a.*)(?=\W) to (?=a.*⊤*&\W⊤*)
-                // | LookAround(node=node1;lookBack=false;negate=false), LookAround(node=node2;lookBack=false;negate=false) ->
-                //     let combined = this.mkAnd([
-                //         this.mkConcat2(node1,this.trueStar)
-                //         this.mkConcat2(node2,this.trueStar)
-                //     ])
-                //     let v = this.mkLookaround(combined, true, false)
-                //     _concatCache.Add(key, v)
-                //     v
+                | LookAround(node=node1;lookBack=false;negate=false), LookAround(node=node2;lookBack=false;negate=false) ->
+                    let combined = this.mkAnd([
+                        this.mkConcat2(node1,this.trueStar)
+                        this.mkConcat2(node2,this.trueStar)
+                    ])
+                    let v = this.mkLookaround(combined, false, false)
+                    _concatCache.Add(key, v)
+                    v
                 | LookAround(lookBack=false;negate=false), tail when not tail.IsAlwaysNullable ->
                     failwith "inner lookarounds are not supported!"
                 | _ ->
