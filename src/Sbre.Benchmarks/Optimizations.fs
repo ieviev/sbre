@@ -121,7 +121,7 @@ type SetsPrefix(pattern:string) =
 
     [<Benchmark>]
     member x.FirstSetIndexOfChars() =
-        let firstSetChars = matcher.Cache.MintermChars(prefixSets[0])
+        let firstSetChars = matcher.Cache.MintermChars(prefixSets[0]).Value.Span
         let inputSpan = fullInput.AsSpan()
         let mutable searching = true
         while searching do
@@ -132,7 +132,10 @@ type SetsPrefix(pattern:string) =
 
     [<Benchmark>]
     member x.FirstSetIndexOfSearchValues() =
-        let firstSetChars = matcher.Cache.MintermSearchValues(prefixSets[0])
+        let firstSetChars =
+            match matcher.Cache.MintermSearchValues(prefixSets[0]) with
+            | None -> failwith "search set too big"
+            | Some v -> v
         let inputSpan = fullInput.AsSpan()
         let mutable searching = true
         while searching do

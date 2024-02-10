@@ -52,7 +52,7 @@ type RegexCache< 't
         (minterms |> Array.map (fun v -> _solver.ConvertToBDD(v, _charsetSolver)))
 
     let predStartsets = StartsetHelpers.startsetsFromMintermArray mintermBdds
-    let mutable _cachedStartsets: Dictionary<TSet, SearchValues<char>> = Dictionary()
+    let mutable _cachedStartsets: Dictionary<TSet, SearchValues<char> option> = Dictionary()
     let mutable _optimizedUniques: Dictionary<RegexNode<TSet>,OptimizedUnique> = Dictionary(Common.equalityComparer)
 
     let initUniques() =
@@ -93,7 +93,7 @@ type RegexCache< 't
     member this.MintermSearchValues(startset: TSet) = _getMintermStartsetChars startset
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    member this.MintermChars(startset: TSet) : Span<char> = StartsetHelpers.getMintermChars(_solver,predStartsets, minterms, startset)
+    member this.MintermChars(startset: TSet) : Memory<char> option = StartsetHelpers.getMintermChars(_solver,predStartsets, minterms, startset)
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.SkipIndexOfAny(loc: byref<Location>, setChars: SearchValues<char>) : unit =
@@ -184,6 +184,9 @@ type RegexCache< 't
     member this.TryNextStartsetLocation(loc: byref<Location>, set: TSet) : unit =
         assert (not (Solver.isEmpty set))
         let setChars = this.MintermSearchValues(set)
+        match setChars with
+        | None -> ()
+        | Some setChars ->
         let isInverted = _solver.isElemOfSet (set,minterms[0])
         let currpos = loc.Position
 
@@ -337,6 +340,12 @@ type RegexCache< 't
 
         /// vectorize the search for the first character
         let firstSetChars = this.MintermSearchValues(setSpan[0])
+        match firstSetChars with
+        | None ->
+            // first set has too many chars. do something else
+            // failwith "todo search smaller set"
+            ValueSome loc.Position
+        | Some firstSetChars ->
         let isInverted = Solver.elemOfSet setSpan[0] minterms[0]
         let tailPrefixSpan = setSpan.Slice(1)
         let _tailPrefixLength = tailPrefixSpan.Length
@@ -411,9 +420,14 @@ type RegexCache< 't
         let mergedPrefix =
             setSpan[0] ||| termSpan[0]
 
-
         /// vectorize the search for the first minterm
         let firstSetChars = this.MintermSearchValues(mergedPrefix)
+        match firstSetChars with
+        | None ->
+            // first set has too many chars. do something else
+            failwith "todo search smaller set"
+            ValueSome loc.Position
+        | Some firstSetChars ->
 
         /// '.' to ^\n -> it's easier to invert large sets
         // let isInverted = _solver.isElemOfSet(mergedPrefix,minterms[0])

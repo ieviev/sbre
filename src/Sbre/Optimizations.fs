@@ -152,11 +152,16 @@ let rec calcPrefixSets getNonInitialDerivative (getStateFlags: RegexNode<_> -> R
 
             match prefix_derivs with
             | [| (mt, deriv) |] ->
-                let acc' = mt :: acc
-                loop acc' deriv
+                // stop with pending nullable
+                match deriv with
+                | LookAround(_, false, false, _) ->
+                    acc |> List.rev
+                | _ ->
+                    let acc' = mt :: acc
+                    loop acc' deriv
             | _ ->
                 // let merged_pred = prefix_derivs |> Seq.map fst |> Seq.fold (|||) cache.Solver.Empty
-                prefix_derivs |> Seq.map snd |> Seq.iter (redundant.Add >> ignore)
+                // prefix_derivs |> Seq.map snd |> Seq.iter (redundant.Add >> ignore)
                 acc |> List.rev
     let prefix = loop [] prefixStartNode
 
@@ -177,12 +182,14 @@ let rec calcPrefixSets getNonInitialDerivative (getStateFlags: RegexNode<_> -> R
 
 
 let rec calcPotentialMatchStart getNonInitialDerivative (getStateFlags: RegexNode<_> -> RegexStateFlags) (cache: RegexCache<_>) (startNode: RegexNode<_>) =
+
+
     let redundant = System.Collections.Generic.HashSet<RegexNode<TSet>>([ cache.False ])
     let rec loop acc (nodes:RegexNode<_> list) =
         let stateFlags =
             nodes |> Seq.map getStateFlags
         let shouldExit =
-            stateFlags |> Seq.exists (_.CanSkip) || nodes |> Seq.exists (_.IsAlwaysNullable)
+            stateFlags |> Seq.exists (_.CanSkip) || nodes |> Seq.exists (_.CanBeNullable)
         if shouldExit then acc |> List.rev else
         let nonRedundant =
             nodes |> List.where (redundant.Add)
@@ -205,7 +212,8 @@ let rec calcPotentialMatchStart getNonInitialDerivative (getStateFlags: RegexNod
                 |> Seq.map snd
                 |> Seq.toList
             let acc' = merged_pred :: acc
-            let dbg = printPrefixSets cache acc'
+            // let dbg = printPrefixSets cache acc'
+            if acc.Length > 5 then acc |> List.rev else
             loop acc' remainingNodes
 
     let prefixStartNode, complementStartset =
@@ -230,6 +238,9 @@ let findInitialOptimizations
     (nodeToId:RegexNode<TSet> -> int)
     (nodeToStateFlags:RegexNode<TSet> -> RegexStateFlags)
     (c:RegexCache<TSet>) (node:RegexNode<TSet>) (trueStarredNode:RegexNode<TSet>) =
+#if NO_SKIP_LOOKAROUNDS
+    if node.ContainsLookaround then InitialOptimizations.NoOptimizations else
+#endif
     // if node.ContainsLookaround then InitialOptimizations.NoOptimizations else
     match Optimizations.calcPrefixSets getNonInitialDerivative nodeToStateFlags c node with
     | prefix when prefix.Length > 1 ->
@@ -241,7 +252,10 @@ let findInitialOptimizations
                 // negated set
                 if Solver.elemOfSet v mts[0] then None else
                 let chrs = c.MintermChars(v)
-                if chrs.Length = 1 then Some (chrs[0]) else None
+                chrs |> Option.bind (fun chrs ->
+                    if chrs.Length = 1 then Some (chrs.Span[0]) else None
+                )
+
             )
             |> Seq.takeWhile Option.isSome
             |> Seq.choose id
@@ -252,13 +266,33 @@ let findInitialOptimizations
             let applied = Optimizations.applyPrefixSets getNonInitialDerivative c trueStarredNode (List.take singleCharPrefixes.Length prefix)
             InitialOptimizations.StringPrefix(singleCharPrefixes,nodeToId applied)
         else
+            // fail if set too large
+            let smallPrefix =
+                prefix
+                |> Seq.takeWhile (fun v ->
+                    let chrs = c.MintermChars(v)
+                    chrs.IsSome
+                )
+                |> Seq.toArray
+            if smallPrefix.Length = 0 then
+                InitialOptimizations.NoOptimizations
+            else
+
             let applied = Optimizations.applyPrefixSets getNonInitialDerivative c trueStarredNode prefix
             let containsSmallSets =
                 prefix |> Seq.forall (fun v -> not (c.MintermIsInverted(v)))
-                && prefix |> Seq.forall (fun v -> c.MintermChars(v).Length <= 5)
+                && prefix |> Seq.forall (fun v ->
+                    let chrs = c.MintermChars(v)
+                    chrs.IsSome && chrs.Value.Length <= 5
+                )
             if containsSmallSets then
-                let searchPrefix = prefix |> Seq.map c.MintermSearchValues |> Seq.toArray |> Memory
-                InitialOptimizations.SearchValuesPrefix(searchPrefix,nodeToId applied)
+                let searchPrefix = prefix |> Seq.map c.MintermSearchValues |> Seq.toArray
+                if searchPrefix |> Seq.exists (fun v -> v.IsNone) then
+                    let mem = Memory(Seq.toArray prefix)
+                    InitialOptimizations.SetsPrefix(mem,nodeToId applied)
+                else
+                    let searchPrefix = Array.choose id searchPrefix |> Memory
+                    InitialOptimizations.SearchValuesPrefix(searchPrefix,nodeToId applied)
             else
                 let mem = Memory(Seq.toArray prefix)
                 InitialOptimizations.SetsPrefix(mem,nodeToId applied)
@@ -299,12 +333,15 @@ let tryGetLimitedSkip getNonInitialDerivative (nodeToId:RegexNode<TSet> -> int) 
                 if c.MintermIsInverted(skipTerm) then None else
                     // failwith "todo: inverted minterm"
                 let chrs = c.MintermChars(skipTerm)
-                if chrs.Length > 50 then
+                if chrs.IsNone || chrs.Value.Length > 50 then
                     failwith "todo: too many chars in set"
-                Some (
+                let searchValuesSet =
+                    c.MintermSearchValues(skipTerm)
+                searchValuesSet
+                |> Option.map (fun searchValuesSet ->
                     ActiveBranchOptimizations.LimitedSkip(
                     distance=path.Count + 1,
-                    termPred= c.MintermSearchValues(skipTerm),
+                    termPred= searchValuesSet,
                     termTransitionId=nodeToId (getNonInitialDerivative (skipTerm, node)),
                     nonTermTransitionId= nodeToId (c.Builder.mkOr [finalNode; initial])
                     // nonTermTransitionId= nodeToId (node)

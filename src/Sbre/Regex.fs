@@ -89,11 +89,19 @@ type MatchingState(node: RegexNode<TSet>) =
 
     member this.SetStartset(c: RegexCache<TSet>, set: TSet) =
         let setChars = c.MintermSearchValues(set)
-        let minterms = c.Minterms()
-        let isInverted = Solver.elemOfSet set minterms[0]
-        this.Startset <- set
-        this.StartsetChars <- setChars
-        this.StartsetIsInverted <- isInverted
+        match setChars with
+        | None ->
+            let minterms = c.Minterms()
+            let isInverted = Solver.elemOfSet set minterms[0]
+            this.Startset <- set
+            this.StartsetChars <- Unchecked.defaultof<_>
+            this.StartsetIsInverted <- isInverted
+        | Some setChars ->
+            let minterms = c.Minterms()
+            let isInverted = Solver.elemOfSet set minterms[0]
+            this.Startset <- set
+            this.StartsetChars <- setChars
+            this.StartsetIsInverted <- isInverted
 
 
 
@@ -341,8 +349,7 @@ type RegexMatcher<'t when 't: struct>
                 match RegexNode.getCachedTransition (minterm, state.Node.TryGetInfo) with
                 | ValueSome v -> v
                 | _ ->
-                    let mutable loc = Location.getDefault()
-                    loc.Position <- 40
+                    let mutable loc = Location.getNonInitial()
                     _createDerivative(&loc, minterm, state.Node)
                     // createStartsetDerivative (_cache, minterm, state.Node)
             )

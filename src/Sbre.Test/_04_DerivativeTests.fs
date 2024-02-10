@@ -377,6 +377,7 @@ let ``derivative eats node from set``() =
 let ``derivative neg lookaround 1``() =
     assertRawDerivative @"((?<=B.*).*&~(.*A.*))" "BA" [
         "((?<=.*).*&~(.*A.*))"
+        @"(~(.*A.*)&(?<=.*).*)"
     ]
 [<Fact>]
 let ``derivative neg lookaround 2``() =

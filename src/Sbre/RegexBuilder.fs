@@ -56,7 +56,7 @@ module
 
         if setTooBig then
             // no optimization if startset too large
-            PredStartset.Of(StartsetFlags.Inverted, [||])
+            PredStartset.Of(StartsetFlags.TooBig, [||])
         else
             ranges2
 
@@ -64,6 +64,10 @@ module
         let startsets1 =
             bdds[1..]
             |> Array.map bddToStartsetChars
+        //
+        // match startsets1 |> Array.tryFind (fun v -> v.Flags = StartsetFlags.TooBig) with
+        // | Some v -> [|v|]
+        // | _ ->
 
         let searchChars =
             startsets1
@@ -78,6 +82,7 @@ module
 
     let static_merged_chars = Array.zeroCreate 1024 |> ResizeArray<char>
 
+    /// None means set is too big to search
     let getMintermChars
         (
             _solver: ISolver<TSet>,
@@ -85,15 +90,19 @@ module
             uintMinterms:TSet array, //: 't array when 't: (static member Zero: 't) and 't: (static member (&&&) : 't * 't -> 't),
             startset: TSet //: 't when 't: (static member Zero: 't) and 't: (static member (&&&) : 't * 't -> 't)
         )
-        : Span<char>
+        : Memory<char> option
         =
         let mergedCharSpan = CollectionsMarshal.AsSpan(static_merged_chars)
         let mutable totalLen = 0
+        let mutable tooBig = false
 
         let shouldInvert = Solver.elemOfSet startset uintMinterms[0]
         if shouldInvert then
             for i = 1 to predStartsetArray.Length - 1 do
                 let pureMt = uintMinterms[i]
+                let ps = predStartsetArray[i]
+                if ps.Flags.HasFlag(StartsetFlags.TooBig) then
+                    tooBig <- true
 
                 // match _solver.isElemOfSet (startset,pureMt) with
                 match Solver.elemOfSet startset pureMt with
@@ -103,15 +112,22 @@ module
                     let pspan = predStartsetArray[i].Chars.AsSpan()
                     pspan.CopyTo(targetSpan)
                     totalLen <- totalLen + pspan.Length
-            mergedCharSpan.Slice(0, totalLen)
+            if tooBig then
+                None
+            else
+                Some (Memory(mergedCharSpan.Slice(0, totalLen).ToArray()))
 
         else
             for i = 1 to predStartsetArray.Length - 1 do
                 let pureMt = uintMinterms[i]
+                let ps = predStartsetArray[i]
+                if ps.Flags.HasFlag(StartsetFlags.TooBig) then
+                    tooBig <- true
 
                 match Solver.elemOfSet startset pureMt with
                 // match _solver.isElemOfSet (startset,pureMt) with
                 | true ->
+
 
                     let targetSpan = mergedCharSpan.Slice(totalLen)
                     let pspan = predStartsetArray[i].Chars.AsSpan()
@@ -119,7 +135,10 @@ module
                     totalLen <- totalLen + pspan.Length
                 | false -> ()
 
-            mergedCharSpan.Slice(0, totalLen)
+            if tooBig then
+                None
+            else
+                Some (Memory(mergedCharSpan.Slice(0, totalLen).ToArray()))
 
     let getMergedIndexOfSpan
         (
@@ -128,9 +147,12 @@ module
             uintMinterms:TSet array, //: 't array when 't: (static member Zero: 't) and 't: (static member (&&&) : 't * 't -> 't),
             startset: TSet //: 't when 't: (static member Zero: 't) and 't: (static member (&&&) : 't * 't -> 't)
         )
-        : SearchValues<char>
+        : SearchValues<char> option
         =
-        SearchValues.Create (getMintermChars(_solver,predStartsetArray,uintMinterms,startset))
+        let mts = (getMintermChars(_solver,predStartsetArray,uintMinterms,startset))
+        match mts with
+        | None -> None
+        | Some v -> Some (SearchValues.Create v.Span)
 
 
 
