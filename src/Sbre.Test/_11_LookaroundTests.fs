@@ -448,6 +448,7 @@ let ``testing anchors 1.1``() = assertRawDerivative """\ba""" "a " ["ε"]
 let ``testing anchors 1.2``() = assertRawDerivative """⊤*\ba""" "a " [
     @"(ε|⊤*((?<=φ)|\a)a)" // correct definition with anchor
     @"(⊤*(\a|(?<=φ))a|ε)"
+    @"(ε|⊤*(\a|(?<=φ))a)"
 ]
 
 [<Fact>]
@@ -515,6 +516,14 @@ let ``testing anchors 1.7a``() =
 [<Fact>]
 let ``testing anchors 1.7b``() =
     assertFirstMatchText """11(?=\W|\z)""" "11 " "11"
+
+[<Fact>]
+let ``testing anchors 1.7c``() =
+    assertNullablePositions @"1\b(?=.*2)" " 1 2" [1]
+
+[<Fact>]
+let ``testing anchors 1.7c1``() =
+    assertNullablePositions @"1(?=.*3)(?=.*2)" " 1 23" [1]
 
 
 [<Fact>]

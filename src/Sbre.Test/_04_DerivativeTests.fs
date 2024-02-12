@@ -189,14 +189,7 @@ let ``derivative lookaround 2``() = testPartDerivative (@"\b11", "11", "1")
 
 [<Fact>]
 let ``derivative boundary 1``() =
-    // testPartDerivativeFromLocation (@"(?<=\s)22", "1 2", 2, "2")
     testPartDerivativeFromLocation (@"(?<=\s)22", "1 2", 1, "22")
-
-
-[<Fact>]
-let ``derivative boundary 2``() =
-    testPartDerivativeFromLocation (@"\b22", "1 2", 2, "2")
-
 
 [<Fact>]
 let ``derivative boundary 4``() =

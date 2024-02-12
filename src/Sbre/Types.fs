@@ -325,7 +325,8 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
             RegexNodeFlags.CanBeNullableFlag ||| RegexNodeFlags.IsAlwaysNullableFlag ||| RegexNodeFlags.ContainsEpsilonFlag
         | Singleton foo -> RegexNodeFlags.None
         | LookAround(node, lookBack, negate, _) ->
-            RegexNodeFlags.CanBeNullableFlag ||| RegexNodeFlags.ContainsLookaroundFlag
+            // RegexNodeFlags.CanBeNullableFlag ||| RegexNodeFlags.ContainsLookaroundFlag
+            node.GetFlags() ||| RegexNodeFlags.ContainsLookaroundFlag
         | Anchor _ -> RegexNodeFlags.IsAnchorFlag ||| RegexNodeFlags.CanBeNullableFlag
 
     member this.CanBeNullable =
