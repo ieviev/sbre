@@ -95,13 +95,27 @@ let ``a pos complex 2.1c`` () =
 let ``a pos complex 2.1d`` () =
     assertFirstMatchText @".*(?=\W)(?=.*___)" @"aaa ___" "aaa"
 
+[<Fact>]
+let ``a pos complex 2.2a`` () =
+    assertFirstMatchText @"\d+(?=[aA]\.?[mM]\.?)" @"10am" "10"
+
+[<Fact>]
+let ``a pos complex 2.2b`` () =
+    assertFirstMatchText @"\d+(?=[aApP]\.?[mM]\.?)" @"10pm" "10"
+
+[<Fact>]
+let ``a pos complex 2.2c`` () =
+    assertFirstMatchText @"\d+(?=\s*[aApP]\.?[mM]\.?)" @"10 pm" "10"
+
+[<Fact>]
+let ``a pos complex 2.2d`` () =
+    assertFirstMatchText @"\d+(?=\s*[aApP]\.?[mM]\.?)" @"10         pm" "10"
 
 
-// TODO: maybe not support this at all?
+// TODO: semantically intersections constrain lookarounds
 // [<Fact>]
 // let ``a pos complex 2``() = // TODO:
 //     assertFirstMatchText @".*(?=.*E)&~(.*and.*)" @"___and__E" "___an"
-
 
 [<Fact>]
 let ``b pos simple 1.1``() = assertNullablePositions "(?<=b)" "b" [ 1 ]
@@ -111,14 +125,6 @@ let ``b pos simple 1.2``() = assertNullablePositions "(?<=bb)" "bb" [ 2 ]
 
 [<Fact>]
 let ``b pos simple 1.3``() = assertNullablePositions "(?<=bbb)" "bbb" [ 3 ]
-
-// [<Fact>]
-// let ``b pos simple 1.3 dbg``() = assertAllDerivatives "(?<=bbb)" "bbb" [
-//     [ "((?=bb)[0]|⊤*(?=bbb))" ]
-//     [ "((?=bb)[0]|(?=b)[0]|⊤*(?=bbb))" ]
-//     [ "" ]
-// ]
-
 
 [<Fact>]
 let ``b pos simple 1.4``() = assertNullablePositions "(?<=bbbb)" "bbbb" [ 4 ]
@@ -138,14 +144,6 @@ let ``b pos simple 1.7b``() = assertNullablePositions "(?<=b)a" "bba" [ 2 ]
 [<Fact>]
 let ``b pos simple 1.7c``() = assertNullablePositions "(?<=b)a" "bbbba" [ 4 ]
 
-// [<Fact>]
-// let ``b pos simple 1.7c dbg``() = assertAllDerivatives "(?<=b)a" "bbbba" [
-//     ["((?=b)|⊤*a(?=b))"]
-//     ["((?=ε)[1]|⊤*a(?=b))"]
-//     [""]
-// ]
-
-
 
 [<Fact>]
 let ``b pos simple 1.8``() = assertNullablePositions "(?<=bb)a" "bbbba" [ 4 ]
@@ -161,8 +159,6 @@ let ``b pos complex 1.1a``() =
 [<Fact>]
 let ``b pos complex 1.1b``() =
     assertMatchEndNoLookback """(?<=aaa).*""" "aaabbb" 3 6
-
-
 
 
 [<Fact>]
@@ -219,7 +215,6 @@ let ``c intersect 1.3a``() =
 [<Fact>]
 let ``c intersect 1.3b``() =
     assertFirstMatchText """(?<=__).*(?=.*def)&.*and.*""" "__abc and def" "abc and "
-
 
 // TODO: maybe not support this at all?
 // [<Fact>]
@@ -468,13 +463,24 @@ let ``testing anchors 1.4b``() = assertMatchEnd """\b1\b""" "1" 0 1
 
 
 [<Fact>]
-let ``testing anchors 1.4c``() =
-    assertFirstMatchText
-        """\b1\b"""
-        "1"
-        "1"
+let ``testing anchors 1.4c``() = assertFirstMatchText """\b1\b""" "1" "1"
 
 
+[<Fact>]
+let ``testing anchors 1.5a``() =
+    assertFirstMatchText """\b11\b""" "11" "11"
+
+[<Fact>]
+let ``testing anchors 1.5b``() =
+    assertFirstMatchText """\b11\b""" " 11" "11"
+
+[<Fact>]
+let ``testing anchors 1.5c``() =
+    assertFirstMatchText """\b11\b""" "11 " "11"
+
+[<Fact>]
+let ``testing anchors 1.5d``() =
+    assertFirstMatchText """\b11\b""" " 11 " "11"
 
 // [<Fact>]
 // let ``testing anchors 1``() =
