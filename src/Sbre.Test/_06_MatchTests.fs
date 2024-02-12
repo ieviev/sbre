@@ -86,11 +86,6 @@ let ``regexlib sample 1``() =
 
 [<Fact>]
 let ``regexlib sample 2 - prefix test``() =
-    // let matcher = Regex(@"[v,V,(\\/)](\W|)[i,I,1,l,L](\W|)[a,A,@,(\/\\)](\W|)[g,G](\W|)[r,R](\W|)[a,A,@,(\/\\))]")
-    // let matcher = Regex(@"v(\W|)1(\W|)@(\W|)G(\W|)R(\W|)[a,A,@,(\/\\))]")
-    // let matcher = Regex(@"1(\W|)@(\W|)G(\W|)R(\W|)[a,A,@,(\/\\))]")
-    // let matcher = Regex(@"@(\W|)G(\W|)R(\W|)[a,A,@,(\/\\))]")
-    // let matcher = Regex(@"@( |)G( |)R( |)[a,A,@,(\/\\))]")
     let matcher = Regex(@"@( |)G( |)R( |)[a,A,@,(\/\\))]")
     let ism = matcher.IsMatch("""v1@G R /\""")
     Assert.True(ism)
@@ -99,12 +94,23 @@ let ``regexlib sample 2 - prefix test``() =
 [<Fact>]
 let ``optimizations sanity check 1``() =
     let pat = @"a( |)b( |)c( |)d"
-    let input = ("""a b c d""")
     let matcher = Regex(pat)
-    // let ism = System.Text.RegularExpressions.Regex(pat).IsMatch( input)
     let ism = matcher.IsMatch("""a b c d""")
     Assert.True(ism)
 
+
+
+let sampleText1 =
+    """
+The fists of all the generals came down this time, and again the
+King's eye sparkled with pleasure. The Chancellor sprang to his
+feet and appealed to his Majesty:
+"""
+
+[<Fact>]
+let ``empty loop test 1``() =
+    let pat = @"~(⊤*(\n⊤*){2})&.*down.*"
+    assertNullablePositions pat sampleText1 (List.rev [ 1..36 ])
 
 
 

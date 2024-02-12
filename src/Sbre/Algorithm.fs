@@ -33,21 +33,13 @@ module RegexNode =
             let xs' = (rev builder) xs
             builder.mkNot xs'
         // (?=R)r = (?<=Rr)
-        | LookAround(node = node'; lookBack = false; negate = false) ->
+        | LookAround(node = node'; lookBack = false) ->
             let revBody = rev builder node'
-            builder.mkLookaround(revBody, true, false)
+            builder.mkLookaround(revBody, true)
         // (?<=R)r = (?=Rr)
-        | LookAround(node = node'; lookBack = true; negate = false) ->
+        | LookAround(node = node'; lookBack = true) ->
             let revBody = rev builder node'
-            builder.mkLookaround(revBody, false, false)
-        // (?!R)r = (?<!Rr)
-        | LookAround(node = node'; lookBack = false; negate = true) ->
-            let revBody = rev builder node'
-            builder.mkLookaround(revBody, true, true)
-        // (?<!R)r = (?!Rr)
-        | LookAround(node = node'; lookBack = true; negate = true) ->
-            let revBody = rev builder node'
-            builder.mkLookaround(revBody, false, true)
+            builder.mkLookaround(revBody, false)
         | Concat _ ->
             let rec revConcatNode acc curr =
                 match curr with

@@ -366,14 +366,11 @@ let rec collectPendingNullables
         =
     match node with
     // pos. lookahead
-    | LookAround(node=lookBody; lookBack=false; negate=false; pendingNullables=rel,relativeNullablePos) ->
+    | LookAround(node=lookBody; lookBack=false; relativeTo= rel; pendingNullables=relativeNullablePos) ->
         let canBeNull = canBeNull lookBody
         if canBeNull && not relativeNullablePos.IsEmpty then
             relativeNullablePos
             |> Seq.map (fun v -> rel + v ) |> set
-            // |> Seq.map (fun v -> rel - v ) |> set
-            // |> Seq.map (fun v ->  v - rel ) |> set
-            // |> Seq.map (fun v -> rel - v) |> set
         else Set.empty
     | Or(nodes, info) ->
         let pendingNullables =

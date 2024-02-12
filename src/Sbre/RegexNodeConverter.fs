@@ -11,8 +11,6 @@ let children2Seq(node: System.Text.RuntimeRegexCopy.RegexNode) =
     seq { for i = 0 to node.ChildCount() - 1 do yield node.Child(i) }
 
 
-
-
 let rewriteNegativeLookaround (b:RegexBuilder<BDD>) (node:RegexNode<BDD>) : RegexNode<BDD> =
     match node with
     | LookAround(regexNode, lookBack, negate, relativeNullablePos) ->
@@ -22,42 +20,15 @@ let rewriteNegativeLookaround (b:RegexBuilder<BDD>) (node:RegexNode<BDD>) : Rege
         | Some minLength ->
             match lookBack with
             | false ->
-
-
-                // aa(?!bb) => aa(?=~(⊤{0,1}\z|bb⊤*))
-                let earlyEnd = b.mkConcat2(b.mkLoop(b.uniques._true,0,minLength - 1), Anchor End)
-                let requiredDistance =
-                    b.mkLoop(b.uniques._true,minLength,minLength)
-                let rewrittenNode =
-                    b.mkConcat([b.uniques._trueStar;regexNode;b.uniques._trueStar])
-                let rewrittenCompl =
-                    b.mkOr([
-                        earlyEnd // either end of string
-                        b.mkAnd([
-                            requiredDistance
-                            b.mkNot(rewrittenNode)
-                        ])
-                    ])
-                let rewrittenLookaround =
-                    b.mkLookaround( rewrittenCompl, false, false )
-                rewrittenLookaround
+                // (?=~(R·⊤*)·\z) ≡ (?!R)
+                let negpart = b.mkConcat2(regexNode, b.uniques._true)
+                let conc = b.mkConcat2(negpart, b.anchors._endZAnchor.Value)
+                b.mkLookaround( conc, false)
             | true ->
-                let earlyStart = b.mkConcat2(Anchor Begin,b.mkLoop(b.uniques._true,0,minLength - 1))
-                let requiredDistance =
-                    b.mkLoop(b.uniques._true,minLength,minLength)
-                let rewrittenNode =
-                    b.mkConcat([b.uniques._trueStar;regexNode;b.uniques._trueStar])
-                let rewrittenCompl =
-                    b.mkOr([
-                        earlyStart // either end of string
-                        b.mkAnd([
-                            requiredDistance
-                            b.mkNot(rewrittenNode)
-                        ])
-                    ])
-                let rewrittenLookaround =
-                    b.mkLookaround( rewrittenCompl, true, false )
-                rewrittenLookaround
+                // (?<=\a·~(⊤*R)) ≡ (?<!R)
+                let negpart = b.mkConcat2(b.uniques._true,regexNode)
+                let conc = b.mkConcat2(b.anchors._bigAAnchor,negpart)
+                b.mkLookaround( conc, false)
     | _ -> failwith "TODO: could not rewrite lookaround"
 
 
@@ -130,19 +101,16 @@ let rewriteWordBorder (b:RegexBuilder<BDD>) (outer:RegexNode array) ((idx,node):
     let left = toLeft outer idx
     let right = toRight outer idx
     match left, right with
-    // wordchar right
-    | _, Some true -> idx,b.anchors._nonWordLeft.Value
-    | _, Some false -> idx,b.anchors._wordLeft.Value
-    // wordchar left
-    | Some true, _   -> idx,b.anchors._nonWordRight.Value
-    | Some false, _  -> failwith "todo"
-
+    | _, Some true -> idx,b.anchors._nonWordLeft.Value // wordchar right
+    | _, Some false -> idx,b.anchors._wordLeft.Value // nonwordright
+    | Some true, _   -> idx,b.anchors._nonWordRight.Value // wordleft
+    | Some false, _  -> idx,b.anchors._wordRight.Value    // nonwordleft
     | _ ->
         if outer.Length = 1 then
             idx, b.anchors._wordBorder.Value
         else
-            failwith "Sbre does not support unconstrained word borders"
-        // failwith "TODO: REWRITE WORD BORDER"
+            failwith @"Sbre does not support unconstrained word borders, rewrite \b.* to \b\w.* or .*\w\b to show which side the word is on"
+
 
 
 let convertToSymbolicRegexNode
@@ -302,7 +270,7 @@ let convertToSymbolicRegexNode
             b.mkLoop (b.one bdd, node.M, node.N) :: acc
         | RegexNodeKind.Empty -> acc
         | RegexNodeKind.PositiveLookaround ->
-            builder.mkLookaround(b.mkConcat (convertChildren node),node.Options.HasFlag(RegexOptions.RightToLeft),false)
+            builder.mkLookaround(b.mkConcat (convertChildren node),node.Options.HasFlag(RegexOptions.RightToLeft))
             :: acc
         | RegexNodeKind.NegativeLookaround ->
 #if NO_REWRITE_NEGATIVE

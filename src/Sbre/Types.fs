@@ -183,7 +183,7 @@ type RegexNodeInfo<'tset when 'tset :> IEquatable<'tset> and 'tset: equality >()
 type RegexAnchor =
     | End
     | Begin
-    // | WordBorder
+
 
 [<ReferenceEquality>]
 [<DebuggerDisplay("{ToString()}")>]
@@ -211,8 +211,8 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
     | LookAround of
         node: RegexNode<'tset> *  // anchors
         lookBack: bool *
-        negate: bool *
-        pendingNullables : (int * int list)
+        relativeTo : int *
+        pendingNullables : int list
     | Anchor of RegexAnchor
 
     // optimized cases
@@ -264,9 +264,6 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
             | _,Some v -> v
             | _ ->
 
-
-
-
             let setItems: string list =
                 items |> Seq.map (_.ToString() ) |> Seq.toList
             let combinedList = setItems
@@ -300,20 +297,14 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
             | true -> $"{inner}*"
             | false -> inner + loopCount
 
-
-
-        | LookAround(body, lookBack, negate, (rel,pending)) ->
+        | LookAround(body, lookBack, relativeTo, pending) ->
             let inner = body.ToString()
             let pending =
                 if pending.IsEmpty then ""
                 else $"%A{pending}"
-            match lookBack, negate with
-            // | true, true when this.isFull body.Head -> "\\A"
-            // | false, true when this.isFull body.Head -> "\\z"
-            | false, true -> $"(?!{inner})"
-            | false, false -> $"(?={inner})"
-            | true, true -> $"(?<!{inner})"
-            | true, false -> $"(?<={inner})"
+            match lookBack with
+            | false-> $"(?={inner})"
+            | true -> $"(?<={inner})"
             + pending
 
         | Concat(h, t, info) ->

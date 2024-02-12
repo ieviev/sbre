@@ -58,6 +58,14 @@ let ``a pos simple 3.1``() = assertAllLLmatchTexts "a(?=b)" "_ab_ab_" [ "a"; "a"
 let ``a pos simple 3.2``() = assertAllLLmatchTexts "bb(?=aa)" "__bbaa__" [ "bb" ]
 
 
+
+/// aaa(?<=bbb)
+/// (?<=aaa)aaa(?=ccc)
+/// aaa(?=c)fdfd
+/// aaa(\z|c⊤*&fdfd)
+
+
+
 // let idx,len = getFirstLLmatch @".*(?=.*-)&\S.*\S" @"-aaaa-"
 
 [<Fact>]
@@ -454,6 +462,7 @@ let ``testing anchors 1.2``() = assertRawDerivative """⊤*\ba""" "a " [
     @"(⊤*((?<=φ)|\A)a|ε)"
     @"(⊤*(\A|(?<=φ))a|ε)"
     @"(ε|⊤*((?<=φ)|\A)a)"
+    @"(ε|⊤*(\A|(?<=φ))a"
 ]
 
 [<Fact>]

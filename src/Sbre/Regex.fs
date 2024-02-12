@@ -148,32 +148,28 @@ type RegexMatcher<'t when 't: struct>
             // Nullx (ψ) = false
             | Singleton _ -> false
             // Nullx (R) or Nullx (S)
-            | Or(xs, info) ->
+            | Or(xs, _) ->
                 use mutable e = xs.GetEnumerator()
                 let mutable found = false
                 while not found && e.MoveNext() do
                     found <- _isNullable (&loc, e.Current)
                 found
             // Nullx (R) and Nullx (S)
-            | And(xs, info) ->
+            | And(xs, _) ->
                 use mutable e = xs.GetEnumerator()
                 let mutable forall = true
                 while forall && e.MoveNext() do
                     forall <- _isNullable (&loc, e.Current)
                 forall
             // Nullx (R{m, n}) = m = 0 or Nullx (R)
-            | Loop(R, low, _, info) -> low = 0 || (_isNullable (&loc, R))
+            | Loop(R, low, _, _) -> low = 0 || (_isNullable (&loc, R))
             // not(Nullx (R))
-            | Not(inner, info) ->
+            | Not(inner, _) ->
                 not (_isNullable (&loc, inner))
             // Nullx (R) and Nullx (S)
-            | Concat(head, tail, info) ->
+            | Concat(head, tail, _) ->
                 _isNullable (&loc, head) && _isNullable (&loc, tail)
-
-            | LookAround(body, lookBack, negate, _) ->
-                if negate then failwith "negated lookarounds not supported" else
-                _isNullable(&loc,body)
-
+            | LookAround(body, _, _, _) -> _isNullable(&loc,body)
             | Anchor regexAnchor ->
                 // only 2 edge cases
                 // let currChar = _cache.CurrentChar(loc)
@@ -244,23 +240,23 @@ type RegexMatcher<'t when 't: struct>
                     _createDerivative ( &loc, loc_pred, _cache.Builder.mkConcat2 (R, R_decr) )
 
             // Derx (R | S) = Derx (R) | Derx (S)
-            | Or(xs, info) ->
+            | Or(xs, _) ->
                 let derivatives = ResizeArray()
                 for n in xs do derivatives.Add (_createDerivative(&loc, loc_pred, n))
                 derivatives |> _cache.Builder.mkOr
             // Derx (R & S) = Derx (R) & Derx (S)
-            | And(xs, info) as head ->
+            | And(xs, _) ->
                 let derivatives = ResizeArray()
                 for n in xs do derivatives.Add (_createDerivative (&loc, loc_pred, n))
                 _cache.Builder.mkAnd(derivatives)
             // Derx(~R) = ~Derx (R)
-            | Not(inner, info) ->
+            | Not(inner, _) ->
                 _cache.Builder.mkNot(_createDerivative (&loc, loc_pred, inner))
-            // pos. lookback prefix
-            | Concat(LookAround(node=lookBody; lookBack=true; negate=false) as look, tail, info) ->
+            // pos. lookback prefix (?<=aaa)bbb
+            | Concat(LookAround(node=lookBody; lookBack=true) as look, tail, _) ->
                 let lookDer = _createDerivative (&loc, loc_pred, lookBody)
                 let lookBodyNullable = _isNullable(&loc, lookBody)
-                let pendingLookaround = _cache.Builder.mkLookaround(lookDer, true, false)
+                let pendingLookaround = _cache.Builder.mkLookaround(lookDer, true)
                 let R'S = _cache.Builder.mkConcat2 (pendingLookaround, tail)
                 if lookBodyNullable then
                     let S' = _createDerivative (&loc, loc_pred, tail)
@@ -268,10 +264,10 @@ type RegexMatcher<'t when 't: struct>
                 else
                     if refEq lookDer _cache.False then _cache.False else
                     R'S
-            // pos. lookahead suffix
+            // pos. lookahead suffix aaa(?=bbb)
             | Concat(head, (LookAround(
-                node=regexNode; lookBack=false; negate=false
-                pendingNullables = (rel,pendingNullables)) as tail) , info) ->
+                node=regexNode; lookBack=false; relativeTo = rel;
+                pendingNullables = (pendingNullables)) as tail) , _) ->
                 let headIsNullable = _isNullable(&loc,head)
                 let updatedNullables = if headIsNullable then rel :: pendingNullables else pendingNullables
                 let updatedRel = if updatedNullables.IsEmpty then rel else rel + 1
@@ -281,13 +277,13 @@ type RegexMatcher<'t when 't: struct>
                 if headIsNullable then
                     let S' =
                         _cache.Builder.mkLookaround(
-                            updatedLookaroundBody, false, false,
-                            (updatedRel, updatedNullables)
+                            updatedLookaroundBody, false, updatedRel, (updatedNullables)
                     )
                     _cache.Builder.mkOr([ R'S ;S' ])
                 else R'S
-            // pos.lookahead prefix: (?=\w)a
-            | Concat(LookAround(node=lookBody; lookBack=false; negate=false; pendingNullables = rel,pendingNullables) as look, tail, info) ->
+            // TODO; reimplement
+            // pos.lookahead prefix: (?=\w)a  // (?=\w\w)aa ==> (?=\w)a
+            | Concat(LookAround(node=lookBody; lookBack=false; relativeTo = _; pendingNullables = _) as look, tail, _) ->
                 // TODO: either rewrite this or throw a not supported exception
                 // but good enough because no one uses this anyway
                 match lookBody with
@@ -302,7 +298,7 @@ type RegexMatcher<'t when 't: struct>
                     S'
                 | _ -> failwith "Sbre does not support inner lookarounds, use intersections! (&)"
 
-            | Concat(head, tail, info) when head.IsAlwaysNullable ->
+            | Concat(head, tail, _) when head.IsAlwaysNullable ->
                 let R' = _createDerivative (&loc, loc_pred, head)
                 let R'S = _cache.Builder.mkConcat2 (R', tail)
                 let S' = _createDerivative (&loc, loc_pred, tail)
@@ -311,7 +307,7 @@ type RegexMatcher<'t when 't: struct>
                 else
                     if refEq R'S _cache.False then S' else
                     _cache.Builder.mkOr ( seq { R'S ;S' } )
-            | Concat(head, tail, info) when head.IsEssentiallyNullable ->
+            | Concat(head, tail, _) when head.IsEssentiallyNullable ->
                 // failwith "todo: complex lookaround derivative"
                 // assert (head.DependsOnAnchor || head.ContainsLookaround)
                 let R' = _createDerivative (&loc, loc_pred, head)
@@ -329,7 +325,7 @@ type RegexMatcher<'t when 't: struct>
                     _cache.Builder.mkOr ( seq { R'S ;S' } )
 
             // Derx (R·S) = if Nullx (R) then Derx (R)·S|Derx (S) else Derx (R)·S
-            | Concat(head, tail, info) ->
+            | Concat(head, tail, _) ->
                 let R' = _createDerivative (&loc, loc_pred, head)
                 let R'S = _cache.Builder.mkConcat2 (R', tail)
                 if _isNullable (&loc, head) then
@@ -340,10 +336,8 @@ type RegexMatcher<'t when 't: struct>
                         if refEq R'S _cache.False then S' else
                         _cache.Builder.mkOr ( seq { R'S ;S' } )
                 else R'S
-            // neg. lookaround
-            | LookAround(lookBody, lookBack, true, relativeNullablePos) ->
-                failwith "neg lookarounds not supported"
-            | LookAround(lookBody, lookBack, false, (rel,relativeNullablePos)) ->
+
+            | LookAround(lookBody, lookBack, rel, relativeNullablePos) ->
                 match lookBack with
                 | false ->
                     // lookahead
@@ -354,14 +348,14 @@ type RegexMatcher<'t when 't: struct>
                     // start a new pending match
                     | _ when relativeNullablePos.IsEmpty && remainingIsNullable ->
                         _cache.Builder.mkLookaround(
-                        remainingLookaround, lookBack, false, (rel+1,zeroList))
+                        remainingLookaround, lookBack, rel+1, zeroList)
                     | _ ->
                     // add pending nullable only if hasnt matched yet
                     let updatedPositions =
                         if remainingIsNullable then relativeNullablePos
                         else relativeNullablePos
                     let pendingLookaround = _cache.Builder.mkLookaround(
-                        remainingLookaround, lookBack, false, ((rel+1),updatedPositions))
+                        remainingLookaround, lookBack, (rel+1),updatedPositions)
                     if refEq _cache.False remainingLookaround then
                         _cache.False
                     else
@@ -518,11 +512,11 @@ type RegexMatcher<'t when 't: struct>
     let DFA_TR_rev = _getOrCreateState(reverseTrueStarredNode, true).Id // R_rev
 
     // T*R
-    let DFA_TR = _getOrCreateState(trueStarredNode, true).Id
+    let _ = _getOrCreateState(trueStarredNode, true).Id
     // R_rev
-    let DFA_R_rev = _getOrCreateState(reverseNode, false).Id
+    let _ = _getOrCreateState(reverseNode, false).Id
     // R
-    let DFA_R_orig = _getOrCreateState(initialNode, false).Id
+    let _ = _getOrCreateState(initialNode, false).Id
     let DFA_R_noPrefix =
         _getOrCreateState(nodeWithoutLookbackPrefix _cache.Builder initialNode, false).Id
         // else
@@ -552,7 +546,7 @@ type RegexMatcher<'t when 't: struct>
 
     override this.IsMatch(input) =
         let mutable currPos = 0
-        let mutable startLocation = Location.createSpan input currPos
+        let mutable _ = Location.createSpan input currPos
         let mutable _toplevelOr = _cache.False
         match this.llmatch_all_count_only(input) with
         | 0 -> false
@@ -807,7 +801,7 @@ type RegexMatcher<'t when 't: struct>
                 // no matches remaining
                 loc.Position <- Location.final loc
                 false
-        | InitialOptimizations.DebugWordBorderPrefix(prefix, transitionNodeId) ->
+        | InitialOptimizations.DebugWordBorderPrefix(_, _) ->
             failwith "todo"
             // let mutable doneLooping = false
             // let mutable result = ValueNone
@@ -905,7 +899,7 @@ type RegexMatcher<'t when 't: struct>
 
         while looping do
             let flags = _flagsArray[currentStateId]
-            let dfaState = _stateArray[currentStateId]
+            let _ = _stateArray[currentStateId]
 #if SKIP
             if (flags.CanSkipInitial && this.TrySkipInitialRev(&loc, &currentStateId)) ||
                (flags.CanSkip && this.TrySkipActiveRev(flags,&loc, &currentStateId, &acc)) then

@@ -13,13 +13,6 @@ open Sbre.Pat
 open Info
 
 
-type OptimizedUnique =
-    // | WordBorder
-    // | Bol // beginning of line
-    // | Eol // end of line
-    | StartOfString
-    | NotStartOfString
-
 // #nowarn "25" // missing patterns inference
 
 [<Sealed>]
@@ -53,16 +46,6 @@ type RegexCache< 't
 
     let predStartsets = StartsetHelpers.startsetsFromMintermArray mintermBdds
     let mutable _cachedStartsets: Dictionary<TSet, SearchValues<char> option> = Dictionary()
-    let mutable _optimizedUniques: Dictionary<RegexNode<TSet>,OptimizedUnique> = Dictionary(Common.equalityComparer)
-
-    let initUniques() =
-        // _optimizedUniques.Add(_builder.anchors._wordBorder.Value, OptimizedUnique.WordBorder)
-        // _optimizedUniques.Add(_builder.anchors._caretAnchor.Value, OptimizedUnique.Bol)
-        // _optimizedUniques.Add(_builder.anchors._dollarAnchor.Value, OptimizedUnique.Eol)
-        let notStartOfString = _builder.mkLookaround(_builder.uniques._true,true,false)
-        _optimizedUniques.Add(notStartOfString, OptimizedUnique.NotStartOfString)
-
-    do initUniques()
 
     let _getMintermStartsetChars (minterm:TSet) =
         match _cachedStartsets.TryGetValue(minterm) with
@@ -615,4 +598,3 @@ type RegexCache< 't
         Debug.debuggerSolver <- Some this.Solver
         node.ToString()
 #endif
-    member this.OptimizedUniques = _optimizedUniques
