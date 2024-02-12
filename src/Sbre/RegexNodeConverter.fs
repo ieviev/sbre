@@ -18,10 +18,12 @@ let rewriteNegativeLookaround (b:RegexBuilder<BDD>) (node:RegexNode<BDD>) : Rege
     | LookAround(regexNode, lookBack, negate, relativeNullablePos) ->
         let fixLen = Node.getFixedLength regexNode
         match fixLen with
-        | None -> failwith "TODO: could not rewrite lookaround"
+        | None -> failwith $"TODO: could not rewrite lookaround:\n{regexNode}"
         | Some minLength ->
             match lookBack with
             | false ->
+
+
                 // aa(?!bb) => aa(?=~(⊤{0,1}\z|bb⊤*))
                 let earlyEnd = b.mkConcat2(b.mkLoop(b.uniques._true,0,minLength - 1), Anchor End)
                 let requiredDistance =
@@ -303,11 +305,14 @@ let convertToSymbolicRegexNode
             builder.mkLookaround(b.mkConcat (convertChildren node),node.Options.HasFlag(RegexOptions.RightToLeft),false)
             :: acc
         | RegexNodeKind.NegativeLookaround ->
+#if NO_REWRITE_NEGATIVE
             failwith $"negative lookarounds not supported: {node}"
-            // let negLookaround = builder.mkLookaround(b.mkConcat (convertChildren node),node.Options.HasFlag(RegexOptions.RightToLeft),true)
-            // let rewrittenLookaround = rewriteNegativeLookaround b negLookaround
-            // rewrittenLookaround
-            // :: acc
+#else
+            let negLookaround = builder.mkLookaround(b.mkConcat (convertChildren node),node.Options.HasFlag(RegexOptions.RightToLeft),true)
+            let rewrittenLookaround = rewriteNegativeLookaround b negLookaround
+            rewrittenLookaround
+            :: acc
+#endif
         | other -> failwith $"RegexNodeKind conversion not implemented: {other}, \n{rootNode}"
 
     let result = loop [] rootNode

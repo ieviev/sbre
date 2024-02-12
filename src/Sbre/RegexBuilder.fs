@@ -427,6 +427,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                             b.mkLookaround(b.one '\n',true,false)
                         ]
                     )
+            // ^ ≡ \z|(?=\n)
             _dollarAnchor =
                 // RegexNode<'t>.Anchor Eol
                 lazy
@@ -1007,9 +1008,13 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
 
 
     member this.mkConcat2(head: RegexNode< 't >, tail: RegexNode< 't >) : RegexNode< 't > =
-        match head with
-        | Epsilon -> tail // ()R -> R
-        // | LookAround(node=Epsilon; lookBack=true; negate=false) -> tail
+        // wont pollute the cache with these
+        match head, tail with
+        | Epsilon, _ -> tail // ()R -> R
+        | _, Epsilon -> head
+        // redundant anchor branches
+        | Anchor End, tail when tail.CanNotBeNullable -> _uniques._false
+        | Anchor Begin, tail when tail.CanNotBeNullable -> _uniques._false
         | _ when refEq head _uniques._false -> _uniques._false // ⊥R -> ⊥
         | _ ->
             let key = struct (head, tail)
@@ -1018,9 +1023,8 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             | true, v -> v
             | _ ->
                 match head, tail with
-                // redundant anchor branches
-                | Anchor End, tail when tail.CanNotBeNullable -> _uniques._false
-                | Anchor Begin, tail when tail.CanNotBeNullable -> _uniques._false
+                // (?<=⊥)a -> ⊥
+                // | LookAround(node = node; lookBack = true), tail when refEq node _uniques._false && tail.CanNotBeNullable -> _uniques._false
                 // normalize
                 | Concat(head=h1;tail=h2), tail ->
                     let merged = this.mkConcat2(h1,this.mkConcat2(h2,tail))

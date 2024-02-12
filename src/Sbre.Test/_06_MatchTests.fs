@@ -56,6 +56,13 @@ let ``anchors test 4 : nullability of anchors should not be cached``() =
     Assert.True(ism)
 
 
+[<Fact>]
+let ``anchors test 5 : nullability of anchors should not be cached``() =
+    let matcher = Regex("^.{4,8}$")
+    let ism = matcher.IsMatch("asd")
+    Assert.False(ism)
+
+
 
 [<Fact>]
 let ``multi-nodes ordering test 1``() =
@@ -67,6 +74,35 @@ let ``multi-nodes ordering test 1``() =
 let ``multi-nodes ordering test 2``() =
     let matcher = Regex(@"/\*[\d\D]*?\*/")
     let ism = matcher.IsMatch("/* my comment */")
+    Assert.True(ism)
+
+
+[<Fact>]
+let ``regexlib sample 1``() =
+    let matcher = Regex(@"(\s|\n|^)(\w+://[^\s\n]+)")
+    let ism = matcher.IsMatch("""<a href="http://acme.com">http://www.acme.com</a>""")
+    Assert.False(ism)
+
+
+[<Fact>]
+let ``regexlib sample 2 - prefix test``() =
+    // let matcher = Regex(@"[v,V,(\\/)](\W|)[i,I,1,l,L](\W|)[a,A,@,(\/\\)](\W|)[g,G](\W|)[r,R](\W|)[a,A,@,(\/\\))]")
+    // let matcher = Regex(@"v(\W|)1(\W|)@(\W|)G(\W|)R(\W|)[a,A,@,(\/\\))]")
+    // let matcher = Regex(@"1(\W|)@(\W|)G(\W|)R(\W|)[a,A,@,(\/\\))]")
+    // let matcher = Regex(@"@(\W|)G(\W|)R(\W|)[a,A,@,(\/\\))]")
+    // let matcher = Regex(@"@( |)G( |)R( |)[a,A,@,(\/\\))]")
+    let matcher = Regex(@"@( |)G( |)R( |)[a,A,@,(\/\\))]")
+    let ism = matcher.IsMatch("""v1@G R /\""")
+    Assert.True(ism)
+
+
+[<Fact>]
+let ``optimizations sanity check 1``() =
+    let pat = @"a( |)b( |)c( |)d"
+    let input = ("""a b c d""")
+    let matcher = Regex(pat)
+    // let ism = System.Text.RegularExpressions.Regex(pat).IsMatch( input)
+    let ism = matcher.IsMatch("""a b c d""")
     Assert.True(ism)
 
 
@@ -526,6 +562,9 @@ let ``set star loop test 1``() =
 [<Fact>]
 let ``dfa match 2``() =
     assertFirstMatch ".*a{3}" "aa aaa" (0,6)
+
+
+
 
 
 let webappsample6 = """

@@ -349,13 +349,13 @@ type RegexMatcher<'t when 't: struct>
                     else
                         pendingLookaround
                 | true ->
-                    if _isNullable(&loc,lookBody) then
-                        _cache.Eps
+                    // if _isNullable(&loc,lookBody) then
+                    //     _cache.Eps
+                    // else
+                    let remainingLookaround = _createDerivative (&loc, loc_pred, lookBody)
+                    if _isNullable(&loc,remainingLookaround) then _cache.Eps
                     else
-                        let remainingLookaround = _createDerivative (&loc, loc_pred, lookBody)
-                        if _isNullable(&loc,remainingLookaround) then _cache.Eps
-                        else
-                            _cache.False
+                        _cache.False
 
             | Anchor _ -> _cache.False
 
@@ -626,7 +626,7 @@ type RegexMatcher<'t when 't: struct>
 
         // caching workaround until context implementation
         // if flags.CannotBeCached || loc.Position = loc.Input.Length then
-        if loc.Position = loc.Input.Length || loc.Position = 0 then
+        if flags.CannotBeCached && loc.Position = loc.Input.Length || loc.Position = 0 then
             let nextState = this.TryNextDerivative(&currentState, mintermId, &loc)
             // _dfaDelta[dfaOffset] <- nextState
             currentState <- nextState
@@ -847,6 +847,10 @@ type RegexMatcher<'t when 't: struct>
         if flags.HasFlag(RegexStateFlags.ActiveBranchOptimizations) then
             match dfaState.ActiveOptimizations with
             | LimitedSkip(distance, termPred, termTransitionId, nonTermTransitionId) ->
+                if distance > loc.Position then // no more matches
+                    loc.Position <- Location.final loc
+                    false
+                else
                 let limitedSlice = loc.Input.Slice(loc.Position - distance, distance)
                 match limitedSlice.LastIndexOfAny(termPred) with
                 | -1 ->

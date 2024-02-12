@@ -195,8 +195,9 @@ let rec calcPotentialMatchStart getNonInitialDerivative (getStateFlags: RegexNod
         let shouldExit =
             stateFlags |> Seq.exists (_.CanSkip) || nodes |> Seq.exists (_.CanBeNullable)
         if shouldExit then acc |> List.rev else
-        let nonRedundant =
-            nodes |> List.where (redundant.Add)
+        if acc.Length = 0 then
+            nodes |> Seq.iter (redundant.Add >> ignore)
+        let nonRedundant = nodes // |> List.where (redundant.Add)
         if nonRedundant.IsEmpty then
             acc |> List.rev
         else
@@ -210,11 +211,19 @@ let rec calcPotentialMatchStart getNonInitialDerivative (getStateFlags: RegexNod
                 |> Seq.map fst
                 |> Seq.fold (|||) cache.Solver.Empty
 
+            let pretty =
+                prefixDerivsList
+                |> Seq.map (Array.map (fun (mt,node) ->
+                    cache.PrettyPrintMinterm(mt), node
+                ))
+                |> Seq.toArray
+
             let remainingNodes =
                 prefixDerivsList
                 |> Seq.collect id
                 |> Seq.map snd
                 |> Seq.toList
+
             let acc' = merged_pred :: acc
             // let dbg = printPrefixSets cache acc'
             if acc.Length > 5 then acc |> List.rev else

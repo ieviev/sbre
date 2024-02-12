@@ -381,24 +381,27 @@ type RegexCache< 't
                 // exit if too far
                 if potential < setSpan.Length then
                     skipping <- false
-                    resultEnd <- ValueSome(potential)
+                    resultEnd <- ValueNone //ValueSome(potential)
                     couldBe <- false
 
+                let pref = tailPrefixSpan.ToArray() |> Array.map this.PrettyPrintMinterm
                 // r to l
-                // let mutable i = 0
-                // while couldBe && i < tailPrefixSpan.Length do
+                let mutable i = 0
+                while couldBe && i < tailPrefixSpan.Length do
+                    let inputMinterm = this.Classify(inputSpan[potential - i - 2])
+                    let loc1 = this.PrettyPrintMinterm(inputMinterm)
+                    let loc2 = this.PrettyPrintMinterm(tailPrefixSpan[i])
+                    if Solver.notElemOfSet inputMinterm tailPrefixSpan[i] then
+                        couldBe <- false
+                    i <- i + 1
+
+                // l to r
+                // let mutable i = _tailPrefixLength - 1
+                // while couldBe && i >= 0 do
                 //     let inputMinterm = this.Classify(inputSpan[potential - i - 2])
                 //     if Solver.notElemOfSet inputMinterm tailPrefixSpan[i] then
                 //         couldBe <- false
-                //     i <- i + 1
-
-                // l to r
-                let mutable i = _tailPrefixLength - 1
-                while couldBe && i >= 0 do
-                    let inputMinterm = this.Classify(inputSpan[potential - i - 2])
-                    if Solver.notElemOfSet inputMinterm tailPrefixSpan[i] then
-                        couldBe <- false
-                    i <- i - 1
+                //     i <- i - 1
 
                 if couldBe then
                     skipping <- false
@@ -530,7 +533,7 @@ type RegexCache< 't
         let mutable pos = loc.Position
         if loc.Reversed then
             pos <- pos - 1
-        if pos = loc.Input.Length || pos = -1 then
+        if pos = loc.Input.Length || pos < 0 then
             ValueNone else
         ValueSome loc.Input[pos]
 
