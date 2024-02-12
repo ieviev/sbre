@@ -403,8 +403,27 @@ let rec nodeWithoutLookbackPrefix
     (b:RegexBuilder<_>)
     (node:RegexNode<_>) =
     match node with
+    | LookAround(lookBack = true) -> Epsilon
+    | Anchor _ -> Epsilon
     | Concat(head=LookAround(lookBack = true); tail=tail) ->
         nodeWithoutLookbackPrefix b tail
+    | Concat(head=head; tail=tail) ->
+        let convertedHead =
+            nodeWithoutLookbackPrefix b head
+            // nodes |> Seq.map (nodeWithoutLookbackPrefix b)
+            // |> Seq.toArray
+        match convertedHead with
+        | Epsilon -> tail
+        | _ ->
+            node
+            // failwith "TODO: rewrite "
+        // match converted |> Seq.forall (fun v -> v = Epsilon ) with
+        // | true -> nodeWithoutLookbackPrefix b tail
+        // | false -> node
+    | Or(nodes=xs) ->
+        xs
+        |> Seq.map (nodeWithoutLookbackPrefix b)
+        |> b.mkOr
     | And(nodes=xs) | Or(nodes=xs) ->
         xs
         |> Seq.map (nodeWithoutLookbackPrefix b)

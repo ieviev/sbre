@@ -368,18 +368,19 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             // proper definition (?<=\a|\W)
             _nonWordLeft =
                 lazy
-                    b.mkLookaround(
                     b.mkOr([
                         RegexNode<'t>.Anchor Begin
-                        _uniques._nonWordChar.Value
-                    ]
-                    ),true,false)
+                        b.mkLookaround( _uniques._nonWordChar.Value ,true,false)
+                    ])
             // (?=\W)
             // _nonWordRight = lazy b.mkLookaround(_uniques._nonWordChar.Value,false,false)
             // proper definition (?=\z|\W)
             _nonWordRight =
                 lazy
-                    b.mkOr([ RegexNode<'t>.Anchor End; b.mkLookaround( _uniques._nonWordChar.Value,true,false) ])
+                    b.mkOr(
+                        [RegexNode<'t>.Anchor End
+                         b.mkLookaround( _uniques._nonWordChar.Value,false,false) ]
+                    )
 
                     // b.mkLookaround(
                     //     b.mkOr([ RegexNode<'t>.Anchor End; _uniques._nonWordChar.Value ])

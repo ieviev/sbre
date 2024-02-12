@@ -1525,6 +1525,7 @@ public ref struct ExtendedRegexParser
         {
             'b' => UseOptionE() ? RegexNodeKind.ECMABoundary : RegexNodeKind.Boundary,
             'B' => UseOptionE() ? RegexNodeKind.NonECMABoundary : RegexNodeKind.NonBoundary,
+            'a' => RegexNodeKind.Beginning, // adding \a because why not
             'A' => RegexNodeKind.Beginning,
             'G' => RegexNodeKind.Start,
             'Z' => RegexNodeKind.EndZ,

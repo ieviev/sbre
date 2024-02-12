@@ -464,6 +464,11 @@ let assertNodeWithoutPrefix (patt:string) (expected:string list) =
 let ``withoutprefix 01``() =
     assertNodeWithoutPrefix "(?<=author).*&.*and.*" [".*and.*"]
 
+[<Fact>]
+let ``withoutprefix 02``() =
+    assertNodeWithoutPrefix @"\b11" ["11"]
+
+
 
 
 

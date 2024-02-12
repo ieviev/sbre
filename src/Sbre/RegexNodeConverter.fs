@@ -133,6 +133,10 @@ let rewriteWordBorder (b:RegexBuilder<BDD>) (outer:RegexNode array) ((idx,node):
     // wordchar left
     | Some true, _ -> idx,b.anchors._nonWordRight.Value
     | _ ->
+        if outer.Length = 1 then
+            idx, b.anchors._wordBorder.Value
+        else
+            // failwith "Sbre does not support unconstrained word borders"
         failwith "TODO: REWRITE WORD BORDER"
 
 

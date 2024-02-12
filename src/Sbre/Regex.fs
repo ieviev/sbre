@@ -649,7 +649,6 @@ type RegexMatcher<'t when 't: struct>
         ) : bool =
         flags.CanBeNullable && (
             flags.IsAlwaysNullable ||
-            (flags.HasFlag(RegexStateFlags.IsRelativeNegatedNullableFlag) && this.RelativeNegatedIsNullable(flags,&loc,stateId)) ||
             this.IsNullable (&loc, _stateArray[stateId].Node))
 
     member this.IsNullable(loc: inref<Location>, node: RegexNode<_>) : bool =
@@ -873,7 +872,7 @@ type RegexMatcher<'t when 't: struct>
 
         while looping do
             let flags = _flagsArray[currentStateId]
-            // let dfaState = _stateArray[currentStateId]
+            let dfaState = _stateArray[currentStateId]
 #if SKIP
             if (flags.CanSkipInitial && this.TrySkipInitialRev(&loc, &currentStateId)) ||
                (flags.CanSkip && this.TrySkipActiveRev(flags,&loc, &currentStateId, &acc)) then

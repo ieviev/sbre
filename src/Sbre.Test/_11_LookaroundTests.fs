@@ -447,9 +447,7 @@ let ``testing anchors 1.1``() = assertRawDerivative """\ba""" "a " ["ε"]
 [<Fact>]
 let ``testing anchors 1.2``() = assertRawDerivative """⊤*\ba""" "a " [
     @"(ε|⊤*((?<=φ)|\a)a)" // correct definition with anchor
-    @"(⊤*((?<=φ)|\a)a|ε)"
-    @"(⊤*\ba|ε)"
-    @"(ε|⊤*\ba)"
+    @"(⊤*(\a|(?<=φ))a|ε)"
 ]
 
 [<Fact>]
@@ -475,6 +473,15 @@ let ``testing anchors 1.5b``() =
     assertFirstMatchText """\b11\b""" " 11" "11"
 
 [<Fact>]
+let ``testing anchors 1.5b1``() =
+    assertNullablePositions """\b11""" " 11" [ 1 ]
+
+
+[<Fact>]
+let ``testing anchors 1.5b2``() =
+    assertMatchEndNoLookback """\b11""" " 11" 1 3
+
+[<Fact>]
 let ``testing anchors 1.5c``() =
     assertFirstMatchText """\b11\b""" "11 " "11"
 
@@ -482,12 +489,41 @@ let ``testing anchors 1.5c``() =
 let ``testing anchors 1.5d``() =
     assertFirstMatchText """\b11\b""" " 11 " "11"
 
-// [<Fact>]
-// let ``testing anchors 1``() =
-//     assertFirstMatchText
-//         """a\b"""
-//         "a "
-//         "a"
+
+[<Fact>]
+let ``testing anchors 1.6a1``() =
+    assertNullablePositions """(?<=(\W|\A))11""" "11" [0]
+
+
+[<Fact>]
+let ``testing anchors 1.6a2``() =
+    assertFirstMatchText """(?<=\W|\A)11""" "11" "11"
+
+[<Fact>]
+let ``testing anchors 1.6b``() =
+    assertFirstMatchText """(\A|(?<=\W))11""" "11" "11"
+
+
+[<Fact>]
+let ``testing anchors 1.6c``() =
+    assertFirstMatchText """(?<=\W|\A)11""" " 11" "11"
+
+[<Fact>]
+let ``testing anchors 1.7a``() =
+    assertFirstMatchText """11(?=\W|\z)""" "11" "11"
+
+[<Fact>]
+let ``testing anchors 1.7b``() =
+    assertFirstMatchText """11(?=\W|\z)""" "11 " "11"
+
+
+[<Fact>]
+let ``rewrite anchors 1.1a``() =
+    assertFirstMatchText """11\b""" "11" "11"
+
+[<Fact>]
+let ``rewrite anchors 1.1b``() =
+    assertFirstMatchText """11\b""" "11 " "11"
 
 
 #endif
