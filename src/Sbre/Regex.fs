@@ -296,6 +296,18 @@ type RegexMatcher<'t when 't: struct>
                     // S'
                     // _cache.Builder.mkConcat2(S', lookDer)
                 | _ -> failwith "complex inner lookarounds not supported"
+
+            | Concat(head, tail, info) when head.ContainsLookaround ->
+                assert (head.DependsOnAnchor || head.ContainsLookaround)
+                let R' = _createDerivative (&loc, loc_pred, head)
+                let R'S = _cache.Builder.mkConcat2 (R', tail)
+                let S' = _createDerivative (&loc, loc_pred, tail)
+                if refEq _cache.Builder.uniques._false S' then
+                    R'S
+                else
+                    if refEq R'S _cache.False then S' else
+                    _cache.Builder.mkOr ( seq { R'S ;S' } )
+
             // Derx (R·S) = if Nullx (R) then Derx (R)·S|Derx (S) else Derx (R)·S
             | Concat(head, tail, info) ->
                 // if head.ContainsLookaround then

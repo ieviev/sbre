@@ -989,13 +989,10 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             match _concatCache.TryGetValue(key) with
             | true, v -> v
             | _ ->
-                // try rewrite
                 match head, tail with
+                // redundant anchor branches
                 | Anchor End, tail when tail.CanNotBeNullable -> _uniques._false
-                | Anchor Begin, tail when tail.CanNotBeNullable ->
-                    _uniques._false
-                    //
-
+                | Anchor Begin, tail when tail.CanNotBeNullable -> _uniques._false
                 // normalize
                 | Concat(head=h1;tail=h2), tail ->
                     let merged = this.mkConcat2(h1,this.mkConcat2(h2,tail))

@@ -176,7 +176,7 @@ module rec Flags =
 [<AutoOpen>]
 module Node =
 
-    let getFixedLength (node: RegexNode<_>) =
+    let rec getFixedLength (node: RegexNode<_>) =
         let rec loop (acc:int) node : int option =
             match node with
             | Concat(head, tail, info) ->
@@ -185,12 +185,19 @@ module Node =
                     loop headLen tail
                 )
             | Epsilon -> Some (0 + acc)
-            | Or(nodes, info) -> None
+            | Or(nodes, info) | And(nodes, info) ->
+                let sameLen =
+                    nodes
+                    |> Seq.map (loop 0)
+                    |> Seq.distinct
+                    |> Seq.toArray
+                if sameLen.Length = 1 && sameLen[0].IsSome then
+                    Some (acc + sameLen[0].Value)
+                else None
             | Singleton _ -> Some (1 + acc)
             | Loop(Singleton node, low, up, info) ->
                 if low = up then Some (low + acc) else None
             | Loop(node, low, up, info) -> None
-            | And(nodes, info) -> None
             | Not(node, info) -> None
             | LookAround(_) -> Some (0 + acc)
             | Anchor _ -> Some (0 + acc)
