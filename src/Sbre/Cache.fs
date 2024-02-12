@@ -384,13 +384,13 @@ type RegexCache< 't
                     resultEnd <- ValueNone //ValueSome(potential)
                     couldBe <- false
 
-                let pref = tailPrefixSpan.ToArray() |> Array.map this.PrettyPrintMinterm
+                // let pref = tailPrefixSpan.ToArray() |> Array.map this.PrettyPrintMinterm
                 // r to l
                 let mutable i = 0
                 while couldBe && i < tailPrefixSpan.Length do
                     let inputMinterm = this.Classify(inputSpan[potential - i - 2])
-                    let loc1 = this.PrettyPrintMinterm(inputMinterm)
-                    let loc2 = this.PrettyPrintMinterm(tailPrefixSpan[i])
+                    // let loc1 = this.PrettyPrintMinterm(inputMinterm)
+                    // let loc2 = this.PrettyPrintMinterm(tailPrefixSpan[i])
                     if Solver.notElemOfSet inputMinterm tailPrefixSpan[i] then
                         couldBe <- false
                     i <- i + 1

@@ -284,7 +284,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 _true,
                 low = 0,
                 up = Int32.MaxValue,
-                info = _createInfo (RegexNodeFlags.IsAlwaysNullableFlag ||| RegexNodeFlags.CanBeNullableFlag ||| RegexNodeFlags.IsEssentiallyNullableFlag) solver.Full
+                info = _createInfo (RegexNodeFlags.IsAlwaysNullableFlag ||| RegexNodeFlags.CanBeNullableFlag ||| RegexNodeFlags.HasZerowidthHeadFlag) solver.Full
 
             )
         _truePlus =
@@ -599,13 +599,10 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
 
         match starLoops.Length > 0 with
         | true ->
-
             let struct (largestPred, largestStarLoop) =
                 starLoops
                 |> Seq.reduce (fun struct (e1, e1node) struct (e2, e2node) ->
                     let conj = solver.And(e1, e2)
-                    let iselem = not (solver.IsEmpty(conj))
-
                     if conj = e1 then (struct (e2, e2node))
                     elif conj = e2 then (struct (e1, e1node))
                     else (solver.Empty, Unchecked.defaultof<_>)
@@ -643,9 +640,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                     nodes.Add(this.mkConcat2(shead, mergeTails)) |> ignore
                     nodes
             | _ ->
-
                 nodes
-
 
 
     member this.trySubsumeAnd(nodes: RegexNode< 't > seq) : RegexNode< 't > seq =

@@ -150,7 +150,6 @@ let rec calcPrefixSets getNonInitialDerivative (getStateFlags: RegexNode<_> -> R
         else if node.CanBeNullable  then
             acc |> List.rev
         else
-
             match prefix_derivs with
             | [| (mt, deriv) |]  ->
                 // stop with pending nullable
@@ -186,8 +185,6 @@ let rec calcPrefixSets getNonInitialDerivative (getStateFlags: RegexNode<_> -> R
 
 
 let rec calcPotentialMatchStart getNonInitialDerivative (getStateFlags: RegexNode<_> -> RegexStateFlags) (cache: RegexCache<_>) (startNode: RegexNode<_>) =
-
-
     let redundant = System.Collections.Generic.HashSet<RegexNode<TSet>>([ cache.False ])
     let rec loop acc (nodes:RegexNode<_> list) =
         let stateFlags =
@@ -211,12 +208,12 @@ let rec calcPotentialMatchStart getNonInitialDerivative (getStateFlags: RegexNod
                 |> Seq.map fst
                 |> Seq.fold (|||) cache.Solver.Empty
 
-            let pretty =
-                prefixDerivsList
-                |> Seq.map (Array.map (fun (mt,node) ->
-                    cache.PrettyPrintMinterm(mt), node
-                ))
-                |> Seq.toArray
+            // let pretty =
+            //     prefixDerivsList
+            //     |> Seq.map (Array.map (fun (mt,node) ->
+            //         cache.PrettyPrintMinterm(mt), node
+            //     ))
+            //     |> Seq.toArray
 
             let remainingNodes =
                 prefixDerivsList

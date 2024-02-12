@@ -26,6 +26,7 @@
 <!--    <DefineConstants>$(DefineConstants);EXPERIMENTAL_LOOKAROUNDS</DefineConstants>-->
     <DefineConstants>$(DefineConstants);NO_REWRITE_NEGATIVE</DefineConstants>
     <DefineConstants>$(DefineConstants);NO_SKIP_LOOKAROUNDS</DefineConstants>
+<!--    <DefineConstants>$(DefineConstants);NO_CACHE_BUILDER</DefineConstants>-->
 <!--    <DefineConstants>$(DefineConstants);NO_REWRITE</DefineConstants>-->
     <DefineConstants>$(DefineConstants);SKIP</DefineConstants>
     <DefineConstants>$(DefineConstants);DFA</DefineConstants>

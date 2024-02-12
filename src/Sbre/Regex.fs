@@ -176,19 +176,19 @@ type RegexMatcher<'t when 't: struct>
 
             | Anchor regexAnchor ->
                 // only 2 edge cases
-                let currChar = _cache.CurrentChar(loc)
-                let prevCharOpt = _cache.PrevChar(loc)
+                // let currChar = _cache.CurrentChar(loc)
+                // let prevCharOpt = _cache.PrevChar(loc)
                 match regexAnchor with
                 | End -> loc.Position = loc.Input.Length
                 | Begin -> loc.Position = 0
-                | WordBorder ->
-                    match prevCharOpt, currChar with
-                    | ValueNone, ValueSome c |  ValueSome c, ValueNone -> RegexCharClass.IsBoundaryWordChar(c)
-                    | ValueSome prev, ValueSome curr ->
-                        let c1 = not (RegexCharClass.IsBoundaryWordChar(prev)) && RegexCharClass.IsBoundaryWordChar(curr)
-                        let c2 = (RegexCharClass.IsBoundaryWordChar(prev)) && not (RegexCharClass.IsBoundaryWordChar(curr))
-                        c1 || c2
-                    | _ -> true// impossible case
+                // | WordBorder ->
+                //     match prevCharOpt, currChar with
+                //     | ValueNone, ValueSome c |  ValueSome c, ValueNone -> RegexCharClass.IsBoundaryWordChar(c)
+                //     | ValueSome prev, ValueSome curr ->
+                //         let c1 = not (RegexCharClass.IsBoundaryWordChar(prev)) && RegexCharClass.IsBoundaryWordChar(curr)
+                //         let c2 = (RegexCharClass.IsBoundaryWordChar(prev)) && not (RegexCharClass.IsBoundaryWordChar(curr))
+                //         c1 || c2
+                //     | _ -> true// impossible case
                 // | Bol ->
                 //     loc.Position = 0 ||
                 //     match prevCharOpt with
@@ -205,7 +205,25 @@ type RegexMatcher<'t when 't: struct>
         loc_pred: TSet,
         node: RegexNode<TSet>
     ) : RegexNode<TSet> =
+
+        let cachedTransition =
+            Algorithm.RegexNode.getCachedTransition(loc_pred, node.TryGetInfo)
+            // node.TryGetInfo
+            // |> ValueOption.bind (fun inf ->
+            //
+            //     let found = inf.Transitions |> Seq.tryFind (fun v -> v.Set = loc_pred )
+            //     match found with
+            //     | Some v -> ValueSome v
+            //     | _ -> ValueNone
+            // )
+
         let result =
+            match cachedTransition with
+            | ValueSome inf -> inf
+            | _ ->
+
+            // match node.TryGetInfo()
+
             match node with
             | Epsilon -> _cache.False
             | Singleton pred ->
@@ -359,8 +377,14 @@ type RegexMatcher<'t when 't: struct>
 
             | Anchor _ -> _cache.False
 
-        // if not node.ContainsLookaround && not (node.GetFlags().HasFlag(Flag.IsAnchorFlag)) then
-        //     _cache.Builder.AddTransitionInfo(loc_pred, node, result)
+
+#if NO_CACHE_BUILDER
+#else
+        if node.DependsOnAnchor then
+            ()
+        else
+            _cache.Builder.AddTransitionInfo(loc_pred, node, result)
+#endif
 
         result
     let _createStartset(state: MatchingState, initial: bool) =
@@ -642,18 +666,6 @@ type RegexMatcher<'t when 't: struct>
             let nextState = this.TryNextDerivative(&currentState, mintermId, &loc)
             _dfaDelta[dfaOffset] <- nextState
             currentState <- nextState
-
-
-    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    member private this.RelativeNegatedIsNullable
-        (
-            flags: RegexStateFlags,
-            loc: byref<Location>,
-            stateId: int
-        ) : bool =
-        let dfaState = _stateArray[stateId]
-        let isNull = this.IsNullable(&loc,dfaState.Node)
-        isNull
 
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]

@@ -185,7 +185,7 @@ let (|AllSameHead|_|) (nodes: seq<RegexNode<_>>) =
     |> Seq.pairwise
     |> Seq.iter (fun (prev, v) ->
         match prev, v with
-        | Concat(head = head1; tail = tail1), Concat(head = head2; tail = tail2) ->
+        | Concat(head = head1; tail = _), Concat(head = head2; tail = _) ->
             if not (obj.ReferenceEquals(head1, head2)) then
                 allsame <- false
             else

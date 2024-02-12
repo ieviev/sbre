@@ -270,9 +270,9 @@ let convertToSymbolicRegexNode
         | RegexNodeKind.EndZ -> b.anchors._endZAnchor.Value :: acc
         | RegexNodeKind.End -> b.anchors._zAnchor :: acc //b.anchors._zAnchor.Value :: acc // end of string only
         | RegexNodeKind.Boundary ->
-            // failwith "TODO: rewrite to lookaround"
-            // TODO :WB
-            RegexNode<BDD>.Anchor WordBorder :: acc
+            failwith "TODO: rewrite to lookaround"
+            // // TODO :WB
+            // RegexNode<BDD>.Anchor WordBorder :: acc
             // b.anchors._wordBorder.Value :: acc
         | RegexNodeKind.NonBoundary ->
             failwith "TODO: reimplement word border"

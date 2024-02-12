@@ -32,8 +32,26 @@ open Sbre.Test
 // let pref = Optimizations.Prefix2()
 // pref.FirstSetIndexOfChars()
 
-let pref = Learning.Learning1()
+// let pref = Learning.Learning1()
+// pref.Pattern <- pref.Patterns |> Seq.head
+// pref.Setup()
+// for i = 1 to 50 do
+//     pref.Sbre() |> ignore
+//
+
+
+
+
+let pref = Learning.Learning3()
 pref.Pattern <- pref.Patterns |> Seq.head
 pref.Setup()
-for i = 1 to 50 do
+for i = 1 to 500 do
     pref.Sbre() |> ignore
+
+
+
+
+
+
+
+
