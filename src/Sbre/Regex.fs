@@ -279,23 +279,10 @@ type RegexMatcher<'t when 't: struct>
                     )
                     let S' = _createDerivative (&loc, loc_pred, tail)
                     _cache.Builder.mkAnd ( seq { lookDer ;S' } )
-                // | Epsilon ->
-                    // let lookDer = _createDerivative (
-                    //     &loc, loc_pred, _cache.Builder.mkConcat2(lookBody,_cache.TrueStar)
-                    // )
-                    // let lookDer = _createDerivative (
-                    //     &loc, loc_pred, _cache.Builder.mkConcat2(lookBody,_cache.TrueStar)
-                    // )
-                    // // lookDer
-                    // _cache.Builder.mkAnd ( seq { lookDer ;tail } )
-                    // let rl = rel
-                    // let pen = pendingNullables
-                    //
-                    // let S' = _createDerivative (&loc, loc_pred, tail)
-                    // _cache.Builder.mkAnd ( seq { Epsilon ;S' } )
-                    // S'
-                    // _cache.Builder.mkConcat2(S', lookDer)
-                | _ -> failwith "complex inner lookarounds not supported"
+                | Epsilon ->
+                    let S' = _createDerivative (&loc, loc_pred, tail)
+                    S'
+                | _ -> failwith "Sbre does not support inner lookarounds, use intersections! (&)"
 
             | Concat(head, tail, info) when head.ContainsLookaround ->
                 assert (head.DependsOnAnchor || head.ContainsLookaround)

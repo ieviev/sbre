@@ -129,15 +129,15 @@ let rewriteWordBorder (b:RegexBuilder<BDD>) (outer:RegexNode array) ((idx,node):
     let right = toRight outer idx
     match left, right with
     // wordchar right
-    | _, Some true -> idx,b.anchors._nonWordLeft.Value
+    | Some false, _ | _, Some true -> idx,b.anchors._nonWordLeft.Value
     // wordchar left
-    | Some true, _ -> idx,b.anchors._nonWordRight.Value
+    | Some true, _  | _, Some false -> idx,b.anchors._nonWordRight.Value
     | _ ->
         if outer.Length = 1 then
             idx, b.anchors._wordBorder.Value
         else
-            // failwith "Sbre does not support unconstrained word borders"
-        failwith "TODO: REWRITE WORD BORDER"
+            failwith "Sbre does not support unconstrained word borders"
+        // failwith "TODO: REWRITE WORD BORDER"
 
 
 let convertToSymbolicRegexNode
