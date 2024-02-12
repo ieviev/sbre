@@ -207,7 +207,7 @@ let ``derivative boundary 4``() =
 [<Fact>]
 let ``derivative of plus``() =
     testPartDerivatives (@"^\d+$", "123", [
-        @"(\d)*$"
+        @"φ*$"
         // @"φ*((?!⊤)|(?=\n))"; @"φ*((?=\n)|(?!⊤))"
     ])
 
@@ -215,7 +215,7 @@ let ``derivative of plus``() =
 [<Fact>]
 let ``derivative concat lookaround``() =
     testPartDerivatives (@"^\d+$", "123", [
-        @"(\d)*$"
+        @"φ*$"
         // @"φ*((?=\n)|(?!⊤))"; @"φ*((?!⊤)|(?=\n))"
     ])
 
@@ -376,7 +376,10 @@ let ``derivative neg lookaround 1``() =
 let ``derivative neg lookaround 2``() =
     assertRawDerivative "((?<=.*).*&~(.*A.*))" "A" [
         @"⊥"
-        "(~(.*)&(.*|(?<=.*).*))" ; @"(~(.*)&((?<=.*).*|.*))" ; @"((.*|(?<=.*).*)&~(.*))"
+        "(~(.*)&(.*|(?<=.*).*))"
+        @"(~(.*)&((?<=.*).*|.*))"
+        @"((.*|(?<=.*).*)&~(.*))"
+        @"(((?<=.*).*|.*)&~(.*))"
     ]
 
 #endif

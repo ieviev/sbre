@@ -61,8 +61,9 @@ type RegexNodeFlags =
     | None = 0uy
     | CanBeNullableFlag = 1uy
     | IsAlwaysNullableFlag = 2uy
+    | IsEssentiallyNullableFlag = 64uy
     | ContainsLookaroundFlag = 4uy
-    | ContainsEpsilonFlag = 8uy
+    // | ContainsEpsilonFlag = 8uy
     | HasCounterFlag = 16uy
     // | IsCounterFlag = 32uy
     | DependsOnAnchorFlag = 32uy
@@ -74,9 +75,10 @@ type RegexNodeFlags =
 module RegexNodeFlagsExtensions =
     type RegexNodeFlags with
         member this.IsAlwaysNullable = byte (this &&& RegexNodeFlags.IsAlwaysNullableFlag) <> 0uy
+        member this.IsEssentiallyNullable = byte (this &&& RegexNodeFlags.IsEssentiallyNullableFlag) <> 0uy
         member this.CanBeNullable = byte (this &&& RegexNodeFlags.CanBeNullableFlag) <> 0uy
         member this.ContainsLookaround = byte (this &&& RegexNodeFlags.ContainsLookaroundFlag) <> 0uy
-        member this.ContainsEpsilon = (this &&& RegexNodeFlags.ContainsEpsilonFlag) = RegexNodeFlags.ContainsEpsilonFlag
+        // member this.ContainsEpsilon = (this &&& RegexNodeFlags.ContainsEpsilonFlag) = RegexNodeFlags.ContainsEpsilonFlag
         member this.HasCounter = (this &&& RegexNodeFlags.HasCounterFlag) = RegexNodeFlags.HasCounterFlag
         member this.DependsOnAnchor = (this &&& RegexNodeFlags.DependsOnAnchorFlag) = RegexNodeFlags.DependsOnAnchorFlag
         // member this.IsCounter = (this &&& RegexNodeFlags.IsCounterFlag) = RegexNodeFlags.IsCounterFlag
@@ -163,6 +165,9 @@ type RegexNodeInfo<'tset when 'tset :> IEquatable<'tset> and 'tset: equality >()
 
     member inline this.IsAlwaysNullable =
         this.NodeFlags &&& RegexNodeFlags.IsAlwaysNullableFlag = RegexNodeFlags.IsAlwaysNullableFlag
+
+    member inline this.IsEssentiallyNullable =
+        this.NodeFlags &&& RegexNodeFlags.IsEssentiallyNullableFlag = RegexNodeFlags.IsEssentiallyNullableFlag
         // (this.Flags &&& RegexNodeFlags.IsAlwaysNullable) <> RegexNodeFlags.None
     member inline this.CanBeNullable =
         this.NodeFlags &&& RegexNodeFlags.CanBeNullableFlag = RegexNodeFlags.CanBeNullableFlag
@@ -172,16 +177,16 @@ type RegexNodeInfo<'tset when 'tset :> IEquatable<'tset> and 'tset: equality >()
          (this.NodeFlags &&& RegexNodeFlags.CanBeNullableFlag) = RegexNodeFlags.None
     member inline this.ContainsLookaround =
         this.NodeFlags &&& RegexNodeFlags.ContainsLookaroundFlag = RegexNodeFlags.ContainsLookaroundFlag
-    member inline this.DoesNotContainEpsilon =
-        (this.NodeFlags &&& RegexNodeFlags.ContainsEpsilonFlag) = RegexNodeFlags.None
+    // member inline this.DoesNotContainEpsilon =
+    //     (this.NodeFlags &&& RegexNodeFlags.ContainsEpsilonFlag) = RegexNodeFlags.None
 
 [<ReferenceEquality>]
 type RegexAnchor =
     | End
     | Begin
     | WordBorder
-    | Bol
-    | Eol
+    // | Bol
+    // | Eol
 
 [<ReferenceEquality>]
 [<DebuggerDisplay("{ToString()}")>]
@@ -240,6 +245,31 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
         match this with
         | Singleton v -> tostr v
         | Or(items, _) ->
+            let itlen = items.Count
+            let isCaret =
+                match itlen = 2 with
+                | false -> None
+                | true ->
+                    let items2str = items |> Seq.map (_.ToString()) |> ResizeArray
+                    let v1 = items2str.Contains(@"\A")
+                    let v2 = items2str.Contains(@"(?<=\n)")
+                    if v1 && v2 then Some "^" else None
+            let isDollar =
+                match itlen = 2 with
+                | false -> None
+                | true ->
+                    let items2str = items |> Seq.map (_.ToString()) |> ResizeArray
+                    let v1 = items2str.Contains(@"\z")
+                    let v2 = items2str.Contains(@"(?=\n)")
+                    if v1 && v2 then Some "$" else None
+            match isCaret, isDollar with
+            | Some v,_ -> v
+            | _,Some v -> v
+            | _ ->
+
+
+
+
             let setItems: string list =
                 items |> Seq.map (_.ToString() ) |> Seq.toList
             let combinedList = setItems
@@ -298,10 +328,10 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
         | Anchor regexAnchor ->
             match regexAnchor with
             | End -> @"\z"
-            | Begin -> @"\a"
+            | Begin -> @"\A"
             | WordBorder -> @"\b"
-            | Bol -> "^"
-            | Eol -> "$"
+            // | Bol -> "^"
+            // | Eol -> "$"
 
 #endif
 
@@ -322,12 +352,30 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
         | Or(info = info) | Loop(info = info) | And(info = info) | Not(info = info) | Concat(info = info)  ->
             info.NodeFlags
         | Epsilon ->
-            RegexNodeFlags.CanBeNullableFlag ||| RegexNodeFlags.IsAlwaysNullableFlag ||| RegexNodeFlags.ContainsEpsilonFlag
+            RegexNodeFlags.CanBeNullableFlag |||
+            RegexNodeFlags.IsAlwaysNullableFlag |||
+            RegexNodeFlags.IsEssentiallyNullableFlag
         | Singleton foo -> RegexNodeFlags.None
         | LookAround(node, lookBack, negate, _) ->
-            // RegexNodeFlags.CanBeNullableFlag ||| RegexNodeFlags.ContainsLookaroundFlag
-            node.GetFlags() ||| RegexNodeFlags.ContainsLookaroundFlag
-        | Anchor _ -> RegexNodeFlags.IsAnchorFlag ||| RegexNodeFlags.CanBeNullableFlag
+            let inner = node.GetFlags()
+            let nullFlags = inner &&& ( RegexNodeFlags.CanBeNullableFlag ||| RegexNodeFlags.IsAlwaysNullableFlag)
+            let essentialNull = inner &&& RegexNodeFlags.CanBeNullableFlag
+            match inner.HasFlag(RegexNodeFlags.CanBeNullableFlag), lookBack with
+            // nullable lookahead
+            | true, false -> (nullFlags) ||| RegexNodeFlags.ContainsLookaroundFlag ||| RegexNodeFlags.IsEssentiallyNullableFlag
+            // non nullable lookahead
+            | false, false ->
+                nullFlags &&&
+                RegexNodeFlags.ContainsLookaroundFlag ||| RegexNodeFlags.IsEssentiallyNullableFlag
+            // nullable lookbakc
+            | _, true ->
+                essentialNull &&& RegexNodeFlags.ContainsLookaroundFlag
+
+        | Anchor _ ->
+            RegexNodeFlags.DependsOnAnchorFlag |||
+            RegexNodeFlags.IsAnchorFlag |||
+            RegexNodeFlags.CanBeNullableFlag |||
+            RegexNodeFlags.IsEssentiallyNullableFlag
 
     member this.CanBeNullable =
         this.GetFlags().HasFlag(RegexNodeFlags.CanBeNullableFlag)
@@ -349,6 +397,15 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
         match this with
         | Or(info = info) | Loop(info = info) | And(info = info) | Not(info = info) | Concat(info = info) ->
             info.IsAlwaysNullable
+        | Singleton _ -> false
+        | LookAround _ -> false
+        | Epsilon -> true
+        | Anchor regexAnchor -> false
+
+    member this.IsEssentiallyNullable =
+        match this with
+        | Or(info = info) | Loop(info = info) | And(info = info) | Not(info = info) | Concat(info = info) ->
+            info.IsEssentiallyNullable
         | Singleton _ -> false
         | LookAround _ -> false
         | Epsilon -> true

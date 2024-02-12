@@ -129,9 +129,12 @@ let rewriteWordBorder (b:RegexBuilder<BDD>) (outer:RegexNode array) ((idx,node):
     let right = toRight outer idx
     match left, right with
     // wordchar right
-    | Some false, _ | _, Some true -> idx,b.anchors._nonWordLeft.Value
+    | _, Some true -> idx,b.anchors._nonWordLeft.Value
+    | _, Some false -> idx,b.anchors._wordLeft.Value
     // wordchar left
-    | Some true, _  | _, Some false -> idx,b.anchors._nonWordRight.Value
+    | Some true, _   -> idx,b.anchors._nonWordRight.Value
+    | Some false, _  -> failwith "todo"
+
     | _ ->
         if outer.Length = 1 then
             idx, b.anchors._wordBorder.Value
@@ -259,9 +262,9 @@ let convertToSymbolicRegexNode
             | _ -> b.mkLoop (single, node.M, node.N) :: acc
 
         // anchors
-        | RegexNodeKind.Bol -> b.anchors._caretAnchor :: acc
+        | RegexNodeKind.Bol -> b.anchors._caretAnchor.Value :: acc
         | RegexNodeKind.Beginning -> b.anchors._bigAAnchor :: acc
-        | RegexNodeKind.Eol -> b.anchors._dollarAnchor :: acc
+        | RegexNodeKind.Eol -> b.anchors._dollarAnchor.Value :: acc
         | RegexNodeKind.EndZ -> b.anchors._endZAnchor.Value :: acc
         | RegexNodeKind.End -> b.anchors._zAnchor :: acc //b.anchors._zAnchor.Value :: acc // end of string only
         | RegexNodeKind.Boundary ->

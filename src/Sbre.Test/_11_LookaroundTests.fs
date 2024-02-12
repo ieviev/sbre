@@ -80,8 +80,13 @@ let ``a pos complex 1.4`` () =
     assertMatchEnd @".*(?=.*-)&\S.*\S" @"-aaaa-" 0 5
 
 [<Fact>]
-let ``a pos complex 2.1a`` () =
+let ``a pos complex 2.1a1`` () =
     assertFirstMatchText @".*(?=.*bbb)(?=.*ccc)" @"aaa bbb ccc" "aaa "
+
+[<Fact>]
+let ``a pos complex 2.1a2`` () =
+    assertMatchEndNoLookback @".*(?=.*bbb)(?=.*ccc)" @"aaa bbb ccc" 0 4
+
 
 [<Fact>]
 let ``a pos complex 2.1b`` () =
@@ -446,9 +451,9 @@ let ``testing anchors 1.1``() = assertRawDerivative """\ba""" "a " ["ε"]
 
 [<Fact>]
 let ``testing anchors 1.2``() = assertRawDerivative """⊤*\ba""" "a " [
-    @"(ε|⊤*((?<=φ)|\a)a)" // correct definition with anchor
-    @"(⊤*(\a|(?<=φ))a|ε)"
-    @"(ε|⊤*(\a|(?<=φ))a)"
+    @"(⊤*((?<=φ)|\A)a|ε)"
+    @"(⊤*(\A|(?<=φ))a|ε)"
+    @"(ε|⊤*((?<=φ)|\A)a)"
 ]
 
 [<Fact>]

@@ -216,6 +216,7 @@ let ``conversion lookaround 2 ``() = assertConverted ".(?=A.*)" [@".(?=A.*)"]
 [<Fact>]
 let ``conversion label``() = assertConverted "(?<Time>^\d)" [
     @"^\d"
+    @"^φ"
     // @"((?<!⊤)|(?<=\n))φ"; @"((?<=\n)|(?<!⊤))φ"
 ]
 // assertConverted ".(?=A.*)" @"[^\n](?=A[^\n]*)"
@@ -239,6 +240,13 @@ let ``flags 2``() =
     let f = matcher.ReverseTrueStarredPattern.GetFlags()
     assertNotFlag f Flag.DependsOnAnchorFlag
 
+
+[<Fact>]
+let ``flags 3``() =
+    let matcher = Regex("""(?<=.?)""").TSetMatcher
+    let f = matcher.ReverseTrueStarredPattern.GetFlags()
+    assertFlag f Flag.CanBeNullableFlag
+    assertFlag f Flag.IsAlwaysNullableFlag
 
 
 
@@ -336,15 +344,14 @@ let ``identity rev 1``() =
 
     let req = refEq (m.TSetMatcher.ReversePattern) deriv
     Assert.True(req)
-// let wordborder = _cache.Builder.anchors._wordBorder.Value
-// let isWordBorder = refEq node wordborder
 
-[<Fact>]
-let ``identity word border``() =
-    let m = Regex(@"\b")
 
-    let req = refEq (m.TSetMatcher.ReversePattern) m.TSetMatcher.RawPattern
-    Assert.True(req)
+// [<Fact>]
+// let ``identity word border``() =
+//     let m = Regex(@"\b")
+//
+//     let req = refEq (m.TSetMatcher.ReversePattern) m.TSetMatcher.RawPattern
+//     Assert.True(req)
 
 
 
@@ -468,6 +475,10 @@ let ``withoutprefix 01``() =
 let ``withoutprefix 02``() =
     assertNodeWithoutPrefix @"\b11" ["11"]
 
+
+[<Fact>]
+let ``withoutprefix 03``() =
+    assertNodeWithoutPrefix """(?<=aaa).*""" [".*"]
 
 
 

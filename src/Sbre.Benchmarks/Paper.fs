@@ -415,12 +415,11 @@ type SampleRegexes() =
     inherit
         Jobs.TestSbreAllPatternsMatchOnly(
             [
-
-               "Twain"
-               "(?i)Twain"
-               "[a-z]shing"
-               @"Huck[a-zA-Z]+|Saw[a-zA-Z]+"
-               "[a-q][^u-z]{13}x"
+               // "Twain"
+               // "(?i)Twain"
+               // "[a-z]shing"
+               // @"Huck[a-zA-Z]+|Saw[a-zA-Z]+"
+               // "[a-q][^u-z]{13}x"
                // "Tom|Sawyer|Huckleberry|Finn"
                // "(?i)Tom|Sawyer|Huckleberry|Finn"
                // ".{0,2}(Tom|Sawyer|Huckleberry|Finn)"
@@ -432,7 +431,7 @@ type SampleRegexes() =
                // """["'][^"']{0,30}[?!\.]["']"""
                // """(?<=\W)\w+nn(?=\W)"""
                // """(?<=\a|\W)\w+nn(?=\W|\z)"""
-               // """\b\w+nn\b"""
+               """\b\w+nn\b"""
                // -----------------
                // @"[a-z][a-z]shing"
                // @"[a-z][a-z]sh(?=ing)"

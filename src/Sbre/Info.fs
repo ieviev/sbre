@@ -28,9 +28,9 @@ module Flag =
     let inline hasFlag (arg: RegexNodeFlags) (sourceFlags: RegexNodeFlags) =
         sourceFlags.HasFlag(arg)
 
-    let inline getContainsFlags(sourceFlags: RegexNodeFlags) =
-        (RegexNodeFlags.ContainsEpsilonFlag ||| RegexNodeFlags.ContainsLookaroundFlag)
-        &&& sourceFlags
+    // let inline getContainsFlags(sourceFlags: RegexNodeFlags) =
+    //     (RegexNodeFlags.ContainsLookaroundFlag)
+    //     &&& sourceFlags
 
     /// bitwise or for multiple flags
     let inline mergeFlags(sourceFlags: RegexNodeFlags seq) =
@@ -106,7 +106,10 @@ module rec Flags =
     let rec inferLoop(R, lower, _) =
         let nullableLoopFlag =
             match lower with
-            | 0 -> RegexNodeFlags.CanBeNullableFlag ||| RegexNodeFlags.IsAlwaysNullableFlag
+            | 0 ->
+                RegexNodeFlags.CanBeNullableFlag
+                ||| RegexNodeFlags.IsAlwaysNullableFlag
+                ||| RegexNodeFlags.IsEssentiallyNullableFlag
             | _ -> RegexNodeFlags.None
         inferNodeOptimized R ||| nullableLoopFlag
 
@@ -114,8 +117,8 @@ module rec Flags =
         xs
         |> Seq.map inferNodeOptimized
         |> Seq.reduce (fun b f ->
-            let orflags = (b ||| f) &&& (Flag.ContainsEpsilonFlag ||| Flag.ContainsLookaroundFlag ||| Flag.HasCounterFlag ||| Flag.DependsOnAnchorFlag)
-            let andFlags = b &&& f &&& (Flag.CanBeNullableFlag ||| Flag.IsAlwaysNullableFlag)
+            let orflags = (b ||| f) &&& (Flag.ContainsLookaroundFlag ||| Flag.HasCounterFlag ||| Flag.DependsOnAnchorFlag)
+            let andFlags = b &&& f &&& (Flag.CanBeNullableFlag ||| Flag.IsAlwaysNullableFlag ||| Flag.IsEssentiallyNullableFlag)
             orflags ||| andFlags
         )
     let rec inferOr(xs: seq<RegexNode<'t>>) : RegexNodeFlags =
@@ -124,14 +127,14 @@ module rec Flags =
         |> Seq.reduce (fun b f ->
             let orflags = (b ||| f) &&& (
                     Flag.CanBeNullableFlag ||| Flag.IsAlwaysNullableFlag |||
-                    Flag.ContainsEpsilonFlag ||| Flag.ContainsLookaroundFlag |||
+                    Flag.ContainsLookaroundFlag ||| Flag.IsEssentiallyNullableFlag |||
                     Flag.HasCounterFlag ||| Flag.DependsOnAnchorFlag)
             orflags
         )
     let inferConcat (head: RegexNode<'t>) (tail: RegexNode<'t>) =
         let h1 = inferNodeOptimized head
         let t1 = inferNodeOptimized tail
-        let orFlags = h1 ||| t1 &&& (Flag.ContainsEpsilonFlag ||| Flag.ContainsLookaroundFlag)
+        let orFlags = h1 ||| t1 &&& (Flag.ContainsLookaroundFlag)
         let andFlags = h1 &&& t1 &&& (Flag.IsAlwaysNullableFlag||| Flag.CanBeNullableFlag)
         let dependsOnAnchor = h1.DependsOnAnchor || (h1.CanBeNullable && t1.DependsOnAnchor)
         let dependsOnFlags =
@@ -143,14 +146,15 @@ module rec Flags =
     let inferNodeOptimized(node: RegexNode<'t>) : RegexNodeFlags =
         match node with
         | Concat(info = info) -> info.NodeFlags
-        | Epsilon -> Flag.CanBeNullableFlag ||| Flag.IsAlwaysNullableFlag ||| Flag.ContainsEpsilonFlag
+        | Epsilon -> node.GetFlags()
         | Or(nodes, info) -> info.NodeFlags
-        | Singleton foo -> Flag.None
+        | Singleton foo -> node.GetFlags()
         | Loop(node, low, up, info) -> info.NodeFlags
         | And(nodes, info) -> info.NodeFlags
         | Not(node, info) -> info.NodeFlags
-        | LookAround(node, lookBack, negate, _) -> Flag.CanBeNullableFlag ||| Flag.ContainsLookaroundFlag
-        | Anchor regexAnchor -> Flag.IsAnchorFlag ||| Flag.CanBeNullableFlag ||| Flag.DependsOnAnchorFlag
+        | LookAround(_, lookBack, negate, _) -> node.GetFlags()
+        | Anchor regexAnchor -> node.GetFlags()
+
 
 
     let inferNot(inner: RegexNode<'t>) =
@@ -165,7 +169,7 @@ module rec Flags =
 
                 Flag.None
         let otherFlags =
-            innerInfo &&& (Flag.ContainsEpsilonFlag ||| Flag.ContainsLookaroundFlag ||| Flag.HasCounterFlag ||| Flag.DependsOnAnchorFlag)
+            innerInfo &&& (Flag.IsEssentiallyNullableFlag ||| Flag.ContainsLookaroundFlag ||| Flag.HasCounterFlag ||| Flag.DependsOnAnchorFlag)
         nullableFlags ||| otherFlags
 
 
@@ -202,6 +206,30 @@ module Node =
             | LookAround(_) -> Some (0 + acc)
             | Anchor _ -> Some (0 + acc)
         loop 0 node
+
+    // let rec isEssentiallyNullable (loc:Location) (node: RegexNode<_>) =
+    //     let locpos = loc.Position
+    //     let inputlen = loc.Input.Length
+    //     let rec loop  node : bool =
+    //         match node with
+    //         | Concat(head, tail, info) -> loop head && loop tail
+    //         | Epsilon -> true
+    //         | Or(nodes, info) | And(nodes, info) -> nodes |> Seq.exists loop
+    //         | Singleton _ -> false
+    //         | Loop(Singleton node, low, up, info) ->
+    //             if low = up then Some (low + acc) else None
+    //         | Loop(node, low, up, info) -> None
+    //         | Not(node, info) -> None
+    //         | LookAround(node = node ;lookBack = true) -> loop 0 node
+    //         | LookAround(lookBack = false) -> Some (0 + acc)
+    //         | Anchor anc ->
+    //             match anc with
+    //             | Begin ->
+    //                 if locpos = 0 then Some(0) else None
+    //             | End ->
+    //                 if locpos = inputlen then Some(0) else None
+    //             | WordBorder -> failwith "todo"
+    //     loop 0 node
 
     let inline isAlwaysNullable(node: RegexNode<'t>) =
         match node with

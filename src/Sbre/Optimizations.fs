@@ -154,6 +154,7 @@ let rec calcPrefixSets getNonInitialDerivative (getStateFlags: RegexNode<_> -> R
             match prefix_derivs with
             | [| (mt, deriv) |]  ->
                 // stop with pending nullable
+                // if deriv.CanBeNullable then acc |> List.rev else
                 // match deriv with
                 // | LookAround(_, false, false, _) ->
                 //     acc |> List.rev
@@ -172,8 +173,10 @@ let rec calcPrefixSets getNonInitialDerivative (getStateFlags: RegexNode<_> -> R
     | Some compl ->
         let complementStartset = calcPrefixSets getNonInitialDerivative getStateFlags cache compl
         let trimmedPrefix =
+            if complementStartset.Length = 0 then [] else
             prefix
             |> Seq.takeWhile (fun v ->
+
                 not (cache.Solver.isElemOfSet(v,complementStartset[0]))
             )
             |> Seq.toList
@@ -395,9 +398,9 @@ let rec collectPendingNullables
     | Concat(head=head; tail=tail) ->
         let pendingTail = collectPendingNullables canBeNull tail
         pendingTail
-    | _ ->
-        failwith $"todo: nullables inside: {node}"
-        Set.empty
+    // | _ ->
+    //     failwith $"todo: nullables inside: {node}"
+    //     Set.empty
 
 let rec nodeWithoutLookbackPrefix
     (b:RegexBuilder<_>)

@@ -286,11 +286,16 @@ let ``negation range test 2``() =
         "Aa1"
 
 [<Fact>]
-let ``negation startset inference test``() =
+let ``negation startset inference test 1``() =
     assertFirstMatchText
         @"a.*&~(.*b.*)b"
         "---a------bbb"
         "a------b"
+
+[<Fact>]
+let ``negation startset inference test 2``() =
+    assertMatchEnd @"a.*&~(.*b.*)b" "---a------bbb" 3 11
+        // "a------b"
 
 
 [<Fact>]

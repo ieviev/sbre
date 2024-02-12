@@ -189,16 +189,16 @@ type RegexMatcher<'t when 't: struct>
                         let c2 = (RegexCharClass.IsBoundaryWordChar(prev)) && not (RegexCharClass.IsBoundaryWordChar(curr))
                         c1 || c2
                     | _ -> true// impossible case
-                | Bol ->
-                    loc.Position = 0 ||
-                    match prevCharOpt with
-                    | ValueSome c -> c = '\n'
-                    | _ -> false
-                | Eol ->
-                    loc.Position = loc.Input.Length ||
-                    match currChar with
-                    | ValueSome c -> c = '\n'
-                    | _ -> false
+                // | Bol ->
+                //     loc.Position = 0 ||
+                //     match prevCharOpt with
+                //     | ValueSome c -> c = '\n'
+                //     | _ -> false
+                // | Eol ->
+                //     loc.Position = loc.Input.Length ||
+                //     match currChar with
+                //     | ValueSome c -> c = '\n'
+                //     | _ -> false
 
     let rec _createDerivative (
         loc: inref<Location>,
@@ -284,8 +284,7 @@ type RegexMatcher<'t when 't: struct>
                     S'
                 | _ -> failwith "Sbre does not support inner lookarounds, use intersections! (&)"
 
-            | Concat(head, tail, info) when head.ContainsLookaround ->
-                assert (head.DependsOnAnchor || head.ContainsLookaround)
+            | Concat(head, tail, info) when head.IsAlwaysNullable ->
                 let R' = _createDerivative (&loc, loc_pred, head)
                 let R'S = _cache.Builder.mkConcat2 (R', tail)
                 let S' = _createDerivative (&loc, loc_pred, tail)
@@ -294,12 +293,25 @@ type RegexMatcher<'t when 't: struct>
                 else
                     if refEq R'S _cache.False then S' else
                     _cache.Builder.mkOr ( seq { R'S ;S' } )
+            | Concat(head, tail, info) when head.IsEssentiallyNullable ->
+                // failwith "todo: complex lookaround derivative"
+                // assert (head.DependsOnAnchor || head.ContainsLookaround)
+                let R' = _createDerivative (&loc, loc_pred, head)
+                let R'S = _cache.Builder.mkConcat2 (R', tail)
+                let S' = _createDerivative (&loc, loc_pred, tail)
+                if // head.DependsOnAnchor &&
+                   not (_isNullable (&loc, head)) &&
+                   R'.CanNotBeNullable then
+                    R'S
+                else
+                if refEq _cache.Builder.uniques._false S' then
+                    R'S
+                else
+                    if refEq R'S _cache.False then S' else
+                    _cache.Builder.mkOr ( seq { R'S ;S' } )
 
             // Derx (R·S) = if Nullx (R) then Derx (R)·S|Derx (S) else Derx (R)·S
             | Concat(head, tail, info) ->
-                // if head.ContainsLookaround then
-                //     failwith "TODO: lookaround edge case"
-                // else
                 let R' = _createDerivative (&loc, loc_pred, head)
                 let R'S = _cache.Builder.mkConcat2 (R', tail)
                 if _isNullable (&loc, head) then
@@ -347,8 +359,8 @@ type RegexMatcher<'t when 't: struct>
 
             | Anchor _ -> _cache.False
 
-        if not node.ContainsLookaround && not (node.GetFlags().HasFlag(Flag.IsAnchorFlag)) then
-            _cache.Builder.AddTransitionInfo(loc_pred, node, result)
+        // if not node.ContainsLookaround && not (node.GetFlags().HasFlag(Flag.IsAnchorFlag)) then
+        //     _cache.Builder.AddTransitionInfo(loc_pred, node, result)
 
         result
     let _createStartset(state: MatchingState, initial: bool) =
@@ -433,6 +445,7 @@ type RegexMatcher<'t when 't: struct>
             if
                 not (_cache.Solver.IsEmpty(state.Startset) || _cache.Solver.IsFull(state.Startset))
             then
+                if isNull state.StartsetChars then () else
                 state.Flags <- state.Flags ||| RegexStateFlags.CanSkipFlag
             else
                 ()
@@ -456,6 +469,7 @@ type RegexMatcher<'t when 't: struct>
                             state.Node
                 match limitedSkip with
                 | Some ls ->
+                    if isNull state.StartsetChars then () else
                     state.ActiveOptimizations <- ls
                     state.Flags <-
                         state.Flags |||
@@ -486,10 +500,9 @@ type RegexMatcher<'t when 't: struct>
     // R
     let DFA_R_orig = _getOrCreateState(initialNode, false).Id
     let DFA_R_noPrefix =
-        if initialNode.ContainsLookaround then
-            _getOrCreateState(nodeWithoutLookbackPrefix _cache.Builder initialNode, false).Id
-        else
-            DFA_R_orig
+        _getOrCreateState(nodeWithoutLookbackPrefix _cache.Builder initialNode, false).Id
+        // else
+        //     DFA_R_orig
 
     let _initialOptimizations =
         let opts =
@@ -517,9 +530,12 @@ type RegexMatcher<'t when 't: struct>
         let mutable currPos = 0
         let mutable startLocation = Location.createSpan input currPos
         let mutable _toplevelOr = _cache.False
-        match this.DfaMatchEnd(&startLocation, DFA_TR, searchMode=RegexSearchMode.FirstNullable) with
-        | -2 -> false
+        match this.llmatch_all_count_only(input) with
+        | 0 -> false
         | _ -> true
+        // match this.DfaMatchEnd(&startLocation, DFA_TR, searchMode=RegexSearchMode.FirstNullable) with
+        // | -2 -> false
+        // | _ -> true
 
     override this.Match(input) : SingleMatchResult =
         let firstMatch = this.MatchPositions(input) |> Seq.tryHead
@@ -609,9 +625,10 @@ type RegexMatcher<'t when 't: struct>
         let nextStateId = _dfaDelta[dfaOffset]
 
         // caching workaround until context implementation
-        if flags.CannotBeCached || loc.Position = 0 then
+        // if flags.CannotBeCached || loc.Position = loc.Input.Length then
+        if loc.Position = loc.Input.Length || loc.Position = 0 then
             let nextState = this.TryNextDerivative(&currentState, mintermId, &loc)
-            _dfaDelta[dfaOffset] <- nextState
+            // _dfaDelta[dfaOffset] <- nextState
             currentState <- nextState
         else if
             // existing transition in dfa
@@ -682,6 +699,7 @@ type RegexMatcher<'t when 't: struct>
             else
             if flags.CanSkip then
                 let ss = dfaState.Startset
+                if isNull dfaState.StartsetChars then () else
                 _cache.TryNextStartsetLocation(&loc, ss)
 
             // set max nullability after skipping

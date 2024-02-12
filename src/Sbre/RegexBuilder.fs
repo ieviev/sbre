@@ -284,7 +284,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 _true,
                 low = 0,
                 up = Int32.MaxValue,
-                info = _createInfo (RegexNodeFlags.IsAlwaysNullableFlag ||| RegexNodeFlags.CanBeNullableFlag) solver.Full
+                info = _createInfo (RegexNodeFlags.IsAlwaysNullableFlag ||| RegexNodeFlags.CanBeNullableFlag ||| RegexNodeFlags.IsEssentiallyNullableFlag) solver.Full
 
             )
         _truePlus =
@@ -296,6 +296,8 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             )
         _wordChar = lazy b.setFromStr @"\w"
         _nonWordChar = lazy b.setFromStr @"\W"
+        _zAnchor = RegexNode<'t>.Anchor End
+        _aAnchor = RegexNode<'t>.Anchor Begin
     |}
 
     do _loopCache.Add(struct(_true, 0, Int32.MaxValue), _uniques._trueStar)
@@ -304,28 +306,48 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
     do _singletonCache.Add(solver.Empty,_false)
 
     let _anchors =
-        let __z_anchor =
-            lazy b.mkLookaround(_true,false,true)
-        let __big_a_anchor =
-            lazy b.mkLookaround(_true,true,true)
+        let nonWordLeft =
+            lazy
+                b.mkOr([
+                    RegexNode<'t>.Anchor Begin;
+                    b.mkLookaround( _uniques._nonWordChar.Value ,true,false)
+                ])
+        let wordLeft =
+            lazy
+                b.mkOr([
+                    RegexNode<'t>.Anchor Begin
+                    b.mkLookaround( _uniques._wordChar.Value ,true,false)
+                ])
+        let nonWordRight =
+            lazy
+                b.mkOr(
+                    [RegexNode<'t>.Anchor End
+                     b.mkLookaround( _uniques._nonWordChar.Value,false,false) ]
+                )
+        let wordRight =
+            lazy
+                b.mkOr(
+                    [RegexNode<'t>.Anchor End
+                     b.mkLookaround( _uniques._wordChar.Value,false,false) ]
+                )
 
         {|
             _endZAnchor = lazy b.mkOr([
                 b.mkLookaround(_true,false,true)
                 b.mkLookaround(b.mkConcat2(b.one '\n',_true),false,true)
             ])
-            _zAnchor = RegexNode<'t>.Anchor End
+            _zAnchor = _uniques._zAnchor
 
             // \A ≡ (?<!⊤)
-            _bigAAnchor = RegexNode<'t>.Anchor Begin
+            _bigAAnchor = _uniques._aAnchor
                 // __big_a_anchor
             // (?<=\A|\A\n) ≡ \a
             _aAnchor =
                 lazy
                     let seqv =
                         ofSeq [
-                            __big_a_anchor.Value
-                            b.mkConcat2(__big_a_anchor.Value, b.one '\n')
+                            _uniques._aAnchor
+                            b.mkConcat2(_uniques._aAnchor, b.one '\n')
                         ]
                     let node = b.mkOr(seqv)
                     b.mkLookaround(node,true,true)
@@ -352,15 +374,17 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                     lazy
                         b.mkOr(
                         ofSeq [
-                            b.mkConcat [
-                                // (?<=ψ\w)
-                                b.mkLookaround(_uniques._wordChar.Value,true,false)
-                                b.mkLookaround(_uniques._wordChar.Value,false,true)
-                            ]
-                            b.mkConcat [
-                                b.mkLookaround(_uniques._wordChar.Value,true,true)
-                                b.mkLookaround(_uniques._wordChar.Value,false,false)
-                            ]
+                            b.mkConcat2(nonWordLeft.Value, wordRight.Value)
+                            b.mkConcat2(wordLeft.Value, nonWordRight.Value)
+                            // b.mkConcat [
+                            //     // (?<=ψ\w)
+                            //     b.mkLookaround(_uniques._wordChar.Value,true,false)
+                            //     b.mkLookaround(_uniques._wordChar.Value,false,true)
+                            // ]
+                            // b.mkConcat [
+                            //     b.mkLookaround(_uniques._wordChar.Value,true,true)
+                            //     b.mkLookaround(_uniques._wordChar.Value,false,false)
+                            // ]
                         ]
                     )
             // (?<=\W)
@@ -371,6 +395,13 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                     b.mkOr([
                         RegexNode<'t>.Anchor Begin
                         b.mkLookaround( _uniques._nonWordChar.Value ,true,false)
+                    ])
+            // (?<=\W)
+            _wordLeft =
+                lazy
+                    b.mkOr([
+                        RegexNode<'t>.Anchor Begin
+                        b.mkLookaround( _uniques._wordChar.Value ,true,false)
                     ])
             // (?=\W)
             // _nonWordRight = lazy b.mkLookaround(_uniques._nonWordChar.Value,false,false)
@@ -388,27 +419,24 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
 
             // ^ ≡ \A|(?<=\n)
             _caretAnchor =
-                RegexNode<'t>.Anchor Bol
-                // lazy
-                //     b.mkOr(
-                //         ofSeq [
-                //             __big_a_anchor.Value
-                //             b.mkLookaround(b.one '\n',true,false)
-                //         ]
-                //     )
+                // RegexNode<'t>.Anchor Bol
+                lazy
+                    b.mkOr(
+                        ofSeq [
+                            _uniques._aAnchor
+                            b.mkLookaround(b.one '\n',true,false)
+                        ]
+                    )
             _dollarAnchor =
-                RegexNode<'t>.Anchor Eol
-                // lazy
-                //
-                //     let info = _createInfo (RegexNodeFlags.CanBeNullableFlag ||| RegexNodeFlags.ContainsLookaroundFlag) solver.Full
-                //
-                //     Or(
-                //         ofSeq [
-                //             __z_anchor.Value
-                //             b.mkLookaround(b.one '\n',false,false)
-                //         ],
-                //         info
-                //     )
+                // RegexNode<'t>.Anchor Eol
+                lazy
+                    b.mkOr(
+                        ofSeq [
+                            _uniques._zAnchor
+                            b.mkLookaround(b.one '\n',false,false)
+                        ]
+                    )
+
         |}
 
     let mutable _prefixCache: Dictionary<RegexNode<'t>, InitialStartset<'t>> =
@@ -430,8 +458,8 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
     member this.InitializeUniqueMap(oldBuilder:RegexBuilder<BDD>) =
         _uniquesDict.Add(oldBuilder.anchors._aAnchor.Value,this.anchors._aAnchor.Value)
         _uniquesDict.Add(oldBuilder.anchors._bigAAnchor,this.anchors._bigAAnchor)
-        _uniquesDict.Add(oldBuilder.anchors._caretAnchor,this.anchors._caretAnchor)
-        _uniquesDict.Add(oldBuilder.anchors._dollarAnchor,this.anchors._dollarAnchor)
+        _uniquesDict.Add(oldBuilder.anchors._caretAnchor.Value,this.anchors._caretAnchor.Value)
+        _uniquesDict.Add(oldBuilder.anchors._dollarAnchor.Value,this.anchors._dollarAnchor.Value)
         _uniquesDict.Add(oldBuilder.anchors._nonWordBorder.Value,this.anchors._nonWordBorder.Value)
         _uniquesDict.Add(oldBuilder.anchors._wordBorder.Value,this.anchors._wordBorder.Value)
         _uniquesDict.Add(oldBuilder.anchors._zAnchor,this.anchors._zAnchor)
@@ -760,9 +788,9 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                     for node in nodes do
                         handleNode node
                 // ~(.*) -> always false (?)
-                | Not(node, info) when info.CanNotBeNullable() && info.DoesNotContainEpsilon ->
-                    enumerating <- false
-                    status <- MkAndFlags.IsFalse
+                // | Not(node, info) when info.CanNotBeNullable() ->
+                //     enumerating <- false
+                //     status <- MkAndFlags.IsFalse
                 | Epsilon ->
                     status <- MkAndFlags.ContainsEpsilon
                     // derivatives.Add(deriv)
