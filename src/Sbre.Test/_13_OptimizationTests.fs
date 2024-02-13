@@ -256,7 +256,7 @@ let ``activeOptimizations 1``() =
     match optimizations with
     | Some (Optimizations.ActiveBranchOptimizations.LimitedSkip(distance=n; termPred = termPred)) ->
         // let tp = termPred // Any2CharSearchValues`1, Count = 2, Values = ""'"
-        assertEqual 31 n
+        assertEqual 30 n
 
     | _ -> failwith "invalid optimization result"
 

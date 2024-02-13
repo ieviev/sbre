@@ -830,11 +830,11 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             | true -> Some(other, ornode)
             | false -> Some(mergeIntersection(),mergeUnion())
         // (⊤*A⊤*&⊤*B⊤*)&⊤*B⊤* -> ⊤*A⊤*&⊤*B⊤*
-        // | other, (And(nodes=nodes) as andnode)
-        // | (And(nodes=nodes) as andnode), other ->
-        //     match nodes.Contains(other) with
-        //     | true -> Some(andnode, other)
-        //     | false -> Some(this.mkAnd2Direct(node1,node2),this.mkOr2Direct(node1,node2))
+        | other, (And(nodes=nodes) as andnode)
+        | (And(nodes=nodes) as andnode), other ->
+            match nodes.Contains(other) with
+            | true -> Some(andnode, other)
+            | false -> Some(this.mkAnd2Direct(node1,node2),this.mkOr2Direct(node1,node2))
 
         // [a-z]&a -> a
         | (Singleton p1 as p1node), (Singleton p2 as p2node) ->

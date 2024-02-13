@@ -362,6 +362,43 @@ let tryGetLimitedSkip getNonInitialDerivative (nodeToId:RegexNode<TSet> -> int) 
                     )
                 )
         | _ -> None
+    | Concat(_) ->
+        let nonTermDerivatives (node: RegexNode<TSet>) =
+            let ders1 = Optimizations.getNonRedundantDerivatives getNonInitialDerivative c redundant node
+            ders1 |> Array.where (fun (mt,_) -> not (Solver.contains skipTerm mt) )
+
+        let nonInitialNonTerm = nonTermDerivatives node
+
+        match nonInitialNonTerm with
+        | [| singlePath |] ->
+            let path = ResizeArray()
+            let rec loop (node: RegexNode<_>) =
+                match nonTermDerivatives node with
+                | [| (mt,single) |] when (not (node.CanBeNullable || refEq c.False node || c.Solver.IsFull(mt))) ->
+                    redundant.Add(node) |> ignore
+                    path.Add(mt)
+                    loop single
+                | _ -> node
+            let finalNode = loop (snd singlePath)
+            if path.Count < 2 then None else
+                if c.MintermIsInverted(skipTerm) then None else
+                    // failwith "todo: inverted minterm"
+                let chrs = c.MintermChars(skipTerm)
+                if chrs.IsNone || chrs.Value.Length > 50 then
+                    failwith "todo: too many chars in set"
+                let searchValuesSet =
+                    c.MintermSearchValues(skipTerm)
+                searchValuesSet
+                |> Option.map (fun searchValuesSet ->
+                    ActiveBranchOptimizations.LimitedSkip(
+                    distance=path.Count + 1,
+                    termPred= searchValuesSet,
+                    termTransitionId=nodeToId (getNonInitialDerivative (skipTerm, node)),
+                    nonTermTransitionId= nodeToId (c.Builder.mkOr [finalNode; initial])
+                    // nonTermTransitionId= nodeToId (node)
+                    )
+                )
+        | _ -> None
     | _ -> None
 
 
