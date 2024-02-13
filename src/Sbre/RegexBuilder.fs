@@ -1022,6 +1022,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 let newtail = this.mkOr2(ctail1,ctail2)
                 this.mkConcat2(chead1, newtail)
             // Huck[a-zA-Z]+|Saw[a-zA-Z]+ -> (Huck|Saw)([A-Za-z])+
+            // todo: this fails
             | Concat(head=h1;tail=t1) as node1, (Concat(head=h2;tail=t2) as node2) ->
                 let list1 = (this.getConcatList node1) |> Seq.toArray
                 let list2 = (this.getConcatList node2) |> Seq.toArray
@@ -1054,9 +1055,9 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                     newNode
             | _ ->
 
-            match this.combineLanguage(node1, node2) with
-            | Some (smaller,larger) -> larger
-            | _ -> createCached(key)
+                match this.combineLanguage(node1, node2) with
+                | Some (smaller,larger) -> larger
+                | _ -> createCached(key)
 
 
     member this.mkAnd2 (node1: RegexNode<'t>, node2: RegexNode<'t>) : RegexNode<'t> =
@@ -1355,6 +1356,9 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
 
 
     member this.mkConcat2(head: RegexNode< 't >, tail: RegexNode< 't >) : RegexNode< 't > =
+
+
+
         // wont pollute the cache with these
         match head, tail with
         | Epsilon, _ -> tail // ()R -> R
@@ -1366,12 +1370,22 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
         | _ ->
             let key = struct (head, tail)
 
+            let createCached(head,tail) =
+                let flags = Flags.inferConcat head tail
+                let mergedMinterms = solver.Or(head.SubsumedByMinterm(solver),tail.SubsumedByMinterm(solver))
+                let info = this.CreateInfo(flags, mergedMinterms)
+                let node = Concat(head, tail, info)
+                _concatCache.Add(key,node)
+                node
+
             match _concatCache.TryGetValue(key) with
             | true, v -> v
             | _ ->
                 match head, tail with
-                // normalize
+                | _ when refEq head _uniques._trueStar ->
+                    createCached(head,tail)
 
+                // normalize
                 | Concat(head=h1;tail=h2), tail ->
                     let merged = this.mkConcat2(h1,this.mkConcat2(h2,tail))
                     _concatCache.Add(key, merged)
@@ -1419,6 +1433,8 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 // a(?<=[a-z]) to (a&(⊤*[a-z])
                 | head, LookAround(node=node;lookBack=true) ->
                     // only rewrite trivial examples!
+
+                    // failwith "TODO: rewrite inner lookaround"
                     let v = b.mkAnd([
                         head
                         b.mkConcat2(b.trueStar,node)

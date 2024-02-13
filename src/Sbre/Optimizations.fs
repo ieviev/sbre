@@ -130,7 +130,7 @@ let rec getPrefixNodeAndComplement (cache:RegexCache<_>) (node:RegexNode<_>) : R
 
 
 let rec calcPrefixSets getNonInitialDerivative (getStateFlags: RegexNode<_> -> RegexStateFlags) (cache: RegexCache<_>) (startNode: RegexNode<_>) =
-    let redundant = System.Collections.Generic.HashSet<RegexNode<TSet>>([ cache.False ])
+    let redundant = System.Collections.Generic.HashSet<RegexNode<TSet>>([ cache.False; startNode ])
 
     // nothing to complement if a match has not started
     let prefixStartNode, complementStartset =
@@ -140,35 +140,34 @@ let rec calcPrefixSets getNonInitialDerivative (getStateFlags: RegexNode<_> -> R
     let rec loop acc node =
         // let isRedundant = not (redundant.Add(node))
         // let all_derivs = getImmediateDerivativesMerged cache node |> Seq.toArray
-        let prefix_derivs = getNonRedundantDerivatives getNonInitialDerivative cache redundant node
+        let prefix_derivs =
+            getNonRedundantDerivatives getNonInitialDerivative cache redundant node
+            |> Seq.toArray
+
         // a -> t
         let stateFlags = getStateFlags node
-        if stateFlags.CanSkip && not (refEq prefixStartNode node) then acc |> List.rev else
+        if stateFlags.CanSkip && not (refEq prefixStartNode node) || stateFlags.CanBeNullable then acc |> List.rev else
         // if stateFlags.CanSkip && not (refEq startNodeWithoutComplement node) then acc |> List.rev else
-        if redundant.Contains(node) then
+        if not acc.IsEmpty && redundant.Contains(node) then
             acc |> List.rev
 
         else if node.CanBeNullable  then
             acc |> List.rev
         else
-            if acc.Length = 0 then
-                (redundant.Add (node) |> ignore)
-
-            let pretty =
-                prefix_derivs
-                |> (Array.map (fun (mt,node) ->
-                    cache.PrettyPrintMinterm(mt), node
-                ))
-                |> Seq.toArray
+            // let pretty =
+            //     prefix_derivs
+            //     |> (Array.map (fun (mt,node) ->
+            //         cache.PrettyPrintMinterm(mt), node
+            //     ))
+            //     |> Seq.toArray
 
             match prefix_derivs with
             | [| (mt, deriv) |]  ->
+                if refEq deriv node then [] else // anchor infinite loop
                 // stop with pending nullable
                 let acc' = mt :: acc
                 loop acc' deriv
             | _ ->
-                // let merged_pred = prefix_derivs |> Seq.map fst |> Seq.fold (|||) cache.Solver.Empty
-                // prefix_derivs |> Seq.map snd |> Seq.iter (redundant.Add >> ignore)
                 acc |> List.rev
     let prefix = loop [] prefixStartNode
 

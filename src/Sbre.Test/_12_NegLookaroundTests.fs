@@ -22,7 +22,10 @@ let ``der neg anchor 1``() = _04_DerivativeTests.testRevDerivative (@"(?!b)","b"
 ])
 
 [<Fact>]
-let ``der neg anchor 2``() = _04_DerivativeTests.testRevDerivative (@"(?!b)","a",[ @"ε"; ])
+let ``der neg anchor 2``() = _04_DerivativeTests.testRevDerivative (@"(?!b)","a",[
+    // @"ε"
+    @"(?<=~(⊤*b))"
+])
 
 [<Fact>]
 let ``der neg anchor 3``() = _04_DerivativeTests.testRevDerivative (@"bb(?!b)","b",[

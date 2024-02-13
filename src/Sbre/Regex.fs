@@ -359,8 +359,8 @@ type RegexMatcher<'t when 't: struct>
                     // else
                     let remainingLookBody = _createDerivative (&loc, loc_pred, lookBody)
 
-                    if _isNullable(&loc,remainingLookBody) then _cache.Eps else
-                    let bodyIsNullable = _isNullable(&loc,remainingLookBody)
+                    // if _isNullable(&loc,remainingLookBody) then _cache.Eps else
+                    // let bodyIsNullable = _isNullable(&loc,remainingLookBody)
 
                     match remainingLookBody with
                     | n when refEq n _cache.False -> _cache.False

@@ -278,6 +278,7 @@ let ``subsumption or concat ``() =
     testPartDerivatives (@".*t.*hat.*", "ttt", [
         @".*hat.*"
         @".*(t.*|ε)hat.*"
+        @".*(ε|t.*)hat.*"
     ])
 
 

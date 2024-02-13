@@ -119,6 +119,12 @@ let ``a pos complex 2.2b`` () =
 [<Fact>]
 let ``a pos complex 2.2c`` () =
     assertFirstMatchText @"\d+(?=\s*[aApP]\.?[mM]\.?)" @"10 pm" "10"
+    // printAllDerivatives @"\d+(?=\s*[aApP]\.?[mM]\.?)" @"10 pm" [
+    //     ["((?<=.?[APap]φ*)(\d)+|⊤*(?<=.?[Mm].?[APap]φ*)(\d)+)"]
+    //     ["((?<=φ*)(\d)+|⊤*(?<=.?[Mm].?[APap]φ*)(\d)+)"]
+    //     []
+    //     []
+    // ]
 
 [<Fact>]
 let ``a pos complex 2.2d`` () =

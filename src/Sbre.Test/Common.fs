@@ -327,16 +327,15 @@ let assertNullablePositions (pattern:string) (input:string) (expected) =
     let result = matcher.CollectReverseNullablePositions(&acc,&loc)
     Assert.Equal<int>(expected, result.AsArray())
 
-let assertAllDerivatives (pattern:string) (input:string) (expected: string list list) =
+let printAllDerivatives (pattern:string) (input:string) (expected: string list list) =
     let regex = Regex(pattern)
     let matcher = regex.TSetMatcher
     let mutable loc = Location.createReversedSpan (input.AsSpan())
     use mutable acc = new SharedResizeArrayStruct<int>(100)
     let result = matcher.PrintAllDerivatives(&acc,&loc)
-    Seq.zip expected result
-    |> Seq.iter (fun (ex,res) ->
-        Assert.Contains(res,ex)
-    )
+    failwith $"%A{result}"
+    ()
+
 
 let getDfaMatchEnd (pattern:string) (input:string) (startPos:int)  =
     let regex = Regex(pattern)
