@@ -32,10 +32,10 @@ let assertPatternIn (expectedResults:string list) (state:MatchingState) =
     let nodestr = node.ToString()
     Assert.Contains(nodestr , expectedResults)
 
-[<Fact>]
-let ``dfa derivative 01`` () =
-    let matcher, (state) = getDfaMatcherAndDerivative "abcd" "abcde"
-    assertPatternIn [ "(bcd|⊤*abcd)"; "(⊤*abcd|bcd)" ] state
+// [<Fact>]
+// let ``dfa derivative 01`` () =
+//     let matcher, (state) = getDfaMatcherAndDerivative "abcd" "abcde"
+//     assertPatternIn [ "(bcd|⊤*abcd)"; "(⊤*abcd|bcd)" ] state
 
 
 

@@ -131,13 +131,6 @@ let ``calc potential start 1``() =
     Assert.Equal("[mnry];[enor];[Tiry]", prefixString)
 
 
-[<Fact>]
-let ``apply prefix 1``() =
-    let applied = Common.applyPrefix "Twain"
-    assertNodeOneOf applied [
-        @"(ε|⊤*niawT)"
-        @"(⊤*niawT|ε)"
-    ]
 
 [<Fact>]
 let ``initialOptimizations 01``() =
@@ -232,6 +225,13 @@ let ``initialOptimizations 12``() =
     assertPotentialPrefix @"a( |)b( |)c( |)d" @"d;[ c];[ bc];[ ab]"
 
 [<Fact>]
+let ``initialOptimizations 13``() =
+    assertStringPrefix """.*(?=aaa)""" "aaa"
+
+
+
+
+[<Fact>]
 let ``activeOptimizations 1``() =
     let regex = Regex("""["'][^"']{0,30}[?!\.]["']""")
     let matcher = regex.TSetMatcher
@@ -254,6 +254,29 @@ let ``activeOptimizations 1``() =
         assertEqual 31 n
 
     | _ -> failwith "invalid optimization result"
+
+
+
+
+[<Fact>]
+let ``apply prefix 1``() =
+    let applied = Common.applyPrefix """Twain"""
+    assertNodeOneOf applied [
+        @"(ε|⊤*niawT)"
+        @"(⊤*niawT|ε)"
+    ]
+
+
+[<Fact>]
+let ``apply prefix 2``() =
+    let applied = Common.applyPrefix @".*(?=aaa)"
+    assertNodeOneOf applied [
+        @"(((?<=a)|(⊤*(?<=aaa)|(?<=aa)))|ε).*"
+        @"((((?<=aa)|⊤*(?<=aaa))|(?<=a))|ε).*"
+        @"(((?<=a)|((?<=aa)|⊤*(?<=aaa)))|ε).*"
+        @"(ε|((⊤*(?<=aaa)|(?<=aa))|(?<=a))).*"
+        @"(((⊤*(?<=aaa)|(?<=aa))|(?<=a))|ε).*"
+    ]
 
 
 

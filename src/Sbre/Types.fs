@@ -150,7 +150,7 @@ type RegexNodeInfo<'tset when 'tset :> IEquatable<'tset> and 'tset: equality >()
 
     member val NodeFlags: RegexNodeFlags = RegexNodeFlags.None with get, set
     // member val InitialStartset: InitialStartset<'tset> = InitialStartset.Uninitialized with get, set
-    member val Transitions: ResizeArray<Transition<'tset>> = ResizeArray() with get, set
+    member val Transitions: Dictionary<'tset,RegexNode<'tset>> = Dictionary() with get, set
     member val Subsumes: Dictionary<RegexNode<'tset>,bool> = Dictionary() with get, set
     // todo: subsumedbyset
 
@@ -373,7 +373,7 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
         | LookAround(node, lookBack, negate, _) ->
             let inner = node.GetFlags()
             let nullFlags = inner &&& ( RegexNodeFlags.CanBeNullableFlag ||| RegexNodeFlags.IsAlwaysNullableFlag)
-            let essentialNull = inner &&& RegexNodeFlags.CanBeNullableFlag
+
             let ancFlag = inner &&& RegexNodeFlags.DependsOnAnchorFlag
             match inner.HasFlag(RegexNodeFlags.CanBeNullableFlag), lookBack with
             // nullable lookahead
@@ -389,7 +389,8 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
                 ||| ancFlag
             // nullable lookbakc
             | _, true ->
-                essentialNull &&& RegexNodeFlags.ContainsLookaroundFlag ||| ancFlag
+                // essentialNull ||| nullFlags ||| RegexNodeFlags.ContainsLookaroundFlag ||| ancFlag
+                ancFlag ||| nullFlags ||| RegexNodeFlags.ContainsLookaroundFlag
 
         | Anchor _ ->
             RegexNodeFlags.DependsOnAnchorFlag |||

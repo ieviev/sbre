@@ -53,9 +53,8 @@ module RegexNode =
         | Epsilon -> node
         | Anchor regexAnchor -> node
 
-    let inline getTransitionInfo(pred: ^t, node: RegexNode< ^t >) =
+    let inline getCachedTransition(pred: ^t, node: RegexNode< ^t >) =
         let mutable result = ValueNone
-
         match node with
         | Or(info = info)
         | Loop(info = info)
@@ -63,41 +62,11 @@ module RegexNode =
         | Not(info = info)
         | Concat(info = info) ->
             if info.NodeFlags.HasCounter then ValueNone else
-            let mutable e = CollectionsMarshal.AsSpan(info.Transitions)
-
-            let mutable looping = true
-            let mutable i = 0
-
-            while looping && i < e.Length do
-                let curr = e[i]
-
-                if Solver.elemOfSet pred curr.Set then
-                    looping <- false
-                    result <- ValueSome(curr.Node)
-
-                i <- i + 1
-
-            result
+            match info.Transitions.TryGetValue(pred) with
+            | true, v -> ValueSome v
+            | _ -> ValueNone
         | _ -> result
 
-    let inline getCachedTransition(pred: ^t, info: RegexNodeInfo< ^t > voption) =
-        let mutable result = ValueNone
-        match info with
-        | ValueSome info ->
-            let mutable e = CollectionsMarshal.AsSpan(info.Transitions)
-            let mutable looping = true
-            let mutable i = 0
-
-            while looping && i < e.Length do
-                let curr = e[i]
-
-                if Solver.elemOfSet pred curr.Set then
-                    looping <- false
-                    result <- ValueSome(curr.Node)
-
-                i <- i + 1
-        | _ -> ()
-        result
 
 
 

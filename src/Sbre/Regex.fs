@@ -200,18 +200,11 @@ type RegexMatcher<'t when 't: struct>
         loc: inref<Location>,
         loc_pred: TSet,
         node: RegexNode<TSet>
+        // useCache: bool
     ) : RegexNode<TSet> =
 
         let cachedTransition =
-            Algorithm.RegexNode.getCachedTransition(loc_pred, node.TryGetInfo)
-            // node.TryGetInfo
-            // |> ValueOption.bind (fun inf ->
-            //
-            //     let found = inf.Transitions |> Seq.tryFind (fun v -> v.Set = loc_pred )
-            //     match found with
-            //     | Some v -> ValueSome v
-            //     | _ -> ValueNone
-            // )
+            Algorithm.RegexNode.getCachedTransition(loc_pred, node)
 
         let result =
             match cachedTransition with
@@ -341,22 +334,22 @@ type RegexMatcher<'t when 't: struct>
                 match lookBack with
                 | false ->
                     // lookahead
-                    let remainingLookaround = _createDerivative (&loc, loc_pred, lookBody)
-                    let remainingIsNullable = _isNullable(&loc, remainingLookaround)
+                    let remainingLookBody = _createDerivative (&loc, loc_pred, lookBody)
+                    let remainingIsNullable = _isNullable(&loc, remainingLookBody)
 
-                    match remainingLookaround with
+                    match remainingLookBody with
                     // start a new pending match
                     | _ when relativeNullablePos.IsEmpty && remainingIsNullable ->
                         _cache.Builder.mkLookaround(
-                        remainingLookaround, lookBack, rel+1, zeroList)
+                        remainingLookBody, lookBack, rel+1, zeroList)
                     | _ ->
                     // add pending nullable only if hasnt matched yet
                     let updatedPositions =
                         if remainingIsNullable then relativeNullablePos
                         else relativeNullablePos
                     let pendingLookaround = _cache.Builder.mkLookaround(
-                        remainingLookaround, lookBack, (rel+1),updatedPositions)
-                    if refEq _cache.False remainingLookaround then
+                        remainingLookBody, lookBack, (rel+1),updatedPositions)
+                    if refEq _cache.False remainingLookBody then
                         _cache.False
                     else
                         pendingLookaround
@@ -364,10 +357,19 @@ type RegexMatcher<'t when 't: struct>
                     // if _isNullable(&loc,lookBody) then
                     //     _cache.Eps
                     // else
-                    let remainingLookaround = _createDerivative (&loc, loc_pred, lookBody)
-                    if _isNullable(&loc,remainingLookaround) then _cache.Eps
-                    else
-                        _cache.False
+                    let remainingLookBody = _createDerivative (&loc, loc_pred, lookBody)
+
+                    if _isNullable(&loc,remainingLookBody) then _cache.Eps else
+                    let bodyIsNullable = _isNullable(&loc,remainingLookBody)
+                    match remainingLookBody with
+                    // | n when refEq n _cache.False -> _cache.False
+                    | n when refEq n _cache.Eps -> _cache.Eps
+                    | _ ->
+                        // remaining lookback
+                        let pendingLookaround = _cache.Builder.mkLookaround( remainingLookBody, lookBack)
+                        pendingLookaround
+                        //
+                        // _cache.False
 
             | Anchor _ -> _cache.False
 
@@ -377,7 +379,10 @@ type RegexMatcher<'t when 't: struct>
         if node.DependsOnAnchor then
             ()
         else
-            _cache.Builder.AddTransitionInfo(loc_pred, node, result)
+            node.TryGetInfo
+            |> ValueOption.iter (fun v ->
+                v.Transitions.TryAdd(loc_pred,result) |> ignore
+            )
 #endif
 
         result
@@ -391,12 +396,11 @@ type RegexMatcher<'t when 't: struct>
         let derivatives =
             minterms
             |> Array.map (fun minterm ->
-                match RegexNode.getCachedTransition (minterm, state.Node.TryGetInfo) with
+                match RegexNode.getCachedTransition (minterm, state.Node) with
                 | ValueSome v -> v
                 | _ ->
                     let mutable loc = Location.getNonInitial()
                     _createDerivative(&loc, minterm, state.Node)
-                    // createStartsetDerivative (_cache, minterm, state.Node)
             )
 
         // debug pretty minterms
@@ -899,7 +903,7 @@ type RegexMatcher<'t when 't: struct>
 
         while looping do
             let flags = _flagsArray[currentStateId]
-            let _ = _stateArray[currentStateId]
+            let dfaState = _stateArray[currentStateId]
 #if SKIP
             if (flags.CanSkipInitial && this.TrySkipInitialRev(&loc, &currentStateId))
 

@@ -164,7 +164,7 @@ let ``a conversion 2.6``() = assertConverted """([a-zA-Z]+)Huck|([a-zA-Z]+)Saw""
     """([A-Za-z])+(Huck|Saw)"""
     """([A-Za-z])+(Saw|Huck)"""
 ]
-
+// """.*(?=aaa)"""
 
 // (.*|(.*11.*|1.*)
 

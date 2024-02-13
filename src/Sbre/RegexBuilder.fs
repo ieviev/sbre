@@ -473,50 +473,52 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
         _uniquesDict.Add(oldBuilder.anchors._zAnchor,this.anchors._zAnchor)
         ()
 
-    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    member this.AddTransitionInfo
-        (
-            pred: 't,
-            node: RegexNode<'t>,
-            result: RegexNode<'t>
-        ) =
-        match node with
-        | Or(info = info)
-        | Loop(info = info)
-        | And(info = info)
-        | Not(info = info)
-        | Concat(info = info) ->
-            match info.Transitions.Count with
-            | 0 ->
-                if
-                    refEq _uniques._true node
-                    || refEq _uniques._trueStar node
-                    || refEq _uniques._truePlus node
-                then
-                    info.Transitions.Add({ Set = solver.Full; Node = result })
-                else
-                    info.Transitions.Add({ Set = pred; Node = result })
-
-            | n ->
-                // use mutable e = info.Transitions.GetEnumerator()
-                let mutable e =
-                    CollectionsMarshal.AsSpan(info.Transitions).GetEnumerator()
-
-                let mutable looping = true
-                let mutable counter = 0
-
-                while looping && e.MoveNext() do
-                    let curr = e.Current
-
-                    if obj.ReferenceEquals(curr.Node, result) then
-                        looping <- false
-                        info.Transitions[counter].Set <- solver.Or(pred, curr.Set)
-
-                    counter <- counter + 1
-
-                if looping then
-                    info.Transitions.Add({ Set = pred; Node = result })
-        | _ -> ()
+    // [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    // member this.AddTransitionInfo
+    //     (
+    //         pred: 't,
+    //         node: RegexNode<'t>,
+    //         result: RegexNode<'t>
+    //     ) =
+    //     match node with
+    //     | Or(info = info)
+    //     | Loop(info = info)
+    //     | And(info = info)
+    //     | Not(info = info)
+    //     | Concat(info = info) ->
+    //         match info.Transitions.Count with
+    //         | 0 ->
+    //             if
+    //                 refEq _uniques._true node
+    //                 || refEq _uniques._trueStar node
+    //                 || refEq _uniques._truePlus node
+    //             then
+    //                 info.Transitions.Add({ Set = solver.Full; Node = result })
+    //             else
+    //                 info.Transitions.Add({ Set = pred; Node = result })
+    //
+    //         | n ->
+    //             // use mutable e = info.Transitions.GetEnumerator()
+    //             let mutable e =
+    //                 CollectionsMarshal.AsSpan(info.Transitions).GetEnumerator()
+    //
+    //             let pret =solver.PrettyPrint(pred,Debug.debugcharSetSolver)
+    //
+    //             let mutable looping = true
+    //             let mutable counter = 0
+    //
+    //             while looping && e.MoveNext() do
+    //                 let curr = e.Current
+    //
+    //                 if obj.ReferenceEquals(curr.Node, result) then
+    //                     looping <- false
+    //                     info.Transitions[counter].Set <- solver.Or(pred, curr.Set)
+    //
+    //                 counter <- counter + 1
+    //
+    //             if looping then
+    //                 info.Transitions.Add({ Set = pred; Node = result })
+    //     | _ -> ()
 
 
     member this.setFromNode(node: RegexNode) =
@@ -912,10 +914,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
         | (Concat(head=chead1;tail=ctail1) as c1), (Concat(head=chead2;tail=ctail2) as c2)
         | (Concat(head=chead2;tail=ctail2) as c2),(Concat(head=chead1;tail=ctail1) as c1) when
             refEq chead1 chead2 ->
-            match this.combineLanguage(ctail1,ctail2) with
-            | Some (v) ->
-                failwith "taodo"
-            | _ -> Some(mergeIntersection(), this.mkConcat2(chead1,this.mkOr2Direct(ctail1,ctail2)) )
+            Some(mergeIntersection(), this.mkConcat2(chead1,this.mkOr2Direct(ctail1,ctail2)) )
 
         // unoptimized cases ------------------------------
         | _, Anchor _
@@ -1047,10 +1046,12 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                         |> Seq.map fst
                         |> Seq.toList
                         |> this.mkConcat
-                    this.mkConcat2(
-                        this.mkOr2(conc1,conc2),
-                        sufflist
-                    )
+                    let newNode =
+                        this.mkConcat2(
+                            this.mkOr2(conc1,conc2),
+                            sufflist
+                        )
+                    newNode
             | _ ->
 
             match this.combineLanguage(node1, node2) with
@@ -1387,7 +1388,8 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                     _concatCache.Add(key, v)
                     v
                 // (?=a.*)(?=\W) to (?=a.*⊤*&\W⊤*)
-                | LookAround(node=node1;lookBack=false; relativeTo = rel1; pendingNullables = (pending1)), LookAround(node=node2;lookBack=false; relativeTo = rel2; pendingNullables = (pending2)) ->
+                | LookAround(node=node1;lookBack=false; relativeTo = rel1; pendingNullables = (pending1)),
+                    LookAround(node=node2;lookBack=false; relativeTo = rel2; pendingNullables = (pending2)) ->
                     assert (pending2.IsEmpty)
                     let combined = this.mkAnd([
                         this.mkConcat2(node1,this.trueStar)
@@ -1413,6 +1415,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                     v
                 // INNER LOOKAROUND
 #if REWRITE_INNER
+                // TODO: ⊤*(?<=aaa) not correct
                 // a(?<=[a-z]) to (a&(⊤*[a-z])
                 | head, LookAround(node=node;lookBack=true) ->
                     // only rewrite trivial examples!
@@ -1423,7 +1426,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                     _concatCache.Add(key, v)
                     v
                 // (?=[a-z])a to (a&(⊤*[a-z])
-                | LookAround(node=node;lookBack=false),tail ->
+                | LookAround(node=node;lookBack=false),tail  ->
                     // only rewrite trivial examples!
                     let v = b.mkAnd([
                         tail
@@ -1432,7 +1435,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                     _concatCache.Add(key, v)
                     v
 #else
-                | LookAround(node=_;lookBack=false),_ | _, LookAround(node=_;lookBack=true) ->
+                | LookAround(node=_;lookBack=false),other | other, LookAround(node=_;lookBack=true) when not (refEq other _uniques._trueStar ) ->
                     failwith "Sbre does not support inner lookarounds"
 #endif
                 | _ ->
@@ -1456,6 +1459,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             let newNode =
                 match body, lookBack with
                 | Epsilon, true -> _uniques._eps
+                | _, true when refEq _uniques._false body -> _uniques._false
                 | _ -> LookAround(body,lookBack, rel,pendingNullable)
             _lookaroundCache.Add(key, newNode)
             newNode

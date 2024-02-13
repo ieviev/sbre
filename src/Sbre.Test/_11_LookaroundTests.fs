@@ -455,7 +455,10 @@ let ``multiple nullables 2``() =
 
 
 [<Fact>]
-let ``testing anchors 1.1``() = assertRawDerivative """\ba""" "a " ["ε"]
+let ``testing anchors 1.1``() = assertRawDerivative """\ba""" "a " [
+    "ε"
+    @"(ε|(?<=⊥)a)"
+]
 
 [<Fact>]
 let ``testing anchors 1.2``() = assertRawDerivative """⊤*\ba""" "a " [

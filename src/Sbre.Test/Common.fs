@@ -137,6 +137,25 @@ let assertSetsPrefix pattern expected =
         Assert.Equal(expected, prefixString)
     | _ -> failwith "invalid optimization result"
 
+let assertStringPrefix pattern expected =
+    let regex = Regex(pattern)
+    let matcher = regex.TSetMatcher
+    let getder = (fun (mt,node) ->
+        let loc = Pat.Location.getNonInitial()
+        matcher.CreateDerivative(&loc, mt,node)
+    )
+    let optimizations =
+        Optimizations.findInitialOptimizations
+            getder
+            (fun node -> matcher.GetOrCreateState(node).Id)
+            (fun node -> matcher.GetOrCreateState(node).Flags)
+            matcher.Cache matcher.ReversePattern matcher.ReverseTrueStarredPattern
+    match optimizations with
+    | Optimizations.InitialOptimizations.StringPrefix(prefix, transId) ->
+        let prefixString = prefix.ToString()
+        Assert.Equal(expected, prefixString)
+    | _ -> failwith "invalid optimization result"
+
 // let assertCounterStates (regex:Regex) (input:string) (expectedStates:(CounterState * int) list list)  =
 //     let matcher = regex.TSetMatcher
 //     let cache = matcher.Cache
