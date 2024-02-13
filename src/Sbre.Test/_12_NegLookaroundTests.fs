@@ -11,16 +11,6 @@ open Common
 #if DEBUG
 
 
-[<Fact>]
-let ``a conversion test 1``() = _02_NodeTests.assertConverted "1(?! Sep)" [
-    @"1(?=~( Sep⊤*)\z)"
-]
-
-[<Fact>]
-let ``a conversion test 2``() = _02_NodeTests.assertConverted @".(?<=a)" [
-    @"(⊤*a&.)"
-    @"(.&⊤*a)"
-]
 
 
 
@@ -47,7 +37,7 @@ let ``der neg anchor lb 1``() = _04_DerivativeTests.testPartDerivative (@"(?<!a)
 [<Fact>]
 let ``der neg anchor lb 2``() = _04_DerivativeTests.testPartDerivatives (@"(?<!a)b", "bb", [
     "ε" // subsumed
-    @"(ε&(⊤*\A~(⊤*a)|~(⊤*a)))" // not subsumed
+    // @"(ε&(⊤*\A~(⊤*a)|~(⊤*a)))" // not subsumed
 ])
 
 

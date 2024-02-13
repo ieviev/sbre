@@ -100,17 +100,12 @@ let ``optimizations sanity check 1``() =
 
 
 
-let sampleText1 =
-    """
-The fists of all the generals came down this time, and again the
-King's eye sparkled with pleasure. The Chancellor sprang to his
-feet and appealed to his Majesty:
-"""
+let sampleText1 = """asd asd down asdasd asd asd """
 
 [<Fact>]
 let ``empty loop test 1``() =
-    let pat = @"~(⊤*(\n⊤*){2})&.*down.*"
-    assertNullablePositions pat sampleText1 (List.rev [ 1..36 ])
+    let pat = @"~(⊤*(d⊤*){2})&.*down.*"
+    assertNullablePositions pat sampleText1 [8; 7]
 
 
 

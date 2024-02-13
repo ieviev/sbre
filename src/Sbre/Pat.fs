@@ -39,6 +39,16 @@ module Solver =
         (larger: ^d when ^d : struct)
         (smaller: ^d): bool =
             (larger &&& smaller) = smaller
+
+    let containsS
+        (solver:ISolver<'d>)
+        (larger: 'd)
+        (smaller: 'd): bool =
+            let overlapped = solver.And(smaller,larger)
+            obj.ReferenceEquals((box smaller),(box overlapped)) || smaller = overlapped
+
+
+
     let inline not' predicate = ~~~predicate
     let inline isEmpty predicate = predicate = 0UL
     let inline mapOr (s:ISolver<^t>) ([<InlineIfLambda>]f: 'a -> ^t) xs: ^t =
@@ -126,6 +136,12 @@ let isSubsumedFromAnd (solver:ISolver<'t>) pred singletonLoop (nodes:RegexNode<_
 let (|SingletonStarLoop|_|) (node: RegexNode<_>) =
     match node with
     | Loop(node=Singleton pred;low=0;up=Int32.MaxValue) -> ValueSome(pred)
+    | _ -> ValueNone
+
+[<return: Struct>]
+let (|StarLoop|_|) (node: RegexNode<_>) =
+    match node with
+    | Loop(node=starNode;low=0;up=Int32.MaxValue) -> ValueSome(starNode)
     | _ -> ValueNone
 
 [<return: Struct>]

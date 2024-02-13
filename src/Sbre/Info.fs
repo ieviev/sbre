@@ -207,6 +207,33 @@ module Node =
             | Anchor _ -> Some (0 + acc)
         loop 0 node
 
+
+    let rec getMinLength (node: RegexNode<_>) =
+        let rec loop (acc:int) node : int option =
+            match node with
+            | Concat(head, tail, info) ->
+                loop acc head
+                |> Option.bind (fun headLen ->
+                    loop headLen tail
+                )
+            | Epsilon -> Some (0 + acc)
+            | Or(nodes, info) | And(nodes, info) ->
+                let sameLen =
+                    nodes
+                    |> Seq.map (loop 0)
+                    |> Seq.distinct
+                    |> Seq.toArray
+                if sameLen.Length = 1 && sameLen[0].IsSome then
+                    Some (acc + sameLen[0].Value)
+                else None
+            | Singleton _ -> Some (1 + acc)
+            | Loop(Singleton _, low, up, info) -> Some (low + acc)
+            | Loop(node, low, up, info) -> None
+            | Not(node, info) -> None
+            | LookAround(_) -> Some (0 + acc)
+            | Anchor _ -> Some (0 + acc)
+        loop 0 node
+
     // let rec isEssentiallyNullable (loc:Location) (node: RegexNode<_>) =
     //     let locpos = loc.Position
     //     let inputlen = loc.Input.Length

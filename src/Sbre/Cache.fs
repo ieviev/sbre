@@ -595,6 +595,6 @@ type RegexCache< 't
 #if DEBUG
     member cache.PrettyPrintMinterm(xs: _) : string = cache.Solver.PrettyPrint(xs, _charsetSolver)
     member this.PrettyPrintNode(node: RegexNode<TSet>) : string =
-        Debug.debuggerSolver <- Some this.Solver
+        Debug.debuggerSolver <- Some (this.Solver)
         node.ToString()
 #endif

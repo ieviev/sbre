@@ -901,10 +901,14 @@ type RegexMatcher<'t when 't: struct>
             let flags = _flagsArray[currentStateId]
             let _ = _stateArray[currentStateId]
 #if SKIP
-            if (flags.CanSkipInitial && this.TrySkipInitialRev(&loc, &currentStateId)) ||
-               (flags.CanSkip && this.TrySkipActiveRev(flags,&loc, &currentStateId, &acc)) then
-                ()
+            if (flags.CanSkipInitial && this.TrySkipInitialRev(&loc, &currentStateId))
+
+#if SKIP_ACTIVE
+               || (flags.CanSkip && this.TrySkipActiveRev(flags,&loc, &currentStateId, &acc))
+#endif
+                then ()
             else
+
 #endif
             if this.StateIsNullable(flags, &loc, currentStateId) then
                 if flags.IsPendingNullable then

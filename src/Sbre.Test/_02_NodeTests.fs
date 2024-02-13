@@ -80,6 +80,113 @@ let ``collectSets has same behavior``() =
     areEqual |> Assert.True
 
 
+let assertSolverContains12 pattern =
+    let pat = pattern
+    let reg = Regex(pat)
+    match reg.TSetMatcher.RawPattern with
+    | Concat(head=Singleton head;tail=Singleton tail) ->
+        assertTrue (Solver.containsS reg.TSetMatcher.Cache.Solver head tail)
+    | _ -> failwith "_"
+
+let assertNotSolverContains12 pattern =
+    let pat = pattern
+    let reg = Regex(pat)
+    match reg.TSetMatcher.RawPattern with
+    | Concat(head=Singleton head;tail=Singleton tail) ->
+        assertFalse (Solver.containsS reg.TSetMatcher.Cache.Solver head tail)
+    | _ -> failwith "_"
+
+
+
+
+[<Fact>]
+let ``_ solver 1``() = assertSolverContains12 "[a-z]a"
+
+[<Fact>]
+let ``_ solver 2``() = assertNotSolverContains12 "a[a-z]"
+
+
+
+
+[<Fact>]
+let ``a conversion 1.1``() = assertConverted "1(?! Sep)" [ @"1(?=~( Sep⊤*)\z)" ]
+
+[<Fact>]
+let ``a conversion 1.2``() = assertConverted @".(?<=a)" [ "a" ]
+
+[<Fact>]
+let ``a conversion 1.3``() = assertConverted @"(a*|.*)" [ ".*" ]
+
+[<Fact>]
+let ``a conversion 1.4``() = assertConverted "(.*&.*s)" [ ".*s" ]
+
+[<Fact>]
+let ``a conversion 1.5``() = assertConverted "[a-z]&.*a" [ "a" ]
+
+[<Fact>]
+let ``a conversion 1.6``() = assertConverted ".*b&a" [ "⊥" ]
+
+[<Fact>]
+let ``a conversion 1.7``() = assertConverted "a&b.*" [ "⊥" ]
+
+[<Fact>]
+let ``a conversion 1.8``() = assertConverted "(\d){2,2}⊤*&\d⊤*" [ "(\d){2,2}⊤*" ]
+
+
+[<Fact>]
+let ``a conversion 2.1``() = assertConverted "(⊤*B⊤*&⊤*A⊤*)" [ "(⊤*A⊤*&⊤*B⊤*)"; "(⊤*B⊤*&⊤*A⊤*)" ]
+
+
+[<Fact>]
+let ``a conversion 2.2``() = assertConverted "(⊤*A⊤*&⊤*B⊤*)&⊤*B⊤*" [
+    @"(⊤*B⊤*&⊤*A⊤*)"
+    "(⊤*A⊤*&⊤*B⊤*)"
+]
+
+
+[<Fact>]
+let ``a conversion 2.3``() = assertConverted "(.*|(.*11.*|1.*))" [ ".*" ]
+
+[<Fact>]
+let ``a conversion 2.4``() = assertConverted "(~((|.*Finn))&.*)" [
+    "(~((ε|.*Finn))&.*)"
+    @"(.*&~((.*Finn|ε)))"
+    @"(~((.*Finn|ε))&.*)"
+]
+
+[<Fact>]
+let ``a conversion 2.5``() = assertConverted """Huck[a-zA-Z]+|Saw[a-zA-Z]+""" [
+    """(Huck|Saw)([A-Za-z])+""" ; """(Saw|Huck)([A-Za-z])+"""
+]
+
+[<Fact>]
+let ``a conversion 2.6``() = assertConverted """([a-zA-Z]+)Huck|([a-zA-Z]+)Saw""" [
+    """([A-Za-z])+(Huck|Saw)"""
+    """([A-Za-z])+(Saw|Huck)"""
+]
+
+
+// (.*|(.*11.*|1.*)
+
+
+// [<Fact>]
+// let ``subsumption and loop ``() =
+//     testPartDerivative (@"(.*&.*s)", "aaa", @".*s")
+//
+//
+// [<Fact>]
+// let ``subsumption and larger ``() =
+//     testPartDerivatives (@"(.* and .*|and .*)&.*", "aaa", [@"(.* and .*|nd .*)";"(nd .*|.* and .*)"])
+//
+//
+
+// [<Fact>]
+// let ``a conversion 1.3``() = assertConverted @".(?<=a)" [ "a" ]
+//
+//
+
+
+
 [<Fact>]
 let ``pretty printer test 1``() =
 
@@ -118,30 +225,6 @@ let ``identity true star reversed``() =
     Assert.True(identity)
 
 
-// [<Fact>]
-// let ``set equality``() =
-//
-//     let matcher = Matcher(@"(⊤*Arabs&⊤*French⊤*&⊤*Chinese⊤*)")
-//
-//     let matcher2 = Matcher(@"(⊤*Arabs&⊤*French⊤*&⊤*Chinese⊤*)")
-//
-//     let result = matcher.RawPattern = matcher2.RawPattern
-//     let a1 = 1
-//     Assert.True(result, "not equal sets: (⊤*Arabs&⊤*French⊤*&⊤*Chinese⊤*)")
-
-
-// [<Fact>]
-// let ``set equality reversed``() =
-//
-//     let matcher = Matcher(@"(⊤*Arabs&⊤*French⊤*&⊤*Chinese⊤*)")
-//
-//     let matcher2 = Matcher(@"(⊤*Arabs&⊤*French⊤*&⊤*Chinese⊤*)")
-//
-//     let result = matcher.ReversePattern = matcher2.ReversePattern
-//
-//     Assert.True(result, "not equal reverse sets: (⊤*Arabs&⊤*French⊤*&⊤*Chinese⊤*)")
-
-
 
 let equalSeq (xs1: seq<'t>) (xs2: seq<'t>) : unit = Assert.Equal<'t>(xs1, xs2)
 
@@ -176,50 +259,15 @@ let equalSeq (xs1: seq<'t>) (xs2: seq<'t>) : unit = Assert.Equal<'t>(xs1, xs2)
 //     | _ -> Assert.True(false, "not an or node")
 //
 
-let assertConverted (pattern: string) (expected: string list) =
-    // let regexTree =
-    //     ExtendedRegexParser.Parse(
-    //         pattern,
-    //         RegexOptions.ExplicitCapture ||| RegexOptions.NonBacktracking,
-    //         CultureInfo.InvariantCulture
-    //     )
-
-    // let symbolicBddnode: RegexNode<BDD> =
-    //     RegexNodeConverter.convertToSymbolicRegexNode (
-    //         debugcharSetSolver,
-    //         Helpers.bddBuilder2,
-    //         regexTree.Root
-    //     )
-
-    let reg = Regex(pattern)
-    let asstr = reg.TSetMatcher.Cache.PrettyPrintNode reg.TSetMatcher.RawPattern
-    Assert.Contains<string>(asstr,expected)
-
-// [<Fact>]
-// let ``conversion lookaround ``() = assertConverted ".(?<=A.*)" [@".(?<=A.*)"]
-// assertConverted ".(?<=A.*)" @"[^\n](?<=A[^\n]*)"
 
 [<Fact>]
 let ``conversion lookaround 2 ``() = assertConverted ".(?=A.*)" [@".(?=A.*)"]
-
-// assertConverted ".(?=A.*)" @"[^\n](?=A[^\n]*)"
-
-
-// cannot test this reliably
-// [<Fact>]
-// let ``conversion large set ``() =
-//     assertConverted
-//         @"^((0?[13578]a)|(0?[13456789]a))$"
-//         @"(?<!⊤)(0?[13578]a|0?[13-9]a)((?!⊤)|(?=\n))"
-
 
 [<Fact>]
 let ``conversion label``() = assertConverted "(?<Time>^\d)" [
     @"^\d"
     @"^φ"
-    // @"((?<!⊤)|(?<=\n))φ"; @"((?<=\n)|(?<!⊤))φ"
 ]
-// assertConverted ".(?=A.*)" @"[^\n](?=A[^\n]*)"
 
 
 

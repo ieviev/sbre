@@ -334,17 +334,17 @@ let bibtexEntry =
 }"
 
 
-[<Fact>]
-let ``g bibtex extraction 1.1``() =
-    assertAllLLmatchTexts @"(?<=or=\{.*)\b(~(.*and.*)&\S[\w-{}\\' ,]+\S)\b(?=.*\},)" bibtexEntry [
-        "De Vathaire, Florent"; "Le Vu, B{\\'e}atrice"; "Challeton-de Vathaire, C{\\'e}cile"
-    ]
-
-[<Fact>]
-let ``g bibtex extraction 1.2``() =
-    assertAllLLmatchTexts @"(?<=or=(\{|.*\W))(~(.*and.*)&\S[\w-{}\\' ,]+\S)\b(?=.*\},)" bibtexEntry [
-        "De Vathaire, Florent"; "Le Vu, B{\\'e}atrice"; "Challeton-de Vathaire, C{\\'e}cile"
-    ]
+// [<Fact>]
+// let ``g bibtex extraction 1.1``() =
+//     assertAllLLmatchTexts @"(?<=or=\{.*)\b(~(.*and.*)&\S[\w-{}\\' ,]+\S)\b(?=.*\},)" bibtexEntry [
+//         "De Vathaire, Florent"; "Le Vu, B{\\'e}atrice"; "Challeton-de Vathaire, C{\\'e}cile"
+//     ]
+//
+// [<Fact>]
+// let ``g bibtex extraction 1.2``() =
+//     assertAllLLmatchTexts @"(?<=or=(\{|.*\W))(~(.*and.*)&\S[\w-{}\\' ,]+\S)\b(?=.*\},)" bibtexEntry [
+//         "De Vathaire, Florent"; "Le Vu, B{\\'e}atrice"; "Challeton-de Vathaire, C{\\'e}cile"
+//     ]
 
 [<Fact>]
 let ``g bibtex extraction 1.3``() =

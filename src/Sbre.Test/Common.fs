@@ -425,4 +425,11 @@ let assertRawDerivative (pattern: string) (input: string) (expectedDerivatives: 
     let result = der1rawlocs matcher location
     Assert.Contains(result,expectedDerivatives)
 
+
+let assertConverted (pattern: string) (expected: string list) =
+    let reg = Regex(pattern)
+    let asstr = reg.TSetMatcher.Cache.PrettyPrintNode reg.TSetMatcher.RawPattern
+    Assert.Contains<string>(asstr,expected)
+
+
 #endif

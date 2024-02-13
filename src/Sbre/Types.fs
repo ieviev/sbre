@@ -229,21 +229,38 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
 
 
     override this.ToString() =
-        let _solver =
+        // if Debug.debuggerSolver.IsNone then
+        //     Debug.debuggerSolver <- box Debug.debugcharSetSolver
+
+        let print node =
             if Debug.debuggerSolver.IsNone then
-                box Debug.debugcharSetSolver :?> ISolver<'tset>
+                Debug.debugcharSetSolver.PrettyPrint(unbox (box node))
             else
-            (box Debug.debuggerSolver.Value) :?> ISolver<'tset>
+                Debug.debuggerSolver.Value.PrettyPrint(unbox (box node),debugcharSetSolver)
+
+        let isFull (tset:'tset) =
+            if Debug.debuggerSolver.IsNone then
+                Debug.debugcharSetSolver.IsFull(unbox (box tset))
+            else Debug.debuggerSolver.Value.IsFull(unbox (box tset))
+        let isEmpty (tset:'tset) =
+            if Debug.debuggerSolver.IsNone then
+                Debug.debugcharSetSolver.IsEmpty(unbox (box tset))
+            else Debug.debuggerSolver.Value.IsEmpty(unbox (box tset))
+        // let _solver =
+        //     if Debug.debuggerSolver.IsNone then
+        //         box Debug.debugcharSetSolver :?> ISolver<'t>
+        //     else
+        //         (box Debug.debuggerSolver.Value) :?> ISolver<'t>
 
         let paren str = $"({str})"
 
-        let tostr(v) =
-            if v = _solver.Full then
+        let tostr(v:'tset) =
+            if isFull v then
                 "⊤"
-            elif _solver.IsEmpty(v) then
+            elif isEmpty v then
                 "⊥"
             else
-                match _solver.PrettyPrint(v, debugcharSetSolver) with
+                match print v with
                 | @"[^\n]" -> "."
                 | c when c.Length > 12 -> "φ" // dont expand massive sets
                 | c -> c
@@ -418,7 +435,7 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
         match this with
         | Or(info = info) | Loop(info = info) | And(info = info) | Not(info = info) | Concat(info = info) ->
             info.Minterms
-        | Epsilon -> solver.Empty
+        | Epsilon -> solver.Full
         | Singleton pred -> pred
         | LookAround(node, lookBack, negate, _) -> node.SubsumedByMinterm solver
         | Anchor _ -> solver.Empty

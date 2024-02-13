@@ -244,18 +244,29 @@ let ``subsumption and loop ``() =
 
 [<Fact>]
 let ``subsumption and larger ``() =
-    testPartDerivatives (@"(.* and .*|and .*)&.*", "aaa", [@"(.* and .*|nd .*)";"(nd .*|.* and .*)"])
+    testPartDerivatives (@"(.* and .*|and .*)&.*", "aaa", [
+        @"(.* and .*|nd .*)";"(nd .*|.* and .*)"
+
+        @"((ε|.* a)nd .*&.*)" // subsumed
+    ])
 
 [<Fact>]
 let ``deriv negation end ``() =
     testPartDerivatives (@"(.*&~((n|.*Finn)))", "nn", [
-        "(~((ε|.*Finn))&.*)";"(~((.*Finn|ε))&.*)"; "(.*&~((ε|.*Finn)))"; "(.*&~((.*Finn|ε)))"
+        @"~((.*Finn|ε))"
+        "(~((ε|.*Finn))&.*)"
+        "(~((.*Finn|ε))&.*)"
+        "(.*&~((ε|.*Finn)))"
+        "(.*&~((.*Finn|ε)))"
     ])
 
 
 [<Fact>]
 let ``subsumption or concat ``() =
-    testPartDerivative (@".*t.*hat.*", "ttt", @".*hat.*")
+    testPartDerivatives (@".*t.*hat.*", "ttt", [
+        @".*hat.*"
+        @".*(t.*|ε)hat.*"
+    ])
 
 
 [<Fact>]
@@ -277,6 +288,7 @@ let ``deriv negation 2 ``() =
         @"(~((.*11.*|1.*))|⊤*~(.*11.*)|~(.*))"
         @"(⊤*~(.*11.*)|~((.*11.*|1.*))|~(.*))"
         @"(~((1.*|.*11.*))|⊤*~(.*11.*)|~(.*))"
+        @"((⊤*~(.*11.*)|~((.*11.*|1.*)))|~(.*))"
     ])
 
 

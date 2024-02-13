@@ -231,25 +231,30 @@ let ``initialOptimizations 11``() =
 let ``initialOptimizations 12``() =
     assertPotentialPrefix @"a( |)b( |)c( |)d" @"d;[ c];[ bc];[ ab]"
 
-// [<Fact>]
-// let ``activeOptimizations 1``() =
-//     let regex = Regex("""["'][^"']{0,30}[?!\.]["']""")
-//     let matcher = regex.TSetMatcher
-//     let c = matcher.Cache
-//     let der1 = Algorithm.createStartsetDerivative(c, c.CharToMinterm('"'), matcher.ReverseTrueStarredPattern)
-//     let der2 = Algorithm.createStartsetDerivative(c, c.CharToMinterm('.'), der1)
-//     let optimizations =
-//         Optimizations.tryGetLimitedSkip
-//             (fun node -> matcher.GetOrCreateState(node).Id)
-//             (fun node -> matcher.GetOrCreateState(node).Startset)
-//             matcher.Cache matcher.ReverseTrueStarredPattern der2
-//     match optimizations with
-//     | Some (Optimizations.ActiveBranchOptimizations.LimitedSkip(distance=_)) ->
-//         ()
-//         // let prefixString = Optimizations.printPrefixSets matcher.Cache (prefix.ToArray() |> Seq.toList)
-//         // Assert.Equal("\s;[nr];[en];[iy];[A-Za-z];\s", prefixString)
-//     | _ -> failwith "invalid optimization result"
-//
+[<Fact>]
+let ``activeOptimizations 1``() =
+    let regex = Regex("""["'][^"']{0,30}[?!\.]["']""")
+    let matcher = regex.TSetMatcher
+    let c = matcher.Cache
+    let getder = (fun (mt,node) ->
+        let loc = Pat.Location.getNonInitial()
+        matcher.CreateDerivative(&loc, mt,node)
+    )
+    let der1 = getder(c.CharToMinterm('"'), matcher.ReverseTrueStarredPattern)
+    let der2 = getder(c.CharToMinterm('.'), der1)
+    let optimizations =
+        Optimizations.tryGetLimitedSkip
+            getder
+            (fun node -> matcher.GetOrCreateState(node).Id)
+            (fun node -> matcher.GetOrCreateState(node).Startset)
+            matcher.Cache matcher.ReverseTrueStarredPattern der2
+    match optimizations with
+    | Some (Optimizations.ActiveBranchOptimizations.LimitedSkip(distance=n; termPred = termPred)) ->
+        // let tp = termPred // Any2CharSearchValues`1, Count = 2, Values = ""'"
+        assertEqual 31 n
+
+    | _ -> failwith "invalid optimization result"
+
 
 
 
