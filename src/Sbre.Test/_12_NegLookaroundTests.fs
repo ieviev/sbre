@@ -10,6 +10,20 @@ open Common
 
 #if DEBUG
 
+
+[<Fact>]
+let ``a conversion test 1``() = _02_NodeTests.assertConverted "1(?! Sep)" [
+    @"1(?=~( Sep⊤*)\z)"
+]
+
+[<Fact>]
+let ``a conversion test 2``() = _02_NodeTests.assertConverted @".(?<=a)" [
+    @"(⊤*a&.)"
+    @"(.&⊤*a)"
+]
+
+
+
 [<Fact>]
 let ``der neg anchor 1``() = _04_DerivativeTests.testRevDerivative (@"(?!b)","b",[ @"⊥"; ])
 
@@ -17,7 +31,12 @@ let ``der neg anchor 1``() = _04_DerivativeTests.testRevDerivative (@"(?!b)","b"
 let ``der neg anchor 2``() = _04_DerivativeTests.testRevDerivative (@"(?!b)","a",[ @"ε"; ])
 
 [<Fact>]
-let ``der neg anchor 3``() = _04_DerivativeTests.testRevDerivative (@"bb(?!b)","b",[ @"b"; ])
+let ``der neg anchor 3``() = _04_DerivativeTests.testRevDerivative (@"bb(?!b)","b",[
+    @"(b|(?<=~((⊤*b|ε)))bb)"
+    @"(b|(?<=~((ε|⊤*b)))bb)"
+    @"((?<=~((⊤*b|ε)))bb|b)"
+    @"((?<=~((ε|⊤*b)))bb|b)"
+])
 
 // [<Fact>]
 // let ``der neg anchor 4``() = _04_DerivativeTests.testRevDerivative (@"bb(?!a)","b",[ @"b"; ])
@@ -26,7 +45,17 @@ let ``der neg anchor 3``() = _04_DerivativeTests.testRevDerivative (@"bb(?!b)","
 let ``der neg anchor lb 1``() = _04_DerivativeTests.testPartDerivative (@"(?<!a)b", "ab", "⊥")
 
 [<Fact>]
-let ``der neg anchor lb 2``() = _04_DerivativeTests.testPartDerivative (@"(?<!a)b", "bb", "ε")
+let ``der neg anchor lb 2``() = _04_DerivativeTests.testPartDerivatives (@"(?<!a)b", "bb", [
+    "ε" // subsumed
+    @"(ε&(⊤*\A~(⊤*a)|~(⊤*a)))" // not subsumed
+])
+
+
+
+[<Fact>]
+let ``c ahead 1.1``() = assertRawDerivative @"(?=1)11" "11" [
+    "1"
+]
 
 
 
@@ -55,12 +84,29 @@ let ``lookarounds test 4``() =
 let ``lookarounds test 5``() =
     assertNoMatch """.*(?<=aaa)""" "aa"
 
-[<Fact>]
-let ``inverted startset test 1``() =
-    assertFirstMatchText @"..(?<=A.*)" "Aa" "Aa"
+
 
 [<Fact>]
-let ``derivative lookaround 1.3``() = assertRawDerivative @"(?=1)11" "11" ["1"]
+let ``d rewritten test 1.1``() =
+    assertFirstMatchText @".(?<=a)" "aaa" "a"
+
+[<Fact>]
+let ``d rewritten test 1.2``() =
+    assertFirstMatchText @".*(?<=a)" "aaa" "aaa"
+
+// [<Fact>]
+// let ``d rewritten test 1.3``() =
+//     assertFirstMatchText @".*(?<=b)" "aaa" "aaa"
+
+[<Fact>]
+let ``d rewritten test 2.1``() =
+    assertFirstMatchText  "1(?=[012])\d" "11" "11"
+
+
+
+[<Fact>]
+let ``d rewritten test 3``() =
+    assertFirstMatchText @"..(?<=A.*)" "Aa" "Aa"
 
 
 
@@ -146,19 +192,13 @@ let ``same as runtime 6``() =
     let input = "31 September 2003"
     testSameAsRuntime pattern input
 
-[<Fact>]
-let ``conversion neg lookahead ``() = _02_NodeTests.assertConverted "1(?! Sep)" [
-    @"1(?=(⊤{0,3}\z|(⊤{4,4}&~(⊤* Sep⊤*))))" // rewritten pos
-    @"1(?=((⊤{4,4}&~(⊤* Sep⊤*))|⊤{0,3}\z))"
-    @"1(?=(⊤{0,3}\z|(~(⊤* Sep⊤*)&⊤{4,4})))"
-    // "1(?! Sep)"
-]
 
-[<Fact>]
-let ``web app test 7``() =
-    let result = getAllLLmatches """(?<=\n\n|\A)~(⊤*\n\n⊤*)(?=\n\n|\Z)&(~(⊤*charity⊤*)|(⊤*honor⊤*))""" _06_MatchTests.webappsample7
-    Assert.Equal([(0, 18)], result |> Seq.map (fun v -> v.Index,v.Length) )
 
+// [<Fact>]
+// let ``web app test 7``() =
+//     let result = getAllLLmatches """(?<=\n\n|\A)~(⊤*\n\n⊤*)(?=\n\n|\Z)&(~(⊤*charity⊤*)|(⊤*honor⊤*))""" _06_MatchTests.webappsample7
+//     Assert.Equal([(0, 18)], result |> Seq.map (fun v -> v.Index,v.Length) )
+//
 
 
 

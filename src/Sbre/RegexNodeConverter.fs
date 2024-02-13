@@ -11,25 +11,18 @@ let children2Seq(node: System.Text.RuntimeRegexCopy.RegexNode) =
     seq { for i = 0 to node.ChildCount() - 1 do yield node.Child(i) }
 
 
-let rewriteNegativeLookaround (b:RegexBuilder<BDD>) (node:RegexNode<BDD>) : RegexNode<BDD> =
-    match node with
-    | LookAround(regexNode, lookBack, negate, relativeNullablePos) ->
-        let fixLen = Node.getFixedLength regexNode
-        match fixLen with
-        | None -> failwith $"TODO: could not rewrite lookaround:\n{regexNode}"
-        | Some minLength ->
-            match lookBack with
-            | false ->
-                // (?=~(R·⊤*)·\z) ≡ (?!R)
-                let negpart = b.mkConcat2(regexNode, b.uniques._true)
-                let conc = b.mkConcat2(negpart, b.anchors._endZAnchor.Value)
-                b.mkLookaround( conc, false)
-            | true ->
-                // (?<=\a·~(⊤*R)) ≡ (?<!R)
-                let negpart = b.mkConcat2(b.uniques._true,regexNode)
-                let conc = b.mkConcat2(b.anchors._bigAAnchor,negpart)
-                b.mkLookaround( conc, false)
-    | _ -> failwith "TODO: could not rewrite lookaround"
+let rewriteNegativeLookaround (b:RegexBuilder<BDD>) (lookBack:bool) (node:RegexNode<BDD>) : RegexNode<BDD> =
+    match lookBack with
+    | false ->
+        // (?=~(R·⊤*)·\z) ≡ (?!R)
+        let negpart = b.mkNot(b.mkConcat2(node, b.uniques._trueStar))
+        let conc = b.mkConcat2(negpart, b.anchors._zAnchor)
+        b.mkLookaround( conc, false)
+    | true ->
+        // (?<=\a·~(⊤*R)) ≡ (?<!R)
+        let negpart = b.mkNot(b.mkConcat2(b.uniques._trueStar,node))
+        let conc = b.mkConcat2(b.anchors._bigAAnchor,negpart)
+        b.mkLookaround( conc, false)
 
 
 let rec determineWordBorderNodeKind (left:bool) (node:RegexNode) =
@@ -97,17 +90,17 @@ let toRight (outer:RegexNode array) idx =
         let kind = determineWordBorderNodeKind false temp
         kind
 
-let rewriteWordBorder (b:RegexBuilder<BDD>) (outer:RegexNode array) ((idx,node): (int * RegexNode) ) =
+let rewriteWordBorder (b:RegexBuilder<BDD>) (outer:RegexNode array) (idx:int) ((node): RegexNode) =
     let left = toLeft outer idx
     let right = toRight outer idx
     match left, right with
-    | _, Some true -> idx,b.anchors._nonWordLeft.Value // wordchar right
-    | _, Some false -> idx,b.anchors._wordLeft.Value // nonwordright
-    | Some true, _   -> idx,b.anchors._nonWordRight.Value // wordleft
-    | Some false, _  -> idx,b.anchors._wordRight.Value    // nonwordleft
+    | _, Some true -> b.anchors._nonWordLeft.Value // wordchar right
+    | _, Some false -> b.anchors._wordLeft.Value // nonwordright
+    | Some true, _   -> b.anchors._nonWordRight.Value // wordleft
+    | Some false, _  -> b.anchors._wordRight.Value    // nonwordleft
     | _ ->
         if outer.Length = 1 then
-            idx, b.anchors._wordBorder.Value
+            b.anchors._wordBorder.Value
         else
             failwith @"Sbre does not support unconstrained word borders, rewrite \b.* to \b\w.* or .*\w\b to show which side the word is on"
 
@@ -129,7 +122,35 @@ let convertToSymbolicRegexNode
         : RegexNode<BDD> list
         =
 
-        let inline convertSingle(node: System.Text.RuntimeRegexCopy.RegexNode) = node |> (loop [])
+
+
+
+        let rec convertAdjacent (adjacent:System.Text.RuntimeRegexCopy.RegexNode[]) (idx:int) (node: System.Text.RuntimeRegexCopy.RegexNode): RegexNode<BDD> list =
+            match node.Kind with
+            | RegexNodeKind.Alternate ->
+                let inner = node |> children2Seq
+                let allrewritten =
+                    inner
+                    |> Seq.map (convertAdjacent adjacent idx)
+                    |> Seq.map b.mkConcat
+                    |> b.mkOr
+                [allrewritten]
+            | RegexNodeKind.Boundary ->
+                let rewritten = (rewriteWordBorder b adjacent idx (node))
+                [rewritten]
+            | _ -> (loop []) node
+
+
+        let convertConcat(outerConcat: System.Text.RuntimeRegexCopy.RegexNode): RegexNode<BDD> list =
+            let outerCorrectOrder =
+                match outerConcat.Options.HasFlag(RegexOptions.RightToLeft) with
+                | true -> node |> children2Seq |> Seq.rev
+                | _ ->  node |> children2Seq
+                |> Seq.toArray
+            outerCorrectOrder
+            |> Seq.mapi (convertAdjacent outerCorrectOrder)
+            |> Seq.collect id
+            |> Seq.toList
 
         let convertChildren(node: System.Text.RuntimeRegexCopy.RegexNode): RegexNode<BDD> list =
             let nodeseq =
@@ -138,38 +159,39 @@ let convertToSymbolicRegexNode
                 | _ ->  node |> children2Seq
                 |> Seq.toArray
 
-            let existsWB =
-                nodeseq
-                |> Seq.indexed
-                |> Seq.where (fun (idx,node) -> node.Kind = RegexNodeKind.Boundary )
-                |> Seq.toArray
-            match existsWB with
-            | [| |] ->
-                let defaultResult = nodeseq |> Seq.collect (loop []) |> Seq.toList
-                defaultResult
-            | _ ->
-#if NO_REWRITE
-                let defaultResult = nodeseq |> Seq.collect (loop []) |> Seq.toList
-                if true then defaultResult else
-#endif
-                // have to rewrite word borders here
-                let rewritten =
-                    existsWB
-                    |> Seq.map (rewriteWordBorder b nodeseq)
-                    |> Map.ofSeq
-                let converted =
-                    nodeseq
-                    |> Seq.indexed
-                    |> Seq.map (fun (idx,node) ->
-                        match rewritten |> Map.tryFind idx with
-                        | Some v -> [v]
-                        | _ -> (loop []) node
-                    )
-                    |> Seq.collect id
-                    |> Seq.toList
-                converted
+            // let existsWB =
+            //     nodeseq
+            //     |> Seq.indexed
+            //     |> Seq.where (fun (idx,node) -> node.Kind = RegexNodeKind.Boundary )
+            //     |> Seq.toArray
 
+            let defaultResult = nodeseq |> Seq.collect (loop []) |> Seq.toList
+            defaultResult
+//                 defaultResult
+//             | _ ->
+// #if NO_REWRITE
+//                 let defaultResult = nodeseq |> Seq.collect (loop []) |> Seq.toList
+//                 if true then defaultResult else
+// #endif
+//                 // have to rewrite word borders here
+//                 let rewritten =
+//                     existsWB
+//                     |> Seq.map (rewriteWordBorder b nodeseq)
+//                     |> Map.ofSeq
+//                 let converted =
+//                     nodeseq
+//                     |> Seq.indexed
+//                     |> Seq.map (fun (idx,node) ->
+//                         match rewritten |> Map.tryFind idx with
+//                         | Some v -> [v]
+//                         | _ -> (loop []) node
+//                     )
+//                     |> Seq.collect id
+//                     |> Seq.toList
+//                 converted
 
+        let convertSingle(node: System.Text.RuntimeRegexCopy.RegexNode) =
+            node |> (loop [])
 
 
         // let inline convertChildren(node: System.Text.RuntimeRegexCopy.RegexNode) =
@@ -188,10 +210,14 @@ let convertToSymbolicRegexNode
             let current = b.mkLoop (inner, node.M, node.N)
             current :: acc
         | RegexNodeKind.Alternate ->
+            let adjacent = node.Parent |> children2Seq |> Seq.toArray
+            let ownIndex = adjacent |> Seq.findIndex (fun v -> obj.ReferenceEquals(node,v) )
             let children2 =
                 node
                 |> children2Seq
-                |> Seq.map convertSingle
+                // |> Seq.map convertSingle
+                |> Seq.map (convertAdjacent adjacent ownIndex)
+                // |> Seq.map convertChildren
                 |> Seq.map b.mkConcat
             builder.mkOr children2 :: acc
         | RegexNodeKind.Conjunction ->
@@ -201,18 +227,18 @@ let convertToSymbolicRegexNode
             builder.mkAnd children2 :: acc
 
         | RegexNodeKind.Concatenate ->
-            let inner = convertChildren node
+            let inner = convertConcat node
             inner @ acc
         | RegexNodeKind.Capture ->
             if node.N = -1 then
-                convertChildren node |> b.mkConcat |> List.singleton
+                convertConcat node |> b.mkConcat |> List.singleton
             else
                 if node.Options.HasFlag(RegexOptions.Negated) then
-                    let inner = convertChildren node |> b.mkConcat
+                    let inner = convertConcat node |> b.mkConcat
                     b.mkNot(inner)
                     :: acc
                 else
-                    convertChildren node
+                    convertConcat node
         // Specialized loops
         | RegexNodeKind.Oneloop
         | RegexNodeKind.Onelazy
@@ -270,14 +296,17 @@ let convertToSymbolicRegexNode
             b.mkLoop (b.one bdd, node.M, node.N) :: acc
         | RegexNodeKind.Empty -> acc
         | RegexNodeKind.PositiveLookaround ->
-            builder.mkLookaround(b.mkConcat (convertChildren node),node.Options.HasFlag(RegexOptions.RightToLeft))
+            // let conc = b.mkConcat (convertChildren node)
+            let conc = b.mkConcat (convertConcat (node))
+            builder.mkLookaround(conc,node.Options.HasFlag(RegexOptions.RightToLeft))
             :: acc
         | RegexNodeKind.NegativeLookaround ->
 #if NO_REWRITE_NEGATIVE
             failwith $"negative lookarounds not supported: {node}"
 #else
-            let negLookaround = builder.mkLookaround(b.mkConcat (convertChildren node),node.Options.HasFlag(RegexOptions.RightToLeft),true)
-            let rewrittenLookaround = rewriteNegativeLookaround b negLookaround
+            let lookBack = node.Options.HasFlag(RegexOptions.RightToLeft)
+            let lookBody = b.mkConcat (convertChildren node)
+            let rewrittenLookaround = rewriteNegativeLookaround b lookBack lookBody
             rewrittenLookaround
             :: acc
 #endif

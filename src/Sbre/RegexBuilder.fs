@@ -332,7 +332,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 )
 
         {|
-            _endZAnchor = lazy (failwith "todo: endz definition" : RegexNode<'t>)
+            _endZAnchor = lazy (failwith "todo: \Z anchor is not defined" : RegexNode<'t>)
             //                        b.mkOr([
             //     b.mkLookaround(_true,false,true)
             //     b.mkLookaround(b.mkConcat2(b.one '\n',_true),false,true)
@@ -1068,8 +1068,30 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                         Concat(head, tail, info)
                     _concatCache.Add(key, v)
                     v
-                | LookAround(lookBack=false;), tail when not tail.IsAlwaysNullable ->
-                    failwith "inner lookarounds are not supported!"
+                // INNER LOOKAROUND
+#if REWRITE_INNER
+                // a(?<=[a-z]) to (a&(⊤*[a-z])
+                | head, LookAround(node=node;lookBack=true) ->
+                    // only rewrite trivial examples!
+                    let v = b.mkAnd([
+                        head
+                        b.mkConcat2(b.trueStar,node)
+                    ])
+                    _concatCache.Add(key, v)
+                    v
+                // (?=[a-z])a to (a&(⊤*[a-z])
+                | LookAround(node=node;lookBack=false),tail ->
+                    // only rewrite trivial examples!
+                    let v = b.mkAnd([
+                        tail
+                        b.mkConcat2(node,b.trueStar)
+                    ])
+                    _concatCache.Add(key, v)
+                    v
+#else
+                | LookAround(node=_;lookBack=false),_ | _, LookAround(node=_;lookBack=true) ->
+                    failwith "Sbre does not support inner lookarounds"
+#endif
                 | _ ->
                     let v =
                         let flags = Flags.inferConcat head tail

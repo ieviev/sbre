@@ -222,9 +222,18 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
 
 
 #if DEBUG
+
+    // module Helpers =
+    // let charSetSolver = System.Text.RuntimeRegexCopy.Symbolic.CharSetSolver()
+    // let bddBuilder = SymbolicRegexBuilder<BDD>(charSetSolver, charSetSolver)
+
+
     override this.ToString() =
-        if Debug.debuggerSolver.IsNone then "NO INFO" else
-        let _solver = (box Debug.debuggerSolver.Value) :?> ISolver<'tset>
+        let _solver =
+            if Debug.debuggerSolver.IsNone then
+                box Debug.debugcharSetSolver :?> ISolver<'tset>
+            else
+            (box Debug.debuggerSolver.Value) :?> ISolver<'tset>
 
         let paren str = $"({str})"
 
