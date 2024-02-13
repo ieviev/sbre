@@ -128,7 +128,10 @@ module RegexStateFlagsExtensions =
         [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
         member this.ContainsLookaround = this &&& RegexStateFlags.ContainsLookaroundFlag = RegexStateFlags.ContainsLookaroundFlag
         [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-        member this.CanSkip = this &&& (RegexStateFlags.CanSkipFlag ||| RegexStateFlags.InitialFlag) = RegexStateFlags.CanSkipFlag
+        member this.CanSkip = this &&& (
+            RegexStateFlags.CanSkipFlag |||
+            RegexStateFlags.InitialFlag |||
+            RegexStateFlags.CanBeNullableFlag) = RegexStateFlags.CanSkipFlag
         [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
         member this.HasPrefix = this &&& RegexStateFlags.HasPrefixFlag = RegexStateFlags.HasPrefixFlag
         [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
@@ -233,17 +236,17 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
         //     Debug.debuggerSolver <- box Debug.debugcharSetSolver
 
         let print node =
-            if Debug.debuggerSolver.IsNone then
+            if typeof<'tset> = typeof<BDD> then
                 Debug.debugcharSetSolver.PrettyPrint(unbox (box node))
             else
                 Debug.debuggerSolver.Value.PrettyPrint(unbox (box node),debugcharSetSolver)
 
         let isFull (tset:'tset) =
-            if Debug.debuggerSolver.IsNone then
+            if typeof<'tset> = typeof<BDD> then
                 Debug.debugcharSetSolver.IsFull(unbox (box tset))
             else Debug.debuggerSolver.Value.IsFull(unbox (box tset))
         let isEmpty (tset:'tset) =
-            if Debug.debuggerSolver.IsNone then
+            if typeof<'tset> = typeof<BDD> then
                 Debug.debugcharSetSolver.IsEmpty(unbox (box tset))
             else Debug.debuggerSolver.Value.IsEmpty(unbox (box tset))
         // let _solver =

@@ -29,9 +29,8 @@
 <!--    <DefineConstants>$(DefineConstants);NO_REWRITE</DefineConstants>-->
     <DefineConstants>$(DefineConstants);REWRITE_INNER</DefineConstants>
     <DefineConstants>$(DefineConstants);SUBSUME</DefineConstants>
-
     <DefineConstants>$(DefineConstants);SKIP</DefineConstants>
-<!--    <DefineConstants>$(DefineConstants);SKIP_ACTIVE</DefineConstants>-->
+    <DefineConstants>$(DefineConstants);SKIP_ACTIVE</DefineConstants>
     <DefineConstants>$(DefineConstants);DFA</DefineConstants>
   </PropertyGroup>
   <ItemGroup>

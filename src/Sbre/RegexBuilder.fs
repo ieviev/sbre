@@ -818,11 +818,11 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 Some(other,p1node)
             else Some(mergeIntersection(),mergeUnion())
         // (.*hat.*|.*t.*hat.*) -> .*hat.*
-        // | other, (SingletonStarLoop(p1) as p1node)
-        // | (SingletonStarLoop(p1) as p1node),other ->
-        //     if solver.isElemOfSet(p1,other.SubsumedByMinterm(solver)) then
-        //         Some(other,p1node)
-        //     else Some(mergeIntersection(),mergeUnion())
+        | other, (SingletonStarLoop(p1) as p1node)
+        | (SingletonStarLoop(p1) as p1node),other ->
+            if solver.isElemOfSet(p1,other.SubsumedByMinterm(solver)) then
+                Some(other,p1node)
+            else Some(mergeIntersection(),mergeUnion())
         // ((.*s|ε)&.*s) -> .*s
         | other, (Or(nodes=nodes) as ornode)
         | (Or(nodes=nodes) as ornode), other ->
@@ -985,6 +985,29 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 _andCache.Add(key,newAnd)
                 newAnd
 
+
+    member this.trySubsumeHead(singletonLoop: RegexNode<'t>, tail: RegexNode<'t>) : RegexNode<'t> =
+        match tail with
+        | Concat(head=Or(nodes=nodes) as head;tail=ctail) ->
+            match head.IsAlwaysNullable with
+            | true ->
+                let langs =
+                    nodes
+                    |> Seq.map (fun v -> this.combineLanguage(singletonLoop, v) )
+                    |> Seq.toArray
+                let allcontained =
+                    langs |> Seq.forall (fun v -> v.IsSome && refEq (snd v.Value) singletonLoop )
+                if allcontained then
+                    this.trySubsumeHead(singletonLoop, ctail)
+                else
+                    this.mkConcat2(singletonLoop, tail)
+            | _ ->
+                this.mkConcat2(singletonLoop, tail)
+        | _ ->
+            this.mkConcat2(singletonLoop, tail)
+
+
+
     member this.mkOr2 (node1: RegexNode<'t>, node2: RegexNode<'t>) : RegexNode<'t> =
         let key = [|node1;node2|] |> Seq.toArray
         Array.sortInPlaceBy LanguagePrimitives.PhysicalHash key
@@ -1016,6 +1039,18 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             //     ()
 
             match node1, node2 with
+            // merge head
+            | (Concat(head=chead1;tail=ctail1) as c1), (Concat(head=chead2;tail=ctail2) as c2)
+            | (Concat(head=chead2;tail=ctail2) as c2),(Concat(head=chead1;tail=ctail1) as c1) when
+                refEq chead1 chead2 ->
+                let newtail = this.mkOr2(ctail1,ctail2)
+                // // .*t.*hat.*|.*hat.* -> .*hat.*
+                match chead1 with
+                | SingletonStarLoop(pred) ->
+                    this.trySubsumeHead(chead1,newtail)
+                | _ ->
+                this.mkConcat2(chead1, newtail)
+            // ⊤*.*t(ε|.*t) ->
             | (Concat(head=chead1;tail=ctail1) as c1), (Concat(head=chead2;tail=ctail2) as c2)
             | (Concat(head=chead2;tail=ctail2) as c2),(Concat(head=chead1;tail=ctail1) as c1) when
                 refEq chead1 chead2 ->
@@ -1413,11 +1448,14 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                     _concatCache.Add(key, v)
                     v
                 // \b(?=.*c) - not correct
-                // | Or(nodes,_), LookAround(node=node2;lookBack=false) ->
-                //     let rewritten =
-                //         nodes |> Seq.map (fun v -> b.mkConcat2(v,tail) ) |> this.mkOr
-                //     _concatCache.Add(key, rewritten)
-                //     rewritten
+                | SingletonStarLoop(lpred), Concat(head=chead;tail=ctail) ->
+                    let w = 1
+                    // failwith "todo"
+                    createCached(head,tail)
+                    // let rewritten =
+                    //     nodes |> Seq.map (fun v -> b.mkConcat2(v,tail) ) |> this.mkOr
+                    // _concatCache.Add(key, rewritten)
+                    // rewritten
                 | LookAround(node=Epsilon;lookBack=false;pendingNullables = nullables), tail when not tail.IsAlwaysNullable ->
                     // Experimental
                     let v =

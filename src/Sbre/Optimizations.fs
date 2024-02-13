@@ -320,7 +320,7 @@ let findInitialOptimizations
 
 let tryGetLimitedSkip getNonInitialDerivative (nodeToId:RegexNode<TSet> -> int) (getStartset:RegexNode<_> -> TSet) (c:RegexCache<_>) (initial:RegexNode<_>) (node:RegexNode<_>) =
     assert(not node.ContainsLookaround)
-    let redundant = HashSet([initial])
+    let redundant = HashSet([initial; ])
     let skipTerm = getStartset initial // m.GetOrCreateState(initial).Startset
     match node with
     | Or(nodes, info) ->
@@ -358,7 +358,6 @@ let tryGetLimitedSkip getNonInitialDerivative (nodeToId:RegexNode<TSet> -> int) 
                     termPred= searchValuesSet,
                     termTransitionId=nodeToId (getNonInitialDerivative (skipTerm, node)),
                     nonTermTransitionId= nodeToId (c.Builder.mkOr [finalNode; initial])
-                    // nonTermTransitionId= nodeToId (node)
                     )
                 )
         | _ -> None
@@ -366,7 +365,6 @@ let tryGetLimitedSkip getNonInitialDerivative (nodeToId:RegexNode<TSet> -> int) 
         let nonTermDerivatives (node: RegexNode<TSet>) =
             let ders1 = Optimizations.getNonRedundantDerivatives getNonInitialDerivative c redundant node
             ders1 |> Array.where (fun (mt,_) -> not (Solver.contains skipTerm mt) )
-
         let nonInitialNonTerm = nonTermDerivatives node
 
         match nonInitialNonTerm with
@@ -377,9 +375,12 @@ let tryGetLimitedSkip getNonInitialDerivative (nodeToId:RegexNode<TSet> -> int) 
                 | [| (mt,single) |] when (not (node.CanBeNullable || refEq c.False node || c.Solver.IsFull(mt))) ->
                     redundant.Add(node) |> ignore
                     path.Add(mt)
+                    if path.Count > 25 then
+                        ()
                     loop single
                 | _ -> node
             let finalNode = loop (snd singlePath)
+            let transitionNode = nodeToId (getNonInitialDerivative (skipTerm, node))
             if path.Count < 2 then None else
                 if c.MintermIsInverted(skipTerm) then None else
                     // failwith "todo: inverted minterm"
@@ -393,7 +394,7 @@ let tryGetLimitedSkip getNonInitialDerivative (nodeToId:RegexNode<TSet> -> int) 
                     ActiveBranchOptimizations.LimitedSkip(
                     distance=path.Count + 1,
                     termPred= searchValuesSet,
-                    termTransitionId=nodeToId (getNonInitialDerivative (skipTerm, node)),
+                    termTransitionId=transitionNode,
                     nonTermTransitionId= nodeToId (c.Builder.mkOr [finalNode; initial])
                     // nonTermTransitionId= nodeToId (node)
                     )
@@ -464,10 +465,6 @@ let rec nodeWithoutLookbackPrefix
         | Epsilon -> tail
         | _ ->
             node
-            // failwith "TODO: rewrite "
-        // match converted |> Seq.forall (fun v -> v = Epsilon ) with
-        // | true -> nodeWithoutLookbackPrefix b tail
-        // | false -> node
     | Or(nodes=xs) ->
         xs
         |> Seq.map (nodeWithoutLookbackPrefix b)
@@ -477,7 +474,7 @@ let rec nodeWithoutLookbackPrefix
         |> Seq.map (nodeWithoutLookbackPrefix b)
         |> b.mkAnd
     | Not(_) ->
-        assert (not node.ContainsLookaround)
+        // assert (not node.ContainsLookaround)
         node
     | _ ->
         node

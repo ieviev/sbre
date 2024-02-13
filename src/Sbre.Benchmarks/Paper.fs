@@ -145,7 +145,6 @@ type DebugSbre3() =
         "\s([A-Za-z]awyer|[A-Za-z]inn)\s"
 
         // "Twain"
-
         // Permutations.permuteConjInLine ["th.*at"; "an.*d"; "th.*e";"wa.*s"]
         // Permutations.permuteAltInLine [@"whi[a-z]*h";@"cou[a-z]*d"; @"the[a-z]*e" ]
     ], fullInput)
@@ -316,25 +315,6 @@ type Lines2() =
         )
 
 
-//
-// .*Huck.*&.*Finn.*&~(.*berry.*)
-
-
-
-type Twain_1() =
-    inherit
-        Jobs.TestAllEngines(
-            // "Twain", // OK
-            // "(?i)Twain", // .net faster
-            // "[a-z]shing", // .net faster
-            @"Huck[a-zA-Z]+|Saw[a-zA-Z]+", // .net
-            // "[a-q][^u-z]{13}x", // ????
-            // "Tom|Sawyer|Huckleberry|Finn", // same
-            fullInput
-        )
-
-
-
 type TwainRegexes() =
     inherit
         Jobs.TestAllEnginesAllPatternsWithCompileTime(
@@ -362,7 +342,6 @@ type TwainRegexesMatchOnly() =
     inherit
         Jobs.TestAllEnginesAllPatternsMatchOnly(
             [
-
                // """(?<=\W)\w+nn(?=\W)"""
                """\b\w+nn\b"""
                "Twain"
@@ -424,11 +403,11 @@ type SampleRegexes() =
                // "(?i)Tom|Sawyer|Huckleberry|Finn"
                // ".{0,2}(Tom|Sawyer|Huckleberry|Finn)"
                // ".{2,4}(Tom|Sawyer|Huckleberry|Finn)"
-               // "Tom.{10,25}river|river.{10,25}Tom"
+               "Tom.{10,25}river|river.{10,25}Tom"
                // "[a-zA-Z]+ing"
                // "\s[a-zA-Z]{0,12}ing\s"
                // "\s([A-Za-z]awyer|[A-Za-z]inn)\s"
-               // """["'][^"']{0,30}[?!\.]["']"""
+               """["'][^"']{0,30}[?!\.]["']"""
                // """(?<=\W)\w+nn(?=\W)"""
                // """(?<=\a|\W)\w+nn(?=\W|\z)"""
                """\b\w+nn\b"""

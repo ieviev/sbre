@@ -199,4 +199,18 @@ let ``same as runtime 6``() =
 
 
 
+[<Fact>]
+let ``nested not 1``() =
+    // let pattern = """(?!^0*$)(?!^0*\.0*$)^\d{1,5}(\.\d{1,3})?$"""
+    let pattern = """~(^0*$)&~(^0*\.0*$)&^\d{1,5}(\.\d{1,3})?$"""
+    let input = "12345.123"
+    assertFirstMatchText pattern input "12345.123"
+
+
+
+
+
+
+
+
 #endif

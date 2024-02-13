@@ -872,9 +872,11 @@ type RegexMatcher<'t when 't: struct>
                     let newPos = loc.Position - distance + idx
                     // let relativepos = loc.Input.Slice(loc.Position - distance + idx, 10)
                     // let debug = relativepos.ToString()
+                    // let newState = _stateArray[termTransitionId]
                     loc.Position <- newPos
                     currentStateId <- termTransitionId
-                    true
+
+                    true // mark nullable
             | _ -> failwith "todo"
         else
             let tmp_loc = loc.Position

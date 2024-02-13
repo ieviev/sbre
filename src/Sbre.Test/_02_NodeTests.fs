@@ -150,6 +150,7 @@ let ``a conversion 2.3``() = assertConverted "(.*|(.*11.*|1.*))" [ ".*" ]
 [<Fact>]
 let ``a conversion 2.4``() = assertConverted "(~((|.*Finn))&.*)" [
     "(~((ε|.*Finn))&.*)"
+    @"(.*&~((ε|.*Finn)))"
     @"(.*&~((.*Finn|ε)))"
     @"(~((.*Finn|ε))&.*)"
 ]
@@ -164,6 +165,15 @@ let ``a conversion 2.6``() = assertConverted """([a-zA-Z]+)Huck|([a-zA-Z]+)Saw""
     """([A-Za-z])+(Huck|Saw)"""
     """([A-Za-z])+(Saw|Huck)"""
 ]
+
+
+
+[<Fact>]
+let ``b conversion 1 ``() =
+    assertRawDerivative @".*t.*hat.*" "ttt" [ @".*hat.*" ]
+
+
+
 // """.*(?=aaa)"""
 
 // (.*|(.*11.*|1.*)
