@@ -35,14 +35,14 @@ let printPrefixSets (cache:RegexCache<_>) (sets:TSet list) =
 
 let getImmediateDerivatives createNonInitialDerivative (cache: RegexCache<_>) (node: RegexNode<TSet>) =
     cache.Minterms()
-    |> Array.map (fun minterm ->
+    |> Seq.map (fun minterm ->
         let loc = Pat.Location.getDefault ()
         let der = createNonInitialDerivative (minterm, node)
         minterm, der
     )
 let getImmediateDerivativesMerged (createNonInitialDerivative) (cache: RegexCache<_>) (node: RegexNode<TSet>) =
     cache.Minterms()
-    |> Array.map (fun minterm ->
+    |> Seq.map (fun minterm ->
         let der = createNonInitialDerivative (minterm, node)
         minterm, der
     )
@@ -96,7 +96,7 @@ let rec getPrefixNodeAndComplement (cache:RegexCache<_>) (node:RegexNode<_>) : R
                 |> Seq.toArray
             let noComplements = trimmed |> Seq.forall (fun v -> (snd v).IsNone)
             if noComplements then
-                cache.Builder.mkOr(trimmed |> Seq.map fst), None
+                cache.Builder.mkOr(trimmed |> Array.map fst), None
             else
                 node, None
 
@@ -110,6 +110,7 @@ let rec getPrefixNodeAndComplement (cache:RegexCache<_>) (node:RegexNode<_>) : R
         let complement =
             nodes
             |> Seq.choose (function | Not (inner,info) -> Some inner | _ -> None )
+            |> Seq.toArray
             |> cache.Builder.mkOr
             |> Some
 
@@ -123,7 +124,7 @@ let rec getPrefixNodeAndComplement (cache:RegexCache<_>) (node:RegexNode<_>) : R
             |> Seq.forall (fun v -> (snd v).IsNone)
 
         if noComplements then
-            cache.Builder.mkOr(trimmed |> Seq.map fst), complement
+            cache.Builder.mkOr(trimmed |> Seq.map fst |> Seq.toArray), complement
         else
             cache.Builder.mkAnd(nonComplementNodes), complement
     | _ -> node, None
@@ -137,7 +138,7 @@ let rec calcPrefixSets getNonInitialDerivative (getStateFlags: RegexNode<_> -> R
         getPrefixNodeAndComplement cache startNode
 
 
-    let rec loop acc node =
+    let rec loop (acc:TSet list) node =
         // let isRedundant = not (redundant.Add(node))
         // let all_derivs = getImmediateDerivativesMerged cache node |> Seq.toArray
         let prefix_derivs =
@@ -145,13 +146,10 @@ let rec calcPrefixSets getNonInitialDerivative (getStateFlags: RegexNode<_> -> R
             |> Seq.toArray
 
         // a -> t
-        let stateFlags = getStateFlags node
-        if stateFlags.CanSkip && not (refEq prefixStartNode node) || stateFlags.CanBeNullable then acc |> List.rev else
         // if stateFlags.CanSkip && not (refEq startNodeWithoutComplement node) then acc |> List.rev else
         if not acc.IsEmpty && redundant.Contains(node) then
             acc |> List.rev
-
-        else if node.CanBeNullable  then
+        elif node.CanBeNullable  then
             acc |> List.rev
         else
             // let pretty =
@@ -190,52 +188,50 @@ let rec calcPrefixSets getNonInitialDerivative (getStateFlags: RegexNode<_> -> R
 
 
 let rec calcPotentialMatchStart getNonInitialDerivative (getStateFlags: RegexNode<_> -> RegexStateFlags) (cache: RegexCache<_>) (startNode: RegexNode<_>) =
-    let redundant = System.Collections.Generic.HashSet<RegexNode<TSet>>([ cache.False ])
-    let rec loop acc (nodes:RegexNode<_> list) =
-        let stateFlags =
-            nodes |> Seq.map getStateFlags
-        let shouldExit =
-            stateFlags |> Seq.exists (_.CanSkip) || nodes |> Seq.exists (_.CanBeNullable)
+    let redundant = System.Collections.Generic.HashSet<RegexNode<TSet>>(tsetComparer)
+    redundant.Add(cache.False) |> ignore
+    let nodes = HashSet(tsetComparer)
+    let tempList = ResizeArray()
+    let rec loop (acc: TSet list) =
+        // if true then acc |> List.rev else
+        tempList.Clear()
+        if nodes.Count > 4 || acc.Length > 5 || nodes.Count = 0 then acc |> List.rev else
+        let shouldExit = nodes |> Seq.exists (_.CanBeNullable)
         if shouldExit then acc |> List.rev else
-        if acc.Length = 0 then
-            nodes |> Seq.iter (redundant.Add >> ignore)
-        let nonRedundant = nodes // |> List.where (redundant.Add)
-        if nonRedundant.IsEmpty then
-            acc |> List.rev
-        else
-            let prefixDerivsList =
-                nonRedundant
-                |> List.map (getNonRedundantDerivatives getNonInitialDerivative cache redundant)
 
-            let merged_pred =
-                prefixDerivsList
-                |> Seq.collect id
-                |> Seq.map fst
-                |> Seq.fold (|||) cache.Solver.Empty
+        nodes
+        |> Seq.map (getNonRedundantDerivatives getNonInitialDerivative cache redundant)
+        |> Seq.iter (tempList.Add)
 
-            // let pretty =
-            //     prefixDerivsList
-            //     |> Seq.map (Array.map (fun (mt,node) ->
-            //         cache.PrettyPrintMinterm(mt), node
-            //     ))
-            //     |> Seq.toArray
+        let merged_pred =
+            tempList
+            |> Seq.collect id
+            |> Seq.map fst
+            |> Seq.fold (|||) cache.Solver.Empty
 
-            let remainingNodes =
-                prefixDerivsList
-                |> Seq.collect id
-                |> Seq.map snd
-                |> Seq.toList
+        // let pretty =
+        //     prefixDerivsList
+        //     |> Seq.map (Array.map (fun (mt,node) ->
+        //         cache.PrettyPrintMinterm(mt), node
+        //     ))
+        //     |> Seq.toArray
 
-            let acc' = merged_pred :: acc
-            // let dbg = printPrefixSets cache acc'
-            if acc.Length > 5 then acc |> List.rev else
-            loop acc' remainingNodes
+        nodes.Clear()
+        tempList
+        |> Seq.iter (fun tmp ->
+            tmp |> Seq.iter (fun v ->
+                nodes.Add(snd v) |> ignore
+            )
+        )
+        loop (merged_pred :: acc)
 
-    let prefixStartNode, complementStartset =
-        getPrefixNodeAndComplement cache startNode
+    let prefixStartNode, complementStartset = getPrefixNodeAndComplement cache startNode
+    nodes.Add(prefixStartNode) |> ignore
+    redundant.Add(prefixStartNode) |> ignore
+
     match complementStartset with
     | Some c -> [] // todo
-    | None -> loop [] [prefixStartNode]
+    | None -> loop []
 
 
 
@@ -324,7 +320,7 @@ let tryGetLimitedSkip getNonInitialDerivative (nodeToId:RegexNode<TSet> -> int) 
     let skipTerm = getStartset initial // m.GetOrCreateState(initial).Startset
     match node with
     | Or(nodes, info) ->
-        let nonInitial = nodes |> Seq.where (fun v -> not (refEq v initial)) |> c.Builder.mkOr
+        let nonInitial = nodes |> Seq.where (fun v -> not (refEq v initial)) |> Seq.toArray |> c.Builder.mkOr
         let nonTermDerivatives (node: RegexNode<TSet>) =
             let ders1 = Optimizations.getNonRedundantDerivatives getNonInitialDerivative c redundant node
             ders1 |> Array.where (fun (mt,_) -> not (Solver.contains skipTerm mt) )
@@ -357,7 +353,7 @@ let tryGetLimitedSkip getNonInitialDerivative (nodeToId:RegexNode<TSet> -> int) 
                     distance=path.Count + 1,
                     termPred= searchValuesSet,
                     termTransitionId=nodeToId (getNonInitialDerivative (skipTerm, node)),
-                    nonTermTransitionId= nodeToId (c.Builder.mkOr [finalNode; initial])
+                    nonTermTransitionId= nodeToId (c.Builder.mkOr [|finalNode; initial|])
                     )
                 )
         | _ -> None
@@ -380,7 +376,6 @@ let tryGetLimitedSkip getNonInitialDerivative (nodeToId:RegexNode<TSet> -> int) 
                     loop single
                 | _ -> node
             let finalNode = loop (snd singlePath)
-            let transitionNode = nodeToId (getNonInitialDerivative (skipTerm, node))
             if path.Count < 2 then None else
                 if c.MintermIsInverted(skipTerm) then None else
                     // failwith "todo: inverted minterm"
@@ -394,8 +389,8 @@ let tryGetLimitedSkip getNonInitialDerivative (nodeToId:RegexNode<TSet> -> int) 
                     ActiveBranchOptimizations.LimitedSkip(
                     distance=path.Count + 1,
                     termPred= searchValuesSet,
-                    termTransitionId=transitionNode,
-                    nonTermTransitionId= nodeToId (c.Builder.mkOr [finalNode; initial])
+                    termTransitionId=nodeToId (getNonInitialDerivative (skipTerm, node)),
+                    nonTermTransitionId= nodeToId (c.Builder.mkOr [|finalNode; initial|])
                     // nonTermTransitionId= nodeToId (node)
                     )
                 )
@@ -431,8 +426,6 @@ let rec collectPendingNullables
             failwith $"todo: collect pending nullables inside: {node}"
         else Set.empty
     | Epsilon | Anchor _ | Singleton _ -> Set.empty
-    // | Concat(head, tail, info) -> failwith "todo"
-    // | Epsilon -> failwith "todo"
     | LookAround(_) | Concat(head=LookAround(_)) -> Set.empty
     | Concat(info=info) when info.CanNotBeNullable() -> Set.empty
     | Concat(head=head; tail=tail) when head.IsAlwaysNullable ->
@@ -444,9 +437,7 @@ let rec collectPendingNullables
     | Concat(head=head; tail=tail) ->
         let pendingTail = collectPendingNullables canBeNull tail
         pendingTail
-    // | _ ->
-    //     failwith $"todo: nullables inside: {node}"
-    //     Set.empty
+
 
 let rec nodeWithoutLookbackPrefix
     (b:RegexBuilder<_>)
@@ -468,6 +459,7 @@ let rec nodeWithoutLookbackPrefix
     | Or(nodes=xs) ->
         xs
         |> Seq.map (nodeWithoutLookbackPrefix b)
+        |> Seq.toArray
         |> b.mkOr
     | And(nodes=xs) | Or(nodes=xs) ->
         xs

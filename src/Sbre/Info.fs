@@ -48,18 +48,6 @@ let inline invertFlag (flags: byref<RegexNodeFlags>) (flagsToInvert: RegexNodeFl
     else
         flags <- flags ||| flagsToInvert
 
-// Patterns
-[<return: Struct>]
-let (|CanNotBeNullable|_|)(x: RegexNodeInfo<'t>) =
-    match x.NodeFlags.HasFlag(RegexNodeFlags.CanBeNullableFlag) with
-    | false -> ValueSome()
-    | _ -> ValueNone
-
-[<return: Struct>]
-let (|IsAlwaysNullable|_|)(x: RegexNodeInfo<'t>) =
-    match x.NodeFlags.HasFlag(RegexNodeFlags.IsAlwaysNullableFlag) with
-    | true -> ValueSome()
-    | _ -> ValueNone
 
 [<return: Struct>]
 let (|HasPrefixLookaround|_|)(x: RegexNode<'t>) =

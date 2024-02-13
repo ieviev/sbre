@@ -254,15 +254,15 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
     let _concatCache: Dictionary<struct (RegexNode< 't > * RegexNode< 't >), RegexNode< 't >> =
         Dictionary(_concatCacheComparer)
 
-    let _subsumptionCacheComparer: IEqualityComparer<struct (RegexNode<TSet> * RegexNode<TSet >)> =
-        { new IEqualityComparer<struct (RegexNode<TSet> * RegexNode<TSet>)> with
+    let _combineLanguageComparer: IEqualityComparer<struct (RegexNode<'t> * RegexNode<'t >)> =
+        { new IEqualityComparer<struct (RegexNode<'t> * RegexNode<'t>)> with
             member this.Equals(struct (x1, y1), struct (x2, y2)) = refEq x1 x2 && refEq y1 y2
             member this.GetHashCode(struct (x, y)) =
                 LanguagePrimitives.PhysicalHash x ^^^ LanguagePrimitives.PhysicalHash y
         }
 
-    let _subsumptionCache: Dictionary<struct (RegexNode<TSet> * RegexNode<TSet>), bool> =
-        Dictionary(_subsumptionCacheComparer)
+    let _combineLanguageCache: Dictionary<struct (RegexNode<'t> * RegexNode<'t>), (RegexNode<'t> * RegexNode<'t>) option> =
+        Dictionary(_combineLanguageComparer)
 
     let _orCache: Dictionary<RegexNode< 't >[], RegexNode< 't >> =
         Dictionary(_orCacheComparer)
@@ -308,27 +308,27 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
     let _anchors =
         let nonWordLeft =
             lazy
-                b.mkOr([
+                b.mkOr([|
                     RegexNode<'t>.Anchor Begin;
                     b.mkLookaround( _uniques._nonWordChar.Value ,true)
-                ])
+                |])
         let wordLeft =
             lazy
-                b.mkOr([
+                b.mkOr([|
                     RegexNode<'t>.Anchor Begin
                     b.mkLookaround( _uniques._wordChar.Value ,true)
-                ])
+                |])
         let nonWordRight =
             lazy
                 b.mkOr(
-                    [RegexNode<'t>.Anchor End
-                     b.mkLookaround( _uniques._nonWordChar.Value,false) ]
+                    [|RegexNode<'t>.Anchor End
+                      b.mkLookaround( _uniques._nonWordChar.Value,false) |]
                 )
         let wordRight =
             lazy
                 b.mkOr(
-                    [RegexNode<'t>.Anchor End
-                     b.mkLookaround( _uniques._wordChar.Value,false) ]
+                    [|RegexNode<'t>.Anchor End
+                      b.mkLookaround( _uniques._wordChar.Value,false) |]
                 )
 
         {|
@@ -346,10 +346,10 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             _aAnchor =
                 lazy
                     let seqv =
-                        ofSeq [
+                        [|
                             _uniques._aAnchor
                             b.mkConcat2(_uniques._aAnchor, b.one '\n')
-                        ]
+                        |]
                     let node = b.mkOr(seqv)
                     b.mkLookaround(node,true)
 
@@ -374,7 +374,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             _wordBorder =
                     lazy
                         b.mkOr(
-                        ofSeq [
+                        [|
                             b.mkConcat2(nonWordLeft.Value, wordRight.Value)
                             b.mkConcat2(wordLeft.Value, nonWordRight.Value)
                             // b.mkConcat [
@@ -386,32 +386,32 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                             //     b.mkLookaround(_uniques._wordChar.Value,true,true)
                             //     b.mkLookaround(_uniques._wordChar.Value,false,false)
                             // ]
-                        ]
+                        |]
                     )
             // (?<=\W)
             // _nonWordLeft = lazy b.mkLookaround(_uniques._nonWordChar.Value,true,false)
             // proper definition (?<=\a|\W)
             _nonWordLeft =
                 lazy
-                    b.mkOr([
+                    b.mkOr([|
                         RegexNode<'t>.Anchor Begin
                         b.mkLookaround( _uniques._nonWordChar.Value ,true)
-                    ])
+                    |])
             // (?<=\W)
             _wordLeft =
                 lazy
-                    b.mkOr([
+                    b.mkOr([|
                         RegexNode<'t>.Anchor Begin
                         b.mkLookaround( _uniques._wordChar.Value ,true)
-                    ])
+                    |])
             // (?=\W)
             // _nonWordRight = lazy b.mkLookaround(_uniques._nonWordChar.Value)
             // proper definition (?=\z|\W)
             _nonWordRight =
                 lazy
                     b.mkOr(
-                        [RegexNode<'t>.Anchor End
-                         b.mkLookaround( _uniques._nonWordChar.Value,false) ]
+                        [|RegexNode<'t>.Anchor End
+                          b.mkLookaround( _uniques._nonWordChar.Value,false) |]
                     )
 
                     // b.mkLookaround(
@@ -420,8 +420,8 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             _wordRight =
                 lazy
                     b.mkOr(
-                        [RegexNode<'t>.Anchor End
-                         b.mkLookaround( _uniques._wordChar.Value,false) ]
+                        [|RegexNode<'t>.Anchor End
+                          b.mkLookaround( _uniques._wordChar.Value,false) |]
                     )
 
             // ^ ≡ \A|(?<=\n)
@@ -429,20 +429,20 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 // RegexNode<'t>.Anchor Bol
                 lazy
                     b.mkOr(
-                        ofSeq [
+                        [|
                             _uniques._aAnchor
                             b.mkLookaround(b.one '\n',true)
-                        ]
+                        |]
                     )
             // ^ ≡ \z|(?=\n)
             _dollarAnchor =
                 // RegexNode<'t>.Anchor Eol
                 lazy
                     b.mkOr(
-                        ofSeq [
+                        [|
                             _uniques._zAnchor
                             b.mkLookaround(b.one '\n',false)
-                        ]
+                        |]
                     )
 
         |}
@@ -460,66 +460,17 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
     member this.PrefixCache = _prefixCache
     // member this.DerivativeCache = _derivativeCache
     // member this.Startset2Cache = _startset2Cache
-    member this.SubsumptionCache = _subsumptionCache
+    member this.LanguageCache = _combineLanguageCache
     member this.UniquesDict = _uniquesDict
 
     member this.InitializeUniqueMap(oldBuilder:RegexBuilder<BDD>) =
-        _uniquesDict.Add(oldBuilder.anchors._aAnchor.Value,this.anchors._aAnchor.Value)
-        _uniquesDict.Add(oldBuilder.anchors._bigAAnchor,this.anchors._bigAAnchor)
-        _uniquesDict.Add(oldBuilder.anchors._caretAnchor.Value,this.anchors._caretAnchor.Value)
-        _uniquesDict.Add(oldBuilder.anchors._dollarAnchor.Value,this.anchors._dollarAnchor.Value)
-        // _uniquesDict.Add(oldBuilder.anchors._nonWordBorder.Value,this.anchors._nonWordBorder.Value)
+        // _uniquesDict.Add(oldBuilder.anchors._aAnchor.Value,this.anchors._aAnchor.Value)
+        // _uniquesDict.Add(oldBuilder.anchors._bigAAnchor,this.anchors._bigAAnchor)
+        // _uniquesDict.Add(oldBuilder.anchors._caretAnchor.Value,this.anchors._caretAnchor.Value)
+        // _uniquesDict.Add(oldBuilder.anchors._dollarAnchor.Value,this.anchors._dollarAnchor.Value)
         // _uniquesDict.Add(oldBuilder.anchors._wordBorder.Value,this.anchors._wordBorder.Value)
-        _uniquesDict.Add(oldBuilder.anchors._zAnchor,this.anchors._zAnchor)
+        // _uniquesDict.Add(oldBuilder.anchors._zAnchor,this.anchors._zAnchor)
         ()
-
-    // [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    // member this.AddTransitionInfo
-    //     (
-    //         pred: 't,
-    //         node: RegexNode<'t>,
-    //         result: RegexNode<'t>
-    //     ) =
-    //     match node with
-    //     | Or(info = info)
-    //     | Loop(info = info)
-    //     | And(info = info)
-    //     | Not(info = info)
-    //     | Concat(info = info) ->
-    //         match info.Transitions.Count with
-    //         | 0 ->
-    //             if
-    //                 refEq _uniques._true node
-    //                 || refEq _uniques._trueStar node
-    //                 || refEq _uniques._truePlus node
-    //             then
-    //                 info.Transitions.Add({ Set = solver.Full; Node = result })
-    //             else
-    //                 info.Transitions.Add({ Set = pred; Node = result })
-    //
-    //         | n ->
-    //             // use mutable e = info.Transitions.GetEnumerator()
-    //             let mutable e =
-    //                 CollectionsMarshal.AsSpan(info.Transitions).GetEnumerator()
-    //
-    //             let pret =solver.PrettyPrint(pred,Debug.debugcharSetSolver)
-    //
-    //             let mutable looping = true
-    //             let mutable counter = 0
-    //
-    //             while looping && e.MoveNext() do
-    //                 let curr = e.Current
-    //
-    //                 if obj.ReferenceEquals(curr.Node, result) then
-    //                     looping <- false
-    //                     info.Transitions[counter].Set <- solver.Or(pred, curr.Set)
-    //
-    //                 counter <- counter + 1
-    //
-    //             if looping then
-    //                 info.Transitions.Add({ Set = pred; Node = result })
-    //     | _ -> ()
-
 
     member this.setFromNode(node: RegexNode) =
         let bdd = (converter.CreateBDDFromSetString(node.Str))
@@ -536,7 +487,6 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 _singletonCache.Add(a2, v)
                 v
 
-
     member this.one(char: char) : RegexNode< 't > =
         let a1: BDD = bcss.CreateBDDFromChar char
         let a2 = solver.ConvertFromBDD(a1, bcss)
@@ -552,7 +502,6 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 let v = RegexNode.Singleton(a2)
                 _singletonCache.Add(a2, v)
                 v
-
 
     member this.one(minterm: 't) : RegexNode< 't > =
         let a2 = minterm
@@ -644,6 +593,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                             | Concat(regexNode, tail, regexNodeInfo) -> tail
                             | _ -> failwith "todo: subsumption bug"
                         )
+                        |> Seq.toArray
                         |> this.mkOr
                     nodes.Clear()
                     nodes.Add(this.mkConcat2(shead, mergeTails)) |> ignore
@@ -667,275 +617,195 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
         |> Option.defaultValue nodes
 
 
-    member this.trySubsumeTopLevelOr(struct(existing: RegexNode<TSet>, newnode: RegexNode<TSet>)) : bool =
-        match struct (existing, newnode) with
-        | Concat(_), And(nodes = nodes2) ->
-            nodes2.Contains(existing)
-            || setIsSubsumedSingle nodes2 (existing)
-
-        | Or(nodes = nodes1), And(nodes = nodes2) ->
-            if nodes2.Contains(existing) then
-                true
-            else
-                let mutable found = false
-                use mutable n1e = nodes1.GetEnumerator()
-
-                while not found && n1e.MoveNext() do
-                    if
-                        nodes2.Contains(n1e.Current)
-
-                    then
-                        found <- true
-                if not found then
-                    if setIsSubsumedSingle nodes2 (existing) then
-                        found <- true
-                    else
-                        let v = 1
-                        ()
-#if OPTIMIZE
-                if not found then
-                    failwith $"unoptimized:\n{existing.ToString()}\n{newnode.ToString()}"
-#endif
-                found
-
-        | And(nodes = nodes1), And(nodes = nodes2)
-        | Or(nodes = nodes2), Or(nodes = nodes1) ->
-
-
-            let mutable found = false
-
-            // check for subset equality
-            use mutable n1e = nodes1.GetEnumerator()
-            use mutable n2e = nodes2.GetEnumerator()
-            let mutable allcontained = true
-
-            while allcontained && n1e.MoveNext() do
-
-                let mutable currFound = false
-
-                while not currFound && n2e.MoveNext() do
-                    let currN2 = n2e.Current
-                    let currN1 = n1e.Current
-
-                    if refEq currN1 currN2 then
-                        currFound <- true
-                    else
-
-                    match currN1 with
-                    | Or(nodes = currN1Inner) ->
-                        if currN1Inner.Contains(currN2) then
-                            currFound <- true
-                        else
-                            match isSubSequence (currN2) (currN1) with
-                            | ValueSome (v) ->
-                                currFound <- true
-                            | _ -> ()
-                    | _ ->
-                        match isSubSequence (currN2) (currN1) with
-                        | ValueSome (v) ->
-                            currFound <- true
-                        | _ -> ()
-
-                n2e.Reset()
-
-                if not currFound then
-                    allcontained <- false
-
-            if allcontained then
-                found <- true
-#if OPTIMIZE
-            else
-                failwith "unoptimized"
-#endif
-
-            found
-
-        | _ -> false
-        |> (fun v ->
-            _subsumptionCache.Add(struct (existing, newnode), v)
-            v
-        )
-
     /// returns: Some (intersect lang, union lang) / None: no overlap
     member this.combineLanguage(node1: RegexNode<'t>, node2: RegexNode<'t>) : (RegexNode<'t>*RegexNode<'t>) option =
+        let hash1 = LanguagePrimitives.PhysicalHash node1
+        let hash2 = LanguagePrimitives.PhysicalHash node2
+        let key = if hash1 < hash2 then struct(node1,node2) else struct(node2,node1)
+
+        match this.LanguageCache.TryGetValue(key) with
+        | true, v -> v
+        | _ ->
+
         let mergeUnion() = this.mkOr2Direct(node1,node2)
         let mergeIntersection() = this.mkAnd2Direct(node1,node2)
 
         if refEq node1 node2 then Some (node1,node2) else
-        match node1, node2 with
-        // R&⊥ -> ⊥
-        | other, falseNode
-        | falseNode, other when refEq _uniques._false falseNode -> Some(falseNode,other)
 
-        // R&⊤* -> R
-        | other, tsnode
-        | tsnode, other when refEq _uniques._trueStar tsnode -> Some(other,tsnode)
-
-        // (T*.*&.*) -> .*
-        | (Concat(head=TrueStar(solver);tail=catTail) as catnode), other
-        | other, (Concat(head=TrueStar(solver);tail=catTail) as catnode) when refEq catTail other ->
-            Some (other, catnode)
-        // ~(.*)&.*
-        | n2,Not(node=n1)
-        | Not(node=n1), n2 when refEq n1 n2 -> Some (_uniques._false, _uniques._trueStar)
-        // \d\d⊤*&\d⊤* -> \d\d⊤*
-        | (Concat(head=cathead1;tail=TrueStar(solver)) as cat1), (Concat(head=cathead2;tail=TrueStar(solver)) as cat2)
-        | (Concat(head=cathead2;tail=TrueStar(solver)) as cat2), (Concat(head=cathead1;tail=TrueStar(solver)) as cat1) ->
-            match cathead1, cathead2 with
-            | Singleton cat1pred, othernode ->
-                if solver.isElemOfSet(cat1pred,othernode.SubsumedByMinterm(solver)) then
-                    Some(cat2,cat1)
-                else
-                    None
-            | othernode,Singleton cat2pred  ->
-                if solver.isElemOfSet(cat2pred,othernode.SubsumedByMinterm(solver)) then
-                    Some(cat1,cat2)
-                else None
-
-            | _ ->
-                failwith $"_subsume: {node1.ToString()} ;;; {node2.ToString()}"
-
-
-
-        // ε&.* -> ε
-        | other,Epsilon
-        | Epsilon, other ->
-            match other.IsAlwaysNullable with
-            | true -> Some(Epsilon, other)
-            | false -> None
-        // (a*&.*) -> a*
-        | (SingletonStarLoop(p2) as p2node), (SingletonStarLoop(p1) as p1node)
-        | (SingletonStarLoop(p1) as p1node),(SingletonStarLoop(p2) as p2node) ->
-            if Solver.containsS solver p1 p2  then Some(p2node, p1node)
-            elif Solver.containsS solver p2 p1  then Some(p1node, p2node)
-            else None
-        // (and .*|.* and .*)&.* -> (and .*|.* and .*)
-        | other, (SingletonStarLoop(p1) as p1node)
-        | (SingletonStarLoop(p1) as p1node),other ->
-            let submt = (other.SubsumedByMinterm(solver))
-            // let w = solver.PrettyPrint(submt, Debug.debugcharSetSolver)
-            if Solver.containsS solver p1 submt then
-                Some(other,p1node)
-            else Some(mergeIntersection(),mergeUnion())
-        // (.*hat.*|.*t.*hat.*) -> .*hat.*
-        | other, (SingletonStarLoop(p1) as p1node)
-        | (SingletonStarLoop(p1) as p1node),other ->
-            if solver.isElemOfSet(p1,other.SubsumedByMinterm(solver)) then
-                Some(other,p1node)
-            else Some(mergeIntersection(),mergeUnion())
-        // ((.*s|ε)&.*s) -> .*s
-        | other, (Or(nodes=nodes) as ornode)
-        | (Or(nodes=nodes) as ornode), other ->
-            match nodes.Contains(other) with
-            | true -> Some(other, ornode)
-            | false -> Some(mergeIntersection(),mergeUnion())
-        // (⊤*A⊤*&⊤*B⊤*)&⊤*B⊤* -> ⊤*A⊤*&⊤*B⊤*
-        | other, (And(nodes=nodes) as andnode)
-        | (And(nodes=nodes) as andnode), other ->
-            match nodes.Contains(other) with
-            | true -> Some(andnode, other)
-            | false -> Some(this.mkAnd2Direct(node1,node2),this.mkOr2Direct(node1,node2))
-
-        // [a-z]&a -> a
-        | (Singleton p1 as p1node), (Singleton p2 as p2node) ->
-            if Solver.containsS solver p1 p2  then Some(p2node, p1node)
-            elif Solver.containsS solver p2 p1  then Some(p1node, p2node)
-            else None
-        // (s.*&.*) -> s.*
-        | (Concat(head=cathead;tail=cattail) as catnode), (Loop(node=_;low=0;up=Int32.MaxValue) as loopnode)
-        | (Loop(node=_;low=0;up=Int32.MaxValue) as loopnode), (Concat(head=cathead;tail=cattail) as catnode) when refEq loopnode cattail ->
-            Some (catnode, loopnode)
-        // (.*&.*s) -> .*s
-        | (Concat(head=cathead;tail=_) as catnode), (Loop(node=_;low=0;up=Int32.MaxValue) as loopnode)
-        | (Loop(node=_;low=0;up=Int32.MaxValue) as loopnode), (Concat(head=cathead;tail=_) as catnode) when refEq loopnode cathead ->
-            Some (catnode, loopnode)
-        // ^a&a -> ^a
-        // TODO: BUG
-        // | (Concat(head=cathead;tail=cattail) as catnode), other
-        // | other, (Concat(head=cathead;tail=cattail) as catnode) when refEq other cattail ->
-        //     let headLength = Node.getFixedLength cathead
-        //     match headLength with
-        //     | Some 0 -> Some (catnode, other)
-        //     | _ -> Some(mergeIntersection(),mergeUnion())
-
-        // [a-z]&.*a -> a
-        // a&.*b -> ⊥
-        | (Concat(head=StarLoop(Singleton p1 as p1head); tail = p1tail) as p1node), (Singleton p2 as p2node)
-        | (Singleton p2 as p2node), (Concat(head=StarLoop(Singleton p1 as p1head); tail = p1tail) as p1node) ->
-            // .* > [a-z]
-            if Solver.containsS solver p1 p2  then
-                match this.combineLanguage(p1tail,p2node) with
-                | Some (smaller, larger) -> Some(smaller,this.mkOr2Direct(larger, p1node))
-                | _ -> None
-            elif Solver.containsS solver p2 p1 then Some(p2node, p1node)
-            else None
-        // a&b.* -> ⊥
-        // a&[a-z].* -> a
-        | (Concat(head=p1head; tail = StarLoop(Singleton p1 as p1tail)) as p1node), (Singleton p2 as p2node)
-        | (Singleton p2 as p2node), (Concat(head=p1head; tail = StarLoop(Singleton p1 as p1tail)) as p1node) ->
-            // .* > [a-z]
-            if Solver.containsS solver p1 p2  then
-                match this.combineLanguage(p1head,p2node) with
-                | Some (smaller, larger) -> Some(smaller,this.mkOr2Direct(larger, p1node))
-                | _ -> None
-            elif Solver.containsS solver p2 p1 then Some(p2node, p1node)
-            else None
-        // complex ones
-        | (And(nodes=nodes1) as p1node) , (And(nodes=nodes2) as p2node)
-        | (And(nodes=nodes2) as p2node),  (And(nodes=nodes1) as p1node)  ->
-            let mutable found = false
-            // check for subset equality
-            let diff1 = nodes1.Except(nodes2)
-            let diff2 = nodes2.Except(nodes1)
-            failwith "todo and sub"
-
-
-
-
-
-        // ⊤*s.*&.* -> s.*
-        // (⊤*B⊤*&⊤*A⊤*) -> both
-        // TODO: BUG
-        // | (Concat(head=TrueStar(solver);tail=catTail) as catnode), other
-        // | other, (Concat(head=TrueStar(solver);tail=catTail) as catnode) ->
-        //     if refEq catTail other then Some (other, catnode) else // already covered
-        //     // (⊤*a&.)
-        //     match catTail, other with
-        //     | Singleton catTailPred, othernode ->
-        //         if solver.isElemOfSet(catTailPred,othernode.SubsumedByMinterm(solver)) then
-        //             Some(catTail, this.mkOr2Direct(node1,node2))
-        //         else
-        //             Some(this.mkAnd2Direct(node1,node2),this.mkOr2Direct(node1,node2))
-        //     | _ ->
-        //
-        //     Some(this.mkAnd2Direct(node1,node2),this.mkOr2Direct(node1,node2))
-
-        // concat same head merge
-        | (Concat(head=chead1;tail=ctail1) as c1), (Concat(head=chead2;tail=ctail2) as c2)
-        | (Concat(head=chead2;tail=ctail2) as c2),(Concat(head=chead1;tail=ctail1) as c1) when
-            refEq chead1 chead2 ->
-            Some(mergeIntersection(), this.mkConcat2(chead1,this.mkOr2Direct(ctail1,ctail2)) )
-
-        // unoptimized cases ------------------------------
-        | _, Anchor _
-        | Anchor _, _ -> Some(this.mkAnd2Direct(node1,node2),this.mkOr2Direct(node1,node2))
-        | n1,n2 ->
-            let fixlen1 = Node.getFixedLength n1
-            let fixlen2 = Node.getFixedLength n2
-            match (n1,fixlen1), (n2,fixlen2) with
-            | (_,Some n1len), (_,Some n2len) when n1len <> n2len -> None
-            | (n2,None),(n1,Some n1len)
-            | (n1,Some n1len), (n2,None) ->
-                let minlen = getMinLength n2
-                match minlen with
-                | Some ml when n1len < ml -> None
+        let result =
+            match node1, node2 with
+            // R&⊥ -> ⊥
+            | other, falseNode
+            | falseNode, other when refEq _uniques._false falseNode -> Some(falseNode,other)
+            // R&⊤* -> R
+            | other, tsnode
+            | tsnode, other when refEq _uniques._trueStar tsnode -> Some(other,tsnode)
+            // (T*.*&.*) -> .*
+            | (Concat(head=TrueStar(solver);tail=catTail) as catnode), other
+            | other, (Concat(head=TrueStar(solver);tail=catTail) as catnode) when refEq catTail other ->
+                Some (other, catnode)
+            // ~(.*)&.*
+            | n2,Not(node=n1)
+            | Not(node=n1), n2 when refEq n1 n2 -> Some (_uniques._false, _uniques._trueStar)
+            // \d\d⊤*&\d⊤* -> \d\d⊤*
+            | (Concat(head=cathead1;tail=TrueStar(solver)) as cat1), (Concat(head=cathead2;tail=TrueStar(solver)) as cat2)
+            | (Concat(head=cathead2;tail=TrueStar(solver)) as cat2), (Concat(head=cathead1;tail=TrueStar(solver)) as cat1) ->
+                match cathead1, cathead2 with
+                | Singleton cat1pred, othernode ->
+                    if solver.isElemOfSet(cat1pred,othernode.SubsumedByMinterm(solver)) then
+                        Some(cat2,cat1)
+                    else
+                        None
+                | othernode,Singleton cat2pred  ->
+                    if solver.isElemOfSet(cat2pred,othernode.SubsumedByMinterm(solver)) then
+                        Some(cat1,cat2)
+                    else None
                 | _ ->
-                    Some(this.mkAnd2Direct(node1,node2),this.mkOr2Direct(node1,node2))
+                    failwith $"_subsume: {node1.ToString()} ;;; {node2.ToString()}"
+
+            // ε&.* -> ε
+            | other,Epsilon
+            | Epsilon, other ->
+                match other.IsAlwaysNullable with
+                | true -> Some(Epsilon, other)
+                | false ->
+                    // if other.CanNotBeNullable then
+                    //     Some(_uniques._false, this.mkOr2Direct(other,Epsilon))
+                    // else
+                        None
+            // (a*&.*) -> a*
+            | (SingletonStarLoop(p2) as p2node), (SingletonStarLoop(p1) as p1node)
+            | (SingletonStarLoop(p1) as p1node),(SingletonStarLoop(p2) as p2node) ->
+                if Solver.containsS solver p1 p2  then Some(p2node, p1node)
+                elif Solver.containsS solver p2 p1  then Some(p1node, p2node)
+                else None
+            // (and .*|.* and .*)&.* -> (and .*|.* and .*)
+            | other, (SingletonStarLoop(p1) as p1node)
+            | (SingletonStarLoop(p1) as p1node),other ->
+                let submt = (other.SubsumedByMinterm(solver))
+                // let w = solver.PrettyPrint(submt, Debug.debugcharSetSolver)
+                if Solver.containsS solver p1 submt then
+                    Some(other,p1node)
+                else Some(mergeIntersection(),mergeUnion())
+            // (.*hat.*|.*t.*hat.*) -> .*hat.*
+            | other, (SingletonStarLoop(p1) as p1node)
+            | (SingletonStarLoop(p1) as p1node),other ->
+                if solver.isElemOfSet(p1,other.SubsumedByMinterm(solver)) then
+                    Some(other,p1node)
+                else Some(mergeIntersection(),mergeUnion())
+            // ((.*s|ε)&.*s) -> .*s
+            | other, (Or(nodes=nodes) as ornode)
+            | (Or(nodes=nodes) as ornode), other ->
+                match nodes.Contains(other) with
+                | true -> Some(other, ornode)
+                | false -> Some(mergeIntersection(),mergeUnion())
+            // (⊤*A⊤*&⊤*B⊤*)&⊤*B⊤* -> ⊤*A⊤*&⊤*B⊤*
+            | other, (And(nodes=nodes) as andnode)
+            | (And(nodes=nodes) as andnode), other ->
+                match nodes.Contains(other) with
+                | true -> Some(andnode, other)
+                | false -> Some(this.mkAnd2Direct(node1,node2),this.mkOr2Direct(node1,node2))
+
+            // [a-z]&a -> a
+            | (Singleton p1 as p1node), (Singleton p2 as p2node) ->
+                if Solver.containsS solver p1 p2  then Some(p2node, p1node)
+                elif Solver.containsS solver p2 p1  then Some(p1node, p2node)
+                else None
+            // (s.*&.*) -> s.*
+            | (Concat(head=cathead;tail=cattail) as catnode), (Loop(node=_;low=0;up=Int32.MaxValue) as loopnode)
+            | (Loop(node=_;low=0;up=Int32.MaxValue) as loopnode), (Concat(head=cathead;tail=cattail) as catnode) when refEq loopnode cattail ->
+                Some (catnode, loopnode)
+            // (.*&.*s) -> .*s
+            | (Concat(head=cathead;tail=_) as catnode), (Loop(node=_;low=0;up=Int32.MaxValue) as loopnode)
+            | (Loop(node=_;low=0;up=Int32.MaxValue) as loopnode), (Concat(head=cathead;tail=_) as catnode) when refEq loopnode cathead ->
+                Some (catnode, loopnode)
+            // ^a&a -> ^a
+            // TODO: BUG
+            // | (Concat(head=cathead;tail=cattail) as catnode), other
+            // | other, (Concat(head=cathead;tail=cattail) as catnode) when refEq other cattail ->
+            //     let headLength = Node.getFixedLength cathead
+            //     match headLength with
+            //     | Some 0 -> Some (catnode, other)
+            //     | _ -> Some(mergeIntersection(),mergeUnion())
+
+            // [a-z]&.*a -> a
+            // a&.*b -> ⊥
+            | (Concat(head=StarLoop(Singleton p1 as p1head); tail = p1tail) as p1node), (Singleton p2 as p2node)
+            | (Singleton p2 as p2node), (Concat(head=StarLoop(Singleton p1 as p1head); tail = p1tail) as p1node) ->
+                // .* > [a-z]
+                if Solver.containsS solver p1 p2  then
+                    match this.combineLanguage(p1tail,p2node) with
+                    | Some (smaller, larger) -> Some(smaller,this.mkOr2Direct(larger, p1node))
+                    | _ -> None
+                elif Solver.containsS solver p2 p1 then Some(p2node, p1node)
+                else None
+            // a&b.* -> ⊥
+            // a&[a-z].* -> a
+            | (Concat(head=p1head; tail = StarLoop(Singleton p1 as p1tail)) as p1node), (Singleton p2 as p2node)
+            | (Singleton p2 as p2node), (Concat(head=p1head; tail = StarLoop(Singleton p1 as p1tail)) as p1node) ->
+                // .* > [a-z]
+                if Solver.containsS solver p1 p2  then
+                    match this.combineLanguage(p1head,p2node) with
+                    | Some (smaller, larger) -> Some(smaller,this.mkOr2Direct(larger, p1node))
+                    | _ -> None
+                elif Solver.containsS solver p2 p1 then Some(p2node, p1node)
+                else None
+            // complex ones
+            // | (And(nodes=nodes1) as p1node) , (And(nodes=nodes2) as p2node)
+            // | (And(nodes=nodes2) as p2node),  (And(nodes=nodes1) as p1node)  ->
+            //     let mutable found = false
+            //     // check for subset equality
+            //     let diff1 = nodes1.Except(nodes2)
+            //     let diff2 = nodes2.Except(nodes1)
+            //     failwith "todo and sub"
+            // ⊤*s.*&.* -> s.*
+            // (⊤*B⊤*&⊤*A⊤*) -> both
+            // TODO: BUG
+            // | (Concat(head=TrueStar(solver);tail=catTail) as catnode), other
+            // | other, (Concat(head=TrueStar(solver);tail=catTail) as catnode) ->
+            //     if refEq catTail other then Some (other, catnode) else // already covered
+            //     // (⊤*a&.)
+            //     match catTail, other with
+            //     | Singleton catTailPred, othernode ->
+            //         if solver.isElemOfSet(catTailPred,othernode.SubsumedByMinterm(solver)) then
+            //             Some(catTail, this.mkOr2Direct(node1,node2))
+            //         else
+            //             Some(this.mkAnd2Direct(node1,node2),this.mkOr2Direct(node1,node2))
+            //     | _ ->
+            //
+            //     Some(this.mkAnd2Direct(node1,node2),this.mkOr2Direct(node1,node2))
+
+            // concat same head merge
+            | (Concat(head=chead1;tail=ctail1) as c1), (Concat(head=chead2;tail=ctail2) as c2)
+            | (Concat(head=chead2;tail=ctail2) as c2),(Concat(head=chead1;tail=ctail1) as c1) when
+                refEq chead1 chead2 ->
+                Some(mergeIntersection(), this.mkConcat2(chead1,this.mkOr2Direct(ctail1,ctail2)) )
+
+            // unoptimized cases ------------------------------
+            | _, Anchor _
+            | Anchor _, _ -> Some(this.mkAnd2Direct(node1,node2),this.mkOr2Direct(node1,node2))
+            // | Not _, _ | _, Not _ -> None
+            | n1,n2 ->
+                let fixlen1 = Node.getFixedLength n1
+                let fixlen2 = Node.getFixedLength n2
+                match (n1,fixlen1), (n2,fixlen2) with
+                | (_,Some n1len), (_,Some n2len) when n1len <> n2len -> None
+                | (n2,None),(n1,Some n1len)
+                | (n1,Some n1len), (n2,None) ->
+                    let minlen = getMinLength n2
+                    match minlen with
+                    | Some ml when n1len < ml -> None
+                    | _ ->
+                        Some(this.mkAnd2Direct(node1,node2),this.mkOr2Direct(node1,node2))
+                        // failwith $"_subsume: {node1.ToString()} ;;; {node2.ToString()}"
+                | _ ->
+                    // (A⊤*&⊤*B⊤*)
+                    Some(mergeIntersection(),mergeUnion())
                     // failwith $"_subsume: {node1.ToString()} ;;; {node2.ToString()}"
-            | _ ->
-                // (A⊤*&⊤*B⊤*)
-                Some(mergeIntersection(),mergeUnion())
-                // failwith $"_subsume: {node1.ToString()} ;;; {node2.ToString()}"
+
+
+        this.LanguageCache.Add(key, result)
+        result
 
 
 
@@ -962,7 +832,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 n
 
     member this.mkAnd2Direct (node1: RegexNode<'t>, node2: RegexNode<'t>) : RegexNode<'t> =
-        let key = [|node1;node2|] |> Seq.toArray
+        let key = [|node1;node2|]
         Array.sortInPlaceBy LanguagePrimitives.PhysicalHash key
         match _andCache.TryGetValue(key) with
         | true, v -> v
@@ -1009,7 +879,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
 
 
     member this.mkOr2 (node1: RegexNode<'t>, node2: RegexNode<'t>) : RegexNode<'t> =
-        let key = [|node1;node2|] |> Seq.toArray
+        let key = [|node1;node2|]
         Array.sortInPlaceBy LanguagePrimitives.PhysicalHash key
 
         // actually creates it without trying to subsume
@@ -1029,6 +899,10 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 _orCache.Add(key,n)
                 n
 
+        let addToCache(result: RegexNode< 't >) =
+            _orCache.TryAdd(key,result) |> ignore
+            result
+
         match _orCache.TryGetValue(key) with
         | true, v -> v
         | _ ->
@@ -1047,15 +921,19 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 // // .*t.*hat.*|.*hat.* -> .*hat.*
                 match chead1 with
                 | SingletonStarLoop(pred) ->
-                    this.trySubsumeHead(chead1,newtail)
+                    let v = this.trySubsumeHead(chead1,newtail)
+                    addToCache v
                 | _ ->
-                this.mkConcat2(chead1, newtail)
+                    let v = this.mkConcat2(chead1, newtail)
+                    addToCache v
+
             // ⊤*.*t(ε|.*t) ->
             | (Concat(head=chead1;tail=ctail1) as c1), (Concat(head=chead2;tail=ctail2) as c2)
             | (Concat(head=chead2;tail=ctail2) as c2),(Concat(head=chead1;tail=ctail1) as c1) when
                 refEq chead1 chead2 ->
                 let newtail = this.mkOr2(ctail1,ctail2)
-                this.mkConcat2(chead1, newtail)
+                let v = this.mkConcat2(chead1, newtail)
+                addToCache v
             // Huck[a-zA-Z]+|Saw[a-zA-Z]+ -> (Huck|Saw)([A-Za-z])+
             // todo: this fails
             | Concat(head=h1;tail=t1) as node1, (Concat(head=h2;tail=t2) as node2) ->
@@ -1087,17 +965,21 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                             this.mkOr2(conc1,conc2),
                             sufflist
                         )
-                    newNode
+                    let v = newNode
+                    addToCache v
             | _ ->
-
                 match this.combineLanguage(node1, node2) with
-                | Some (smaller,larger) -> larger
+                | Some (smaller,larger) -> addToCache larger
                 | _ -> createCached(key)
 
 
     member this.mkAnd2 (node1: RegexNode<'t>, node2: RegexNode<'t>) : RegexNode<'t> =
         let key = [|node1;node2|] |> Seq.toArray
         Array.sortInPlaceBy LanguagePrimitives.PhysicalHash key
+
+        let addToCache(result: RegexNode< 't >) =
+            _andCache.TryAdd(key,result) |> ignore
+            result
 
         let createCached(nodes: RegexNode<_>[]) =
             match nodes with
@@ -1125,7 +1007,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
         | _ ->
             if typeof<'t> = typeof<BDD> then createCached(key) else
             match this.combineLanguage(node1, node2) with
-            | Some (smaller,larger) -> smaller
+            | Some (smaller,larger) -> addToCache smaller
             | _ -> _uniques._false
 
 
@@ -1233,25 +1115,26 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
 
     member this.mkOr
         (
-            nodes: RegexNode<'t> seq
+            nodes: RegexNode<'t> array
 
         ) : RegexNode<_> =
 
         let key = nodes |> Seq.toArray
         Array.sortInPlaceBy LanguagePrimitives.PhysicalHash key
 
-#if SUBSUME
-        if key.Length = 2 then this.mkOr2(key[0],key[1]) else
-#endif
         match _orCache.TryGetValue(key) with
         | true, v -> v
         | _ ->
+#if SUBSUME
+        if key.Length = 2 then this.mkOr2(key[0],key[1]) else
+#endif
+
 
         let mutable enumerating = true
         let mutable status = MkOrFlags.None
         let mutable zeroloops = 0
         let mutable singletonLoops = 0
-        use mutable e = nodes.GetEnumerator()
+        let mutable e = nodes.AsSpan().GetEnumerator()
         let derivatives = HashSet(_refComparer) //this.DerivativeSet
 
         while e.MoveNext() && enumerating do
@@ -1513,7 +1396,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             let newNode =
                 match body, lookBack with
                 | Epsilon, true -> _uniques._eps
-                | _, true when refEq _uniques._false body -> _uniques._false
+                | _ when refEq _uniques._false body -> _uniques._false
                 | _ ->
                     let flags = Flags.inferLookaround body lookBack
                     let info = this.CreateInfo(flags, solver.Full)

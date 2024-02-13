@@ -77,11 +77,9 @@ module RegexNodeFlagsExtensions =
         member this.HasZerowidthHead = byte (this &&& RegexNodeFlags.HasZerowidthHeadFlag) <> 0uy
         member this.CanBeNullable = byte (this &&& RegexNodeFlags.CanBeNullableFlag) <> 0uy
         member this.ContainsLookaround = byte (this &&& RegexNodeFlags.ContainsLookaroundFlag) <> 0uy
-        // member this.ContainsEpsilon = (this &&& RegexNodeFlags.ContainsEpsilonFlag) = RegexNodeFlags.ContainsEpsilonFlag
         member this.HasCounter = (this &&& RegexNodeFlags.HasCounterFlag) = RegexNodeFlags.HasCounterFlag
         member this.DependsOnAnchor = (this &&& RegexNodeFlags.DependsOnAnchorFlag) = RegexNodeFlags.DependsOnAnchorFlag
-        // member this.IsCounter = (this &&& RegexNodeFlags.IsCounterFlag) = RegexNodeFlags.IsCounterFlag
-        // member this.IsImmediateLookaround = (this &&& RegexNodeFlags.IsImmediateLookaroundFlag) = RegexNodeFlags.IsImmediateLookaroundFlag
+
 
 //
 [<Flags>]
@@ -157,6 +155,7 @@ type RegexNodeInfo<'tset when 'tset :> IEquatable<'tset> and 'tset: equality >()
     member val EndTransitions: Dictionary<'tset,RegexNode<'tset>> = Dictionary() with get, set
     member val StartTransitions: Dictionary<'tset,RegexNode<'tset>> = Dictionary() with get, set
     member val Subsumes: Dictionary<RegexNode<'tset>,bool> = Dictionary() with get, set
+    member val PendingNullables: ResizeArray<int> = ResizeArray() with get, set
     // todo: subsumedbyset
 
     // filled in later
@@ -170,7 +169,7 @@ type RegexNodeInfo<'tset when 'tset :> IEquatable<'tset> and 'tset: equality >()
     member inline this.IsAlwaysNullable =
         this.NodeFlags &&& RegexNodeFlags.IsAlwaysNullableFlag = RegexNodeFlags.IsAlwaysNullableFlag
 
-    member inline this.IsEssentiallyNullable =
+    member inline this.HasZerowidthHead =
         this.NodeFlags &&& RegexNodeFlags.HasZerowidthHeadFlag = RegexNodeFlags.HasZerowidthHeadFlag
         // (this.Flags &&& RegexNodeFlags.IsAlwaysNullable) <> RegexNodeFlags.None
     member inline this.CanBeNullable =
@@ -221,18 +220,8 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
         info: RegexNodeInfo<'tset>
     | Anchor of RegexAnchor
 
-    // optimized cases
-
-    // | Star of  (* RE* *) node: RegexNode<'tset> * info: RegexNodeInfo<'tset>
-
-
 
 #if DEBUG
-
-    // module Helpers =
-    // let charSetSolver = System.Text.RuntimeRegexCopy.Symbolic.CharSetSolver()
-    // let bddBuilder = SymbolicRegexBuilder<BDD>(charSetSolver, charSetSolver)
-
 
     override this.ToString() =
         // if Debug.debuggerSolver.IsNone then
@@ -349,38 +338,33 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
             match regexAnchor with
             | End -> @"\z"
             | Begin -> @"\A"
-            // | WordBorder -> @"\b"
-            // | Bol -> "^"
-            // | Eol -> "$"
 
 #endif
-
-
-
-
-
     member inline this.TryGetInfo =
         match this with
-        | Or(info = info) | Loop(info = info) | And(info = info) | Not(info = info) | Concat(info = info) ->
+        | Or(info = info) | Loop(info = info) | And(info = info) | Not(info = info) | Concat(info = info) | LookAround( info=info ) ->
             ValueSome info
         | _ -> ValueNone
 
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.GetFlags() =
-        match this with
-        | Or(info = info) | Loop(info = info) | And(info = info) | Not(info = info) | Concat(info = info) | LookAround(info=info) ->
-            info.NodeFlags
-        | Epsilon ->
-            RegexNodeFlags.CanBeNullableFlag |||
-            RegexNodeFlags.IsAlwaysNullableFlag |||
-            RegexNodeFlags.HasZerowidthHeadFlag
-        | Singleton _ -> RegexNodeFlags.None
-        | Anchor _ ->
-            RegexNodeFlags.DependsOnAnchorFlag |||
-            RegexNodeFlags.IsAnchorFlag |||
-            RegexNodeFlags.CanBeNullableFlag |||
-            RegexNodeFlags.HasZerowidthHeadFlag
+        this.TryGetInfo
+        |> ValueOption.map (fun v -> v.NodeFlags)
+        |> ValueOption.defaultWith (fun _ ->
+            match this with
+            | Epsilon ->
+                RegexNodeFlags.CanBeNullableFlag |||
+                RegexNodeFlags.IsAlwaysNullableFlag |||
+                RegexNodeFlags.HasZerowidthHeadFlag
+            | Singleton _ -> RegexNodeFlags.None
+            | Anchor _ ->
+                RegexNodeFlags.DependsOnAnchorFlag |||
+                RegexNodeFlags.IsAnchorFlag |||
+                RegexNodeFlags.CanBeNullableFlag |||
+                RegexNodeFlags.HasZerowidthHeadFlag
+            | _ -> failwith "impossible case"
+        )
 
     member this.CanBeNullable =
         this.GetFlags().HasFlag(RegexNodeFlags.CanBeNullableFlag)
@@ -392,38 +376,43 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
 
     member this.HasCounter =
         this.GetFlags().HasFlag(RegexNodeFlags.HasCounterFlag)
-
-    // member this.IsCounter =
-    //     this.GetFlags().HasFlag(RegexNodeFlags.IsCounterFlag)
     member this.DependsOnAnchor =
         this.GetFlags().HasFlag(RegexNodeFlags.DependsOnAnchorFlag)
 
     member this.IsAlwaysNullable =
-        match this with
-        | Or(info = info) | Loop(info = info) | And(info = info) | Not(info = info) | Concat(info = info) ->
-            info.IsAlwaysNullable
-        | Singleton _ -> false
-        | LookAround _ -> false
-        | Epsilon -> true
-        | Anchor regexAnchor -> false
+        this.TryGetInfo
+        |> ValueOption.map (fun v -> v.IsAlwaysNullable)
+        |> ValueOption.defaultWith (fun _ ->
+            match this with
+            | Singleton _ -> false
+            | LookAround _ -> false
+            | Epsilon -> true
+            | Anchor regexAnchor -> false
+            | _ -> failwith "impossible case"
+        )
 
-    member this.IsEssentiallyNullable =
-        match this with
-        | Or(info = info) | Loop(info = info) | And(info = info) | Not(info = info) | Concat(info = info) ->
-            info.IsEssentiallyNullable
-        | Singleton _ -> false
-        | LookAround _ -> false
-        | Epsilon -> true
-        | Anchor regexAnchor -> false
-
+    member this.HasZerowidthHead =
+        this.TryGetInfo
+        |> ValueOption.map (fun v -> v.HasZerowidthHead)
+        |> ValueOption.defaultWith (fun _ ->
+            match this with
+            | Singleton _ -> false
+            | LookAround _ -> false
+            | Epsilon -> true
+            | Anchor regexAnchor -> false
+            | _ -> failwith "impossible case"
+        )
     member this.SubsumedByMinterm (solver:ISolver<'tset>) =
-        match this with
-        | Or(info = info) | Loop(info = info) | And(info = info) | Not(info = info) | Concat(info = info) ->
-            info.Minterms
-        | Epsilon -> solver.Full
-        | Singleton pred -> pred
-        | LookAround(node, lookBack, negate, _, _) -> node.SubsumedByMinterm solver
-        | Anchor _ -> solver.Empty
+        this.TryGetInfo
+        |> ValueOption.map (fun v -> v.Minterms)
+        |> ValueOption.defaultWith (fun _ ->
+            match this with
+            | Epsilon -> solver.Full
+            | Singleton pred -> pred
+            | LookAround(node, lookBack, negate, _, _) -> node.SubsumedByMinterm solver
+            | Anchor _ -> solver.Empty
+            | _ -> failwith "impossible case"
+        )
 
 
 [<Flags>]
@@ -447,6 +436,15 @@ module Common =
 
     let equalityComparer =
         { new IEqualityComparer<RegexNode<_>> with
+            [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+            member this.Equals(x, y) = obj.ReferenceEquals(x, y)
+
+            [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+            member this.GetHashCode(x) = LanguagePrimitives.PhysicalHash x
+        }
+
+    let tsetComparer =
+        { new IEqualityComparer<RegexNode<TSet>> with
             [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
             member this.Equals(x, y) = obj.ReferenceEquals(x, y)
 

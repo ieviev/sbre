@@ -186,7 +186,6 @@ type RegexMatcher<'t when 't: struct>
             | ValueSome inf -> inf
             | _ ->
 
-
             match node with
             | Epsilon -> _cache.False
             | Singleton pred ->
@@ -208,9 +207,11 @@ type RegexMatcher<'t when 't: struct>
 
             // Derx (R | S) = Derx (R) | Derx (S)
             | Or(xs, _) ->
-                let derivatives = ResizeArray()
-                for n in xs do derivatives.Add (_createDerivative(&loc, loc_pred, n))
-                derivatives |> _cache.Builder.mkOr
+                let arr = ResizeArray()
+                use mutable e = xs.GetEnumerator()
+                while e.MoveNext() do
+                    arr.Add((_createDerivative(&loc, loc_pred, e.Current)))
+                arr.ToArray() |> _cache.Builder.mkOr
             // Derx (R & S) = Derx (R) & Derx (S)
             | And(xs, _) ->
                 let derivatives = ResizeArray()
@@ -227,7 +228,7 @@ type RegexMatcher<'t when 't: struct>
                 let R'S = _cache.Builder.mkConcat2 (pendingLookaround, tail)
                 if lookBodyNullable then
                     let S' = _createDerivative (&loc, loc_pred, tail)
-                    _cache.Builder.mkOr ( seq { R'S ;S' } )
+                    _cache.Builder.mkOr ( [|R'S ;S'|] )
                 else
                     if refEq lookDer _cache.False then _cache.False else
                     R'S
@@ -246,7 +247,7 @@ type RegexMatcher<'t when 't: struct>
                         _cache.Builder.mkLookaround(
                             updatedLookaroundBody, false, updatedRel, (updatedNullables)
                     )
-                    _cache.Builder.mkOr([ R'S ;S' ])
+                    _cache.Builder.mkOr([| R'S ;S' |])
                 else R'S
             // TODO; reimplement
             // pos.lookahead prefix: (?=\w)a  // (?=\w\w)aa ==> (?=\w)a
@@ -273,8 +274,8 @@ type RegexMatcher<'t when 't: struct>
                     R'S
                 else
                     if refEq R'S _cache.False then S' else
-                    _cache.Builder.mkOr ( seq { R'S ;S' } )
-            | Concat(head, tail, _) when head.IsEssentiallyNullable ->
+                    _cache.Builder.mkOr ([| R'S ;S'|] )
+            | Concat(head, tail, _) when head.HasZerowidthHead ->
                 // failwith "todo: complex lookaround derivative"
                 // assert (head.DependsOnAnchor || head.ContainsLookaround)
                 let R' = _createDerivative (&loc, loc_pred, head)
@@ -289,7 +290,7 @@ type RegexMatcher<'t when 't: struct>
                     R'S
                 else
                     if refEq R'S _cache.False then S' else
-                    _cache.Builder.mkOr ( seq { R'S ;S' } )
+                    _cache.Builder.mkOr ([| R'S ;S'|] )
 
             // Derx (R·S) = if Nullx (R) then Derx (R)·S|Derx (S) else Derx (R)·S
             | Concat(head, tail, _) ->
@@ -301,7 +302,7 @@ type RegexMatcher<'t when 't: struct>
                         R'S
                     else
                         if refEq R'S _cache.False then S' else
-                        _cache.Builder.mkOr ( seq { R'S ;S' } )
+                        _cache.Builder.mkOr ([| R'S ;S'|] )
                 else R'S
 
             | LookAround(lookBody, lookBack, rel, relativeNullablePos,_) ->
@@ -328,23 +329,15 @@ type RegexMatcher<'t when 't: struct>
                     else
                         pendingLookaround
                 | true ->
-                    // if _isNullable(&loc,lookBody) then
-                    //     _cache.Eps
-                    // else
+
                     let remainingLookBody = _createDerivative (&loc, loc_pred, lookBody)
-
-                    // if _isNullable(&loc,remainingLookBody) then _cache.Eps else
-                    // let bodyIsNullable = _isNullable(&loc,remainingLookBody)
-
                     match remainingLookBody with
                     | n when refEq n _cache.False -> _cache.False
                     | n when refEq n _cache.Eps -> _cache.Eps
                     | _ ->
-                        // remaining lookback
                         let pendingLookaround = _cache.Builder.mkLookaround( remainingLookBody, lookBack)
                         pendingLookaround
-                        //
-                        // _cache.False
+
 
             | Anchor _ -> _cache.False
 
@@ -370,9 +363,8 @@ type RegexMatcher<'t when 't: struct>
 
         result
     let _createStartset(state: MatchingState, initial: bool) =
-        if state.Flags.ContainsLookaround then
-            state.Startset <- _cache.Solver.Empty
-        else
+        // todo: performance sensitive
+        if state.Flags.ContainsLookaround then () else
 
         let minterms = _cache.Minterms()
 
@@ -418,7 +410,21 @@ type RegexMatcher<'t when 't: struct>
 
         // let dbg_startset = _cache.PrettyPrintMinterm(startsetPredicate)
         // invert empty startset (nothing to skip to)
-        state.SetStartset(_cache, startsetPredicate)
+        let setChars = _cache.MintermSearchValues(startsetPredicate)
+        match setChars with
+        | None ->
+            let minterms = _cache.Minterms()
+            let isInverted = Solver.elemOfSet startsetPredicate minterms[0]
+            state.Startset <- startsetPredicate
+            state.StartsetChars <- Unchecked.defaultof<_>
+            state.StartsetIsInverted <- isInverted
+        | Some setChars ->
+            let minterms = _cache.Minterms()
+            let isInverted = Solver.elemOfSet startsetPredicate minterms[0]
+            state.Startset <- startsetPredicate
+            state.StartsetChars <- setChars
+            state.StartsetIsInverted <- isInverted
+
 
     let rec _getOrCreateState(node, isInitial) =
         match _stateCache.TryGetValue(node) with
@@ -484,7 +490,7 @@ type RegexMatcher<'t when 't: struct>
                     ()
 
             if node.ContainsLookaround && node.CanBeNullable && not isInitial then
-                match Optimizations.collectPendingNullables (fun v -> _getOrCreateState(v,false).Flags.CanBeNullable ) state.Node with
+                match Optimizations.collectPendingNullables (fun v -> v.CanBeNullable) state.Node with
                 | n when n.IsEmpty -> ()
                 | nullables ->
                     state.PendingNullablePositions <- nullables |> Seq.toArray
@@ -631,7 +637,7 @@ type RegexMatcher<'t when 't: struct>
 
         // caching workaround until context implementation
         // if flags.CannotBeCached || loc.Position = loc.Input.Length then
-        if flags.CannotBeCached && loc.Position = loc.Input.Length || loc.Position = 0 then
+        if flags.CannotBeCached && (loc.Position = loc.Input.Length || loc.Position = 0) then
             let nextState = this.TryNextDerivative(&currentState, mintermId, &loc)
             // _dfaDelta[dfaOffset] <- nextState
             currentState <- nextState
@@ -875,6 +881,14 @@ type RegexMatcher<'t when 't: struct>
             else
                 false
 
+
+    member this.HandleNullableRev(flags:RegexStateFlags,acc: byref<SharedResizeArrayStruct<int>>,loc,currentStateId) =
+        if flags.IsPendingNullable then
+            let span = _stateArray[currentStateId].PendingNullablePositions.AsSpan()
+            for i = span.Length - 1 downto 0 do
+                acc.Add (span[i] + loc.Position)
+        else acc.Add loc.Position
+
     /// unoptimized collect all nullable positions
     member this.CollectReverseNullablePositions
         (
@@ -888,7 +902,7 @@ type RegexMatcher<'t when 't: struct>
 
         while looping do
             let flags = _flagsArray[currentStateId]
-            let dfaState = _stateArray[currentStateId]
+            // let dfaState = _stateArray[currentStateId]
 #if SKIP
             if (flags.CanSkipInitial && this.TrySkipInitialRev(&loc, &currentStateId))
 
@@ -897,14 +911,9 @@ type RegexMatcher<'t when 't: struct>
 #endif
                 then ()
             else
-
 #endif
             if this.StateIsNullable(flags, &loc, currentStateId) then
-                if flags.IsPendingNullable then
-                    let span = _stateArray[currentStateId].PendingNullablePositions.AsSpan()
-                    for i = span.Length - 1 downto 0 do
-                        acc.Add (span[i] + loc.Position)
-                else acc.Add loc.Position
+                this.HandleNullableRev(flags,&acc,loc,currentStateId)
 
             if loc.Position > 0 then
                 this.TakeTransition(flags, &currentStateId, &loc)

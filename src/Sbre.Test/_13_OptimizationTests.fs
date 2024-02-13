@@ -175,7 +175,7 @@ let ``initialOptimizations 05``() =
     let optimizations = getInitOptimizations ".*t.*hat.*&.*a.*nd.*&.*t.*he.*&.*w.*as.*"
     match optimizations with
     | Optimizations.InitialOptimizations.PotentialStartPrefix(prefix) ->
-        Assert.Equal(2,prefix.Length)
+        Assert.Equal(3,prefix.Length)
     | _ -> failwith "invalid optimization result"
 
 
@@ -287,6 +287,9 @@ let ``apply prefix 2``() =
         @"(.*|(?<=a).*|(?<=aa).*|⊤*(?<=aaa).*)"
         @"((?<=a).*|(?<=aa).*|⊤*(?<=aaa).*|.*)"
         @"(ε|((?<=a)|((?<=aa)|⊤*(?<=aaa)))).*"
+
+        @"(ε|((?<=a)|(⊤*(?<=aaa)|(?<=aa)))).*"
+        @"(ε|(((?<=aa)|⊤*(?<=aaa))|(?<=a))).*"
     ]
 
 

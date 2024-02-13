@@ -47,50 +47,35 @@ module RegexNode =
                     revConcatNode (rev builder head :: acc) tail
                 | Concat(head, tail, tinfo) -> rev builder tail :: rev builder head :: acc
                 | single -> rev builder single :: acc
-
             let reversedList = revConcatNode [] node
             builder.mkConcat reversedList
         | Epsilon -> node
         | Anchor regexAnchor -> node
 
     let inline getCachedTransition(pred: ^t, node: RegexNode< ^t >) =
-        let mutable result = ValueNone
-        match node with
-        | Or(info = info)
-        | Loop(info = info)
-        | And(info = info)
-        | Not(info = info)
-        | Concat(info = info) ->
+        node.TryGetInfo
+        |> ValueOption.bind (fun info ->
             match info.Transitions.TryGetValue(pred) with
             | true, v -> ValueSome v
             | _ -> ValueNone
-        | _ -> result
+        )
+
 
     let inline getEndCachedTransition(pred: ^t, node: RegexNode< ^t >) =
-        let mutable result = ValueNone
-        match node with
-        | Or(info = info)
-        | Loop(info = info)
-        | And(info = info)
-        | Not(info = info)
-        | Concat(info = info) ->
+        node.TryGetInfo
+        |> ValueOption.bind (fun info ->
             match info.EndTransitions.TryGetValue(pred) with
             | true, v -> ValueSome v
             | _ -> ValueNone
-        | _ -> result
+        )
 
     let inline getStartCachedTransition(pred: ^t, node: RegexNode< ^t >) =
-        let mutable result = ValueNone
-        match node with
-        | Or(info = info)
-        | Loop(info = info)
-        | And(info = info)
-        | Not(info = info)
-        | Concat(info = info) ->
+        node.TryGetInfo
+        |> ValueOption.bind (fun info ->
             match info.StartTransitions.TryGetValue(pred) with
             | true, v -> ValueSome v
             | _ -> ValueNone
-        | _ -> result
+        )
 
 
 
