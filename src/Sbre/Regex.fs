@@ -361,8 +361,9 @@ type RegexMatcher<'t when 't: struct>
 
                     if _isNullable(&loc,remainingLookBody) then _cache.Eps else
                     let bodyIsNullable = _isNullable(&loc,remainingLookBody)
+
                     match remainingLookBody with
-                    // | n when refEq n _cache.False -> _cache.False
+                    | n when refEq n _cache.False -> _cache.False
                     | n when refEq n _cache.Eps -> _cache.Eps
                     | _ ->
                         // remaining lookback

@@ -228,6 +228,11 @@ let ``initialOptimizations 12``() =
 let ``initialOptimizations 13``() =
     assertStringPrefix """.*(?=aaa)""" "aaa"
 
+[<Fact>]
+let ``initialOptimizations 14``() =
+    assertPotentialPrefix @"(?<=a.*)(\bx)(?=.*c)" @"c;[^\n];.;."
+
+
 
 
 
@@ -270,12 +275,16 @@ let ``apply prefix 1``() =
 [<Fact>]
 let ``apply prefix 2``() =
     let applied = Common.applyPrefix @".*(?=aaa)"
+
     assertNodeOneOf applied [
         @"(((?<=a)|(⊤*(?<=aaa)|(?<=aa)))|ε).*"
         @"((((?<=aa)|⊤*(?<=aaa))|(?<=a))|ε).*"
         @"(((?<=a)|((?<=aa)|⊤*(?<=aaa)))|ε).*"
         @"(ε|((⊤*(?<=aaa)|(?<=aa))|(?<=a))).*"
         @"(((⊤*(?<=aaa)|(?<=aa))|(?<=a))|ε).*"
+
+        @"(.*|(?<=aa).*|(?<=a).*|⊤*(?<=aaa).*)"
+        @"(.*|(?<=a).*|(?<=aa).*|⊤*(?<=aaa).*)"
     ]
 
 

@@ -60,7 +60,7 @@ let assertPatternIn (expectedResults:string list) (node:RegexNode<TSet>) =
     let nodestr = node.ToString()
     Assert.Contains(nodestr , expectedResults)
 
-let assertAlternation (expectedResults:string list) (node:RegexNode<TSet>) =
+let assertAlternation (node:RegexNode<TSet>) (expectedResults:string list)  =
     match node with
     | Or(nodes, info) ->
         let nodestrs = nodes |> Seq.map (_.ToString()) |> set
@@ -115,7 +115,7 @@ let assertPotentialPrefix pattern expected =
     | Optimizations.InitialOptimizations.PotentialStartPrefix(prefix) ->
         let prefixString = Optimizations.printPrefixSets matcher.Cache (prefix.ToArray() |> Seq.toList)
         Assert.Equal(expected, prefixString)
-    | _ -> failwith "invalid optimization result"
+    | _ -> failwith $"invalid optimization result: {optimizations}"
 
 
 let assertSetsPrefix pattern expected =
@@ -135,7 +135,7 @@ let assertSetsPrefix pattern expected =
     | Optimizations.InitialOptimizations.SetsPrefix(prefix, transId) ->
         let prefixString = Optimizations.printPrefixSets matcher.Cache (prefix.ToArray() |> Seq.toList)
         Assert.Equal(expected, prefixString)
-    | _ -> failwith "invalid optimization result"
+    | _ -> failwith $"invalid optimization result: {optimizations}"
 
 let assertStringPrefix pattern expected =
     let regex = Regex(pattern)
@@ -154,7 +154,7 @@ let assertStringPrefix pattern expected =
     | Optimizations.InitialOptimizations.StringPrefix(prefix, transId) ->
         let prefixString = prefix.ToString()
         Assert.Equal(expected, prefixString)
-    | _ -> failwith "invalid optimization result"
+    | _ -> failwith $"invalid optimization result: {optimizations}"
 
 // let assertCounterStates (regex:Regex) (input:string) (expectedStates:(CounterState * int) list list)  =
 //     let matcher = regex.TSetMatcher
@@ -432,6 +432,7 @@ let assertMatchEndNoLookback (pattern:string) (input:string) (startPos:int) (exp
 
 let assertNodeOneOf (node:RegexNode<_>) (options:string seq) =
     Assert.Contains(node.ToString() , options)
+
 
 let matchPosToTuples (items:MatchPosition seq) =
     items |> Seq.map (fun v -> v.Index,v.Length) |> Seq.toArray

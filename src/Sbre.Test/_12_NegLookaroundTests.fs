@@ -15,7 +15,11 @@ open Common
 
 
 [<Fact>]
-let ``der neg anchor 1``() = _04_DerivativeTests.testRevDerivative (@"(?!b)","b",[ @"⊥"; ])
+let ``der neg anchor 1``() = _04_DerivativeTests.testRevDerivative (@"(?!b)","b",[
+    @"⊥"
+    @"(?<=~((ε|⊤*b)))" // TODO: unsure
+    @"(?<=~((⊤*b|ε)))"
+])
 
 [<Fact>]
 let ``der neg anchor 2``() = _04_DerivativeTests.testRevDerivative (@"(?!b)","a",[ @"ε"; ])

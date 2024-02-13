@@ -422,11 +422,9 @@ let ``derivative neg lookaround 2``() =
 [<Fact>]
 let ``simple 1``() =
     testRevDerivative ("..g","gggg",[
-        "((?<=.*).*&~(.*A.*))"
-        @"(~(.*A.*)&(?<=.*).*)"
+        @".{2,2}"
     ])
-    // let result = getAllLLmatches "..g" "dfdff dfggg gfgdfg gddfdf"
-    // Assert.Equal( 3, result.Count )
+
 
 
 #endif

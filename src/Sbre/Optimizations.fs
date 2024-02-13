@@ -138,26 +138,32 @@ let rec calcPrefixSets getNonInitialDerivative (getStateFlags: RegexNode<_> -> R
 
 
     let rec loop acc node =
-        let isRedundant = not (redundant.Add(node))
+        // let isRedundant = not (redundant.Add(node))
         // let all_derivs = getImmediateDerivativesMerged cache node |> Seq.toArray
         let prefix_derivs = getNonRedundantDerivatives getNonInitialDerivative cache redundant node
         // a -> t
         let stateFlags = getStateFlags node
         if stateFlags.CanSkip && not (refEq prefixStartNode node) then acc |> List.rev else
         // if stateFlags.CanSkip && not (refEq startNodeWithoutComplement node) then acc |> List.rev else
-        if isRedundant then
+        if redundant.Contains(node) then
             acc |> List.rev
+
         else if node.CanBeNullable  then
             acc |> List.rev
         else
+            if acc.Length = 0 then
+                (redundant.Add (node) |> ignore)
+
+            let pretty =
+                prefix_derivs
+                |> (Array.map (fun (mt,node) ->
+                    cache.PrettyPrintMinterm(mt), node
+                ))
+                |> Seq.toArray
+
             match prefix_derivs with
             | [| (mt, deriv) |]  ->
                 // stop with pending nullable
-                // if deriv.CanBeNullable then acc |> List.rev else
-                // match deriv with
-                // | LookAround(_, false, false, _) ->
-                //     acc |> List.rev
-                // | _ ->
                 let acc' = mt :: acc
                 loop acc' deriv
             | _ ->
