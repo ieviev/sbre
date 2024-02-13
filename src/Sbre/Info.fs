@@ -80,17 +80,6 @@ let rec (|HasSuffixLookaround|_|)(x: RegexNode<'t>) =
 
 
 [<return: Struct>]
-let (|NodeIsAlwaysNullable|_|)(x: RegexNode<'t>) =
-    match x with
-    | Or(xs, IsAlwaysNullable) -> ValueSome()
-    | Singleton foo -> ValueNone
-    | Loop(node, low, up, IsAlwaysNullable) -> ValueSome()
-    | And(xs, IsAlwaysNullable) -> ValueSome()
-    | Not(fSharpList, IsAlwaysNullable) -> ValueSome()
-    | LookAround(node, lookBack, negate, _) -> ValueNone
-    | _ -> ValueNone
-
-[<return: Struct>]
 let (|CanBeNullable|_|)(x: RegexNodeInfo<'t>) =
     match x.NodeFlags.HasFlag(RegexNodeFlags.CanBeNullableFlag) with
     | true -> ValueSome()
@@ -143,6 +132,25 @@ module rec Flags =
             else Flag.None
         andFlags ||| orFlags ||| dependsOnFlags
 
+    let inferLookaround (inner: RegexNode<'t>) (lookBack: bool) =
+        let innerFlags = inner.GetFlags()
+        let nullFlags = innerFlags &&& ( RegexNodeFlags.CanBeNullableFlag ||| RegexNodeFlags.IsAlwaysNullableFlag)
+        let ancFlag = innerFlags &&& RegexNodeFlags.DependsOnAnchorFlag
+        match innerFlags.HasFlag(RegexNodeFlags.CanBeNullableFlag), lookBack with
+        // nullable lookahead
+        | true, false ->
+            nullFlags |||
+            RegexNodeFlags.ContainsLookaroundFlag |||
+            RegexNodeFlags.HasZerowidthHeadFlag |||
+            ancFlag
+        // non nullable lookahead
+        | false, false ->
+            nullFlags |||
+            RegexNodeFlags.ContainsLookaroundFlag ||| RegexNodeFlags.HasZerowidthHeadFlag
+            ||| ancFlag
+        // nullable lookback
+        | _, true -> ancFlag ||| nullFlags ||| RegexNodeFlags.ContainsLookaroundFlag
+
     let inferNodeOptimized(node: RegexNode<'t>) : RegexNodeFlags =
         match node with
         | Concat(info = info) -> info.NodeFlags
@@ -152,10 +160,8 @@ module rec Flags =
         | Loop(node, low, up, info) -> info.NodeFlags
         | And(nodes, info) -> info.NodeFlags
         | Not(node, info) -> info.NodeFlags
-        | LookAround(_, lookBack, negate, _) -> node.GetFlags()
+        | LookAround(info=info) -> info.NodeFlags
         | Anchor regexAnchor -> node.GetFlags()
-
-
 
     let inferNot(inner: RegexNode<'t>) =
         let innerInfo = inferNodeOptimized inner

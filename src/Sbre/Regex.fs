@@ -136,65 +136,35 @@ type RegexMatcher<'t when 't: struct>
     let mutable _dfaDelta: int[] = Array.init (1024 <<< _mintermsLog) (fun _ -> 0) // 0 : initial state
 
     let rec _isNullable(loc: inref<Location>, node: RegexNode<_>) : bool =
-            // short-circuit
-            if node.CanNotBeNullable then
-                false
-            elif node.IsAlwaysNullable then
-                true
-            else
-            match node with
-            // Nullx () = true
-            | Epsilon -> true
-            // Nullx (ψ) = false
-            | Singleton _ -> false
-            // Nullx (R) or Nullx (S)
-            | Or(xs, _) ->
-                use mutable e = xs.GetEnumerator()
-                let mutable found = false
-                while not found && e.MoveNext() do
-                    found <- _isNullable (&loc, e.Current)
-                found
-            // Nullx (R) and Nullx (S)
-            | And(xs, _) ->
-                use mutable e = xs.GetEnumerator()
-                let mutable forall = true
-                while forall && e.MoveNext() do
-                    forall <- _isNullable (&loc, e.Current)
-                forall
-            // Nullx (R{m, n}) = m = 0 or Nullx (R)
-            | Loop(R, low, _, _) -> low = 0 || (_isNullable (&loc, R))
-            // not(Nullx (R))
-            | Not(inner, _) ->
-                not (_isNullable (&loc, inner))
-            // Nullx (R) and Nullx (S)
-            | Concat(head, tail, _) ->
-                _isNullable (&loc, head) && _isNullable (&loc, tail)
-            | LookAround(body, _, _, _) -> _isNullable(&loc,body)
-            | Anchor regexAnchor ->
-                // only 2 edge cases
-                // let currChar = _cache.CurrentChar(loc)
-                // let prevCharOpt = _cache.PrevChar(loc)
-                match regexAnchor with
-                | End -> loc.Position = loc.Input.Length
-                | Begin -> loc.Position = 0
-                // | WordBorder ->
-                //     match prevCharOpt, currChar with
-                //     | ValueNone, ValueSome c |  ValueSome c, ValueNone -> RegexCharClass.IsBoundaryWordChar(c)
-                //     | ValueSome prev, ValueSome curr ->
-                //         let c1 = not (RegexCharClass.IsBoundaryWordChar(prev)) && RegexCharClass.IsBoundaryWordChar(curr)
-                //         let c2 = (RegexCharClass.IsBoundaryWordChar(prev)) && not (RegexCharClass.IsBoundaryWordChar(curr))
-                //         c1 || c2
-                //     | _ -> true// impossible case
-                // | Bol ->
-                //     loc.Position = 0 ||
-                //     match prevCharOpt with
-                //     | ValueSome c -> c = '\n'
-                //     | _ -> false
-                // | Eol ->
-                //     loc.Position = loc.Input.Length ||
-                //     match currChar with
-                //     | ValueSome c -> c = '\n'
-                //     | _ -> false
+        // short-circuit
+        if node.CanNotBeNullable then false
+        elif node.IsAlwaysNullable then true else
+        match node with
+        | Epsilon -> true
+        | Singleton _ -> false
+        | Or(xs, _) ->
+            use mutable e = xs.GetEnumerator()
+            let mutable found = false
+            while not found && e.MoveNext() do
+                found <- _isNullable (&loc, e.Current)
+            found
+        | And(xs, _) ->
+            use mutable e = xs.GetEnumerator()
+            let mutable forall = true
+            while forall && e.MoveNext() do
+                forall <- _isNullable (&loc, e.Current)
+            forall
+        | Loop(R, low, _, _) -> low = 0 || (_isNullable (&loc, R))
+        | Not(inner, _) ->
+            not (_isNullable (&loc, inner))
+        | Concat(head, tail, _) ->
+            _isNullable (&loc, head) && _isNullable (&loc, tail)
+        | LookAround(body, _, _, _,info) -> _isNullable(&loc,body)
+        | Anchor regexAnchor ->
+            match regexAnchor with
+            | End -> loc.Position = loc.Input.Length
+            | Begin -> loc.Position = 0
+
 
     let rec _createDerivative (
         loc: inref<Location>,
@@ -204,14 +174,18 @@ type RegexMatcher<'t when 't: struct>
     ) : RegexNode<TSet> =
 
         let cachedTransition =
-            Algorithm.RegexNode.getCachedTransition(loc_pred, node)
+            if node.DependsOnAnchor && loc.Position = loc.Input.Length then
+                Algorithm.RegexNode.getEndCachedTransition(loc_pred, node)
+            elif node.DependsOnAnchor && loc.Position = 0 then
+                Algorithm.RegexNode.getStartCachedTransition(loc_pred, node)
+            else
+                Algorithm.RegexNode.getCachedTransition(loc_pred, node)
 
         let result =
             match cachedTransition with
             | ValueSome inf -> inf
             | _ ->
 
-            // match node.TryGetInfo()
 
             match node with
             | Epsilon -> _cache.False
@@ -330,7 +304,7 @@ type RegexMatcher<'t when 't: struct>
                         _cache.Builder.mkOr ( seq { R'S ;S' } )
                 else R'S
 
-            | LookAround(lookBody, lookBack, rel, relativeNullablePos) ->
+            | LookAround(lookBody, lookBack, rel, relativeNullablePos,_) ->
                 match lookBack with
                 | false ->
                     // lookahead
@@ -377,8 +351,16 @@ type RegexMatcher<'t when 't: struct>
 
 #if NO_CACHE_BUILDER
 #else
-        if node.DependsOnAnchor then
-            ()
+        if node.DependsOnAnchor && loc.Position = loc.Input.Length then
+            node.TryGetInfo
+            |> ValueOption.iter (fun v ->
+                v.EndTransitions.TryAdd(loc_pred,result) |> ignore
+            )
+        elif node.DependsOnAnchor && loc.Position = 0 then
+            node.TryGetInfo
+            |> ValueOption.iter (fun v ->
+                v.StartTransitions.TryAdd(loc_pred,result) |> ignore
+            )
         else
             node.TryGetInfo
             |> ValueOption.iter (fun v ->

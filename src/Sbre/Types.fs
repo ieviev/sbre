@@ -154,6 +154,8 @@ type RegexNodeInfo<'tset when 'tset :> IEquatable<'tset> and 'tset: equality >()
     member val NodeFlags: RegexNodeFlags = RegexNodeFlags.None with get, set
     // member val InitialStartset: InitialStartset<'tset> = InitialStartset.Uninitialized with get, set
     member val Transitions: Dictionary<'tset,RegexNode<'tset>> = Dictionary() with get, set
+    member val EndTransitions: Dictionary<'tset,RegexNode<'tset>> = Dictionary() with get, set
+    member val StartTransitions: Dictionary<'tset,RegexNode<'tset>> = Dictionary() with get, set
     member val Subsumes: Dictionary<RegexNode<'tset>,bool> = Dictionary() with get, set
     // todo: subsumedbyset
 
@@ -215,7 +217,8 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
         node: RegexNode<'tset> *  // anchors
         lookBack: bool *
         relativeTo : int *
-        pendingNullables : int list
+        pendingNullables : int list *
+        info: RegexNodeInfo<'tset>
     | Anchor of RegexAnchor
 
     // optimized cases
@@ -326,7 +329,7 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
             | true -> $"{inner}*"
             | false -> inner + loopCount
 
-        | LookAround(body, lookBack, relativeTo, pending) ->
+        | LookAround(body, lookBack, relativeTo, pending, _) ->
             let inner = body.ToString()
             let pending =
                 if pending.IsEmpty then ""
@@ -366,35 +369,13 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.GetFlags() =
         match this with
-        | Or(info = info) | Loop(info = info) | And(info = info) | Not(info = info) | Concat(info = info)  ->
+        | Or(info = info) | Loop(info = info) | And(info = info) | Not(info = info) | Concat(info = info) | LookAround(info=info) ->
             info.NodeFlags
         | Epsilon ->
             RegexNodeFlags.CanBeNullableFlag |||
             RegexNodeFlags.IsAlwaysNullableFlag |||
             RegexNodeFlags.HasZerowidthHeadFlag
-        | Singleton foo -> RegexNodeFlags.None
-        | LookAround(node, lookBack, negate, _) ->
-            let inner = node.GetFlags()
-            let nullFlags = inner &&& ( RegexNodeFlags.CanBeNullableFlag ||| RegexNodeFlags.IsAlwaysNullableFlag)
-
-            let ancFlag = inner &&& RegexNodeFlags.DependsOnAnchorFlag
-            match inner.HasFlag(RegexNodeFlags.CanBeNullableFlag), lookBack with
-            // nullable lookahead
-            | true, false ->
-                nullFlags |||
-                RegexNodeFlags.ContainsLookaroundFlag |||
-                RegexNodeFlags.HasZerowidthHeadFlag |||
-                ancFlag
-            // non nullable lookahead
-            | false, false ->
-                nullFlags |||
-                RegexNodeFlags.ContainsLookaroundFlag ||| RegexNodeFlags.HasZerowidthHeadFlag
-                ||| ancFlag
-            // nullable lookbakc
-            | _, true ->
-                // essentialNull ||| nullFlags ||| RegexNodeFlags.ContainsLookaroundFlag ||| ancFlag
-                ancFlag ||| nullFlags ||| RegexNodeFlags.ContainsLookaroundFlag
-
+        | Singleton _ -> RegexNodeFlags.None
         | Anchor _ ->
             RegexNodeFlags.DependsOnAnchorFlag |||
             RegexNodeFlags.IsAnchorFlag |||
@@ -441,7 +422,7 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
             info.Minterms
         | Epsilon -> solver.Full
         | Singleton pred -> pred
-        | LookAround(node, lookBack, negate, _) -> node.SubsumedByMinterm solver
+        | LookAround(node, lookBack, negate, _, _) -> node.SubsumedByMinterm solver
         | Anchor _ -> solver.Empty
 
 

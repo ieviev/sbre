@@ -61,8 +61,33 @@ module RegexNode =
         | And(info = info)
         | Not(info = info)
         | Concat(info = info) ->
-            if info.NodeFlags.HasCounter then ValueNone else
             match info.Transitions.TryGetValue(pred) with
+            | true, v -> ValueSome v
+            | _ -> ValueNone
+        | _ -> result
+
+    let inline getEndCachedTransition(pred: ^t, node: RegexNode< ^t >) =
+        let mutable result = ValueNone
+        match node with
+        | Or(info = info)
+        | Loop(info = info)
+        | And(info = info)
+        | Not(info = info)
+        | Concat(info = info) ->
+            match info.EndTransitions.TryGetValue(pred) with
+            | true, v -> ValueSome v
+            | _ -> ValueNone
+        | _ -> result
+
+    let inline getStartCachedTransition(pred: ^t, node: RegexNode< ^t >) =
+        let mutable result = ValueNone
+        match node with
+        | Or(info = info)
+        | Loop(info = info)
+        | And(info = info)
+        | Not(info = info)
+        | Concat(info = info) ->
+            match info.StartTransitions.TryGetValue(pred) with
             | true, v -> ValueSome v
             | _ -> ValueNone
         | _ -> result

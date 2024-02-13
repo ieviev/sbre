@@ -24,13 +24,13 @@ let rec transform
         let xs' = xs |> map transformInner
         builder.mkAnd(xs' |> Seq.toArray)
     | Or (xs,info) ->
-
         let xs' = xs |> map transformInner
         builder.mkOr(xs' |> Seq.toArray)
     | Loop (xs, lower, upper,info) ->
         let xs' = transformInner xs
         builder.mkLoop(xs',lower,upper)
-    | LookAround (body, back, neg, pendingNullable) -> LookAround (transformInner body, back, neg, pendingNullable)
+    | LookAround (body, back, rel, pendingNullable,info) ->
+        builder.mkLookaround(transformInner body,back,rel,pendingNullable)
     | Concat(head,tail, info) ->
         let head' = transformInner head
         let tail' = transformInner tail

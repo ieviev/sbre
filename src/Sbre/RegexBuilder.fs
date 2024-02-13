@@ -1514,7 +1514,10 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 match body, lookBack with
                 | Epsilon, true -> _uniques._eps
                 | _, true when refEq _uniques._false body -> _uniques._false
-                | _ -> LookAround(body,lookBack, rel,pendingNullable)
+                | _ ->
+                    let flags = Flags.inferLookaround body lookBack
+                    let info = this.CreateInfo(flags, solver.Full)
+                    LookAround(body,lookBack, rel,pendingNullable,info)
             _lookaroundCache.Add(key, newNode)
             newNode
 
