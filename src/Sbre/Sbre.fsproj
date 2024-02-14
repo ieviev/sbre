@@ -23,10 +23,10 @@
     <WarnOn>1182</WarnOn>
     <!--    implicit conversion -->
     <WarnOn>3387</WarnOn>
-<!--    <DefineConstants>$(DefineConstants);NO_REWRITE_NEGATIVE</DefineConstants>-->
-<!--    <DefineConstants>$(DefineConstants);NO_SKIP_LOOKAROUNDS</DefineConstants>-->
-<!--    <DefineConstants>$(DefineConstants);NO_CACHE_BUILDER</DefineConstants>-->
-<!--    <DefineConstants>$(DefineConstants);NO_REWRITE</DefineConstants>-->
+    <!--    <DefineConstants>$(DefineConstants);NO_REWRITE_NEGATIVE</DefineConstants>-->
+    <!--    <DefineConstants>$(DefineConstants);NO_SKIP_LOOKAROUNDS</DefineConstants>-->
+    <!--    <DefineConstants>$(DefineConstants);NO_CACHE_BUILDER</DefineConstants>-->
+    <!--    <DefineConstants>$(DefineConstants);NO_REWRITE</DefineConstants>-->
     <DefineConstants>$(DefineConstants);REWRITE_INNER</DefineConstants>
     <DefineConstants>$(DefineConstants);SUBSUME</DefineConstants>
     <DefineConstants>$(DefineConstants);SKIP</DefineConstants>
@@ -56,7 +56,7 @@
     <PackageOutputPath>./nupkg</PackageOutputPath>
     <Authors>ieviev</Authors>
     <Title>$(ProjectName)</Title>
-    <Version>0.0.25</Version>
+    <Version>0.1.2</Version>
   </PropertyGroup>
   <ItemGroup>
     <!-- <Reference Include="RuntimeRegexCopy" Condition="'$(Configuration)'=='Release'">
@@ -64,7 +64,7 @@
     </Reference> -->
     <!-- nuget pack -->
 <!--    <ProjectReference Include="..\RuntimeRegexCopy\RuntimeRegexCopy.csproj" PrivateAssets="all" />-->
-        <ProjectReference Include="..\RuntimeRegexCopy\RuntimeRegexCopy.csproj"  />
+     <ProjectReference Include="..\RuntimeRegexCopy\RuntimeRegexCopy.csproj"  /> 
   </ItemGroup>
   <ItemGroup>
     <Content Include="$(MSBuildThisFileDirectory)../RuntimeRegexCopy/bin/Release/net8.0/RuntimeRegexCopy.dll">

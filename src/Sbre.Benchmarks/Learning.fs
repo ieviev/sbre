@@ -41,13 +41,6 @@ type Learning2() =
         ctx.Examples[10].String
     )
 
-
-// [<BenchmarkDotNet.Attributes.MemoryDiagnoser>]
-// [<ShortRunJob>]
-// type Prefix2() =
-//     // [HF][ui][cn][kn]
-//     inherit SetsPrefix("Huck|Finn")
-
 let bibtexEntry =
     @"@article{de2000thyroid,
   title={Thyroid cancer in French Polynesia between 1985 and 1995: influence of atmospheric nuclear bomb tests performed at Mururoa and Fangataufa between 1966 and 1974},
@@ -66,8 +59,8 @@ let allBibtexEntries =
 [<BenchmarkDotNet.Attributes.MemoryDiagnoser>]
 [<ShortRunJob>]
 type Learning3() =
-    inherit Jobs.TestSbreAllPatternsMatchOnly(
-    // inherit Jobs.TestSbreAllPatternsWithCompileTime(
+    // inherit Jobs.TestSbreAllPatternsMatchOnly(
+    inherit Jobs.TestSbreAllPatternsWithCompileTime(
         [
             // @"(?<=(\s\s|e\s|n\s).*).*(?=.*(\n\n|\.\n|,\s|\s\())&(?<=(\s\s|e\s|n\s)|[a-z,\)]?\s(\s\n|\s\s)?).*&.*(?=(\n\n|\.\n|,\s|\s\()|.{2})&\b.*\b"
             // """(?<=or=\{.*)\b(~(.*and.*)&\S[\w-{}\\' ,]+\S)\b(?=.*\},)"""

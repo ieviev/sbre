@@ -250,7 +250,6 @@ let findInitialOptimizations
 #if NO_SKIP_LOOKAROUNDS
     if node.ContainsLookaround then InitialOptimizations.NoOptimizations else
 #endif
-    // if node.ContainsLookaround then InitialOptimizations.NoOptimizations else
     match Optimizations.calcPrefixSets getNonInitialDerivative nodeToStateFlags c node with
     | prefix when prefix.Length > 1 ->
 
@@ -341,8 +340,9 @@ let tryGetLimitedSkip getNonInitialDerivative (nodeToId:RegexNode<TSet> -> int) 
                 if c.MintermIsInverted(skipTerm) then None else
                     // failwith "todo: inverted minterm"
                 let chrs = c.MintermChars(skipTerm)
-                if chrs.IsNone || chrs.Value.Length > 50 then
-                    failwith "todo: too many chars in set"
+                if chrs.IsNone || chrs.Value.Length > 100 then
+                    None
+                else
                 let searchValuesSet =
                     c.MintermSearchValues(skipTerm)
                 searchValuesSet
@@ -378,8 +378,8 @@ let tryGetLimitedSkip getNonInitialDerivative (nodeToId:RegexNode<TSet> -> int) 
                 if c.MintermIsInverted(skipTerm) then None else
                     // failwith "todo: inverted minterm"
                 let chrs = c.MintermChars(skipTerm)
-                if chrs.IsNone || chrs.Value.Length > 50 then
-                    failwith "todo: too many chars in set"
+                if chrs.IsNone || chrs.Value.Length > 100 then
+                    None else
                 let searchValuesSet =
                     c.MintermSearchValues(skipTerm)
                 searchValuesSet
