@@ -59,8 +59,8 @@ let allBibtexEntries =
 [<BenchmarkDotNet.Attributes.MemoryDiagnoser>]
 [<ShortRunJob>]
 type Learning3() =
-    // inherit Jobs.TestSbreAllPatternsMatchOnly(
-    inherit Jobs.TestSbreAllPatternsWithCompileTime(
+    inherit Jobs.TestSbreAllPatternsMatchOnly(
+    // inherit Jobs.TestSbreAllPatternsWithCompileTime(
         [
             // @"(?<=(\s\s|e\s|n\s).*).*(?=.*(\n\n|\.\n|,\s|\s\())&(?<=(\s\s|e\s|n\s)|[a-z,\)]?\s(\s\n|\s\s)?).*&.*(?=(\n\n|\.\n|,\s|\s\()|.{2})&\b.*\b"
             // """(?<=or=\{.*)\b(~(.*and.*)&\S[\w-{}\\' ,]+\S)\b(?=.*\},)"""

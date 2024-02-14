@@ -40,8 +40,10 @@ open Sbre.Test
 //
 
 
+let a = Sbre.Regex(@"asd:\T")
 
 
+let b = 1
 let pref = Learning.Learning3()
 pref.Pattern <- pref.Patterns |> Seq.head
 pref.Setup()

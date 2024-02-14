@@ -444,6 +444,11 @@ let assertRawDerivative (pattern: string) (input: string) (expectedDerivatives: 
     let result = der1rawlocs matcher location
     Assert.Contains(result,expectedDerivatives)
 
+let assertTSDerivative (pattern: string) (input: string) (expectedDerivatives: string list) =
+    let matcher = Regex(pattern)
+    let result = der1 matcher input false
+    Assert.Contains(result,expectedDerivatives)
+
 
 let assertConverted (pattern: string) (expected: string list) =
     let reg = Regex(pattern)

@@ -252,6 +252,17 @@ module Node =
     //             | WordBorder -> failwith "todo"
     //     loop 0 node
 
+    let rec containsRecursive (orNodes:NodeSet<'t>) (node: RegexNode<'t>)  =
+        if orNodes.Contains(node) then true else
+        orNodes
+        |> Seq.exists (fun orNode ->
+            match orNode with
+            | Or(nodes=innerNodes) ->
+                containsRecursive innerNodes node
+            | _ -> false
+        )
+
+
     let inline isAlwaysNullable(node: RegexNode<'t>) =
         match node with
         | Or(info = info)
