@@ -36,7 +36,6 @@ let printPrefixSets (cache:RegexCache<_>) (sets:TSet list) =
 let getImmediateDerivatives createNonInitialDerivative (cache: RegexCache<_>) (node: RegexNode<TSet>) =
     cache.Minterms()
     |> Seq.map (fun minterm ->
-        let loc = Pat.Location.getDefault ()
         let der = createNonInitialDerivative (minterm, node)
         minterm, der
     )

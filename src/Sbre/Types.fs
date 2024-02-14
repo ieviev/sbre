@@ -21,7 +21,10 @@ module Debug =
 
 #endif
 
-
+type LocationKind =
+    | StartPos = 0uy
+    | Center = 1uy
+    | EndPos = 2uy
 
 /// A location in s is a pair ⟨s, i⟩, where −1 ≤ i ≤ |s |
 [<DebuggerDisplay("{DebugDisplay()}")>]
@@ -31,9 +34,15 @@ type Location = {
     mutable Position: int32
     mutable Reversed: bool
 }
+    with
+    member this.Kind =
+        match this.Position with
+        | 0 -> LocationKind.StartPos
+        | n when n = this.Input.Length -> LocationKind.EndPos
+        | _ -> LocationKind.Center
 
 #if DEBUG
-    with
+
     member this.DebugDisplay() =
         if
             // display entire input if it is short
@@ -216,7 +225,7 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
         node: RegexNode<'tset> *  // anchors
         lookBack: bool *
         relativeTo : int *
-        pendingNullables : int list *
+        pendingNullables : Set<int> *
         info: RegexNodeInfo<'tset>
     | Anchor of RegexAnchor
 
@@ -501,7 +510,8 @@ module Common =
                 | _ -> ()
         }
 
-    let zeroList = [0]
+    // let zeroList = [0]
+    let zeroList = Set.singleton 0
 
 
 

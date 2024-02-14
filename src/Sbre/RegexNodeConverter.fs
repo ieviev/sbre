@@ -17,12 +17,12 @@ let rewriteNegativeLookaround (b:RegexBuilder<BDD>) (lookBack:bool) (node:RegexN
         // (?=~(R·⊤*)·\z) ≡ (?!R)
         let negpart = b.mkNot(b.mkConcat2(node, b.uniques._trueStar))
         let conc = b.mkConcat2(negpart, b.anchors._zAnchor)
-        b.mkLookaround( conc, false, 0, [])
+        b.mkLookaround( conc, false, 0, Set.empty)
     | true ->
         // (?<=\a·~(⊤*R)) ≡ (?<!R)
         let negpart = b.mkNot(b.mkConcat2(b.uniques._trueStar,node))
         let conc = b.mkConcat2(b.anchors._bigAAnchor,negpart)
-        b.mkLookaround( conc, false, 0, [])
+        b.mkLookaround( conc, false, 0, Set.empty)
 
 
 let rec determineWordBorderNodeKind (left:bool) (node:RegexNode) =
@@ -298,7 +298,7 @@ let convertToSymbolicRegexNode
         | RegexNodeKind.PositiveLookaround ->
             // let conc = b.mkConcat (convertChildren node)
             let conc = b.mkConcat (convertConcat (node))
-            builder.mkLookaround(conc,node.Options.HasFlag(RegexOptions.RightToLeft), 0, [])
+            builder.mkLookaround(conc,node.Options.HasFlag(RegexOptions.RightToLeft), 0, Set.empty)
             :: acc
         | RegexNodeKind.NegativeLookaround ->
 #if NO_REWRITE_NEGATIVE

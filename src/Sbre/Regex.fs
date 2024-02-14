@@ -61,7 +61,8 @@ type MatchingState(node: RegexNode<TSet>) =
     member val Flags: RegexStateFlags = RegexStateFlags.None with get, set
 
     // -- optimizations
-    member val PendingNullablePositions: int[] = [||] with get, set
+    // member val PendingNullablePositions: int[] = [||] with get, set
+    member val PendingNullablePositions: Memory<int> = Unchecked.defaultof<_> with get, set
 
     // member val PendingNullablePositions: Set<int> = Set.empty with get, set
     member val ActiveOptimizations: ActiveBranchOptimizations = ActiveBranchOptimizations.NoOptimizations with get, set
@@ -161,6 +162,7 @@ type RegexMatcher<'t when 't: struct>
             else
                 Algorithm.RegexNode.getCachedTransition(loc_pred, node)
 
+
         let result =
             match cachedTransition with
             | ValueSome inf -> inf
@@ -185,12 +187,15 @@ type RegexMatcher<'t when 't: struct>
                 | false ->
                     _createDerivative ( &loc, loc_pred, _cache.Builder.mkConcat2 (R, R_decr) )
             // Derx (R | S) = Derx (R) | Derx (S)
-            | Or(xs, _) ->
+            | Or(xs, info) ->
                 let arr = ResizeArray()
                 use mutable e = xs.GetEnumerator()
                 while e.MoveNext() do
-                    arr.Add((_createDerivative(&loc, loc_pred, e.Current)))
+                    let der = _createDerivative(&loc, loc_pred, e.Current)
+                    arr.Add der
+                arr.RemoveAll(fun v -> refEq _cache.False v) |> ignore
                 arr.ToArray() |> _cache.Builder.mkOr
+
             // Derx (R & S) = Derx (R) & Derx (S)
             | And(xs, _) ->
                 let derivatives = ResizeArray()
@@ -249,7 +254,7 @@ type RegexMatcher<'t when 't: struct>
             // Lookback
             | LookAround(node=R; lookBack=true; relativeTo= rel; pendingNullables= relativeNullablePos; info = info) ->
                 let der_R = _createDerivative (&loc, loc_pred, R)
-                _cache.Builder.mkLookaround(der_R, true, 0, [])
+                _cache.Builder.mkLookaround(der_R, true, 0, Set.empty)
             | Anchor _ -> _cache.False
 
 
@@ -408,17 +413,8 @@ type RegexMatcher<'t when 't: struct>
                     ()
 
             if node.ContainsLookaround && node.CanBeNullable && not isInitial then
-                let cachedNullables = node.PendingNullables
-                // match Optimizations.collectPendingNullables (fun v -> v.CanBeNullable) state.Node with
-                // | n when n.IsEmpty -> ()
-                // | nullables ->
-
-                    // if nullables <> node.NodePendingNullables then
-                    //     failwith $"nullables: {nullables}, {node.NodePendingNullables}"
-                state.PendingNullablePositions <- node.PendingNullables |> Seq.toArray
-                // state.PendingNullablePositions <- node.PendingNullables |> Seq.toArray
-                    // state.PendingNullablePositions <- nullables |> Seq.toArray
-                if cachedNullables.Count > 0 then
+                state.PendingNullablePositions <- node.PendingNullables |> Seq.toArray |> Memory
+                if state.PendingNullablePositions.Length > 0 then
                     state.Flags <- state.Flags ||| RegexStateFlags.IsPendingNullableFlag
             if node.DependsOnAnchor then
                 state.Flags <- state.Flags ||| RegexStateFlags.DependsOnAnchor
@@ -629,7 +625,7 @@ type RegexMatcher<'t when 't: struct>
             // set max nullability after skipping
             if this.StateIsNullable(flags, &loc, currentStateId) then
                 if flags.IsPendingNullable then
-                    let pending = _stateArray[currentStateId].PendingNullablePositions
+                    let pending = _stateArray[currentStateId].PendingNullablePositions.Span
                     for p in pending do
                        currentMax <- max currentMax (loc.Position - p)
                 else
@@ -809,9 +805,12 @@ type RegexMatcher<'t when 't: struct>
 
     member this.HandleNullableRev(flags:RegexStateFlags,acc: byref<SharedResizeArrayStruct<int>>,loc,currentStateId) =
         if flags.IsPendingNullable then
-            let span = _stateArray[currentStateId].PendingNullablePositions.AsSpan()
+            let span = _stateArray[currentStateId].PendingNullablePositions.Span
             for i = span.Length - 1 downto 0 do
                 acc.Add (span[i] + loc.Position)
+            // use span = (_stateArray[currentStateId].PendingNullablePositions :> seq<_> |> Seq.rev).GetEnumerator()
+            // while span.MoveNext() do
+            //     acc.Add (span.Current + loc.Position)
         else acc.Add loc.Position
 
     /// unoptimized collect all nullable positions
@@ -863,7 +862,7 @@ type RegexMatcher<'t when 't: struct>
             if this.StateIsNullable(flags, &loc, currentStateId) then
                     // TODO: multiple nulls here
                 if flags.IsPendingNullable then
-                    for pos in _stateArray[currentStateId].PendingNullablePositions |> Seq.rev do
+                    for pos in _stateArray[currentStateId].PendingNullablePositions.Span do
                         acc.Add pos
                     // (loc.Position + _stateArray[currentStateId].PendingNullable)
                 else acc.Add loc.Position
