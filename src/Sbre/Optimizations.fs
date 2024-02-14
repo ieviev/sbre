@@ -59,7 +59,6 @@ let getNonRedundantDerivatives
     =
     getImmediateDerivativesMerged getNonInitialDerivative cache node
     |> Seq.where (fun (mt, deriv) -> not (redundantNodes.Contains(deriv)))
-    |> Seq.toArray
 
 /// strip parts irrelevant for prefix
 let rec getPrefixNodeAndComplement (cache:RegexCache<_>) (node:RegexNode<_>) : RegexNode<_> * RegexNode<_> option =
@@ -193,7 +192,6 @@ let rec calcPotentialMatchStart getNonInitialDerivative (getStateFlags: RegexNod
     let nodes = HashSet(tsetComparer)
     let tempList = ResizeArray()
     let rec loop (acc: TSet list) =
-        // if true then acc |> List.rev else
         tempList.Clear()
         if nodes.Count > 4 || acc.Length > 5 || nodes.Count = 0 then acc |> List.rev else
         let shouldExit = nodes |> Seq.exists (_.CanBeNullable)
@@ -323,7 +321,7 @@ let tryGetLimitedSkip getNonInitialDerivative (nodeToId:RegexNode<TSet> -> int) 
         let nonInitial = nodes |> Seq.where (fun v -> not (refEq v initial)) |> Seq.toArray |> c.Builder.mkOr
         let nonTermDerivatives (node: RegexNode<TSet>) =
             let ders1 = Optimizations.getNonRedundantDerivatives getNonInitialDerivative c redundant node
-            ders1 |> Array.where (fun (mt,_) -> not (Solver.contains skipTerm mt) )
+            ders1 |> Seq.where (fun (mt,_) -> not (Solver.contains skipTerm mt) ) |> Seq.toArray
 
         let nonInitialNonTerm =
             nonTermDerivatives nonInitial
@@ -360,7 +358,7 @@ let tryGetLimitedSkip getNonInitialDerivative (nodeToId:RegexNode<TSet> -> int) 
     | Concat(_) ->
         let nonTermDerivatives (node: RegexNode<TSet>) =
             let ders1 = Optimizations.getNonRedundantDerivatives getNonInitialDerivative c redundant node
-            ders1 |> Array.where (fun (mt,_) -> not (Solver.contains skipTerm mt) )
+            ders1 |> Seq.where (fun (mt,_) -> not (Solver.contains skipTerm mt) ) |> Seq.toArray
         let nonInitialNonTerm = nonTermDerivatives node
 
         match nonInitialNonTerm with
@@ -398,45 +396,45 @@ let tryGetLimitedSkip getNonInitialDerivative (nodeToId:RegexNode<TSet> -> int) 
     | _ -> None
 
 
-let rec collectPendingNullables
-    (canBeNull:RegexNode<_> -> bool)
-    (node:RegexNode<_>): Set<int> // canBeNull, isPositive, relativePos,
-        =
-    match node with
-    // pos. lookahead
-    | LookAround(node=lookBody; lookBack=false; relativeTo= rel; pendingNullables=relativeNullablePos) ->
-        let canBeNull = canBeNull lookBody
-        if canBeNull && not relativeNullablePos.IsEmpty then
-            relativeNullablePos
-            |> Seq.map (fun v -> rel + v ) |> set
-        else Set.empty
-    | Or(nodes, info) ->
-        let pendingNullables =
-            nodes
-            |> Seq.collect (collectPendingNullables canBeNull)
-        Set.ofSeq pendingNullables
-    | And(nodes, regexNodeInfo) ->
-        let pendingNullables =
-            nodes
-            |> Seq.collect (collectPendingNullables canBeNull)
-        Set.ofSeq pendingNullables
-    | Loop(node=node) | Not (node=node) ->
-        let pending = (collectPendingNullables canBeNull) node
-        if not pending.IsEmpty then
-            failwith $"todo: collect pending nullables inside: {node}"
-        else Set.empty
-    | Epsilon | Anchor _ | Singleton _ -> Set.empty
-    | LookAround(_) | Concat(head=LookAround(_)) -> Set.empty
-    | Concat(info=info) when info.CanNotBeNullable() -> Set.empty
-    | Concat(head=head; tail=tail) when head.IsAlwaysNullable ->
-        let pendingTail = collectPendingNullables canBeNull tail
-        pendingTail
-    | Concat(head=Anchor _; tail=tail) ->
-        let pendingTail = collectPendingNullables canBeNull tail
-        pendingTail
-    | Concat(head=head; tail=tail) ->
-        let pendingTail = collectPendingNullables canBeNull tail
-        pendingTail
+// let rec collectPendingNullables
+//     (canBeNull:RegexNode<_> -> bool)
+//     (node:RegexNode<_>): Set<int> // canBeNull, isPositive, relativePos,
+//         =
+//     match node with
+//     // pos. lookahead
+//     | LookAround(node=lookBody; lookBack=false; relativeTo= rel; pendingNullables=relativeNullablePos) ->
+//         let canBeNull = canBeNull lookBody
+//         if canBeNull && not relativeNullablePos.IsEmpty then
+//             relativeNullablePos
+//             |> Seq.map (fun v -> rel + v ) |> set
+//         else Set.empty
+//     | Or(nodes, info) ->
+//         let pendingNullables =
+//             nodes
+//             |> Seq.collect (collectPendingNullables canBeNull)
+//         Set.ofSeq pendingNullables
+//     | And(nodes, regexNodeInfo) ->
+//         let pendingNullables =
+//             nodes
+//             |> Seq.collect (collectPendingNullables canBeNull)
+//         Set.ofSeq pendingNullables
+//     | Loop(node=node) | Not (node=node) ->
+//         let pending = (collectPendingNullables canBeNull) node
+//         if not pending.IsEmpty then
+//             failwith $"todo: collect pending nullables inside: {node}"
+//         else Set.empty
+//     | Epsilon | Anchor _ | Singleton _ -> Set.empty
+//     | LookAround(_) | Concat(head=LookAround(_)) -> Set.empty
+//     | Concat(info=info) when info.CanNotBeNullable() -> Set.empty
+//     | Concat(head=head; tail=tail) when head.IsAlwaysNullable ->
+//         let pendingTail = collectPendingNullables canBeNull tail
+//         pendingTail
+//     | Concat(head=Anchor _; tail=tail) ->
+//         let pendingTail = collectPendingNullables canBeNull tail
+//         pendingTail
+//     | Concat(head=head; tail=tail) ->
+//         let pendingTail = collectPendingNullables canBeNull tail
+//         pendingTail
 
 
 let rec nodeWithoutLookbackPrefix
@@ -471,23 +469,3 @@ let rec nodeWithoutLookbackPrefix
     | _ ->
         node
 
-
-let rec canHaveMultipleNullables
-    (node:RegexNode<_>)
-        =
-    match node with
-    // ignore lookarounds
-    | LookAround(_) -> false
-    | Anchor _ -> true
-    | Epsilon -> true
-    | Not(regexNode, regexNodeInfo) -> regexNodeInfo.CanBeNullable
-    | Or(nodes, info) ->
-        nodes
-        |> Seq.exists canHaveMultipleNullables
-    | And(nodes, regexNodeInfo) ->
-        nodes
-        |> Seq.forall canHaveMultipleNullables
-    | Concat(head, tail, info) ->
-        canHaveMultipleNullables head && canHaveMultipleNullables tail
-    | Singleton foo -> false
-    | Loop(node, low, up, info) -> info.CanBeNullable

@@ -155,7 +155,7 @@ type RegexNodeInfo<'tset when 'tset :> IEquatable<'tset> and 'tset: equality >()
     member val EndTransitions: Dictionary<'tset,RegexNode<'tset>> = Dictionary() with get, set
     member val StartTransitions: Dictionary<'tset,RegexNode<'tset>> = Dictionary() with get, set
     member val Subsumes: Dictionary<RegexNode<'tset>,bool> = Dictionary() with get, set
-    member val PendingNullables: ResizeArray<int> = ResizeArray() with get, set
+    member val PendingNullables: Set<int> = Set.empty with get, set
     // todo: subsumedbyset
 
     // filled in later
@@ -378,6 +378,13 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
         this.GetFlags().HasFlag(RegexNodeFlags.HasCounterFlag)
     member this.DependsOnAnchor =
         this.GetFlags().HasFlag(RegexNodeFlags.DependsOnAnchorFlag)
+
+    member this.PendingNullables =
+        this.TryGetInfo
+        |> ValueOption.map (fun v -> v.PendingNullables)
+        |> ValueOption.defaultWith (fun _ -> Set.empty
+        )
+
 
     member this.IsAlwaysNullable =
         this.TryGetInfo

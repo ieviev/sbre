@@ -62,6 +62,8 @@ type MatchingState(node: RegexNode<TSet>) =
 
     // -- optimizations
     member val PendingNullablePositions: int[] = [||] with get, set
+
+    // member val PendingNullablePositions: Set<int> = Set.empty with get, set
     member val ActiveOptimizations: ActiveBranchOptimizations = ActiveBranchOptimizations.NoOptimizations with get, set
     member val StartsetChars: SearchValues<char> = Unchecked.defaultof<_> with get, set
     member val StartsetIsInverted: bool = Unchecked.defaultof<_> with get, set
@@ -413,13 +415,13 @@ type RegexMatcher<'t when 't: struct>
         let setChars = _cache.MintermSearchValues(startsetPredicate)
         match setChars with
         | None ->
-            let minterms = _cache.Minterms()
+
             let isInverted = Solver.elemOfSet startsetPredicate minterms[0]
             state.Startset <- startsetPredicate
             state.StartsetChars <- Unchecked.defaultof<_>
             state.StartsetIsInverted <- isInverted
         | Some setChars ->
-            let minterms = _cache.Minterms()
+
             let isInverted = Solver.elemOfSet startsetPredicate minterms[0]
             state.Startset <- startsetPredicate
             state.StartsetChars <- setChars
@@ -452,7 +454,6 @@ type RegexMatcher<'t when 't: struct>
 
             // generate startset
             _createStartset (state, isInitial)
-
             if
                 not (_cache.Solver.IsEmpty(state.Startset) || _cache.Solver.IsFull(state.Startset))
             then
@@ -490,10 +491,17 @@ type RegexMatcher<'t when 't: struct>
                     ()
 
             if node.ContainsLookaround && node.CanBeNullable && not isInitial then
-                match Optimizations.collectPendingNullables (fun v -> v.CanBeNullable) state.Node with
-                | n when n.IsEmpty -> ()
-                | nullables ->
-                    state.PendingNullablePositions <- nullables |> Seq.toArray
+                let cachedNullables = node.PendingNullables
+                // match Optimizations.collectPendingNullables (fun v -> v.CanBeNullable) state.Node with
+                // | n when n.IsEmpty -> ()
+                // | nullables ->
+
+                    // if nullables <> node.NodePendingNullables then
+                    //     failwith $"nullables: {nullables}, {node.NodePendingNullables}"
+                state.PendingNullablePositions <- node.PendingNullables |> Seq.toArray
+                // state.PendingNullablePositions <- node.PendingNullables |> Seq.toArray
+                    // state.PendingNullablePositions <- nullables |> Seq.toArray
+                if cachedNullables.Count > 0 then
                     state.Flags <- state.Flags ||| RegexStateFlags.IsPendingNullableFlag
             if node.DependsOnAnchor then
                 state.Flags <- state.Flags ||| RegexStateFlags.DependsOnAnchor

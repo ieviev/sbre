@@ -175,8 +175,8 @@ module private BuilderHelpers =
 [<Sealed>]
 type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
     (converter: RegexNodeConverter, solver: ISolver< 't >, bcss: CharSetSolver) as b =
-    let _createInfo flags containsMinterms =
-        RegexNodeInfo<'t>(NodeFlags = flags, Minterms = containsMinterms)
+    let _createInfo flags containsMinterms pendingNullables =
+        RegexNodeInfo<'t>(NodeFlags = flags, Minterms = containsMinterms, PendingNullables=pendingNullables)
 
     let getDerivativeCacheComparer() : IEqualityComparer<struct (TSet * RegexNode<TSet>)> =
         { new IEqualityComparer<struct (TSet * RegexNode<TSet>)> with
@@ -284,7 +284,11 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 _true,
                 low = 0,
                 up = Int32.MaxValue,
-                info = _createInfo (RegexNodeFlags.IsAlwaysNullableFlag ||| RegexNodeFlags.CanBeNullableFlag ||| RegexNodeFlags.HasZerowidthHeadFlag) solver.Full
+                info =
+                    _createInfo
+                        (RegexNodeFlags.IsAlwaysNullableFlag ||| RegexNodeFlags.CanBeNullableFlag ||| RegexNodeFlags.HasZerowidthHeadFlag)
+                        solver.Full
+                        Set.empty
 
             )
         _truePlus =
@@ -292,7 +296,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 _true,
                 low = 1,
                 up = Int32.MaxValue,
-                info = _createInfo (RegexNodeFlags.None) solver.Full
+                info = _createInfo (RegexNodeFlags.None) solver.Full Set.empty
             )
         _wordChar = lazy b.setFromStr @"\w"
         _nonWordChar = lazy b.setFromStr @"\W"
@@ -669,9 +673,9 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 match other.IsAlwaysNullable with
                 | true -> Some(Epsilon, other)
                 | false ->
-                    // if other.CanNotBeNullable then
-                    //     Some(_uniques._false, this.mkOr2Direct(other,Epsilon))
-                    // else
+                    if other.CanNotBeNullable then
+                        Some(_uniques._false, this.mkOr2Direct(other,Epsilon))
+                    else
                         None
             // (a*&.*) -> a*
             | (SingletonStarLoop(p2) as p2node), (SingletonStarLoop(p1) as p1node)
@@ -704,7 +708,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             | (And(nodes=nodes) as andnode), other ->
                 match nodes.Contains(other) with
                 | true -> Some(andnode, other)
-                | false -> Some(this.mkAnd2Direct(node1,node2),this.mkOr2Direct(node1,node2))
+                | false -> Some(mergeIntersection(),mergeUnion())
 
             // [a-z]&a -> a
             | (Singleton p1 as p1node), (Singleton p2 as p2node) ->
@@ -768,12 +772,13 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             //     match catTail, other with
             //     | Singleton catTailPred, othernode ->
             //         if solver.isElemOfSet(catTailPred,othernode.SubsumedByMinterm(solver)) then
-            //             Some(catTail, this.mkOr2Direct(node1,node2))
+            //             Some(catnode, this.mkOr2Direct(node1,node2))
+            //             // Some(catTail, this.mkOr2Direct(node1,node2))
             //         else
             //             Some(this.mkAnd2Direct(node1,node2),this.mkOr2Direct(node1,node2))
             //     | _ ->
             //
-            //     Some(this.mkAnd2Direct(node1,node2),this.mkOr2Direct(node1,node2))
+            //         Some(this.mkAnd2Direct(node1,node2),this.mkOr2Direct(node1,node2))
 
             // concat same head merge
             | (Concat(head=chead1;tail=ctail1) as c1), (Concat(head=chead2;tail=ctail2) as c2)
@@ -783,7 +788,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
 
             // unoptimized cases ------------------------------
             | _, Anchor _
-            | Anchor _, _ -> Some(this.mkAnd2Direct(node1,node2),this.mkOr2Direct(node1,node2))
+            | Anchor _, _ -> Some(mergeIntersection(),mergeUnion())
             // | Not _, _ | _, Not _ -> None
             | n1,n2 ->
                 let fixlen1 = Node.getFixedLength n1
@@ -796,7 +801,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                     match minlen with
                     | Some ml when n1len < ml -> None
                     | _ ->
-                        Some(this.mkAnd2Direct(node1,node2),this.mkOr2Direct(node1,node2))
+                        Some(mergeIntersection(),mergeUnion())
                         // failwith $"_subsume: {node1.ToString()} ;;; {node2.ToString()}"
                 | _ ->
                     // (A⊤*&⊤*B⊤*)
@@ -825,8 +830,9 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                     twoormore
                     |> Seq.map (_.SubsumedByMinterm(solver))
                     |> Seq.fold (fun acc v -> solver.Or(acc,v) ) solver.Empty
+                let inner = twoormore |> Seq.map (fun v -> v.PendingNullables) |> Set.unionMany
                 let mergedInfo =
-                    this.CreateInfo(flags, minterms2)
+                    this.CreateInfo(flags, minterms2, inner)
                 let n = RegexNode.Or(ofSeq twoormore, mergedInfo)
                 _orCache.Add(key,n)
                 n
@@ -846,7 +852,8 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                     twoormore
                     |> Seq.map (_.SubsumedByMinterm(solver))
                     |> Seq.fold (fun acc v -> solver.Or(acc,v) ) solver.Empty
-                let mergedInfo = this.CreateInfo(flags, minterms2)
+                let inner = twoormore |> Seq.map (fun v -> v.PendingNullables) |> Set.unionMany
+                let mergedInfo = this.CreateInfo(flags, minterms2,inner)
                 match twoormore with
                 | _ when twoormore.Length = 0 -> _uniques._trueStar
                 | _ when twoormore.Length = 1 -> twoormore[0]
@@ -893,8 +900,9 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                     twoormore
                     |> Seq.map (_.SubsumedByMinterm(solver))
                     |> Seq.fold (fun acc v -> solver.Or(acc,v) ) solver.Empty
+                let inner = twoormore |> Seq.map (fun v -> v.PendingNullables) |> Set.unionMany
                 let mergedInfo =
-                    this.CreateInfo(flags, minterms2)
+                    this.CreateInfo(flags, minterms2,inner)
                 let n = RegexNode.Or(ofSeq twoormore, mergedInfo)
                 _orCache.Add(key,n)
                 n
@@ -991,8 +999,9 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                     twoormore
                     |> Seq.map (_.SubsumedByMinterm(solver))
                     |> Seq.fold (fun acc v -> solver.Or(acc,v) ) solver.Empty
+                let inner = twoormore |> Seq.map (fun v -> v.PendingNullables) |> Set.unionMany
                 let mergedInfo =
-                    this.CreateInfo(flags, minterms2)
+                    this.CreateInfo(flags, minterms2, inner)
                 //
                 match twoormore with
                 | _ when twoormore.Length = 0 -> _uniques._trueStar
@@ -1090,8 +1099,9 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                         twoormore
                         |> Seq.map (_.SubsumedByMinterm(solver))
                         |> Seq.fold (fun acc v -> solver.Or(acc,v) ) solver.Empty
+                    let inner = twoormore |> Seq.map (fun v -> v.PendingNullables) |> Set.unionMany
                     let mergedInfo =
-                        this.CreateInfo(flags, minterms2)
+                        this.CreateInfo(flags, minterms2,inner)
                     //
                     match twoormore with
                     | _ when twoormore.Length = 0 -> _uniques._trueStar
@@ -1219,8 +1229,10 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                         twoormore
                         |> Seq.map (_.SubsumedByMinterm(solver))
                         |> Seq.fold (fun acc v -> solver.Or(acc,v) ) solver.Empty
+                    let inner = twoormore |> Seq.map (fun v -> v.PendingNullables) |> Set.unionMany
+
                     let mergedInfo =
-                        this.CreateInfo(flags, minterms2)
+                        this.CreateInfo(flags, minterms2,inner)
 
                     RegexNode.Or(ofSeq twoormore, mergedInfo)
 
@@ -1244,7 +1256,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 | Epsilon -> _uniques._truePlus // ~(ε) -> ⊤+
                 | _ ->
                     let mutable flags = Flags.inferNot inner
-                    Not(inner, this.CreateInfo(flags, inner.SubsumedByMinterm(solver)))
+                    Not(inner, this.CreateInfo(flags, inner.SubsumedByMinterm(solver),inner.PendingNullables))
 
             let key = inner
 
@@ -1291,7 +1303,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             let createCached(head,tail) =
                 let flags = Flags.inferConcat head tail
                 let mergedMinterms = solver.Or(head.SubsumedByMinterm(solver),tail.SubsumedByMinterm(solver))
-                let info = this.CreateInfo(flags, mergedMinterms)
+                let info = this.CreateInfo(flags, mergedMinterms,Set.union head.PendingNullables tail.PendingNullables)
                 let node = Concat(head, tail, info)
                 _concatCache.Add(key,node)
                 node
@@ -1344,7 +1356,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                     let v =
                         let flags = Flags.inferConcat head tail
                         let mergedMinterms = solver.Or(head.SubsumedByMinterm(solver),tail.SubsumedByMinterm(solver))
-                        let info = this.CreateInfo(flags, mergedMinterms)
+                        let info = this.CreateInfo(flags, mergedMinterms, Set.union head.PendingNullables tail.PendingNullables)
                         Concat(head, tail, info)
                     _concatCache.Add(key, v)
                     v
@@ -1379,7 +1391,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                     let v =
                         let flags = Flags.inferConcat head tail
                         let mergedMinterms = solver.Or(head.SubsumedByMinterm(solver),tail.SubsumedByMinterm(solver))
-                        let info = this.CreateInfo(flags, mergedMinterms)
+                        let info = this.CreateInfo(flags, mergedMinterms, Set.union head.PendingNullables tail.PendingNullables)
                         Concat(head, tail, info)
 
                     _concatCache.Add(key, v)
@@ -1393,13 +1405,18 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
         match _lookaroundCache.TryGetValue(key) with
         | true, v -> v
         | _ ->
+
             let newNode =
                 match body, lookBack with
                 | Epsilon, true -> _uniques._eps
                 | _ when refEq _uniques._false body -> _uniques._false
                 | _ ->
                     let flags = Flags.inferLookaround body lookBack
-                    let info = this.CreateInfo(flags, solver.Full)
+                    let pendingNull =
+                        if body.CanBeNullable then
+                            pendingNullable |> Seq.map (fun v -> v + rel) |> set
+                        else Set.empty
+                    let info = this.CreateInfo(flags, solver.Full, pendingNull)
                     LookAround(body,lookBack, rel,pendingNullable,info)
             _lookaroundCache.Add(key, newNode)
             newNode
@@ -1470,15 +1487,10 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                     _uniques._trueStar
                 else
                     let flags = Flags.inferLoop (body, lower, upper)
-
-                    RegexNode.Loop(body, lower, upper, info = b.CreateInfo(flags, body.SubsumedByMinterm(solver)))
-            | _, (x, y) when x > 0 ->
-                let flags = Flags.inferLoop (body, lower, upper)
-                let info = b.CreateInfo(flags, body.SubsumedByMinterm(solver))
-                RegexNode.Loop(body, lower, upper, info = info)
+                    RegexNode.Loop(body, lower, upper, info = b.CreateInfo(flags, body.SubsumedByMinterm(solver),body.PendingNullables))
             | _ ->
                 let flags = Flags.inferLoop (body, lower, upper)
-                let info = b.CreateInfo(flags, body.SubsumedByMinterm(solver))
+                let info = b.CreateInfo(flags, body.SubsumedByMinterm(solver),body.PendingNullables)
                 RegexNode.Loop(body, lower, upper, info = info)
 
         let key = struct (body, lower, upper)
@@ -1491,8 +1503,8 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             v
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    member this.CreateInfo(flags: RegexNodeFlags, containsMinterms:'t) : RegexNodeInfo<_> =
-        _createInfo flags containsMinterms
+    member this.CreateInfo(flags: RegexNodeFlags, containsMinterms:'t, nullables:Set<int>) : RegexNodeInfo<_> =
+        _createInfo flags containsMinterms nullables
 
 
 
