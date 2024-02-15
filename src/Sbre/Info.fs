@@ -52,9 +52,9 @@ let (|HasPrefixLookaround|_|)(x: RegexNode<'t>) =
 let rec (|HasSuffixLookaround|_|)(x: RegexNode<'t>) =
     let rec loop node =
         match node with
-        | Concat(head=LookAround(lookBack = true) as look; tail=tail) -> ValueNone
-        | Concat(head=head; tail=LookAround(lookBack = true) as look) -> ValueSome (look)
-        | Concat(head=head; tail=HasSuffixLookaround(look)) -> ValueSome (look)
+        | Concat(head=LookAround(lookBack = true); tail=_) -> ValueNone
+        | Concat(head=_; tail=LookAround(lookBack = true) as look) -> ValueSome look
+        | Concat(head=_; tail=HasSuffixLookaround(look)) -> ValueSome look
         | LookAround(lookBack=false) -> ValueSome node
         | _ -> ValueNone
     loop x
@@ -87,7 +87,7 @@ module rec Flags =
         xs
         |> Seq.map inferNodeOptimized
         |> Seq.reduce (fun b f ->
-            let orflags = (b ||| f) &&& (Flag.ContainsLookaroundFlag ||| Flag.HasCounterFlag ||| Flag.DependsOnAnchorFlag)
+            let orflags = (b ||| f) &&& (Flag.ContainsLookaroundFlag ||| Flag.DependsOnAnchorFlag)
             let andFlags = b &&& f &&& (Flag.CanBeNullableFlag ||| Flag.IsAlwaysNullableFlag ||| Flag.HasZerowidthHeadFlag)
             orflags ||| andFlags
         )
@@ -98,13 +98,13 @@ module rec Flags =
             let orflags = (b ||| f) &&& (
                     Flag.CanBeNullableFlag ||| Flag.IsAlwaysNullableFlag |||
                     Flag.ContainsLookaroundFlag ||| Flag.HasZerowidthHeadFlag |||
-                    Flag.HasCounterFlag ||| Flag.DependsOnAnchorFlag)
+                    Flag.DependsOnAnchorFlag)
             orflags
         )
     let inferConcat (head: RegexNode<'t>) (tail: RegexNode<'t>) =
         let h1 = inferNodeOptimized head
         let t1 = inferNodeOptimized tail
-        let orFlags = h1 ||| t1 &&& (Flag.ContainsLookaroundFlag)
+        let orFlags = h1 ||| t1 &&& Flag.ContainsLookaroundFlag
         let andFlags = h1 &&& t1 &&& (Flag.IsAlwaysNullableFlag||| Flag.CanBeNullableFlag)
         let dependsOnAnchor = h1.DependsOnAnchor || (h1.CanBeNullable && t1.DependsOnAnchor)
         let dependsOnFlags =
@@ -115,7 +115,7 @@ module rec Flags =
 
     let inferLookaround (inner: RegexNode<'t>) (lookBack: bool) =
         let innerFlags = inner.GetFlags()
-        let nullFlags = innerFlags &&& ( RegexNodeFlags.CanBeNullableFlag ||| RegexNodeFlags.IsAlwaysNullableFlag)
+        let nullFlags = innerFlags &&& (RegexNodeFlags.CanBeNullableFlag ||| RegexNodeFlags.IsAlwaysNullableFlag)
         let ancFlag = innerFlags &&& RegexNodeFlags.DependsOnAnchorFlag
         match innerFlags.HasFlag(RegexNodeFlags.CanBeNullableFlag), lookBack with
         // nullable lookahead
@@ -136,13 +136,13 @@ module rec Flags =
         match node with
         | Concat(info = info) -> info.NodeFlags
         | Epsilon -> node.GetFlags()
-        | Or(nodes, info) -> info.NodeFlags
-        | Singleton foo -> node.GetFlags()
-        | Loop(node, low, up, info) -> info.NodeFlags
-        | And(nodes, info) -> info.NodeFlags
-        | Not(node, info) -> info.NodeFlags
+        | Or(_, info) -> info.NodeFlags
+        | Singleton _ -> node.GetFlags()
+        | Loop(_, _, _, info) -> info.NodeFlags
+        | And(_, info) -> info.NodeFlags
+        | Not(_, info) -> info.NodeFlags
         | LookAround(info=info) -> info.NodeFlags
-        | Anchor regexAnchor -> node.GetFlags()
+        | Anchor _ -> node.GetFlags()
 
     let inferNot(inner: RegexNode<'t>) =
         let innerInfo = inferNodeOptimized inner
@@ -151,12 +151,9 @@ module rec Flags =
             if not (innerInfo.HasFlag(RegexNodeFlags.CanBeNullableFlag)) then
                 Flag.IsAlwaysNullableFlag ||| Flag.CanBeNullableFlag
             else
-                if innerInfo.HasCounter && innerInfo.CanBeNullable then
-                    Flag.CanBeNullableFlag else
-
                 Flag.None
         let otherFlags =
-            innerInfo &&& (Flag.HasZerowidthHeadFlag ||| Flag.ContainsLookaroundFlag ||| Flag.HasCounterFlag ||| Flag.DependsOnAnchorFlag)
+            innerInfo &&& (Flag.HasZerowidthHeadFlag ||| Flag.ContainsLookaroundFlag ||| Flag.DependsOnAnchorFlag)
         nullableFlags ||| otherFlags
 
 
@@ -169,13 +166,13 @@ module Node =
     let rec getFixedLength (node: RegexNode<_>) =
         let rec loop (acc:int) node : int option =
             match node with
-            | Concat(head, tail, info) ->
+            | Concat(head, tail, _) ->
                 loop acc head
                 |> Option.bind (fun headLen ->
                     loop headLen tail
                 )
             | Epsilon -> Some (0 + acc)
-            | Or(nodes, info) | And(nodes, info) ->
+            | Or(nodes, _) | And(nodes, _) ->
                 let sameLen =
                     nodes
                     |> Seq.map (loop 0)
@@ -185,24 +182,24 @@ module Node =
                     Some (acc + sameLen[0].Value)
                 else None
             | Singleton _ -> Some (1 + acc)
-            | Loop(Singleton node, low, up, info) ->
+            | Loop(Singleton _, low, up, _) ->
                 if low = up then Some (low + acc) else None
-            | Loop(node, low, up, info) -> None
-            | Not(node, info) -> None
-            | LookAround(_) -> Some (0 + acc)
+            | Loop _ -> None
+            | Not _ -> None
+            | LookAround _ -> Some (0 + acc)
             | Anchor _ -> Some (0 + acc)
         loop 0 node
 
     let rec getMinLength (node: RegexNode<_>) =
         let rec loop (acc:int) node : int option =
             match node with
-            | Concat(head, tail, info) ->
+            | Concat(head, tail, _) ->
                 loop acc head
                 |> Option.bind (fun headLen ->
                     loop headLen tail
                 )
             | Epsilon -> Some (0 + acc)
-            | Or(nodes, info) | And(nodes, info) ->
+            | Or(nodes, _) | And(nodes, _) ->
                 let sameLen =
                     nodes
                     |> Seq.map (loop 0)
@@ -212,10 +209,10 @@ module Node =
                     Some (acc + sameLen[0].Value)
                 else None
             | Singleton _ -> Some (1 + acc)
-            | Loop(Singleton _, low, up, info) -> Some (low + acc)
-            | Loop(node, low, up, info) -> None
-            | Not(node, info) -> None
-            | LookAround(_) -> Some (0 + acc)
+            | Loop(Singleton _, low, _, _) -> Some (low + acc)
+            | Loop _ -> None
+            | Not _ -> None
+            | LookAround _ -> Some (0 + acc)
             | Anchor _ -> Some (0 + acc)
         loop 0 node
 

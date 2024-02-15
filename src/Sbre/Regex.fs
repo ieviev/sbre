@@ -155,9 +155,9 @@ type RegexMatcher<'t when 't: struct>
     ) : RegexNode<TSet> =
 
         let cachedTransition =
-            if node.DependsOnAnchor && loc.Position = loc.Input.Length then
+            if loc.Position = loc.Input.Length && node.DependsOnAnchor  then
                 Algorithm.RegexNode.getEndCachedTransition(loc_pred, node)
-            elif node.DependsOnAnchor && loc.Position = 0 then
+            elif loc.Position = 0 && node.DependsOnAnchor  then
                 Algorithm.RegexNode.getStartCachedTransition(loc_pred, node)
             else
                 Algorithm.RegexNode.getCachedTransition(loc_pred, node)
@@ -188,26 +188,26 @@ type RegexMatcher<'t when 't: struct>
                     _createDerivative ( &loc, loc_pred, _cache.Builder.mkConcat2 (R, R_decr) )
             // Derx (R | S) = Derx (R) | Derx (S)
             | Or(xs, info) ->
-                let arr = ResizeArray()
-                use mutable e = xs.GetEnumerator()
-                while e.MoveNext() do
-                    let der = _createDerivative(&loc, loc_pred, e.Current)
-                    arr.Add der
-                arr.RemoveAll(fun v -> refEq _cache.False v) |> ignore
-                arr.ToArray() |> _cache.Builder.mkOrSeq
-                //
-                // let vbuilder = ValueListBuilder<RegexNode<TSet>>()
-                // use mutable e = xs.GetEnumerator()
                 // let arr = ResizeArray()
-                // let sequence = seq {
-                //     for x in xs do
-                //         _createDerivative(&loc, loc_pred, x)
-                // }
-                // // while e.MoveNext() do
-                // //     vbuilder.Append(_createDerivative(&loc, loc_pred, e.Current))
-                // let res = _cache.Builder.mkOrSeq(sequence)
-                // // vbuilder.Dispose()
-                // res
+                // use mutable e = xs.GetEnumerator()
+                // while e.MoveNext() do
+                //     let der = _createDerivative(&loc, loc_pred, e.Current)
+                //     arr.Add der
+                // arr.RemoveAll(fun v -> refEq _cache.False v) |> ignore
+                // arr.ToArray() |> _cache.Builder.mkOrSeq
+                //
+                let pool = ArrayPool<RegexNode<TSet>>.Shared
+                let rentedArray = pool.Rent(xs.Count)
+                use mutable e = xs.GetEnumerator()
+                let mutable i = 0
+                while e.MoveNext() do
+                    rentedArray[i] <- _createDerivative(&loc, loc_pred, e.Current)
+                    i <- i + 1
+                let mem = rentedArray.AsMemory(0,i)
+                mem.Span.Sort(physComparison)
+                let res = _cache.Builder.mkOr(&mem)
+                pool.Return(rentedArray)
+                res
 
             // Derx (R & S) = Derx (R) & Derx (S)
             | And(xs, _) ->
@@ -273,12 +273,12 @@ type RegexMatcher<'t when 't: struct>
 
 #if NO_CACHE_BUILDER
 #else
-        if node.DependsOnAnchor && loc.Position = loc.Input.Length then
+        if loc.Position = loc.Input.Length && node.DependsOnAnchor then
             node.TryGetInfo
             |> ValueOption.iter (fun v ->
                 v.EndTransitions.TryAdd(loc_pred,result) |> ignore
             )
-        elif node.DependsOnAnchor && loc.Position = 0 then
+        elif loc.Position = 0 && node.DependsOnAnchor then
             node.TryGetInfo
             |> ValueOption.iter (fun v ->
                 v.StartTransitions.TryAdd(loc_pred,result) |> ignore
@@ -397,8 +397,6 @@ type RegexMatcher<'t when 't: struct>
             else
                 ()
 
-            if node.HasCounter then
-                state.Flags <- state.Flags ||| RegexStateFlags.HasCounterFlag
 
             if not isInitial
                && not (state.Flags.HasFlag(RegexStateFlags.CanSkipFlag))

@@ -157,11 +157,11 @@ let (|BoundedLoop|_|) (node: RegexNode<_>) =
     | _ -> ValueNone
 
 
-[<return: Struct>]
-let (|TrueStarredConcat|_|) (solver: ISolver<_>) (node: RegexNode<_>) =
-    match node with
-    | Concat(head=TrueStar solver; tail=tail; info=info) when not info.NodeFlags.HasCounter -> ValueSome(tail)
-    | _ -> ValueNone
+// [<return: Struct>]
+// let (|TrueStarredConcat|_|) (solver: ISolver<_>) (node: RegexNode<_>) =
+//     match node with
+//     | Concat(head=TrueStar solver; tail=tail; info=info) when not info.NodeFlags.HasCounter -> ValueSome(tail)
+//     | _ -> ValueNone
 
 
 [<return: Struct>]

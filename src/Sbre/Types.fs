@@ -73,7 +73,7 @@ type RegexNodeFlags =
     | HasZerowidthHeadFlag = 64uy
     | ContainsLookaroundFlag = 4uy
     // | ContainsEpsilonFlag = 8uy
-    | HasCounterFlag = 16uy
+    // | HasCounterFlag = 16uy
     | DependsOnAnchorFlag = 32uy
     // | IsImmediateLookaroundFlag = 64uy
     | IsAnchorFlag = 128uy
@@ -86,7 +86,7 @@ module RegexNodeFlagsExtensions =
         member this.HasZerowidthHead = byte (this &&& RegexNodeFlags.HasZerowidthHeadFlag) <> 0uy
         member this.CanBeNullable = byte (this &&& RegexNodeFlags.CanBeNullableFlag) <> 0uy
         member this.ContainsLookaround = byte (this &&& RegexNodeFlags.ContainsLookaroundFlag) <> 0uy
-        member this.HasCounter = (this &&& RegexNodeFlags.HasCounterFlag) = RegexNodeFlags.HasCounterFlag
+        // member this.HasCounter = (this &&& RegexNodeFlags.HasCounterFlag) = RegexNodeFlags.HasCounterFlag
         member this.DependsOnAnchor = (this &&& RegexNodeFlags.DependsOnAnchorFlag) = RegexNodeFlags.DependsOnAnchorFlag
 
 
@@ -326,9 +326,7 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
 
         | Concat(h, t, info) ->
             let body = h.ToString() + t.ToString()
-            if info.NodeFlags.HasCounter then
-                $"⟨{body}⟩"
-            else body
+            body
         | Epsilon -> "ε"
         | Anchor regexAnchor ->
             match regexAnchor with
@@ -346,7 +344,7 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.GetFlags() =
         this.TryGetInfo
-        |> ValueOption.map (fun v -> v.NodeFlags)
+        |> ValueOption.map (_.NodeFlags)
         |> ValueOption.defaultWith (fun _ ->
             match this with
             | Epsilon ->
@@ -362,18 +360,10 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
             | _ -> failwith "impossible case"
         )
 
-    member this.CanBeNullable =
-        this.GetFlags().HasFlag(RegexNodeFlags.CanBeNullableFlag)
-    member this.CanNotBeNullable =
-        not (this.GetFlags().HasFlag(RegexNodeFlags.CanBeNullableFlag))
-    member this.ContainsLookaround =
-        this.GetFlags().HasFlag(RegexNodeFlags.ContainsLookaroundFlag)
-
-
-    member this.HasCounter =
-        this.GetFlags().HasFlag(RegexNodeFlags.HasCounterFlag)
-    member this.DependsOnAnchor =
-        this.GetFlags().HasFlag(RegexNodeFlags.DependsOnAnchorFlag)
+    member this.CanBeNullable = this.GetFlags().CanBeNullable
+    member this.CanNotBeNullable = not (this.GetFlags().CanBeNullable)
+    member this.ContainsLookaround = this.GetFlags().ContainsLookaround
+    member this.DependsOnAnchor = this.GetFlags().DependsOnAnchor
 
     member this.PendingNullables =
         this.TryGetInfo

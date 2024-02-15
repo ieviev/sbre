@@ -533,13 +533,13 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
 
         // ((ab)*|⊤*(ab)*) ==> (ab)*
         // (⊤*~(⊤*\n\n⊤*)|~(⊤*\n\n⊤*))
-        if nodes |> Seq.forall (_.IsAlwaysNullable)  then
-            match tryFindV (function TrueStarredConcat solver tail as currNode -> ValueSome (currNode, tail) | _ -> ValueNone) nodes with
-            | ValueSome (currNode,tail) ->
-                if (nodes.Count = 2 && nodes.Contains(tail) ) then
-                    result <- ValueSome (Seq.singleton currNode)
-                else ()
-            | _ -> ()
+        // if nodes |> Seq.forall (_.IsAlwaysNullable)  then
+        //     match tryFindV (function TrueStarredConcat solver tail as currNode -> ValueSome (currNode, tail) | _ -> ValueNone) nodes with
+        //     | ValueSome (currNode,tail) ->
+        //         if (nodes.Count = 2 && nodes.Contains(tail) ) then
+        //             result <- ValueSome (Seq.singleton currNode)
+        //         else ()
+        //     | _ -> ()
 
         if result.IsSome then result.Value else
 
@@ -581,7 +581,6 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                             | Concat(regexNode, tail, regexNodeInfo) -> tail
                             | _ -> failwith "todo: subsumption bug"
                         )
-                        |> Seq.toArray
                         |> this.mkOrSeq
                     nodes.Clear()
                     nodes.Add(this.mkConcat2(shead, mergeTails)) |> ignore
@@ -969,7 +968,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                     )
                     i <- i + 1
                 if subsumed then this.mkOrSeq(nodeArray) else
-                let arr = [|yield! nodes;other|]
+                let arr = seq {yield! nodes;other}
                 let merged = this.mkOrSeq(arr)
                 merged
 
@@ -1203,20 +1202,24 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
     member this.mkOrSeq(
             nodes: RegexNode<'t> seq
         ) : RegexNode<_> =
-        let vbuilder = ValueListBuilder<RegexNode<'t>>()
-        for node in nodes do
-            vbuilder.Append(node)
-        let mutable span = vbuilder.AsSpan()
-        span.Sort(physComparison)
-        let mem = vbuilder.AsMemory()
-        let res = this.mkOr(&mem)
-        vbuilder.Dispose()
-        res
-
-    member this.mkOrVbuilder(vbuilder:ValueListBuilder<RegexNode<'t>>) : RegexNode<'t>  =
-        let mutable mem = vbuilder.AsMemory()
+        let mutable pool = ArrayPool<RegexNode<'t>>.Shared
+        let mutable limit = 16
+        let mutable rentedArray = pool.Rent(limit)
+        use mutable e = nodes.GetEnumerator()
+        let mutable i = 0
+        while e.MoveNext() do
+            if i >= limit then
+                let newLimit = limit * 2
+                let newRentedArray = pool.Rent(newLimit)
+                rentedArray.AsSpan().CopyTo(destination=newRentedArray.AsSpan())
+                pool.Return(rentedArray)
+                rentedArray <- newRentedArray
+            rentedArray[i] <- e.Current
+            i <- i + 1
+        let mem = rentedArray.AsMemory(0,i)
         mem.Span.Sort(physComparison)
         let res = this.mkOr(&mem)
+        pool.Return(rentedArray)
         res
 
     member this.mkOr
@@ -1493,7 +1496,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                     let flags = Flags.inferLookaround body lookBack
                     let pendingNull =
                         if body.CanBeNullable then
-                            pendingNullable |> Seq.map (fun v -> v + rel) |> set
+                            pendingNullable |> Set.map (fun v -> v + rel)
                         else Set.empty
                     let info = this.CreateInfo(flags, solver.Full, pendingNull)
                     LookAround(body,lookBack, rel,pendingNullable,info)
