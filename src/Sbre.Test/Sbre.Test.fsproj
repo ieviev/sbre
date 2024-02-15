@@ -14,7 +14,7 @@
         <Compile Include="Common.fs" />
         <Compile Include="_01_ParserTests.fs" />
         <Compile Include="_02_NodeTests.fs" />
-        <Compile Include="_03_NullabilityTests.fs" />
+        <Compile Include="_03_CacheTests.fs" />
         <Compile Include="_04_DerivativeTests.fs" />
         <Compile Include="_05_PartialMatchTests.fs" />
         <Compile Include="_06_MatchTests.fs" />

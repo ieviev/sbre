@@ -269,6 +269,7 @@ let ``apply prefix 1``() =
     assertNodeOneOf applied [
         @"(ε|⊤*niawT)"
         @"(⊤*niawT|ε)"
+        @"(⊤*niawT)?"
     ]
 
 

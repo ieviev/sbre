@@ -256,8 +256,16 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 LanguagePrimitives.PhysicalHash x ^^^ LanguagePrimitives.PhysicalHash y
         }
 
-    let _combineLanguageCache: Dictionary<struct (RegexNode<'t> * RegexNode<'t>), (RegexNode<'t> * RegexNode<'t>) option> =
-        Dictionary(_combineLanguageComparer)
+    let _canonicalCacheComparer: IEqualityComparer<struct(bool * Memory<RegexNode<'t>>)> =
+        { new IEqualityComparer<struct (bool*Memory<RegexNode<'t>>)> with
+            member this.Equals((n1,x1), (n2,x2)) =
+                n1 = n2 && x1.Span.SequenceEqual(x2.Span)
+            member this.GetHashCode((_,x)) = Enumerator.getSharedHash3 x.Span
+        }
+
+    let _combineLanguageCache: Dictionary<struct (RegexNode<'t> * RegexNode<'t>), (RegexNode<'t> * RegexNode<'t>) option> = Dictionary(_combineLanguageComparer)
+
+    let _canonicalCache: Dictionary<struct(bool*Memory<RegexNode<'t>>), RegexNode<'t>> = Dictionary(_canonicalCacheComparer)
 
     let _orCache: Dictionary<RegexNode< 't >Memory, RegexNode< 't >> =
         Dictionary(_orCacheComparer)
@@ -449,7 +457,18 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
     member this.anchors = _anchors
     member this.PrefixCache = _prefixCache
     member this.LanguageCache = _combineLanguageCache
+    member this.CanonicalCache = _canonicalCache
     member this.UniquesDict = _uniquesDict
+
+    member this.GetCanonical(ders:Memory<RegexNode<'t>>, node:RegexNode<'t>) =
+        let key = struct(node.CanBeNullable , ders)
+        match this.CanonicalCache.TryGetValue(key) with
+        | true, v -> v
+        | _ ->
+            node.TryGetInfo
+            |> ValueOption.iter (fun v -> v.IsCanonical <- true )
+            this.CanonicalCache.Add(key, node)
+            node
 
     member this.InitializeUniqueMap(oldBuilder:RegexBuilder<BDD>) =
         // _uniquesDict.Add(oldBuilder.anchors._aAnchor.Value,this.anchors._aAnchor.Value)
@@ -477,36 +496,23 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
 
     member this.one(char: char) : RegexNode< 't > =
         let a1: BDD = bcss.CreateBDDFromChar char
-        let a2 = solver.ConvertFromBDD(a1, bcss)
-
-        if solver.IsFull(a2) then
-            _uniques._true
-        elif solver.IsEmpty(a2) then
-            _uniques._false
-        else
-            match _singletonCache.TryGetValue(a2) with
-            | true, v -> v
-            | _ ->
-                let v = RegexNode.Singleton(a2)
-                _singletonCache.Add(a2, v)
-                v
+        let minterm = solver.ConvertFromBDD(a1, bcss)
+        this.one(minterm)
 
     member this.one(minterm: 't) : RegexNode< 't > =
-        let a2 = minterm
+        let mt = minterm
 
-        if solver.IsFull(a2) then
+        if solver.IsFull(mt) then
             _uniques._true
-        elif solver.IsEmpty(a2) then
+        elif solver.IsEmpty(mt) then
             _uniques._false
         else
-            match _singletonCache.TryGetValue(a2) with
+            match _singletonCache.TryGetValue(mt) with
             | true, v -> v
             | _ ->
-                let v = RegexNode.Singleton(a2)
-                _singletonCache.Add(a2, v)
+                let v = RegexNode.Singleton(mt)
+                _singletonCache.Add(mt, v)
                 v
-
-
 
     member this.notOne(char: char) =
         let a1: BDD = bcss.CreateBDDFromChar char
@@ -903,7 +909,6 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             this.mkConcat2(singletonLoop, tail)
 
 
-
     member this.mkOr2 (node1: RegexNode<'t>, node2: RegexNode<'t>) : RegexNode<'t> =
         let key = [|node1;node2|]
         Array.sortInPlaceBy LanguagePrimitives.PhysicalHash key
@@ -935,13 +940,11 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
         | _ ->
             // bdd solver cannot be used here
             if typeof<'t> = typeof<BDD> then createCached(key) else
-            // let fc = System.Diagnostics.StackTrace().FrameCount
-            // if fc <> 118 then
-            //     ()
-
             match node1, node2 with
             | n, falseNode | falseNode, n when refEq falseNode _false -> n
             | n, trueStarNode | trueStarNode, n when refEq _uniques._trueStar trueStarNode -> trueStarNode
+            | n, n2 when refEq n n2 -> n
+            | Epsilon, n | n, Epsilon -> this.mkLoop(struct(n, 0, 1))
             | Or(nodes=nodes) as orNode, other | other, (Or(nodes=nodes) as orNode) ->
                 if nodes.Contains(other) then orNode else
                 // try subsume lookback here
@@ -1228,13 +1231,11 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
         ) : RegexNode<_> =
         let key = nodes
         match _orCache.TryGetValue(key) with
-        | true, v ->
-            v
+        | true, v -> v
         | _ ->
 #if SUBSUME
         if key.Length = 2 then this.mkOr2(key.Span[0],key.Span[1]) else
 #endif
-
 
         let mutable enumerating = true
         let mutable status = MkOrFlags.None

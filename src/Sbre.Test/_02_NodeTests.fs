@@ -93,7 +93,9 @@ let ``_ solver 1``() = assertSolverContains12 "[a-z]a"
 let ``_ solver 2``() = assertNotSolverContains12 "a[a-z]"
 
 
-
+[<Fact>]
+let ``a canonical 1.1``() =
+    assertConverted "a(|b)|[abc]b?" ["[a-c]b?"]
 
 [<Fact>]
 let ``a conversion 1.1``() = assertConverted "1(?! Sep)" [ @"1(?=~( Sep⊤*)\z)" ]
@@ -136,10 +138,7 @@ let ``a conversion 2.3``() = assertConverted "(.*|(.*11.*|1.*))" [ ".*" ]
 
 [<Fact>]
 let ``a conversion 2.4``() = assertConverted "(~((|.*Finn))&.*)" [
-    "(~((ε|.*Finn))&.*)"
-    @"(.*&~((ε|.*Finn)))"
-    @"(.*&~((.*Finn|ε)))"
-    @"(~((.*Finn|ε))&.*)"
+    @"~((.*Finn)?)"
 ]
 
 [<Fact>]
@@ -156,12 +155,18 @@ let ``a conversion 2.6``() = assertConverted """([a-zA-Z]+)Huck|([a-zA-Z]+)Saw""
 
 [<Fact>]
 let ``b conversion 1 ``() =
-    assertRawDerivative @".*t.*hat.*" "ttt" [ @".*hat.*" ]
+    assertRawDerivative @".*t.*hat.*" "ttt" [
+        @".*(t.*)?hat.*"
+        @".*hat.*"
+    ]
 
 
 [<Fact>]
 let ``b conversion 2.1 ``() =
-    assertTSDerivative @"^a*b" "a" [ @"(ε|⊤*^)a*b" ; @"(⊤*^|ε)a*b" ]
+    assertTSDerivative @"^a*b" "a" [
+        @"(⊤*^)?a*b"
+        // @"(ε|⊤*^)a*b" ; @"(⊤*^|ε)a*b"
+    ]
 
 
 // [<Fact>]
@@ -522,7 +527,9 @@ let ``withoutprefix 01``() =
 
 [<Fact>]
 let ``withoutprefix 02``() =
-    assertNodeWithoutPrefix @"\b11" ["11"]
+    assertNodeWithoutPrefix @"\b11" [
+        "11"
+    ]
 
 
 [<Fact>]

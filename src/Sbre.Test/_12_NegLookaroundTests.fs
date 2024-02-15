@@ -19,6 +19,7 @@ let ``der neg anchor 1``() = _04_DerivativeTests.testRevDerivative (@"(?!b)","b"
     @"⊥"
     @"(?<=~((ε|⊤*b)))" // TODO: unsure
     @"(?<=~((⊤*b|ε)))"
+    @"(?<=~((⊤*b)?))"
 ])
 
 [<Fact>]
@@ -33,6 +34,8 @@ let ``der neg anchor 3``() = _04_DerivativeTests.testRevDerivative (@"bb(?!b)","
     @"(b|(?<=~((ε|⊤*b)))bb)"
     @"((?<=~((⊤*b|ε)))bb|b)"
     @"((?<=~((ε|⊤*b)))bb|b)"
+    @"(b|(?<=~((⊤*b)?))bb)"
+    @"((?<=~((⊤*b)?))bb|b)"
 ])
 
 // [<Fact>]

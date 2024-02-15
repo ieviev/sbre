@@ -167,6 +167,7 @@ type RegexNodeInfo<'tset when 'tset :> IEquatable<'tset> and 'tset: equality >()
     member val PendingNullables: Set<int> = Set.empty with get, set
 
     // filled in later
+    member val IsCanonical: bool = false with get, set
     member val LookupPrev: bool = false with get, set
     member val PrevCharRequired: 'tset option = None with get, set
     member val Minterms: 'tset = Unchecked.defaultof<'tset> with get, set

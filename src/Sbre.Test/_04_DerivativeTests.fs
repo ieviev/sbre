@@ -172,9 +172,10 @@ let ``derivative of lookback 1``() =
 [<Fact>]
 let ``2 derivative of Twain``() =
     test2ndDerivatives ("Twain", "Twain", [
+
+        @"(⊤*Tw)?ain"
         "(ain|⊤*Twain)"
         @"(⊤*Twain|ain)"
-
         @"(⊤*Tw|ε)ain"
         @"(ε|⊤*Tw)ain"
     ])
@@ -251,7 +252,9 @@ let ``subsumption and loop ``() =
 [<Fact>]
 let ``subsumption and larger ``() =
     testPartDerivatives (@"(.* and .*|and .*)&.*", "aaa", [
-        @"(.* and .*|nd .*)";"(nd .*|.* and .*)"
+        @"(.* and .*|nd .*)"
+        "(nd .*|.* and .*)"
+        @"(.* a)?nd .*"
 
         @"((ε|.* a)nd .*&.*)" // subsumed
         @"(.*&(.* a|ε)nd .*)"
@@ -262,7 +265,7 @@ let ``subsumption and larger ``() =
 [<Fact>]
 let ``deriv negation end ``() =
     testPartDerivatives (@"(.*&~((n|.*Finn)))", "nn", [
-
+        @"~((.*Finn)?)"
         "(~((ε|.*Finn))&.*)"
         "(~((.*Finn|ε))&.*)"
         "(.*&~((ε|.*Finn)))"
@@ -277,6 +280,7 @@ let ``deriv negation end ``() =
 let ``subsumption or concat ``() =
     testPartDerivatives (@".*t.*hat.*", "ttt", [
         @".*hat.*"
+        @".*(t.*)?hat.*"
         // @".*(t.*|ε)hat.*"
         // @".*(ε|t.*)hat.*"
     ])
@@ -287,6 +291,7 @@ let ``deriv negation 1 ``() =
     testPartDerivatives (@"~(.*11.*)", "1", [
         @"~((1.*|.*11.*))"
         @"~((.*11.*|1.*))"
+        @"~((.*1)?1.*)"
 
         @"~((.*1|ε)1.*)"
         @"~((ε|.*1)1.*)"

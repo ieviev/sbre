@@ -94,10 +94,10 @@ type RegexSearchMode =
 [<Sealed>]
 type RegexMatcher<'t when 't: struct>
     (
-        trueStarredNode: RegexNode<TSet>,
-        reverseTrueStarredNode: RegexNode<TSet>,
-        initialNode: RegexNode<TSet>,
-        reverseNode: RegexNode<TSet>,
+        // trueStarredNode: RegexNode<TSet>,
+        // reverseTrueStarredNode: RegexNode<TSet>,
+        uncanonicalizedNode: RegexNode<TSet>,
+        // reverseNode: RegexNode<TSet>,
         _cache: RegexCache<TSet>
     ) =
     inherit GenericRegexMatcher()
@@ -108,13 +108,6 @@ type RegexMatcher<'t when 't: struct>
     let mutable _flagsArray = Array.zeroCreate<RegexStateFlags> InitialDfaStateCapacity
     let _minterms = _cache.Minterms()
     let _mintermsLog = BitOperations.Log2(uint64 _minterms.Length) + 1
-    let _initialInfo = initialNode.TryGetInfo
-
-    let _initialIsNegation =
-        match initialNode with
-        | Not _ -> true
-        | _ -> false
-
     let mutable _dfaDelta: int[] = Array.init (1024 <<< _mintermsLog) (fun _ -> 0) // 0 : initial state
 
     let rec _isNullable(loc: inref<Location>, node: RegexNode<_>) : bool =
@@ -291,6 +284,65 @@ type RegexMatcher<'t when 't: struct>
 #endif
 
         result
+
+
+    let rec _canonicalize(node: RegexNode<TSet>) =
+        let mkders node =
+            _minterms
+            |> Array.map (fun mt ->
+                let loc = Location.getNonInitial()
+                _createDerivative(&loc,mt, node)
+            )
+        match node with
+        | Concat(head, tail, info) ->
+            let ch = _canonicalize head
+            let ct = _canonicalize tail
+            let node = _cache.Builder.mkConcat2(ch,ct)
+            _cache.Builder.GetCanonical(mkders node,node)
+
+        | Or(nodes=nodes; info = info) ->
+            let cnodes = nodes |> Seq.map _canonicalize |> Seq.toArray
+            let allLanguages = cnodes |> Array.map mkders
+            let isSubsumedList = ResizeArray()
+            // for i = 0 to allLanguages.Length - 2 do
+            //     for j = 1 to allLanguages.Length - 1 do
+            //         let node1 = cnodes[i]
+            //         let node2 = cnodes[j]
+            //         if node1.CanBeNullable <> node2.CanBeNullable then () else
+            //         let shouldRemoveNode1 =
+            //             allLanguages[i] |> Seq.mapi (fun idx v ->
+            //                 v = allLanguages[j][idx] || refEq v _cache.False
+            //             ) |> Seq.forall id
+            //         if shouldRemoveNode1 then isSubsumedList.Add(i) else
+            //         let shouldRemoveNode2 =
+            //             allLanguages[j] |> Seq.mapi (fun idx v ->
+            //                 v = allLanguages[i][idx] || refEq v _cache.False
+            //             ) |> Seq.forall id
+            //         if shouldRemoveNode2 then isSubsumedList.Add(j) else
+            //         ()
+            let keptNodes = cnodes
+                // [|
+                //     for i = 0 to cnodes.Length - 1 do
+                //         if isSubsumedList.Contains(i) then () else
+                //         yield cnodes[i]
+                // |]
+            let newNode = _cache.Builder.mkOrSeq(keptNodes)
+            _cache.Builder.GetCanonical(mkders newNode, newNode)
+        | Singleton _ -> _cache.Builder.GetCanonical(mkders node,node)
+        | Loop _ -> _cache.Builder.GetCanonical(mkders node,node)
+        | And _ -> _cache.Builder.GetCanonical(mkders node,node)
+        | Not(_) -> _cache.Builder.GetCanonical(mkders node,node)
+        | LookAround(node=_; info = _) ->
+            // TODO:
+            // let ct = _canonicalize tail
+            // let node = _cache.Builder.mkConcat2(ch,ct)
+            // _cache.Builder.GetCanonical(mkders node,node)
+            node
+        | Anchor _
+        | Epsilon -> node
+
+
+
     let _createStartset(state: MatchingState, initial: bool) =
         // todo: performance sensitive
         if state.Flags.ContainsLookaround then () else
@@ -354,7 +406,8 @@ type RegexMatcher<'t when 't: struct>
             state.StartsetIsInverted <- isInverted
 
 
-    let rec _getOrCreateState(node, isInitial) =
+
+    let rec _getOrCreateState(revTruestar, node, isInitial) =
         match _stateCache.TryGetValue(node) with
         | true, v -> v // a dfa state already exists for this regex
         | _ ->
@@ -397,7 +450,6 @@ type RegexMatcher<'t when 't: struct>
             else
                 ()
 
-
             if not isInitial
                && not (state.Flags.HasFlag(RegexStateFlags.CanSkipFlag))
                && not (state.Flags.HasFlag(RegexStateFlags.ContainsLookaroundFlag)) then
@@ -407,10 +459,10 @@ type RegexMatcher<'t when 't: struct>
                         (fun (mt,node) ->
                             let mutable loc = Location.getNonInitial()
                             _createDerivative(&loc,mt,node) )
-                        (fun v -> _getOrCreateState(v,false).Id )
-                        (fun v -> _getOrCreateState(v,false).Startset )
+                        (fun v -> _getOrCreateState(revTruestar,v,false).Id )
+                        (fun v -> _getOrCreateState(revTruestar,v,false).Startset )
                         _cache
-                            reverseTrueStarredNode
+                            revTruestar
                             state.Node
                 match limitedSkip with
                 | Some ls ->
@@ -433,19 +485,13 @@ type RegexMatcher<'t when 't: struct>
             _flagsArray[state.Id] <- state.Flags
             state
 
-    // ⊤*(R_rev)
-    let DFA_TR_rev = _getOrCreateState(reverseTrueStarredNode, true).Id // R_rev
-
-    // T*R
-    let _ = _getOrCreateState(trueStarredNode, true).Id
-    // R_rev
-    let _ = _getOrCreateState(reverseNode, false).Id
-    // R
-    let _ = _getOrCreateState(initialNode, false).Id
+    let R_canonical = _canonicalize uncanonicalizedNode
+    let reverseNode = RegexNode.rev _cache.Builder R_canonical
+    let reverseTrueStarredNode = _cache.Builder.mkConcat2 (_cache.TrueStar, reverseNode)
+    let trueStarredNode = _cache.Builder.mkConcat2 (_cache.TrueStar, R_canonical)
+    let DFA_TR_rev = _getOrCreateState(reverseTrueStarredNode,reverseTrueStarredNode, true).Id // R_rev
     let DFA_R_noPrefix =
-        _getOrCreateState(nodeWithoutLookbackPrefix _cache.Builder initialNode, false).Id
-        // else
-        //     DFA_R_orig
+        _getOrCreateState(reverseTrueStarredNode,nodeWithoutLookbackPrefix _cache.Builder R_canonical, false).Id
 
     let _initialOptimizations =
 #if OPTIMIZE
@@ -454,8 +500,8 @@ type RegexMatcher<'t when 't: struct>
                 (fun (mt,node) ->
                     let mutable loc = Location.getNonInitial()
                     _createDerivative(&loc,mt,node) )
-                (fun node -> _getOrCreateState(node,false).Id )
-                (fun node -> _getOrCreateState(node,false).Flags )
+                (fun node -> _getOrCreateState(reverseTrueStarredNode,node,false).Id )
+                (fun node -> _getOrCreateState(reverseTrueStarredNode,node,false).Flags )
                 _cache reverseNode reverseTrueStarredNode
         let cannotUsePrefix =
             match opts with
@@ -539,7 +585,7 @@ type RegexMatcher<'t when 't: struct>
     /// initialize regex in DFA
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.GetOrCreateState(node: RegexNode<TSet>) : MatchingState =
-        _getOrCreateState (node, false)
+        _getOrCreateState (reverseTrueStarredNode,node, false)
 
     member private this.GetDeltaOffset(stateId: int, mintermId: int) =
         (stateId <<< _mintermsLog) ||| mintermId
@@ -960,8 +1006,7 @@ type RegexMatcher<'t when 't: struct>
     // accessors
     member this.TrueStarredPattern = trueStarredNode
     member this.ReverseTrueStarredPattern = reverseTrueStarredNode
-
-    member this.RawPattern = initialNode
+    member this.RawPattern = R_canonical
     member this.RawPatternWithoutLookback = _stateArray[DFA_R_noPrefix].Node
 
     member this.ReversePattern = reverseNode
@@ -973,7 +1018,7 @@ module Helpers =
     let createMatcher
         (
             bddBuilder: RegexBuilder<BDD>,
-            minterms: BDD array,
+            bddMinterms: BDD array,
             charsetSolver,
             converter,
             symbolicBddnode,
@@ -981,7 +1026,7 @@ module Helpers =
         )
         : GenericRegexMatcher
         =
-        match minterms.Length with
+        match bddMinterms.Length with
         // | n when n < 32 ->
         //     let solver = UInt32Solver(minterms, charsetSolver)
         //     let uintbuilder = RegexBuilder(converter, solver, charsetSolver)
@@ -1001,7 +1046,7 @@ module Helpers =
         //         )
         //     RegexMatcher<uint32>(trueStarredNode,rawNode,reverseNode,cache) :> GenericRegexMatcher
         | n when n < 64 ->
-            let solver = TSolver(minterms, charsetSolver)
+            let solver = TSolver(bddMinterms, charsetSolver)
 #if DEBUG
             Debug.debuggerSolver <- Some solver
 #endif
@@ -1009,25 +1054,24 @@ module Helpers =
             uintbuilder.InitializeUniqueMap(bddBuilder)
 
             let rawNode = (Minterms.transform bddBuilder uintbuilder charsetSolver solver) symbolicBddnode
-            let trueStarredNode = uintbuilder.mkConcat2(uintbuilder.uniques._trueStar, rawNode)
 
-            if not (regexTree.Root.Options.HasFlag(RegexOptions.RightToLeft)) then
-                regexTree.Root.Options <- RegexOptions.RightToLeft
 
-            let reverseNode = RegexNode.rev uintbuilder rawNode
+
 
             let cache =
                 Sbre.RegexCache(
                     solver,
                     charsetSolver,
-                    _implicitDotstarPattern = trueStarredNode,
+                    bddMinterms,
+                    // _implicitDotstarPattern = trueStarredNode,
                     _rawPattern = rawNode,
-                    _reversePattern = reverseNode,
+                    // _reversePattern = reverseNode,
                     _builder = uintbuilder
                 )
 
-            let revTrueStarred = cache.Builder.mkConcat2 (cache.TrueStar, reverseNode)
-            RegexMatcher<TSet>(trueStarredNode, revTrueStarred, rawNode, reverseNode, cache) //:> GenericRegexMatcher
+
+
+            RegexMatcher<TSet>(rawNode, cache) //:> GenericRegexMatcher
         | n -> failwith $"bitvector too large, size: {n}"
 
 

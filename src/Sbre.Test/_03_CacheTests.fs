@@ -1,5 +1,5 @@
 [<Xunit.Collection("Sequential")>]
-module Sbre.Test._03_NullabilityTests
+module Sbre.Test._03_CacheTests
 
 
 #if DEBUG
@@ -28,6 +28,11 @@ let ``nullable 01``() =
     let nullable = matcher.IsNullable(&loc,node)
     assertFalse nullable
 
+
+
+
+
+let pat = "a(|b)|[abc]b?"
 
 #if TODO
 

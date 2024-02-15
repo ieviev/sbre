@@ -18,22 +18,19 @@ type RegexCache< 't
     (
         _solver: ISolver<TSet>,
         _charsetSolver: CharSetSolver,
-        _implicitDotstarPattern: RegexNode<TSet>,
+        _bddMinterms: BDD[],
+        // _implicitDotstarPattern: RegexNode<TSet>,
         _rawPattern: RegexNode<TSet>,
-        _reversePattern: RegexNode<TSet>,
+        // _reversePattern: RegexNode<TSet>,
         _builder: RegexBuilder<TSet>
     ) =
     let classifier = (_solver :?> TSolver)._classifier
-
     let _ascii = classifier.Ascii
     let _nonAscii = classifier.NonAscii
     let minterms: TSet[] = _solver.GetMinterms()
-    let mintermBdds =
-        (minterms |> Array.map (fun v -> _solver.ConvertToBDD(v, _charsetSolver)))
-
+    let mintermBdds = _bddMinterms
     let predStartsets = StartsetHelpers.startsetsFromMintermArray mintermBdds
     let mutable _cachedStartsets: Dictionary<TSet, SearchValues<char> option> = Dictionary()
-
     let _getMintermStartsetChars (minterm:TSet) =
         match _cachedStartsets.TryGetValue(minterm) with
         | true, v -> v
@@ -73,6 +70,9 @@ type RegexCache< 't
         loc.Position <- loc.Position + sharedIndex
         if sharedIndex = -1 then
             loc.Position <- Location.final loc
+
+
+
 
 
     member this.SkipIndexOfAnyPrefix(loc: byref<Location>, setChars: SearchValues<char>, setPrefix: ReadOnlySpan<TSet>, termPrefix: ReadOnlySpan<TSet>) : unit =
@@ -550,6 +550,8 @@ type RegexCache< 't
             | false -> _nonAscii.Find(i)
         ]
 
+
+
     member val InitialPatternWithoutDotstar = _rawPattern
     member val Solver: ISolver<TSet> = _solver
     member val CharsetSolver: CharSetSolver = _charsetSolver
@@ -561,17 +563,6 @@ type RegexCache< 't
     member val Eps: RegexNode< _ > = _builder.uniques._eps
     member val TrueStar: RegexNode< _ > = _builder.uniques._trueStar
 
-    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    member this.IsOrigReversePattern(node: RegexNode< TSet >) : bool =
-        obj.ReferenceEquals(node, _reversePattern)
-
-    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    member this.IsImplicitDotStarred(node: RegexNode<TSet>) : bool =
-        obj.ReferenceEquals(node, _implicitDotstarPattern)
-
-    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    member this.GenerateSampleInput(node: RegexNode<TSet>) : bool =
-        obj.ReferenceEquals(node, _implicitDotstarPattern)
 
 
 

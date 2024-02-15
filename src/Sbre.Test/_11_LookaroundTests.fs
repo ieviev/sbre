@@ -468,10 +468,12 @@ let ``testing anchors 1.1``() = assertRawDerivative """\ba""" "a " [
 
 [<Fact>]
 let ``testing anchors 1.2``() = assertRawDerivative """⊤*\ba""" "a " [
+    @"(⊤*((?<=φ)|\A)a)?"
     @"(⊤*((?<=φ)|\A)a|ε)"
     @"(⊤*(\A|(?<=φ))a|ε)"
     @"(ε|⊤*((?<=φ)|\A)a)"
     @"(ε|⊤*(\A|(?<=φ))a)"
+    @"(⊤*(\A|(?<=φ))a)?"
 ]
 
 [<Fact>]
