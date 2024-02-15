@@ -23,12 +23,7 @@ type RegexCache< 't
         _reversePattern: RegexNode<TSet>,
         _builder: RegexBuilder<TSet>
     ) =
-    let classifier =
-        if typeof<TSet> = typeof<uint64> then
-            ((box _solver) :?> UInt64Solver)._classifier
-        else
-            failwith "todo invalid solver"
-
+    let classifier = (_solver :?> TSolver)._classifier
 
     let _ascii = classifier.Ascii
     let _nonAscii = classifier.NonAscii
@@ -202,7 +197,7 @@ type RegexCache< 't
         let mutable skipping = true
 
         /// vectorize the search for the first character
-        let firstSetChars = searchValues 
+        let firstSetChars = searchValues
         let isInverted = Solver.elemOfSet setSpan[0] minterms[0]
         let tailPrefixSpan = setSpan.Slice(1)
 
@@ -585,6 +580,6 @@ type RegexCache< 't
 #if DEBUG
     member cache.PrettyPrintMinterm(xs: _) : string = cache.Solver.PrettyPrint(xs, _charsetSolver)
     member this.PrettyPrintNode(node: RegexNode<TSet>) : string =
-        Debug.debuggerSolver <- Some (this.Solver)
+        Debug.debuggerSolver <- Some this.Solver
         node.ToString()
 #endif

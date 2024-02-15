@@ -76,7 +76,7 @@ type RegexNodeFlags =
     // | HasCounterFlag = 16uy
     | DependsOnAnchorFlag = 32uy
     // | IsImmediateLookaroundFlag = 64uy
-    | IsAnchorFlag = 128uy
+    // | IsAnchorFlag = 128uy
 
 
 [<AutoOpen>]
@@ -345,20 +345,21 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
     member this.GetFlags() =
         this.TryGetInfo
         |> ValueOption.map (_.NodeFlags)
-        |> ValueOption.defaultWith (fun _ ->
-            match this with
-            | Epsilon ->
-                RegexNodeFlags.CanBeNullableFlag |||
-                RegexNodeFlags.IsAlwaysNullableFlag |||
-                RegexNodeFlags.HasZerowidthHeadFlag
-            | Singleton _ -> RegexNodeFlags.None
-            | Anchor _ ->
-                RegexNodeFlags.DependsOnAnchorFlag |||
-                RegexNodeFlags.IsAnchorFlag |||
-                RegexNodeFlags.CanBeNullableFlag |||
-                RegexNodeFlags.HasZerowidthHeadFlag
-            | _ -> failwith "impossible case"
-        )
+        |> ValueOption.defaultWith (fun _ -> this.GetDefaultFlags() )
+
+    member this.GetDefaultFlags() =
+        match this with
+        | Epsilon ->
+            RegexNodeFlags.CanBeNullableFlag |||
+            RegexNodeFlags.IsAlwaysNullableFlag |||
+            RegexNodeFlags.HasZerowidthHeadFlag
+        | Singleton _ -> RegexNodeFlags.None
+        | Anchor _ ->
+            RegexNodeFlags.DependsOnAnchorFlag |||
+            RegexNodeFlags.CanBeNullableFlag |||
+            RegexNodeFlags.HasZerowidthHeadFlag
+        | _ -> failwith "impossible case"
+
 
     member this.CanBeNullable = this.GetFlags().CanBeNullable
     member this.CanNotBeNullable = not (this.GetFlags().CanBeNullable)
@@ -367,9 +368,8 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
 
     member this.PendingNullables =
         this.TryGetInfo
-        |> ValueOption.map (fun v -> v.PendingNullables)
-        |> ValueOption.defaultWith (fun _ -> Set.empty
-        )
+        |> ValueOption.map (_.PendingNullables)
+        |> ValueOption.defaultWith (fun _ -> Set.empty )
 
 
     member this.IsAlwaysNullable =
@@ -380,7 +380,7 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
             | Singleton _ -> false
             | LookAround _ -> false
             | Epsilon -> true
-            | Anchor regexAnchor -> false
+            | Anchor _ -> false
             | _ -> failwith "impossible case"
         )
 
@@ -392,7 +392,7 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
             | Singleton _ -> false
             | LookAround _ -> false
             | Epsilon -> true
-            | Anchor regexAnchor -> false
+            | Anchor _ -> false
             | _ -> failwith "impossible case"
         )
     member this.SubsumedByMinterm (solver:ISolver<'tset>) =
@@ -402,7 +402,7 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
             match this with
             | Epsilon -> solver.Full
             | Singleton pred -> pred
-            | LookAround(node, lookBack, negate, _, _) -> node.SubsumedByMinterm solver
+            | LookAround(node, _, _, _, _) -> node.SubsumedByMinterm solver
             | Anchor _ -> solver.Empty
             | _ -> failwith "impossible case"
         )
@@ -444,14 +444,6 @@ module Common =
             [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
             member this.GetHashCode(x) = LanguagePrimitives.PhysicalHash x
         }
-    let inline of2(x, y) =
-        ImmutableHashSet.CreateRange(
-            equalityComparer,
-            seq {
-                yield x
-                yield y
-            }
-        )
     let inline ofSeq coll = ImmutableHashSet.CreateRange(equalityComparer, coll)
     let inline map ([<InlineIfLambda>] f) (coll: ImmutableHashSet<RegexNode<'t>>) =
         ImmutableHashSet.CreateRange(equalityComparer, Seq.map f coll)
@@ -469,8 +461,6 @@ module Common =
         while forall && e.MoveNext()  do
             forall <- f e.Current
         forall
-
-
     let inline tryFindV ([<InlineIfLambda>] f) (coll: seq<_>) =
         use mutable e = coll.GetEnumerator()
         let mutable found = ValueNone
@@ -523,8 +513,14 @@ module Enumerator =
 
 
 type TSet = uint64
+type TSolver = UInt64Solver
+
+
 // type TSet = uint32
+// type TSolver = UInt32Solver
+
 // type TSet = uint16
+// type TSet = byte
 
 [<Sealed>]
 type SharedResizeArray<'t>(initialSize:int) =

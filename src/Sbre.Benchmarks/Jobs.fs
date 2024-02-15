@@ -1368,7 +1368,7 @@ type TestAllEnginesAllPatternsWithCompileTime(patterns: (string) list, input: st
     // member val NumOfWords: int = 0 with get, set
     //
     member this.Patterns: System.Collections.Generic.IEnumerable<string> = patterns
-    member val CompiledEngine: Sbre.RegexMatcher<uint64> = Unchecked.defaultof<_> with get, set
+    member val CompiledEngine: Sbre.RegexMatcher<TSet> = Unchecked.defaultof<_> with get, set
 
     [<ParamsSource("Patterns")>]
     member val Pattern: string = "" with get, set
@@ -1376,7 +1376,7 @@ type TestAllEnginesAllPatternsWithCompileTime(patterns: (string) list, input: st
     [<GlobalSetup>]
     member this.Setup() =
         let regex = Regex(this.Pattern)
-        let matcher = regex.Matcher :?> RegexMatcher<uint64>
+        let matcher = regex.Matcher :?> RegexMatcher<TSet>
         this.CompiledEngine <- matcher
         ()
 
@@ -1416,7 +1416,7 @@ type TestAllEnginesAllPatternsWithCompileTime(patterns: (string) list, input: st
 type TestSbreAllPatternsWithCompileTime(patterns: (string) list, input: string) =
     let inputText = input
     member this.Patterns: System.Collections.Generic.IEnumerable<string> = patterns
-    member val CompiledEngine: Sbre.RegexMatcher<uint64> = Unchecked.defaultof<_> with get, set
+    member val CompiledEngine: Sbre.RegexMatcher<TSet> = Unchecked.defaultof<_> with get, set
     [<ParamsSource("Patterns")>]
     member val Pattern: string = "" with get, set
 
@@ -1434,14 +1434,14 @@ type TestSbreAllPatternsWithCompileTime(patterns: (string) list, input: string) 
 type TestSbreAllPatternsMatchOnly(patterns: (string) list, input: string) =
     let inputText = input
     member this.Patterns: System.Collections.Generic.IEnumerable<string> = patterns
-    member val CompiledEngine: Sbre.RegexMatcher<uint64> = Unchecked.defaultof<_> with get, set
+    member val CompiledEngine: Sbre.RegexMatcher<TSet> = Unchecked.defaultof<_> with get, set
     [<ParamsSource("Patterns")>]
     member val Pattern: string = "" with get, set
 
     [<GlobalSetup>]
     member this.Setup() =
         let regex = Regex(this.Pattern)
-        let matcher = regex.Matcher :?> RegexMatcher<uint64>
+        let matcher = regex.Matcher :?> RegexMatcher<TSet>
         this.CompiledEngine <- matcher
         ()
 

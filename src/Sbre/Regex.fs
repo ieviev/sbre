@@ -1001,7 +1001,7 @@ module Helpers =
         //         )
         //     RegexMatcher<uint32>(trueStarredNode,rawNode,reverseNode,cache) :> GenericRegexMatcher
         | n when n < 64 ->
-            let solver = UInt64Solver(minterms, charsetSolver)
+            let solver = TSolver(minterms, charsetSolver)
 #if DEBUG
             Debug.debuggerSolver <- Some solver
 #endif
@@ -1027,7 +1027,7 @@ module Helpers =
                 )
 
             let revTrueStarred = cache.Builder.mkConcat2 (cache.TrueStar, reverseNode)
-            RegexMatcher<uint64>(trueStarredNode, revTrueStarred, rawNode, reverseNode, cache) //:> GenericRegexMatcher
+            RegexMatcher<TSet>(trueStarredNode, revTrueStarred, rawNode, reverseNode, cache) //:> GenericRegexMatcher
         | n -> failwith $"bitvector too large, size: {n}"
 
 
@@ -1098,6 +1098,6 @@ type Regex(pattern: string, [<Optional; DefaultParameterValue(false)>] _experime
             this.TSetMatcher.ReversePattern
             this.TSetMatcher.ReverseTrueStarredPattern
 #if DEBUG
-    member this.UInt16Matcher: RegexMatcher<uint16> = matcher :?> RegexMatcher<uint16>
-    member this.ByteMatcher: RegexMatcher<byte> = matcher :?> RegexMatcher<byte>
+    // member this.UInt16Matcher: RegexMatcher<uint16> = matcher :?> RegexMatcher<uint16>
+    // member this.ByteMatcher: RegexMatcher<byte> = matcher :?> RegexMatcher<byte>
 #endif

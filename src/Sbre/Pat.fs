@@ -50,7 +50,7 @@ module Solver =
 
 
     let inline not' predicate = ~~~predicate
-    let inline isEmpty predicate = predicate = 0UL
+    let inline isEmpty (predicate:TSet) = predicate = LanguagePrimitives.GenericZero
     let inline mapOr (s:ISolver<^t>) ([<InlineIfLambda>]f: 'a -> ^t) xs: ^t =
         let mutable startset = s.Empty
         for x in xs do
@@ -114,7 +114,7 @@ let rec loopSubsumesBranch (solver:ISolver<'t>) (largePred: 't) (node:RegexNode<
         if largePred = pred2 then true
         elif containsv then true
         else false
-    | Concat (head,tail,info) ->
+    | Concat (head,tail,k_) ->
         if loopSubsumesBranch solver largePred head then
             loopSubsumesBranch solver largePred tail
         else false

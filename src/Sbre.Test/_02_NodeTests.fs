@@ -21,20 +21,7 @@ module Helpers =
     let converter = RegexNodeConverter(bddBuilder, null)
     let bddBuilder2 = RegexBuilder(converter, charSetSolver, charSetSolver)
 
-let printImplicit(reg: Regex) =
-    try
-        let matcher = reg.TSetMatcher
-        let nodes = matcher.TrueStarredPattern
-        matcher.Cache.PrettyPrintNode nodes
-    with e ->
-        try
-            let matcher = reg.UInt16Matcher
-            let nodes = matcher.TrueStarredPattern
-            matcher.Cache.PrettyPrintNode nodes
-        with e ->
-            let matcher = reg.TSetMatcher
-            let nodes = matcher.TrueStarredPattern
-            matcher.Cache.PrettyPrintNode nodes
+
 
 let printNode(reg: RegexMatcher<_>, node: RegexNode<_>) =
     try
@@ -207,14 +194,6 @@ let ``b conversion 2.1 ``() =
 //
 //
 
-
-
-[<Fact>]
-let ``pretty printer test 1``() =
-
-    let matcher = Regex("a")
-    Assert.Equal("⊤*a", printImplicit matcher)
-    ()
 
 
 [<Fact>]
