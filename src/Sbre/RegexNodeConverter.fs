@@ -131,7 +131,7 @@ let convertToSymbolicRegexNode
                     |> Seq.map (convertAdjacent adjacent idx)
                     |> Seq.map b.mkConcat
                     |> Seq.toArray
-                    |> b.mkOr
+                    |> b.mkOrSeq
                 [allrewritten]
             | RegexNodeKind.Boundary ->
                 let rewritten = (rewriteWordBorder b adjacent idx (node))
@@ -182,7 +182,7 @@ let convertToSymbolicRegexNode
                 |> Seq.map (convertAdjacent adjacent ownIndex)
                 |> Seq.map b.mkConcat
                 |> Seq.toArray
-            builder.mkOr children2 :: acc
+            builder.mkOrSeq children2 :: acc
         | RegexNodeKind.Conjunction ->
             let children2 =
                 node |> children2Seq |> Seq.map convertSingle |> Seq.map b.mkConcat

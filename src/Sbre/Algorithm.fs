@@ -11,7 +11,7 @@ module RegexNode =
         // // (R|S)r = Rr|Sr
         | Or(xs, info) ->
             let xs' = xs |> map (rev builder)
-            builder.mkOr (Seq.toArray xs')
+            builder.mkOrSeq xs'
         // R{m, n, b}r = Rr{m, n, b}
         | Loop(xs, low, up, info) ->
             let xs' = (rev builder) xs
@@ -19,7 +19,7 @@ module RegexNode =
         // (R & S)r = Rr & S r
         | And(xs, info) ->
             let xs' = xs |> map (rev builder)
-            builder.mkAnd (Seq.toArray xs')
+            builder.mkAnd (xs')
         // (~R)r = ~(Rr)
         | Not(xs, info) ->
             let xs' = (rev builder) xs

@@ -188,13 +188,21 @@ type RegexMatcher<'t when 't: struct>
                     _createDerivative ( &loc, loc_pred, _cache.Builder.mkConcat2 (R, R_decr) )
             // Derx (R | S) = Derx (R) | Derx (S)
             | Or(xs, info) ->
-                let arr = ResizeArray()
+                // let arr = ResizeArray()
+                // use mutable e = xs.GetEnumerator()
+                // while e.MoveNext() do
+                //     let der = _createDerivative(&loc, loc_pred, e.Current)
+                //     arr.Add der
+                // arr.RemoveAll(fun v -> refEq _cache.False v) |> ignore
+                // arr.ToArray() |> _cache.Builder.mkOrSeq
+                //
+                let vbuilder = ValueListBuilder<RegexNode<TSet>>()
                 use mutable e = xs.GetEnumerator()
                 while e.MoveNext() do
-                    let der = _createDerivative(&loc, loc_pred, e.Current)
-                    arr.Add der
-                arr.RemoveAll(fun v -> refEq _cache.False v) |> ignore
-                arr.ToArray() |> _cache.Builder.mkOr
+                    vbuilder.Append(_createDerivative(&loc, loc_pred, e.Current))
+                let res = _cache.Builder.mkOrVbuilder(vbuilder)
+                vbuilder.Dispose()
+                res
 
             // Derx (R & S) = Derx (R) & Derx (S)
             | And(xs, _) ->
@@ -220,7 +228,7 @@ type RegexMatcher<'t when 't: struct>
                     R'S
                 else
                     if refEq R'S _cache.False then S' else
-                    _cache.Builder.mkOr ([| R'S ;S'|] )
+                    _cache.Builder.mkOrSeq ([| R'S ;S'|] )
             | Concat(head, tail, _) when head.HasZerowidthHead ->
                 let R' = _createDerivative (&loc, loc_pred, head)
                 let R'S = _cache.Builder.mkConcat2 (R', tail)
@@ -229,7 +237,7 @@ type RegexMatcher<'t when 't: struct>
                     R'S
                 else
                     if refEq R'S _cache.False then S' else
-                    _cache.Builder.mkOr ([| R'S ;S'|] )
+                    _cache.Builder.mkOrSeq ([| R'S ;S'|] )
             // Derx (R·S) = if Nullx (R) then Derx (R)·S|Derx (S) else Derx (R)·S
             | Concat(head, tail, _) ->
                 let R' = _createDerivative (&loc, loc_pred, head)
@@ -240,7 +248,7 @@ type RegexMatcher<'t when 't: struct>
                         R'S
                     else
                         if refEq R'S _cache.False then S' else
-                        _cache.Builder.mkOr ([| R'S ;S'|] )
+                        _cache.Builder.mkOrSeq ([| R'S ;S'|] )
                 else R'S
             // Lookahead
             | LookAround(node=R; lookBack=false; relativeTo= rel; pendingNullables= pendingNulls; info = info) ->
@@ -437,6 +445,7 @@ type RegexMatcher<'t when 't: struct>
         //     DFA_R_orig
 
     let _initialOptimizations =
+#if OPTIMIZE
         let opts =
             Optimizations.findInitialOptimizations
                 (fun (mt,node) ->
@@ -453,7 +462,9 @@ type RegexMatcher<'t when 't: struct>
                 chrs.IsNone
             | _ -> false
         if cannotUsePrefix then InitialOptimizations.NoOptimizations else opts
-
+#else
+        InitialOptimizations.NoOptimizations
+#endif
     let _initialFixedLength =
         Node.getFixedLength reverseNode
 

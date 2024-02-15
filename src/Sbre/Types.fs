@@ -501,6 +501,10 @@ module Common =
     let zeroList = Set.singleton 0
 
 
+    let physComparison =
+        Comparison<'T>(fun a b -> (LanguagePrimitives.PhysicalHash a).CompareTo(LanguagePrimitives.PhysicalHash b) )
+
+
 
 
 type NodeSet<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
@@ -509,7 +513,19 @@ type NodeSet<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
 
 module Enumerator =
     let inline getSharedHash(e: RegexNode<_>[]) =
-        let mutable found = false
+        let mutable hash = 0
+        for n in e do
+            hash <- hash ^^^ LanguagePrimitives.PhysicalHash n
+        hash
+
+    let inline getSharedHash2(e: RegexNode<_>Memory) =
+        let mutable hash = 0
+        let span = e.Span
+        for n in span do
+            hash <- hash ^^^ LanguagePrimitives.PhysicalHash n
+        hash
+
+    let inline getSharedHash3(e: RegexNode<_>Span) =
         let mutable hash = 0
         for n in e do
             hash <- hash ^^^ LanguagePrimitives.PhysicalHash n
@@ -598,6 +614,3 @@ type SharedResizeArrayStruct<'t> =
             limit = initialSize
             pool = ArrayPool.Shared.Rent(initialSize)
         }
-
-
-

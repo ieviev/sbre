@@ -76,13 +76,14 @@ let rec getPrefixNodeAndComplement (cache:RegexCache<_>) (node:RegexNode<_>) : R
                 nodes
                 |> Seq.choose (fun v ->
                     match v with
-                    | Concat(head=Singleton p) -> Some v
+                    | Concat(head=Singleton p) ->
+                        Some v
                     | _ -> None
                 )
                 |> Seq.toArray
 
             if prefixes.Length > 0 then
-                cache.Builder.mkOr(prefixes), None
+                cache.Builder.mkOrSeq(prefixes), None
             else
 
             let trimmed =
@@ -91,7 +92,7 @@ let rec getPrefixNodeAndComplement (cache:RegexCache<_>) (node:RegexNode<_>) : R
                 |> Seq.toArray
             let noComplements = trimmed |> Seq.forall (fun v -> (snd v).IsNone)
             if noComplements then
-                cache.Builder.mkOr(trimmed |> Array.map fst), None
+                cache.Builder.mkOrSeq(trimmed |> Seq.map fst), None
             else
                 node, None
 
@@ -106,7 +107,7 @@ let rec getPrefixNodeAndComplement (cache:RegexCache<_>) (node:RegexNode<_>) : R
             nodes
             |> Seq.choose (function | Not (inner,info) -> Some inner | _ -> None )
             |> Seq.toArray
-            |> cache.Builder.mkOr
+            |> cache.Builder.mkOrSeq
             |> Some
 
         let trimmed =
@@ -119,7 +120,7 @@ let rec getPrefixNodeAndComplement (cache:RegexCache<_>) (node:RegexNode<_>) : R
             |> Seq.forall (fun v -> (snd v).IsNone)
 
         if noComplements then
-            cache.Builder.mkOr(trimmed |> Seq.map fst |> Seq.toArray), complement
+            cache.Builder.mkOrSeq(trimmed |> Seq.map fst |> Seq.toArray), complement
         else
             cache.Builder.mkAnd(nonComplementNodes), complement
     | _ -> node, None
@@ -313,7 +314,7 @@ let tryGetLimitedSkip getNonInitialDerivative (nodeToId:RegexNode<TSet> -> int) 
     let skipTerm = getStartset initial // m.GetOrCreateState(initial).Startset
     match node with
     | Or(nodes, info) ->
-        let nonInitial = nodes |> Seq.where (fun v -> not (refEq v initial)) |> Seq.toArray |> c.Builder.mkOr
+        let nonInitial = nodes |> Seq.where (fun v -> not (refEq v initial)) |> Seq.toArray |> c.Builder.mkOrSeq
         let nonTermDerivatives (node: RegexNode<TSet>) =
             let ders1 = Optimizations.getNonRedundantDerivatives getNonInitialDerivative c redundant node
             ders1 |> Seq.where (fun (mt,_) -> not (Solver.contains skipTerm mt) ) |> Seq.toArray
@@ -347,7 +348,7 @@ let tryGetLimitedSkip getNonInitialDerivative (nodeToId:RegexNode<TSet> -> int) 
                     distance=path.Count + 1,
                     termPred= searchValuesSet,
                     termTransitionId=nodeToId (getNonInitialDerivative (skipTerm, node)),
-                    nonTermTransitionId= nodeToId (c.Builder.mkOr [|finalNode; initial|])
+                    nonTermTransitionId= nodeToId (c.Builder.mkOrSeq [|finalNode; initial|])
                     )
                 )
         | _ -> None
@@ -384,7 +385,7 @@ let tryGetLimitedSkip getNonInitialDerivative (nodeToId:RegexNode<TSet> -> int) 
                     distance=path.Count + 1,
                     termPred= searchValuesSet,
                     termTransitionId=nodeToId (getNonInitialDerivative (skipTerm, node)),
-                    nonTermTransitionId= nodeToId (c.Builder.mkOr [|finalNode; initial|])
+                    nonTermTransitionId= nodeToId (c.Builder.mkOrSeq [|finalNode; initial|])
                     // nonTermTransitionId= nodeToId (node)
                     )
                 )
@@ -454,7 +455,7 @@ let rec nodeWithoutLookbackPrefix
         xs
         |> Seq.map (nodeWithoutLookbackPrefix b)
         |> Seq.toArray
-        |> b.mkOr
+        |> b.mkOrSeq
     | And(nodes=xs) | Or(nodes=xs) ->
         xs
         |> Seq.map (nodeWithoutLookbackPrefix b)

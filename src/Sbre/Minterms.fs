@@ -25,7 +25,7 @@ let rec transform
         builder.mkAnd(xs' |> Seq.toArray)
     | Or (xs,info) ->
         let xs' = xs |> map transformInner
-        builder.mkOr(xs' |> Seq.toArray)
+        builder.mkOrSeq(xs')
     | Loop (xs, lower, upper,info) ->
         let xs' = transformInner xs
         builder.mkLoop(xs',lower,upper)
@@ -46,10 +46,10 @@ let collectSets (node: RegexNode<'tset>) =
             nodes |> Seq.iter collect
         match node with
         | Singleton pred -> hs.Add pred |> ignore
-        | And (nodes=xs) 
+        | And (nodes=xs)
         | Or (nodes=xs) -> collectList xs
-        | LookAround (node=node) 
-        | Not (node=node) 
+        | LookAround (node=node)
+        | Not (node=node)
         | Loop (node=node) -> collect node
         | Concat(head,tail, info) ->
             collect head
