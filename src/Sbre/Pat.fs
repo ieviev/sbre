@@ -171,21 +171,6 @@ let (|CounterNode|_|) (node: RegexNode<_>) =
     | _ -> ValueNone
 
 
-// [<return: Struct>]
-// let (|MonadicNode|_|) (node: RegexNode<_>) =
-//     match node with
-//     | (BoundedLoop as loop) | Concat(head=(BoundedLoop) as loop; tail=_)  -> ValueSome(loop)
-//     | _ -> ValueNone
-
-
-// private bool IsMonadic(string regex)
-// 	{
-// 		Predicate<SymbolicRegexNode<ulong>> pred = (SymbolicRegexNode<ulong> node) => node.Kind == SymbolicRegexKind.Loop && node.Left.Kind != SymbolicRegexKind.Singleton && !node.IsStar && !node.IsMaybe && !node.IsPlus;
-// 		return !(new Regex(regex, RegexOptions.Singleline).Compile(true, false, false) as SymbolicRegexUInt64).Pattern.ExistsNode(pred);
-// 	}
-
-
-
 [<return: Struct>]
 let (|ZeroboundSetLoop|_|) (node: RegexNode<_>) =
     match node with
@@ -257,7 +242,6 @@ let rec isSubSequence (bigger: RegexNode<TSet>) (smaller: RegexNode<TSet>): Rege
             ValueNone
 
     | _, n when n.IsAlwaysNullable -> ValueSome smaller
-    // | _, Epsilon -> ValueSome (smaller)
     | Loop _, _
     | Or _, Concat _
     | Or _, Or _

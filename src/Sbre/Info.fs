@@ -18,23 +18,16 @@ type Flag = RegexNodeFlags
 
 module Flag =
     let inline withFlag (arg: RegexNodeFlags) (sourceFlags: RegexNodeFlags) = sourceFlags ||| arg
-
     let inline withoutFlag (arg: RegexNodeFlags) (sourceFlags: RegexNodeFlags) =
         sourceFlags &&& ~~~arg
-
     let inline withFlagIf (cond: bool) (arg: RegexNodeFlags) (sourceFlags: RegexNodeFlags) =
         if cond then sourceFlags ||| arg else sourceFlags
-
     let inline hasFlag (arg: RegexNodeFlags) (sourceFlags: RegexNodeFlags) =
         sourceFlags.HasFlag(arg)
 
-    // let inline getContainsFlags(sourceFlags: RegexNodeFlags) =
-    //     (RegexNodeFlags.ContainsLookaroundFlag)
-    //     &&& sourceFlags
-
     /// bitwise or for multiple flags
     let inline mergeFlags(sourceFlags: RegexNodeFlags seq) =
-        (RegexNodeFlags.None, sourceFlags) ||> Seq.fold (fun acc v -> acc ||| v)
+        Seq.fold (fun acc v -> acc ||| v) RegexNodeFlags.None sourceFlags
 
 let inline removeFlag (flags: byref<RegexNodeFlags>) (flagsToRemove: RegexNodeFlags) =
     flags <- flags &&& ~~~flagsToRemove
@@ -173,7 +166,6 @@ module rec Flags =
 
 [<AutoOpen>]
 module Node =
-
     let rec getFixedLength (node: RegexNode<_>) =
         let rec loop (acc:int) node : int option =
             match node with
@@ -201,7 +193,6 @@ module Node =
             | Anchor _ -> Some (0 + acc)
         loop 0 node
 
-
     let rec getMinLength (node: RegexNode<_>) =
         let rec loop (acc:int) node : int option =
             match node with
@@ -227,30 +218,6 @@ module Node =
             | LookAround(_) -> Some (0 + acc)
             | Anchor _ -> Some (0 + acc)
         loop 0 node
-
-    // let rec isEssentiallyNullable (loc:Location) (node: RegexNode<_>) =
-    //     let locpos = loc.Position
-    //     let inputlen = loc.Input.Length
-    //     let rec loop  node : bool =
-    //         match node with
-    //         | Concat(head, tail, info) -> loop head && loop tail
-    //         | Epsilon -> true
-    //         | Or(nodes, info) | And(nodes, info) -> nodes |> Seq.exists loop
-    //         | Singleton _ -> false
-    //         | Loop(Singleton node, low, up, info) ->
-    //             if low = up then Some (low + acc) else None
-    //         | Loop(node, low, up, info) -> None
-    //         | Not(node, info) -> None
-    //         | LookAround(node = node ;lookBack = true) -> loop 0 node
-    //         | LookAround(lookBack = false) -> Some (0 + acc)
-    //         | Anchor anc ->
-    //             match anc with
-    //             | Begin ->
-    //                 if locpos = 0 then Some(0) else None
-    //             | End ->
-    //                 if locpos = inputlen then Some(0) else None
-    //             | WordBorder -> failwith "todo"
-    //     loop 0 node
 
     let rec containsRecursive (orNodes:NodeSet<'t>) (node: RegexNode<'t>)  =
         if orNodes.Contains(node) then true else
@@ -304,15 +271,5 @@ module Node =
         | Epsilon -> false
         | Anchor _ -> false
 
-
     let inline canNotBeNullable(node: RegexNode<'t>) =
-        match node with
-        | Or(info = info) -> not info.CanBeNullable
-        | Singleton _ -> true
-        | Loop(info = info) -> not info.CanBeNullable
-        | And(info = info) -> not info.CanBeNullable
-        | Not(info = info) -> not info.CanBeNullable
-        | LookAround _ -> false
-        | Concat(info = info) -> not info.CanBeNullable
-        | Epsilon -> false
-        | Anchor _ -> false
+        not (canBeNullable node)

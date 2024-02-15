@@ -64,11 +64,7 @@ module
         let startsets1 =
             bdds[1..]
             |> Array.map bddToStartsetChars
-        //
-        // match startsets1 |> Array.tryFind (fun v -> v.Flags = StartsetFlags.TooBig) with
-        // | Some v -> [|v|]
-        // | _ ->
-
+   
         let searchChars =
             startsets1
             |> Array.collect (fun v -> v.Chars)
@@ -381,15 +377,6 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                         [|
                             b.mkConcat2(nonWordLeft.Value, wordRight.Value)
                             b.mkConcat2(wordLeft.Value, nonWordRight.Value)
-                            // b.mkConcat [
-                            //     // (?<=ψ\w)
-                            //     b.mkLookaround(_uniques._wordChar.Value,true,false)
-                            //     b.mkLookaround(_uniques._wordChar.Value,false,true)
-                            // ]
-                            // b.mkConcat [
-                            //     b.mkLookaround(_uniques._wordChar.Value,true,true)
-                            //     b.mkLookaround(_uniques._wordChar.Value,false,false)
-                            // ]
                         |]
                     )
             // (?<=\W)
@@ -462,8 +449,6 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
     member this.uniques = _uniques
     member this.anchors = _anchors
     member this.PrefixCache = _prefixCache
-    // member this.DerivativeCache = _derivativeCache
-    // member this.Startset2Cache = _startset2Cache
     member this.LanguageCache = _combineLanguageCache
     member this.UniquesDict = _uniquesDict
 

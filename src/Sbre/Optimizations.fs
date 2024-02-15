@@ -65,9 +65,6 @@ let rec getPrefixNodeAndComplement (cache:RegexCache<_>) (node:RegexNode<_>) : R
     | Concat(Loop(low=0;up=Int32.MaxValue),tail,_ ) -> getPrefixNodeAndComplement cache tail
     | Concat(Loop(node=body;low=n;up=Int32.MaxValue),tail,_ ) ->
         cache.Builder.mkConcat2( cache.Builder.mkLoop(body,n,n),tail ), None
-
-    // TODO: ?
-    // | Not(node, info) -> getPrefixNodeAndComplement cache node
     | And(nodes, info) ->
         let existsComplement =
             nodes

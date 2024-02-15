@@ -46,18 +46,15 @@ let collectSets (node: RegexNode<'tset>) =
             nodes |> Seq.iter collect
         match node with
         | Singleton pred -> hs.Add pred |> ignore
-        | Or (xs,_) ->
-            collectList xs
-        | And (xs,info) ->
-            collectList xs
+        | And (nodes=xs) 
+        | Or (nodes=xs) -> collectList xs
+        | LookAround (node=node) 
+        | Not (node=node) 
         | Loop (node=node) -> collect node
-        | Not (node,info) -> collect node
-        | LookAround (node=body) -> collect body
         | Concat(head,tail, info) ->
             collect head
             collect tail
-        | Epsilon -> ()
-        | Anchor regexAnchor -> ()
+        | Epsilon | Anchor _ -> ()
     collect node
     hs
 

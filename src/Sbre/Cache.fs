@@ -3,25 +3,17 @@ namespace Sbre
 open System
 open System.Buffers
 open System.Collections.Generic
-open System.Numerics
 open System.Runtime.CompilerServices
-open System.Text.RuntimeRegexCopy
 open System.Text.RuntimeRegexCopy.Symbolic
 open Microsoft.FSharp.Core
 open Sbre.Types
 open Sbre.Pat
-open Info
-
-
-// #nowarn "25" // missing patterns inference
 
 [<Sealed>]
 type RegexCache< 't
     // TSet when
     //     TSet: struct
     //     and TSet :> IEquatable< TSet >
-    //     and TSet: equality
-
         >
     (
         _solver: ISolver<TSet>,
@@ -210,7 +202,7 @@ type RegexCache< 't
         let mutable skipping = true
 
         /// vectorize the search for the first character
-        let firstSetChars = searchValues // this.MintermStartsetChars(setSpan[0])
+        let firstSetChars = searchValues 
         let isInverted = Solver.elemOfSet setSpan[0] minterms[0]
         let tailPrefixSpan = setSpan.Slice(1)
 
@@ -416,7 +408,6 @@ type RegexCache< 't
         | Some firstSetChars ->
 
         /// '.' to ^\n -> it's easier to invert large sets
-        // let isInverted = _solver.isElemOfSet(mergedPrefix,minterms[0])
         let isInverted = Solver.elemOfSet mergedPrefix minterms[0]
 
         while skipping do
@@ -574,7 +565,6 @@ type RegexCache< 't
     member val False: RegexNode< _ > = _builder.uniques._false
     member val Eps: RegexNode< _ > = _builder.uniques._eps
     member val TrueStar: RegexNode< _ > = _builder.uniques._trueStar
-    member val FullMinterm: _ = _solver.Full
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.IsOrigReversePattern(node: RegexNode< TSet >) : bool =

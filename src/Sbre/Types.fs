@@ -165,11 +165,9 @@ type RegexNodeInfo<'tset when 'tset :> IEquatable<'tset> and 'tset: equality >()
     member val StartTransitions: Dictionary<'tset,RegexNode<'tset>> = Dictionary() with get, set
     member val Subsumes: Dictionary<RegexNode<'tset>,bool> = Dictionary() with get, set
     member val PendingNullables: Set<int> = Set.empty with get, set
-    // todo: subsumedbyset
 
     // filled in later
     member val LookupPrev: bool = false with get, set
-    member val MustStartWithWordBorder: bool option = None with get, set
     member val PrevCharRequired: 'tset option = None with get, set
     member val Minterms: 'tset = Unchecked.defaultof<'tset> with get, set
     member val Startset: 'tset = Unchecked.defaultof<'tset> with get, set
@@ -177,10 +175,8 @@ type RegexNodeInfo<'tset when 'tset :> IEquatable<'tset> and 'tset: equality >()
 
     member inline this.IsAlwaysNullable =
         this.NodeFlags &&& RegexNodeFlags.IsAlwaysNullableFlag = RegexNodeFlags.IsAlwaysNullableFlag
-
     member inline this.HasZerowidthHead =
         this.NodeFlags &&& RegexNodeFlags.HasZerowidthHeadFlag = RegexNodeFlags.HasZerowidthHeadFlag
-        // (this.Flags &&& RegexNodeFlags.IsAlwaysNullable) <> RegexNodeFlags.None
     member inline this.CanBeNullable =
         this.NodeFlags &&& RegexNodeFlags.CanBeNullableFlag = RegexNodeFlags.CanBeNullableFlag
 
@@ -189,8 +185,6 @@ type RegexNodeInfo<'tset when 'tset :> IEquatable<'tset> and 'tset: equality >()
          (this.NodeFlags &&& RegexNodeFlags.CanBeNullableFlag) = RegexNodeFlags.None
     member inline this.ContainsLookaround =
         this.NodeFlags &&& RegexNodeFlags.ContainsLookaroundFlag = RegexNodeFlags.ContainsLookaroundFlag
-    // member inline this.DoesNotContainEpsilon =
-    //     (this.NodeFlags &&& RegexNodeFlags.ContainsEpsilonFlag) = RegexNodeFlags.None
 
 [<ReferenceEquality>]
 type RegexAnchor =
@@ -233,8 +227,6 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
 #if DEBUG
 
     override this.ToString() =
-        // if Debug.debuggerSolver.IsNone then
-        //     Debug.debuggerSolver <- box Debug.debugcharSetSolver
 
         let print node =
             if typeof<'tset> = typeof<BDD> then
@@ -250,11 +242,6 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
             if typeof<'tset> = typeof<BDD> then
                 Debug.debugcharSetSolver.IsEmpty(unbox (box tset))
             else Debug.debuggerSolver.Value.IsEmpty(unbox (box tset))
-        // let _solver =
-        //     if Debug.debuggerSolver.IsNone then
-        //         box Debug.debugcharSetSolver :?> ISolver<'t>
-        //     else
-        //         (box Debug.debuggerSolver.Value) :?> ISolver<'t>
 
         let paren str = $"({str})"
 

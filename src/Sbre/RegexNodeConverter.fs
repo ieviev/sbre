@@ -19,7 +19,7 @@ let rewriteNegativeLookaround (b:RegexBuilder<BDD>) (lookBack:bool) (node:RegexN
         let conc = b.mkConcat2(negpart, b.anchors._zAnchor)
         b.mkLookaround( conc, false, 0, Set.empty)
     | true ->
-        // (?<=\a·~(⊤*R)) ≡ (?<!R)
+        // (?<=\A·~(⊤*R)) ≡ (?<!R)
         let negpart = b.mkNot(b.mkConcat2(b.uniques._trueStar,node))
         let conc = b.mkConcat2(b.anchors._bigAAnchor,negpart)
         b.mkLookaround( conc, false, 0, Set.empty)
@@ -122,9 +122,6 @@ let convertToSymbolicRegexNode
         : RegexNode<BDD> list
         =
 
-
-
-
         let rec convertAdjacent (adjacent:System.Text.RuntimeRegexCopy.RegexNode[]) (idx:int) (node: System.Text.RuntimeRegexCopy.RegexNode): RegexNode<BDD> list =
             match node.Kind with
             | RegexNodeKind.Alternate ->
@@ -160,45 +157,11 @@ let convertToSymbolicRegexNode
                 | _ ->  node |> children2Seq
                 |> Seq.toArray
 
-            // let existsWB =
-            //     nodeseq
-            //     |> Seq.indexed
-            //     |> Seq.where (fun (idx,node) -> node.Kind = RegexNodeKind.Boundary )
-            //     |> Seq.toArray
+            nodeseq |> Seq.collect (loop []) |> Seq.toList
 
-            let defaultResult = nodeseq |> Seq.collect (loop []) |> Seq.toList
-            defaultResult
-//                 defaultResult
-//             | _ ->
-// #if NO_REWRITE
-//                 let defaultResult = nodeseq |> Seq.collect (loop []) |> Seq.toList
-//                 if true then defaultResult else
-// #endif
-//                 // have to rewrite word borders here
-//                 let rewritten =
-//                     existsWB
-//                     |> Seq.map (rewriteWordBorder b nodeseq)
-//                     |> Map.ofSeq
-//                 let converted =
-//                     nodeseq
-//                     |> Seq.indexed
-//                     |> Seq.map (fun (idx,node) ->
-//                         match rewritten |> Map.tryFind idx with
-//                         | Some v -> [v]
-//                         | _ -> (loop []) node
-//                     )
-//                     |> Seq.collect id
-//                     |> Seq.toList
-//                 converted
 
         let convertSingle(node: System.Text.RuntimeRegexCopy.RegexNode) =
             node |> (loop [])
-
-
-        // let inline convertChildren(node: System.Text.RuntimeRegexCopy.RegexNode) =
-        //     match node.Options.HasFlag(RegexOptions.RightToLeft) with
-        //     | false -> node |> children2Seq |> Seq.collect (loop []) |> Seq.toList
-        //     | true -> node |> children2Seq |> Seq.rev |> Seq.collect (loop []) |> Seq.toList
 
         match node.Kind with
         | RegexNodeKind.One -> b.one node.Ch :: acc
@@ -275,28 +238,9 @@ let convertToSymbolicRegexNode
         | RegexNodeKind.Setloop ->
             let set = node.Str
             let bdd = b.bddFromSetString set
-            // unroll loops
-            // if node.M = node.N then
-            //     let single = b.one bdd
-            //     let nodes = List.replicate node.M single
-            //     nodes @ acc
-            // elif node.M > 0 then
-            //     let single = b.one bdd
-            //     let nodes = List.replicate node.M single
-            //     let optmax =
-            //         match node.N with
-            //         | Int32.MaxValue ->
-            //             node.N
-            //         | _ ->
-            //             node.N - node.M
-            //     let optloop = b.mkLoop (single, 0, optmax)
-            //     nodes @ [optloop] @ acc
-            // else
-
             b.mkLoop (b.one bdd, node.M, node.N) :: acc
         | RegexNodeKind.Empty -> acc
         | RegexNodeKind.PositiveLookaround ->
-            // let conc = b.mkConcat (convertChildren node)
             let conc = b.mkConcat (convertConcat (node))
             builder.mkLookaround(conc,node.Options.HasFlag(RegexOptions.RightToLeft), 0, Set.empty)
             :: acc
