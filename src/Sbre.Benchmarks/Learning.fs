@@ -9,8 +9,8 @@ open Sbre.Pat
 open Sbre.Types
 open FSharp.Data
 
-// let [<Literal>] LearningSampleCongressBills = __SOURCE_DIRECTORY__ + @"/data/CongressBills-Date-short.json"
-let [<Literal>] LearningSampleCongressBills = @"/home/ian/f/ieviev/sbre/src/Sbre.Benchmarks/data/CongressBills-Date-short.json"
+let [<Literal>] LearningSampleCongressBills = __SOURCE_DIRECTORY__ + @"/data/CongressBills-Date-short.json"
+// let [<Literal>] LearningSampleCongressBills = @"/home/ian/f/ieviev/sbre/src/Sbre.Benchmarks/data/CongressBills-Date-short.json"
 type Provider = FSharp.Data.JsonProvider<LearningSampleCongressBills>
 let ctx = Provider.GetSample()
 

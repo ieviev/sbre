@@ -145,3 +145,101 @@ type Prefix1() =
 type Prefix2() =
     // [HF][ui][cn][kn]
     inherit SetsPrefix("Huck|Finn")
+
+[<MemoryDiagnoser(false)>]
+[<ShortRunJob>]
+type PrefixCharsetSearch () =
+    // let rs = "[a-zA-Z]+ckl|[a-zA-Z]+awy"
+    [<Params("[a-zA-Z]+ckle|[a-zA-Z]+awy", "Huck[a-zA-Z]+|Saw[a-zA-Z]+", ".*have.*&.*there.*")>]
+    member val rs: string = "" with get, set
+    
+    
+    [<Benchmark>]
+    member this.WeightedCharsetSearch() =
+        let regex = Regex(this.rs)
+        let cache = regex.TSetMatcher.Cache
+        let prefix = regex.InitialReversePrefix
+        
+        let prefixSets =
+            match prefix with
+            | InitialOptimizations.PotentialStartPrefix(prefixMem) -> 
+                Array.toList (prefixMem.ToArray()) |> List.rev
+            | _ -> failwith "debug"
+            
+        let commonalityScore (charSet: char array) =
+            charSet |> Array.map (fun c ->
+                if Char.IsAsciiLetterLower c then 10
+                else 0)
+            |> Array.sum
+            
+        let weightedSets = prefixSets |> List.mapi (fun i set ->
+            (i, set, commonalityScore (cache.MintermChars(set).ToArray())))
+                           |> List.sortBy (fun (_, _, score) -> score )
+                           |> List.map (fun (i, set, _) -> (i, set))
+        
+        let rarestCharSet = cache.MintermChars(snd weightedSets[0]).ToArray().AsMemory()
+        let charSetIndex = fst weightedSets[0]
+        let mutable searching = true
+        let mutable matchPos = 0
+        let textSpan = fullInput.AsSpan()
+        // let potMatches = ResizeArray(100)
+        
+        while searching do
+            match textSpan.Slice(matchPos).IndexOfAny(rarestCharSet.Span) with
+            | -1 -> searching <- false
+            | spanMatchStart when (spanMatchStart + matchPos - charSetIndex >= 0) ->
+                let absMatchStart = spanMatchStart + matchPos - charSetIndex
+                let mutable fullMatch = true
+                let mutable i = 1
+                while i < weightedSets.Length && absMatchStart + (fst weightedSets[i]) < textSpan.Length && fullMatch do
+                    let set = cache.MintermChars(snd weightedSets[i])
+                    if textSpan.Slice(absMatchStart + (fst weightedSets[i]), 1).IndexOfAny(set) = -1 then
+                        fullMatch <- false
+                    else
+                        i <- i + 1
+                matchPos <- absMatchStart + 1 + charSetIndex
+                // if fullMatch then potMatches.Add({MatchPosition.Index = absMatchStart; Length = weightedSets.Length })
+            | _ -> ()
+        // potMatches
+
+    
+    [<Benchmark>]
+    member this.NonWeightedCharsetSearch() =
+        let regex = Regex(this.rs)
+        let cache = regex.TSetMatcher.Cache
+        let prefix = regex.InitialReversePrefix
+        
+        let prefixSets =
+            match prefix with
+            | InitialOptimizations.PotentialStartPrefix(prefixMem) -> 
+                Array.toList (prefixMem.ToArray()) |> List.rev
+            | _ -> failwith "debug"
+
+        let firstCharSet = cache.MintermChars(prefixSets[0]).ToArray().AsMemory()
+        let mutable searching = true
+        
+        let mutable startPos = 0
+        let textSpan = fullInput.AsSpan()
+        // let potMatches = ResizeArray(100)
+        while searching do
+            match textSpan.Slice(startPos).IndexOfAny(firstCharSet.Span) with
+            | -1 -> searching <- false
+            | spanMatchStart ->
+                let absMatchStart = spanMatchStart + startPos
+                let mutable fullMatch = true
+                let mutable i = 1
+                while i < prefixSets.Length && absMatchStart + i < textSpan.Length && fullMatch do
+                    let set = cache.MintermChars(prefixSets[i])
+                    if textSpan.Slice(absMatchStart + i, 1).IndexOfAny(set) = -1 then
+                        fullMatch <- false
+                    else
+                        i <- i + 1
+                startPos <- absMatchStart + 1
+                // if fullMatch then potMatches.Add({MatchPosition.Index = absMatchStart; Length = prefixSets.Length })
+        // potMatches
+
+    
+    [<Benchmark>]
+    member this.SbreCount() =
+        let regex = Regex(this.rs)
+        regex.Count fullInput
