@@ -256,16 +256,16 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 LanguagePrimitives.PhysicalHash x ^^^ LanguagePrimitives.PhysicalHash y
         }
 
-    let _canonicalCacheComparer: IEqualityComparer<struct(bool * Memory<RegexNode<'t>>)> =
-        { new IEqualityComparer<struct (bool*Memory<RegexNode<'t>>)> with
-            member this.Equals((n1,x1), (n2,x2)) =
-                n1 = n2 && x1.Span.SequenceEqual(x2.Span)
-            member this.GetHashCode((_,x)) = Enumerator.getSharedHash3 x.Span
+    let _canonicalCacheComparer: IEqualityComparer<struct(bool* bool * Memory<RegexNode<'t>>)> =
+        { new IEqualityComparer<struct (bool*bool*Memory<RegexNode<'t>>)> with
+            member this.Equals((dep1,n1,x1), (dep2,n2,x2)) =
+                dep1=dep2 && n1 = n2 && x1.Span.SequenceEqual(x2.Span)
+            member this.GetHashCode((_,_,x)) = Enumerator.getSharedHash3 x.Span
         }
 
     let _combineLanguageCache: Dictionary<struct (RegexNode<'t> * RegexNode<'t>), (RegexNode<'t> * RegexNode<'t>) option> = Dictionary(_combineLanguageComparer)
 
-    let _canonicalCache: Dictionary<struct(bool*Memory<RegexNode<'t>>), RegexNode<'t>> = Dictionary(_canonicalCacheComparer)
+    let _canonicalCache: Dictionary<struct(bool*bool*Memory<RegexNode<'t>>), RegexNode<'t>> = Dictionary(_canonicalCacheComparer)
 
     let _orCache: Dictionary<RegexNode< 't >Memory, RegexNode< 't >> =
         Dictionary(_orCacheComparer)
@@ -460,10 +460,16 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
     member this.CanonicalCache = _canonicalCache
     member this.UniquesDict = _uniquesDict
 
-    member this.GetCanonical(ders:Memory<RegexNode<'t>>, node:RegexNode<'t>) =
-        let key = struct(node.CanBeNullable , ders)
+    member this.GetCanonical(oldNode:RegexNode<'t>, ders:Memory<RegexNode<'t>>, node:RegexNode<'t>) =
+        // if refEq oldNode node then node else
+        let key = struct(node.DependsOnAnchor,node.CanBeNullable , ders)
+
         match this.CanonicalCache.TryGetValue(key) with
-        | true, v -> v
+        | true, v ->
+            oldNode.TryGetInfo |> ValueOption.iter (fun inf ->
+                inf.HasCanonicalForm <- Some v
+            )
+            v
         | _ ->
             node.TryGetInfo
             |> ValueOption.iter (fun v -> v.IsCanonical <- true )
@@ -1097,6 +1103,33 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             | _ -> _uniques._false
 
 
+    member this.mkAndDirect
+        (
+            nodes: RegexNode<'t> seq
+        ) : RegexNode<'t> =
+
+        let key = nodes |> Seq.toArray
+        Array.sortInPlaceBy LanguagePrimitives.PhysicalHash key
+
+        match _andCache.TryGetValue(key) with
+        | true, v -> v
+        | _ ->
+            let flags = Flags.inferAnd key
+            let minterms2 =
+                key
+                |> Seq.map (_.SubsumedByMinterm(solver))
+                |> Seq.fold (fun acc v -> solver.Or(acc,v) ) solver.Empty
+            let inner = key |> Seq.map (fun v -> v.PendingNullables) |> Set.unionMany
+            let mergedInfo =
+                this.CreateInfo(flags, minterms2,inner)
+            //
+            match key with
+            | _ when key.Length = 0 -> _uniques._trueStar
+            | _ when key.Length = 1 -> key[0]
+            | _ ->
+            let newAnd = RegexNode.And(ofSeq key, mergedInfo)
+            _andCache.Add(key,newAnd)
+            newAnd
 
     member this.mkAnd
         (
@@ -1109,6 +1142,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
         match _andCache.TryGetValue(key) with
         | true, v -> v
         | _ ->
+
 
 #if SUBSUME
         if key.Length = 2 then this.mkAnd2(key[0],key[1]) else
@@ -1137,13 +1171,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 | And(nodes, _) ->
                     for node in nodes do
                         handleNode node
-                // ~(.*) -> always false (?)
-                | Not(StarLoop _, info) ->
-                    enumerating <- false
-                    status <- MkAndFlags.IsFalse
-                | Epsilon ->
-                    status <- MkAndFlags.ContainsEpsilon
-                    // derivatives.Add(deriv)
+                | Epsilon -> status <- MkAndFlags.ContainsEpsilon
                 | _ -> derivatives.Add(deriv)
 
             handleNode e.Current
@@ -1217,8 +1245,10 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 rentedArray.AsSpan().CopyTo(destination=newRentedArray.AsSpan())
                 pool.Return(rentedArray)
                 rentedArray <- newRentedArray
+                limit <- newLimit
             rentedArray[i] <- e.Current
             i <- i + 1
+        if i = 0 then _uniques._false else
         let mem = rentedArray.AsMemory(0,i)
         mem.Span.Sort(physComparison)
         let res = this.mkOr(&mem)

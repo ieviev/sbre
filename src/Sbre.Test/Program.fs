@@ -40,16 +40,13 @@ open Sbre.Test
 //
 
 //
-//
-// let a = Sbre.Regex(@"asd:\T")
-//
-//
-// let b = 1
-// let pref = Learning.Learning3()
-// pref.Pattern <- pref.Patterns |> Seq.head
-// pref.Setup()
-// for i = 1 to 500 do
-//     pref.Sbre() |> ignore
+
+let b = 1
+let pref = Learning.Learning3()
+pref.Pattern <- pref.Patterns |> Seq.head
+pref.Setup()
+for i = 1 to 500 do
+    pref.Sbre() |> ignore
 
 
 

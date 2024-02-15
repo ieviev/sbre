@@ -286,7 +286,14 @@ type RegexMatcher<'t when 't: struct>
         result
 
 
-    let rec _canonicalize(node: RegexNode<TSet>) =
+    and _canonicalize(node: RegexNode<TSet>) =
+
+        match node.TryGetInfo with
+        | ValueSome info when info.IsCanonical -> node
+        | ValueSome info when info.HasCanonicalForm.IsSome -> info.HasCanonicalForm.Value
+        | _ ->
+        if node.DependsOnAnchor then node else
+
         let mkders node =
             _minterms
             |> Array.map (fun mt ->
@@ -297,47 +304,53 @@ type RegexMatcher<'t when 't: struct>
         | Concat(head, tail, info) ->
             let ch = _canonicalize head
             let ct = _canonicalize tail
-            let node = _cache.Builder.mkConcat2(ch,ct)
-            _cache.Builder.GetCanonical(mkders node,node)
+            let newNode = _cache.Builder.mkConcat2(ch,ct)
+            _cache.Builder.GetCanonical(node,mkders newNode,newNode)
 
         | Or(nodes=nodes; info = info) ->
-            let cnodes = nodes |> Seq.map _canonicalize |> Seq.toArray
-            let allLanguages = cnodes |> Array.map mkders
+            let cnodes = nodes |> Seq.map _canonicalize |> ofSeq |> Seq.toArray
+
             let isSubsumedList = ResizeArray()
-            // for i = 0 to allLanguages.Length - 2 do
-            //     for j = 1 to allLanguages.Length - 1 do
-            //         let node1 = cnodes[i]
-            //         let node2 = cnodes[j]
-            //         if node1.CanBeNullable <> node2.CanBeNullable then () else
-            //         let shouldRemoveNode1 =
-            //             allLanguages[i] |> Seq.mapi (fun idx v ->
-            //                 v = allLanguages[j][idx] || refEq v _cache.False
-            //             ) |> Seq.forall id
-            //         if shouldRemoveNode1 then isSubsumedList.Add(i) else
-            //         let shouldRemoveNode2 =
-            //             allLanguages[j] |> Seq.mapi (fun idx v ->
-            //                 v = allLanguages[i][idx] || refEq v _cache.False
-            //             ) |> Seq.forall id
-            //         if shouldRemoveNode2 then isSubsumedList.Add(j) else
-            //         ()
-            let keptNodes = cnodes
-                // [|
-                //     for i = 0 to cnodes.Length - 1 do
-                //         if isSubsumedList.Contains(i) then () else
-                //         yield cnodes[i]
-                // |]
+            let langs = cnodes |> Seq.map mkders |> Seq.toArray
+            langs
+            |> Seq.indexed
+            |> Seq.pairwise
+            |> Seq.iter (fun ((i,lang1),(j,lang2)) ->
+                    let node1 = cnodes[i]
+                    let node2 = cnodes[j]
+                    if node1.CanBeNullable <> node2.CanBeNullable then () else
+                    let shouldRemoveNode1 =
+                        lang1 |> Seq.mapi (fun idx v ->
+                            refEq v (lang2[idx]) || refEq v _cache.False
+                        ) |> Seq.forall id
+                    if shouldRemoveNode1 then isSubsumedList.Add(i) else
+                    let shouldRemoveNode2 =
+                        lang2 |> Seq.mapi (fun idx v ->
+                            refEq v lang1[idx] || refEq v _cache.False
+                        ) |> Seq.forall id
+                    if shouldRemoveNode2 then isSubsumedList.Add(j) else
+                    ()
+            )
+            let keptNodes = // cnodes
+                [|
+                    for i = 0 to cnodes.Length - 1 do
+                        if isSubsumedList.Contains(i) then () else
+                        yield cnodes[i]
+                |]
             let newNode = _cache.Builder.mkOrSeq(keptNodes)
-            _cache.Builder.GetCanonical(mkders newNode, newNode)
-        | Singleton _ -> _cache.Builder.GetCanonical(mkders node,node)
-        | Loop _ -> _cache.Builder.GetCanonical(mkders node,node)
-        | And _ -> _cache.Builder.GetCanonical(mkders node,node)
-        | Not(_) -> _cache.Builder.GetCanonical(mkders node,node)
-        | LookAround(node=_; info = _) ->
-            // TODO:
-            // let ct = _canonicalize tail
-            // let node = _cache.Builder.mkConcat2(ch,ct)
-            // _cache.Builder.GetCanonical(mkders node,node)
-            node
+
+            _cache.Builder.GetCanonical(node,mkders newNode, newNode)
+        | Singleton _ -> node //_cache.Builder.GetCanonical(mkders node,node)
+        | Loop _ -> _cache.Builder.GetCanonical(node,mkders node,node)
+        | And (nodes=nodes) -> //_cache.Builder.GetCanonical(mkders node,node)
+            let newAnd = nodes |> Seq.map _canonicalize |> _cache.Builder.mkAnd
+            _cache.Builder.GetCanonical(node,mkders node, newAnd)
+        | Not(node=inner) ->
+            _cache.Builder.GetCanonical(node, mkders node,_cache.Builder.mkNot(_canonicalize inner))
+        | LookAround(node=node; lookBack = lookBack; relativeTo = rel; pendingNullables = pen; info = _) ->
+            let ct = _canonicalize node
+            let newnode = _cache.Builder.mkLookaround(ct,lookBack,rel,pen)
+            newnode
         | Anchor _
         | Epsilon -> node
 
@@ -407,7 +420,11 @@ type RegexMatcher<'t when 't: struct>
 
 
 
-    let rec _getOrCreateState(revTruestar, node, isInitial) =
+    let rec _getOrCreateState(revTruestar, origNode, isInitial) =
+        // let node = _canonicalize origNode
+        let node = origNode
+        // if not (refEq origNode node) then
+        //     ()
         match _stateCache.TryGetValue(node) with
         | true, v -> v // a dfa state already exists for this regex
         | _ ->
@@ -651,7 +668,21 @@ type RegexMatcher<'t when 't: struct>
         _isNullable(&loc,node)
 
     member this.CreateDerivative ( loc: inref<Location>, loc_pred: TSet, node: RegexNode<TSet>
-    ) : RegexNode<TSet> = _createDerivative(&loc,loc_pred,node)
+    ) : RegexNode<TSet> =
+
+        let canonNode =
+            node
+            // match node.TryGetInfo with
+            // | ValueSome info when info.IsCanonical -> node
+            // | _ ->
+            //     if node.DependsOnAnchor then node else
+            //     match loc.Kind with
+            //     | LocationKind.StartPos -> node
+            //     | LocationKind.Center -> _canonicalize node
+            //     | LocationKind.EndPos -> node
+            //     | _ -> failwith "?"
+
+        _createDerivative(&loc,loc_pred,canonNode)
 
     /// end position with DFA
     member this.DfaEndPosition
