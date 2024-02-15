@@ -188,21 +188,26 @@ type RegexMatcher<'t when 't: struct>
                     _createDerivative ( &loc, loc_pred, _cache.Builder.mkConcat2 (R, R_decr) )
             // Derx (R | S) = Derx (R) | Derx (S)
             | Or(xs, info) ->
-                // let arr = ResizeArray()
-                // use mutable e = xs.GetEnumerator()
-                // while e.MoveNext() do
-                //     let der = _createDerivative(&loc, loc_pred, e.Current)
-                //     arr.Add der
-                // arr.RemoveAll(fun v -> refEq _cache.False v) |> ignore
-                // arr.ToArray() |> _cache.Builder.mkOrSeq
-                //
-                let vbuilder = ValueListBuilder<RegexNode<TSet>>()
+                let arr = ResizeArray()
                 use mutable e = xs.GetEnumerator()
                 while e.MoveNext() do
-                    vbuilder.Append(_createDerivative(&loc, loc_pred, e.Current))
-                let res = _cache.Builder.mkOrVbuilder(vbuilder)
-                vbuilder.Dispose()
-                res
+                    let der = _createDerivative(&loc, loc_pred, e.Current)
+                    arr.Add der
+                arr.RemoveAll(fun v -> refEq _cache.False v) |> ignore
+                arr.ToArray() |> _cache.Builder.mkOrSeq
+                //
+                // let vbuilder = ValueListBuilder<RegexNode<TSet>>()
+                // use mutable e = xs.GetEnumerator()
+                // let arr = ResizeArray()
+                // let sequence = seq {
+                //     for x in xs do
+                //         _createDerivative(&loc, loc_pred, x)
+                // }
+                // // while e.MoveNext() do
+                // //     vbuilder.Append(_createDerivative(&loc, loc_pred, e.Current))
+                // let res = _cache.Builder.mkOrSeq(sequence)
+                // // vbuilder.Dispose()
+                // res
 
             // Derx (R & S) = Derx (R) & Derx (S)
             | And(xs, _) ->

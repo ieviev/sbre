@@ -1223,11 +1223,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
         (
             nodes: inref<RegexNode<'t>Memory>
         ) : RegexNode<_> =
-
         let key = nodes
-        // let vb = ValueListBuilder()
-        // Array.sortInPlaceBy LanguagePrimitives.PhysicalHash key
-
         match _orCache.TryGetValue(key) with
         | true, v ->
             v
@@ -1242,7 +1238,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
         let mutable zeroloops = 0
         let mutable singletonLoops = 0
         let mutable e = nodes.Span.GetEnumerator()
-        let derivatives = HashSet(_refComparer) //this.DerivativeSet
+        let derivatives = HashSet(_refComparer)
 
         while e.MoveNext() && enumerating do
             let rec handleNode(deriv: RegexNode<'t>) =
