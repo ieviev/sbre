@@ -108,7 +108,7 @@ type RegexMatcher<'t when 't: struct>
     let mutable _flagsArray = Array.zeroCreate<RegexStateFlags> InitialDfaStateCapacity
     let _minterms = _cache.Minterms()
     let _mintermsLog = BitOperations.Log2(uint64 _minterms.Length) + 1
-    let mutable _dfaDelta: int[] = Array.init (1024 <<< _mintermsLog) (fun _ -> 0) // 0 : initial state
+    let mutable _dfaDelta: int[] = Array.init (InitialDfaStateCapacity <<< _mintermsLog) (fun _ -> 0) // 0 : initial state
 
     let rec _isNullable(loc: inref<Location>, node: RegexNode<_>) : bool =
         // short-circuit
@@ -291,6 +291,7 @@ type RegexMatcher<'t when 't: struct>
         match node.TryGetInfo with
         | ValueSome info when info.IsCanonical -> node
         | ValueSome info when info.HasCanonicalForm.IsSome -> info.HasCanonicalForm.Value
+        | ValueSome info when not info.PendingNullables.IsEmpty -> node
         | _ ->
         if node.DependsOnAnchor then node else
 
@@ -306,51 +307,17 @@ type RegexMatcher<'t when 't: struct>
             let ct = _canonicalize tail
             let newNode = _cache.Builder.mkConcat2(ch,ct)
             _cache.Builder.GetCanonical(node,mkders newNode,newNode)
-
         | Or(nodes=nodes; info = info) ->
-            let cnodes = nodes |> Seq.map _canonicalize |> ofSeq |> Seq.toArray
-
-            let isSubsumedList = ResizeArray()
-            let langs = cnodes |> Seq.map mkders |> Seq.toArray
-            langs
-            |> Seq.indexed
-            |> Seq.pairwise
-            |> Seq.iter (fun ((i,lang1),(j,lang2)) ->
-                    let node1 = cnodes[i]
-                    let node2 = cnodes[j]
-                    if node1.CanBeNullable <> node2.CanBeNullable then () else
-                    let shouldRemoveNode1 =
-                        lang1 |> Seq.mapi (fun idx v ->
-                            refEq v (lang2[idx]) || refEq v _cache.False
-                        ) |> Seq.forall id
-                    if shouldRemoveNode1 then isSubsumedList.Add(i) else
-                    let shouldRemoveNode2 =
-                        lang2 |> Seq.mapi (fun idx v ->
-                            refEq v lang1[idx] || refEq v _cache.False
-                        ) |> Seq.forall id
-                    if shouldRemoveNode2 then isSubsumedList.Add(j) else
-                    ()
-            )
-            let keptNodes = // cnodes
-                [|
-                    for i = 0 to cnodes.Length - 1 do
-                        if isSubsumedList.Contains(i) then () else
-                        yield cnodes[i]
-                |]
-            let newNode = _cache.Builder.mkOrSeq(keptNodes)
-
-            _cache.Builder.GetCanonical(node,mkders newNode, newNode)
-        | Singleton _ -> node //_cache.Builder.GetCanonical(mkders node,node)
-        | Loop _ -> _cache.Builder.GetCanonical(node,mkders node,node)
-        | And (nodes=nodes) -> //_cache.Builder.GetCanonical(mkders node,node)
+            _cache.Builder.GetCanonical(node, mkders node,node)
+        | Singleton _ -> _cache.Builder.GetCanonical(node, mkders node,node)
+        | Loop _ ->  _cache.Builder.GetCanonical(node,mkders node,node)
+        | And (nodes=nodes) -> // node
             let newAnd = nodes |> Seq.map _canonicalize |> _cache.Builder.mkAnd
             _cache.Builder.GetCanonical(node,mkders node, newAnd)
-        | Not(node=inner) ->
+        | Not(node=inner) -> // node
             _cache.Builder.GetCanonical(node, mkders node,_cache.Builder.mkNot(_canonicalize inner))
-        | LookAround(node=node; lookBack = lookBack; relativeTo = rel; pendingNullables = pen; info = _) ->
-            let ct = _canonicalize node
-            let newnode = _cache.Builder.mkLookaround(ct,lookBack,rel,pen)
-            newnode
+        | LookAround _ ->
+            node
         | Anchor _
         | Epsilon -> node
 
@@ -421,10 +388,15 @@ type RegexMatcher<'t when 't: struct>
 
 
     let rec _getOrCreateState(revTruestar, origNode, isInitial) =
-        // let node = _canonicalize origNode
+#if CANONICAL
+        let node = _canonicalize origNode
+#else
         let node = origNode
+#endif
         // if not (refEq origNode node) then
-        //     ()
+        //     failwith $"canon: {origNode} ==> {node}"
+        // let node = origNode
+
         match _stateCache.TryGetValue(node) with
         | true, v -> v // a dfa state already exists for this regex
         | _ ->
@@ -670,8 +642,8 @@ type RegexMatcher<'t when 't: struct>
     member this.CreateDerivative ( loc: inref<Location>, loc_pred: TSet, node: RegexNode<TSet>
     ) : RegexNode<TSet> =
 
-        let canonNode =
-            node
+        let canonNode = node
+            // expensive
             // match node.TryGetInfo with
             // | ValueSome info when info.IsCanonical -> node
             // | _ ->
@@ -895,6 +867,7 @@ type RegexMatcher<'t when 't: struct>
 
 
     member this.HandleNullableRev(flags:RegexStateFlags,acc: byref<SharedResizeArrayStruct<int>>,loc,currentStateId) =
+        let dfaState = _stateArray[currentStateId]
         if flags.IsPendingNullable then
             let span = _stateArray[currentStateId].PendingNullablePositions.Span
             for i = span.Length - 1 downto 0 do

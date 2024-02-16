@@ -358,6 +358,14 @@ let ``g bibtex extraction 1.3``() =
         "De Vathaire, Florent"; "Le Vu, B{\\'e}atrice"; "Challeton-de Vathaire, C{\\'e}cile"
     ]
 
+[<Fact>]
+let ``g bibtex extraction 1.4``() =
+    assertAllLLmatchTexts @"(?<=or=\{.*)(?<=\W)(~(.*and.*)&[A-Z][\w-{}\\' ,]+)(?=.*\},)(?=\W)" bibtexEntry [
+        "De Vathaire, Florent"; "Le Vu, B{\\'e}atrice"; "Challeton-de Vathaire, C{\\'e}cile"
+    ]
+    // printAllDerivatives @"(?<=or=\{.*)(?<=\W)(~(.*and.*)&[A-Z][\w-{}\\' ,]+)(?=.*\},)(?=\W)" bibtexEntry [
+    //     ["De Vathaire, Florent";]
+    // ]
 
 
 //

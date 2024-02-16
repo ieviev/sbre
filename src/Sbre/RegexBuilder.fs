@@ -950,7 +950,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             | n, falseNode | falseNode, n when refEq falseNode _false -> n
             | n, trueStarNode | trueStarNode, n when refEq _uniques._trueStar trueStarNode -> trueStarNode
             | n, n2 when refEq n n2 -> n
-            | Epsilon, n | n, Epsilon -> this.mkLoop(struct(n, 0, 1))
+            | Epsilon, n | n, Epsilon -> this.mkLoop(n, 0, 1)
             | Or(nodes=nodes) as orNode, other | other, (Or(nodes=nodes) as orNode) ->
                 if nodes.Contains(other) then orNode else
                 // try subsume lookback here
@@ -963,7 +963,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 while not subsumed && i < nodeArray.Length do
                     let curr = nodeArray[i]
                     let comb = this.combineLanguage(curr, other)
-                    comb |> Option.iter (fun (small,big) ->
+                    comb |> Option.iter (fun (_,big) ->
                         match big with
                         | Or(nodes=langnodes) ->
                             let c1 = langnodes.Contains(curr)
@@ -1369,7 +1369,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 let newArr = Array.zeroCreate key.Length
                 for i = 0 to key.Length - 1 do
                     newArr[i] <- key.Span[i]
-                _orCache.Add(newArr.AsMemory(), v)
+                _orCache.Add(nodeSet, v)
                 v
 
     member this.mkNot(inner: RegexNode< 't >) =
@@ -1431,15 +1431,19 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             | true, v -> v
             | _ ->
                 match head, tail with
-                | _ when refEq head _uniques._trueStar ->
-                    createCached(head,tail)
-
+                | SingletonStarLoop(p1), SingletonStarLoop(p2) ->
+                    if Solver.containsS solver p1 p2 then head
+                    elif Solver.containsS solver p2 p1 then tail
+                    else createCached(head,tail)
+                | SingletonStarLoop(p1), Concat(head=SingletonStarLoop(p2);tail=ctail) ->
+                    if Solver.containsS solver p1 p2 then this.mkConcat2(head,ctail)
+                    elif Solver.containsS solver p2 p1 then this.mkConcat2(tail,ctail)
+                    else createCached(head,tail)
                 // normalize
                 | Concat(head=h1;tail=h2), tail ->
                     let merged = this.mkConcat2(h1,this.mkConcat2(h2,tail))
                     _concatCache.Add(key, merged)
                     merged
-
                 // (?<=a.*)(?<=\W)aa to (?<=⊤*a.*&⊤*\W)aa
                 | LookAround(node=node1;lookBack=true), Concat(head=LookAround(node=node2;lookBack=true;);tail=tail2) ->
                     let combined = this.mkAnd([
@@ -1461,13 +1465,6 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                     let v = this.mkLookaround(combined, false, rel1, pending1) // pass pending nullables
                     _concatCache.Add(key, v)
                     v
-                // \b(?=.*c) - not correct
-                // | SingletonStarLoop(lpred), Concat(head=chead;tail=ctail) ->
-                //     createCached(head,tail)
-                    // let rewritten =
-                    //     nodes |> Seq.map (fun v -> b.mkConcat2(v,tail) ) |> this.mkOr
-                    // _concatCache.Add(key, rewritten)
-                    // rewritten
                 | LookAround(node=Epsilon;lookBack=false;pendingNullables = _), tail when not tail.IsAlwaysNullable ->
                     // Experimental
                     let v =
@@ -1522,6 +1519,13 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 match body, lookBack with
                 | Epsilon, true -> _uniques._eps
                 | _, true when refEq _uniques._trueStar body -> _uniques._eps
+                | _, false when refEq _uniques._trueStar body ->
+                    let flags = Flags.inferLookaround body lookBack
+                    let pendingNull =
+                        if body.CanBeNullable then pendingNullable |> Set.map (fun v -> v + rel)
+                        else Set.empty
+                    let info = this.CreateInfo(flags, solver.Full, pendingNull)
+                    LookAround(_uniques._eps,lookBack, rel,pendingNullable,info)
                 | _ when refEq _uniques._false body -> _uniques._false
                 | _ ->
                     let flags = Flags.inferLookaround body lookBack
@@ -1582,19 +1586,11 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                     Epsilon
             combined
 
-    member this.mkLoop(struct(body: RegexNode< 't >, lower: int, upper: int)) =
+    member this.mkLoop(body: RegexNode< 't >, lower: int, upper: int) =
         let createNode(struct (body: RegexNode< 't >, lower: int, upper: int)) =
-            match body, struct (lower, upper) with
-            | _, LoopKind LoopKind.EmptyLoop -> Epsilon
-            | _, LoopKind LoopKind.Single -> body
-            | Singleton minterm, LoopKind LoopKind.Plus when solver.IsFull(minterm) ->
-                _uniques._trueStar
-            | Singleton minterm, LoopKind LoopKind.Star ->
-                if solver.IsFull(minterm) then
-                    _uniques._trueStar
-                else
-                    let flags = Flags.inferLoop (body, lower, upper)
-                    RegexNode.Loop(body, lower, upper, info = b.CreateInfo(flags, body.SubsumedByMinterm(solver),body.PendingNullables))
+            match body, lower, upper with
+            | _, 0, 0 -> Epsilon
+            | _, 1, 1 -> body
             | _ ->
                 let flags = Flags.inferLoop (body, lower, upper)
                 let info = b.CreateInfo(flags, body.SubsumedByMinterm(solver),body.PendingNullables)

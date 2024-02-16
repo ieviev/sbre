@@ -320,7 +320,7 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
             let inner = body.ToString()
             let pending =
                 if pending.IsEmpty then ""
-                else $"%A{pending}"
+                else $"%A{Seq.toList pending}"
             match lookBack with
             | false-> $"(?={inner})"
             | true -> $"(?<={inner})"
