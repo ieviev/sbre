@@ -41,12 +41,12 @@ open Sbre.Test
 
 //
 
-let b = 1
-let pref = Learning.Learning3()
-pref.Pattern <- pref.Patterns |> Seq.head
-pref.Setup()
-for i = 1 to 500 do
-    pref.Sbre() |> ignore
+// let b = 1
+// let pref = Learning.Learning3()
+// pref.Pattern <- pref.Patterns |> Seq.head
+// pref.Setup()
+// for i = 1 to 500 do
+//     pref.Sbre() |> ignore
 //
 // let bibtexEntry =
 //     @"@article{de2000thyroid,
@@ -68,6 +68,11 @@ for i = 1 to 500 do
 // assert (ms.Length = 3)
 // let asd = 1
 
-
+let b = 1
+let pref = Paper.Rebar3()
+pref.Pattern <- pref.Patterns |> Seq.head
+pref.Setup()
+for i = 1 to 500 do
+    pref.Sbre() |> ignore
 
 

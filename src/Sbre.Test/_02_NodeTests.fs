@@ -97,6 +97,7 @@ let ``_ solver 2``() = assertNotSolverContains12 "a[a-z]"
 let ``a canonical 1.1``() =
     assertConverted "a(|b)|[abc]b?" ["[a-c]b?"]
 
+
 [<Fact>]
 let ``a conversion 1.1``() = assertConverted "1(?! Sep)" [ @"1(?=~( Sep⊤*)\z)" ]
 

@@ -47,6 +47,7 @@ type GenericRegexMatcher() =
     abstract member IsMatch: input: ReadOnlySpan<char> -> bool
     abstract member Replace: input: ReadOnlySpan<char> * replacement: ReadOnlySpan<char> -> string
     abstract member Matches: input: ReadOnlySpan<char> -> MatchResult seq
+    abstract member EnumerateMatches: input: ReadOnlySpan<char> -> Span<MatchPosition>
     abstract member MatchPositions: input: ReadOnlySpan<char> -> MatchPosition seq
     // abstract member MatchText: input:ReadOnlySpan<char> -> string option
     abstract member Match: input: ReadOnlySpan<char> -> SingleMatchResult
@@ -210,7 +211,7 @@ type RegexMatcher<'t when 't: struct>
                         match der with
                         | _ when refEq _cache.False der ->
                             foundFalse <- true
-                        | _ -> derivatives.Add (der)
+                        | _ -> derivatives.Add der
                 if foundFalse then _cache.False else
                 _cache.Builder.mkAnd(derivatives)
             // Derx(~R) = ~Derx (R)
@@ -224,7 +225,7 @@ type RegexMatcher<'t when 't: struct>
                     R'S
                 else
                     if refEq R'S _cache.False then S' else
-                    _cache.Builder.mkOrSeq ([| R'S ;S'|] )
+                    _cache.Builder.mkOrSeq [| R'S ;S'|]
             | Concat(head, tail, _) when head.HasZerowidthHead ->
                 let R' = _createDerivative (&loc, loc_pred, head)
                 let R'S = _cache.Builder.mkConcat2 (R', tail)
@@ -233,7 +234,7 @@ type RegexMatcher<'t when 't: struct>
                     R'S
                 else
                     if refEq R'S _cache.False then S' else
-                    _cache.Builder.mkOrSeq ([| R'S ;S'|] )
+                    _cache.Builder.mkOrSeq [| R'S ;S'|]
             // Derx (R·S) = if Nullx (R) then Derx (R)·S|Derx (S) else Derx (R)·S
             | Concat(head, tail, _) ->
                 let R' = _createDerivative (&loc, loc_pred, head)
@@ -244,7 +245,7 @@ type RegexMatcher<'t when 't: struct>
                         R'S
                     else
                         if refEq R'S _cache.False then S' else
-                        _cache.Builder.mkOrSeq ([| R'S ;S'|] )
+                        _cache.Builder.mkOrSeq [| R'S ;S'|]
                 else R'S
             // Lookahead
             | LookAround(node=R; lookBack=false; relativeTo= rel; pendingNullables= pendingNulls; info = info) ->
@@ -306,9 +307,42 @@ type RegexMatcher<'t when 't: struct>
             let newNode = _cache.Builder.mkConcat2(ch,ct)
             _cache.Builder.GetCanonical(node,mkders newNode,newNode)
         | Or(nodes=nodes; info = info) ->
-            _cache.Builder.GetCanonical(node, mkders node,node)
+            let cnodes = nodes |> Seq.map _canonicalize |> ofSeq |> Seq.toArray
+            let isSubsumedList = ResizeArray()
+            let langs = cnodes |> Seq.map mkders |> Seq.toArray
+            langs
+            |> Seq.indexed
+            |> Seq.pairwise
+            |> Seq.iter (fun ((i,lang1),(j,lang2)) ->
+                    let node1 = cnodes[i]
+                    let node2 = cnodes[j]
+                    if node1.CanBeNullable <> node2.CanBeNullable then () else
+                    let shouldRemoveNode1 =
+                        lang1 |> Seq.mapi (fun idx v ->
+                            refEq v (lang2[idx]) || refEq v _cache.False
+                        ) |> Seq.forall id
+                    if shouldRemoveNode1 then isSubsumedList.Add(i) else
+                    let shouldRemoveNode2 =
+                        lang2 |> Seq.mapi (fun idx v ->
+                            refEq v lang1[idx] || refEq v _cache.False
+                        ) |> Seq.forall id
+                    if shouldRemoveNode2 then isSubsumedList.Add(j) else
+                    ()
+            )
+            let keptNodes =
+                [|
+                    for i = 0 to cnodes.Length - 1 do
+                        if isSubsumedList.Contains(i) then () else
+                        yield cnodes[i]
+                |]
+            let newNode = _cache.Builder.mkOrSeq(keptNodes)
+            _cache.Builder.GetCanonical(node,mkders newNode, newNode)
+            // _cache.Builder.GetCanonical(node, mkders node,node)
         | Singleton _ -> _cache.Builder.GetCanonical(node, mkders node,node)
-        | Loop _ ->  _cache.Builder.GetCanonical(node,mkders node,node)
+        | Loop(regexNode, low, up, regexNodeInfo) ->
+            let inner = _canonicalize regexNode
+            let upd = _cache.Builder.mkLoop(inner, low,up)
+            _cache.Builder.GetCanonical(node,mkders node,upd)
         | And (nodes=nodes) -> // node
             let newAnd = nodes |> Seq.map _canonicalize |> _cache.Builder.mkAnd
             _cache.Builder.GetCanonical(node,mkders node, newAnd)
@@ -505,28 +539,59 @@ type RegexMatcher<'t when 't: struct>
         Node.getFixedLength reverseNode
 
 
+    member this.IsMatchRev
+        (
+            loc: byref<Location>
+        ) : bool =
+        assert (loc.Position > -1)
+        assert (loc.Reversed = true)
+        let mutable looping = true
+        let mutable found = false
+        let mutable currentStateId = DFA_TR_rev
+
+
+        while looping do
+            let flags = _flagsArray[currentStateId]
+            // let mutable dfaState = _stateArray[currentStateId]
+#if SKIP
+            if (flags.CanSkipInitial && this.TrySkipInitialRev(&loc, &currentStateId))
+                then ()
+            else
+#endif
+            if this.StateIsNullable(flags, &loc, currentStateId) then
+                found <- true
+                looping <- false
+
+            if loc.Position > 0 then
+                this.TakeTransition(flags, &currentStateId, &loc)
+                loc.Position <- loc.Position - 1
+            else
+                looping <- false
+        found
+
     override this.IsMatch(input) =
-        let mutable currPos = 0
-        let mutable _ = Location.createSpan input currPos
+        let mutable loc = Location.createReversedSpan input
         let mutable _toplevelOr = _cache.False
+        if not reverseTrueStarredNode.DependsOnAnchor then
+            this.IsMatchRev(&loc)
+        else
+        // ismatch with anchors is more complex than nullability
         match this.llmatch_all_count_only(input) with
         | 0 -> false
         | _ -> true
-        // match this.DfaMatchEnd(&startLocation, DFA_TR, searchMode=RegexSearchMode.FirstNullable) with
-        // | -2 -> false
-        // | _ -> true
+
 
     override this.Match(input) : SingleMatchResult =
-        let firstMatch = this.MatchPositions(input) |> Seq.tryHead
-
-        match firstMatch with
-        | None -> {
+        let firstMatch = this.MatchPositions(input) |> Seq.toArray
+        match firstMatch.Length = 0 with
+        | true -> {
             Success = false
             Value = ""
             Index = 0
             Length = 0
           }
-        | Some result ->
+        | false ->
+            let result = firstMatch[0]
             {
                 Success = true
                 Value = input.Slice(result.Index, result.Length).ToString()
@@ -563,7 +628,7 @@ type RegexMatcher<'t when 't: struct>
 
     /// counts the number of matches
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    override this.Count(input) = this.llmatch_all_count_only (input)
+    override this.Count(input) = this.llmatch_all_count_only input
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.CreateStartset(state: MatchingState, initial: bool) =
@@ -593,6 +658,7 @@ type RegexMatcher<'t when 't: struct>
     member this.GetStateAndFlagsById(stateId: int) = _stateArray[stateId]
 #endif
 
+
     member this.TakeTransition
         (
             flags: RegexStateFlags,
@@ -605,7 +671,7 @@ type RegexMatcher<'t when 't: struct>
 
         // caching workaround until context implementation
         // if flags.CannotBeCached || loc.Position = loc.Input.Length then
-        if flags.CannotBeCached && (loc.Position = loc.Input.Length || loc.Position = 0) then
+        if (loc.Position = loc.Input.Length || loc.Position = 0) && flags.CannotBeCached then
             let nextState = this.TryNextDerivative(&currentState, mintermId, &loc)
             // _dfaDelta[dfaOffset] <- nextState
             currentState <- nextState
@@ -673,7 +739,7 @@ type RegexMatcher<'t when 't: struct>
             let mutable dfaState = _stateArray[currentStateId]
             let flags = dfaState.Flags
 #if DEBUG
-            debugFn |> Option.iter (fun fn -> fn (dfaState))
+            debugFn |> Option.iter (fun fn -> fn dfaState)
 #endif
             if flags.IsDeadend then
                 looping <- false
@@ -865,7 +931,6 @@ type RegexMatcher<'t when 't: struct>
 
 
     member this.HandleNullableRev(flags:RegexStateFlags,acc: byref<SharedResizeArrayStruct<int>>,loc,currentStateId) =
-        let dfaState = _stateArray[currentStateId]
         if flags.IsPendingNullable then
             let span = _stateArray[currentStateId].PendingNullablePositions.Span
             for i = span.Length - 1 downto 0 do
@@ -938,18 +1003,13 @@ type RegexMatcher<'t when 't: struct>
                 looping <- false
         ders |> Seq.toList
 
-    member this.llmatch_all(input: ReadOnlySpan<char>) : ResizeArray<MatchPosition> =
+    member this.llmatch_all(input: ReadOnlySpan<char>) : SharedResizeArrayStruct<MatchPosition> =
 
-        let matches = ResizeArray(100)
+        let mutable matches = new SharedResizeArrayStruct<MatchPosition>(100)
         let mutable loc = Location.createReversedSpan input
         use mutable acc = new SharedResizeArrayStruct<int>(100)
         let allPotentialStarts =
-            if reverseTrueStarredNode.IsAlwaysNullable then
-                for i = loc.Input.Length downto 0 do
-                    acc.Add(i)
-                acc
-            else
-                this.CollectReverseNullablePositions(&acc, &loc)
+            this.CollectReverseNullablePositions(&acc, &loc)
         loc.Reversed <- false
         let mutable nextValidStart = 0
         let startSpans = allPotentialStarts.AsSpan()
@@ -962,13 +1022,12 @@ type RegexMatcher<'t when 't: struct>
                     match _initialFixedLength with
                     | Some fl -> currStart + fl
                     | _ -> this.DfaEndPosition(&loc, DFA_R_noPrefix)
-                match matchEnd with
-                | -2 -> ()
-                | _ ->
-                    matches.Add({ MatchPosition.Index = currStart; Length = (matchEnd - currStart) })
-                    nextValidStart <- matchEnd
-
+                matches.Add({ MatchPosition.Index = currStart; Length = (matchEnd - currStart) })
+                nextValidStart <- matchEnd
         matches
+
+
+
 
 
     member this.llmatch_all_count_only(input: ReadOnlySpan<char>) : int =
@@ -1002,7 +1061,10 @@ type RegexMatcher<'t when 't: struct>
         matchCount
 
     /// return just the positions of matches without allocating the result
-    override this.MatchPositions(input) = this.llmatch_all input
+    override this.MatchPositions(input) = (this.llmatch_all input).AsArray()
+    override this.EnumerateMatches(input) = (this.llmatch_all input).AsSpan()
+
+
 
 
     // accessors
@@ -1120,6 +1182,9 @@ type Regex(pattern: string, [<Optional; DefaultParameterValue(false)>] _experime
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     override this.MatchPositions(input) = matcher.MatchPositions(input)
+
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    override this.EnumerateMatches(input) = matcher.EnumerateMatches(input)
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     override this.Matches(input) = matcher.Matches(input)

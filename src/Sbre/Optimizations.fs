@@ -135,14 +135,10 @@ let rec calcPrefixSets getNonInitialDerivative (getStateFlags: RegexNode<_> -> R
 
 
     let rec loop (acc:TSet list) node =
-        // let isRedundant = not (redundant.Add(node))
-        // let all_derivs = getImmediateDerivativesMerged cache node |> Seq.toArray
         let prefix_derivs =
             getNonRedundantDerivatives getNonInitialDerivative cache redundant node
             |> Seq.toArray
 
-        // a -> t
-        // if stateFlags.CanSkip && not (refEq startNodeWithoutComplement node) then acc |> List.rev else
         if not acc.IsEmpty && redundant.Contains(node) then
             acc |> List.rev
         elif node.CanBeNullable  then
@@ -391,47 +387,6 @@ let tryGetLimitedSkip getNonInitialDerivative (nodeToId:RegexNode<TSet> -> int) 
                 )
         | _ -> None
     | _ -> None
-
-
-// let rec collectPendingNullables
-//     (canBeNull:RegexNode<_> -> bool)
-//     (node:RegexNode<_>): Set<int> // canBeNull, isPositive, relativePos,
-//         =
-//     match node with
-//     // pos. lookahead
-//     | LookAround(node=lookBody; lookBack=false; relativeTo= rel; pendingNullables=relativeNullablePos) ->
-//         let canBeNull = canBeNull lookBody
-//         if canBeNull && not relativeNullablePos.IsEmpty then
-//             relativeNullablePos
-//             |> Seq.map (fun v -> rel + v ) |> set
-//         else Set.empty
-//     | Or(nodes, info) ->
-//         let pendingNullables =
-//             nodes
-//             |> Seq.collect (collectPendingNullables canBeNull)
-//         Set.ofSeq pendingNullables
-//     | And(nodes, regexNodeInfo) ->
-//         let pendingNullables =
-//             nodes
-//             |> Seq.collect (collectPendingNullables canBeNull)
-//         Set.ofSeq pendingNullables
-//     | Loop(node=node) | Not (node=node) ->
-//         let pending = (collectPendingNullables canBeNull) node
-//         if not pending.IsEmpty then
-//             failwith $"todo: collect pending nullables inside: {node}"
-//         else Set.empty
-//     | Epsilon | Anchor _ | Singleton _ -> Set.empty
-//     | LookAround(_) | Concat(head=LookAround(_)) -> Set.empty
-//     | Concat(info=info) when info.CanNotBeNullable() -> Set.empty
-//     | Concat(head=head; tail=tail) when head.IsAlwaysNullable ->
-//         let pendingTail = collectPendingNullables canBeNull tail
-//         pendingTail
-//     | Concat(head=Anchor _; tail=tail) ->
-//         let pendingTail = collectPendingNullables canBeNull tail
-//         pendingTail
-//     | Concat(head=head; tail=tail) ->
-//         let pendingTail = collectPendingNullables canBeNull tail
-//         pendingTail
 
 
 let rec nodeWithoutLookbackPrefix

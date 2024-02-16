@@ -1404,6 +1404,10 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
         let converted = solver.ConvertFromBDD(bdd, bcss)
         this.one converted
 
+    member this.bddFromClass(setClass: string) =
+        let bdd = converter.CreateBDDFromSetString(setClass)
+        bdd
+
     member this.bddFromSetString(setPattern: string) = converter.CreateBDDFromSetString(setPattern)
 
     member this.mkConcat2(head: RegexNode< 't >, tail: RegexNode< 't >) : RegexNode< 't > =

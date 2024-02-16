@@ -574,9 +574,9 @@ type SharedResizeArrayStruct<'t> =
         while not found && e.MoveNext() do
             found <- obj.ReferenceEquals(e.Current,item)
         found
-    // member this.GetEnumerator() =
-    //     let mutable e = this.pool.AsSpan(0, this.size).GetEnumerator()
-    //     e
+    member this.GetEnumerator() =
+        let mutable e = this.pool.AsSpan(0, this.size).GetEnumerator()
+        e
     member this.Length = this.size
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.AsSpan() = this.pool.AsSpan(0, this.size)

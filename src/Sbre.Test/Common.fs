@@ -351,7 +351,7 @@ let getDfaMatchEnd (pattern:string) (input:string) (startPos:int)  =
 let getFirstLLmatch (pattern:string) (input:string) =
     let regex = Regex(pattern)
     let matcher = regex.TSetMatcher
-    let llmatches = matcher.llmatch_all(input) |> Seq.head
+    let llmatches = matcher.llmatch_all(input).AsArray()[0]
     (llmatches.Index,llmatches.Index+llmatches.Length)
 
 let getFirstLLmatchText (pattern:string) (input:string) =
@@ -363,8 +363,10 @@ let getFirstLLmatchText (pattern:string) (input:string) =
 let getAllLLmatches (pattern:string) (input:string) =
     let regex = Regex(pattern)
     let matcher = regex.TSetMatcher
-    let results = matcher.llmatch_all(input)
-    results
+    let rs = ResizeArray()
+    for r in matcher.llmatch_all(input) do
+        rs.Add(r)
+    rs
 
 
 let assertFirstMatch (pattern:string) (input:string) (expected) =

@@ -25,7 +25,7 @@ let rewriteNegativeLookaround (b:RegexBuilder<BDD>) (lookBack:bool) (node:RegexN
         b.mkLookaround( conc, false, 0, Set.empty)
 
 
-let rec determineWordBorderNodeKind (left:bool) (node:RegexNode) =
+let rec determineWordBorderNodeKind (b:RegexBuilder<BDD>) (css:CharSetSolver) (left:bool) (node:RegexNode) =
     let rtl = node.Options.HasFlag(RegexOptions.RightToLeft)
     let trueLeft = if rtl then not left else left
     let edgeIdx = if trueLeft then node.ChildCount() - 1 else 0
@@ -36,7 +36,17 @@ let rec determineWordBorderNodeKind (left:bool) (node:RegexNode) =
         | RegexCharClass.NotSpaceClass
         | RegexCharClass.WordClass -> Some true
         | RegexCharClass.SpaceClass -> Some false
-        | _ -> unhandled()
+        | RegexCharClass.AnyClass -> None
+        | _ ->
+            let ranges = RegexCharClass.ComputeRanges(setStr)
+            let bdd = css.CreateBDDFromRanges(ranges)
+            let sbdd = b.bddFromClass(RegexCharClass.SpaceClass)
+            // no whitespace
+            if css.IsEmpty(css.And(bdd,sbdd)) then Some true else
+            let wbdd = b.bddFromClass(RegexCharClass.WordClass)
+            // no wordchars
+            if css.IsEmpty(css.And(bdd,wbdd)) then Some false else
+            unhandled()
 
     match node.Kind with
     | RegexNodeKind.One ->
@@ -64,35 +74,35 @@ let rec determineWordBorderNodeKind (left:bool) (node:RegexNode) =
 
     | RegexNodeKind.Conjunction ->
         children2Seq node
-        |> Seq.map (determineWordBorderNodeKind left)
+        |> Seq.map (determineWordBorderNodeKind b css left)
         |> Seq.tryPick id
 
     | RegexNodeKind.Capture
     | RegexNodeKind.Concatenate
     | RegexNodeKind.PositiveLookaround ->
         let edgeChild = node.Child(edgeIdx)
-        determineWordBorderNodeKind left edgeChild
+        determineWordBorderNodeKind b css left edgeChild
     | _ -> None
 
-let toLeft (outer:RegexNode array) idx =
+let toLeft (b:RegexBuilder<BDD>) (css:CharSetSolver) (outer:RegexNode array) idx =
     match idx with
     | 0 -> None
     | n ->
         let temp = outer[n-1]
-        let kind = determineWordBorderNodeKind true temp
+        let kind = determineWordBorderNodeKind b css true temp
         kind
 
-let toRight (outer:RegexNode array) idx =
+let toRight (b:RegexBuilder<BDD>) (css:CharSetSolver) (outer:RegexNode array) idx =
     match idx with
     | n when n = outer.Length - 1 -> None
     | n ->
         let temp = outer[n+1]
-        let kind = determineWordBorderNodeKind false temp
+        let kind = determineWordBorderNodeKind b css false temp
         kind
 
-let rewriteWordBorder (b:RegexBuilder<BDD>) (outer:RegexNode array) (idx:int) ((node): RegexNode) =
-    let left = toLeft outer idx
-    let right = toRight outer idx
+let rewriteWordBorder (b:RegexBuilder<BDD>) (css:CharSetSolver) (outer:RegexNode array) (idx:int) (node: RegexNode) =
+    let left = toLeft b css outer idx
+    let right = toRight b css outer idx
     match left, right with
     | _, Some true -> b.anchors._nonWordLeft.Value // wordchar right
     | _, Some false -> b.anchors._wordLeft.Value // nonwordright
@@ -110,7 +120,7 @@ let convertToSymbolicRegexNode
     (
         css: CharSetSolver,
         builder: RegexBuilder<BDD>,
-        rootNode: System.Text.RuntimeRegexCopy.RegexNode
+        rootNode: RegexNode
     )
     : RegexNode<BDD>
     =
@@ -118,11 +128,11 @@ let convertToSymbolicRegexNode
 
     let rec loop
         (acc: Types.RegexNode<BDD> list)
-        (node: System.Text.RuntimeRegexCopy.RegexNode)
+        (node: RegexNode)
         : RegexNode<BDD> list
         =
 
-        let rec convertAdjacent (adjacent:System.Text.RuntimeRegexCopy.RegexNode[]) (idx:int) (node: System.Text.RuntimeRegexCopy.RegexNode): RegexNode<BDD> list =
+        let rec convertAdjacent (adjacent:RegexNode[]) (idx:int) (node: RegexNode): RegexNode<BDD> list =
             match node.Kind with
             | RegexNodeKind.Alternate ->
                 let inner = node |> children2Seq
@@ -133,12 +143,12 @@ let convertToSymbolicRegexNode
                     |> b.mkOrSeq
                 [allrewritten]
             | RegexNodeKind.Boundary ->
-                let rewritten = (rewriteWordBorder b adjacent idx (node))
+                let rewritten = (rewriteWordBorder b css adjacent idx node)
                 [rewritten]
             | _ -> (loop []) node
 
 
-        let convertConcat(outerConcat: System.Text.RuntimeRegexCopy.RegexNode): RegexNode<BDD> list =
+        let convertConcat(outerConcat: RegexNode): RegexNode<BDD> list =
             let outerCorrectOrder =
                 match outerConcat.Options.HasFlag(RegexOptions.RightToLeft) with
                 | true -> node |> children2Seq |> Seq.rev
@@ -149,7 +159,7 @@ let convertToSymbolicRegexNode
             |> Seq.collect id
             |> Seq.toList
 
-        let convertChildren(node: System.Text.RuntimeRegexCopy.RegexNode): RegexNode<BDD> list =
+        let convertChildren(node: RegexNode): RegexNode<BDD> list =
             let nodeseq =
                 match node.Options.HasFlag(RegexOptions.RightToLeft) with
                 | true -> node |> children2Seq |> Seq.rev
@@ -159,7 +169,7 @@ let convertToSymbolicRegexNode
             nodeseq |> Seq.collect (loop []) |> Seq.toList
 
 
-        let convertSingle(node: System.Text.RuntimeRegexCopy.RegexNode) =
+        let convertSingle(node: RegexNode) =
             node |> (loop [])
 
         match node.Kind with
@@ -239,7 +249,7 @@ let convertToSymbolicRegexNode
             b.mkLoop (b.one bdd, node.M, node.N) :: acc
         | RegexNodeKind.Empty -> acc
         | RegexNodeKind.PositiveLookaround ->
-            let conc = b.mkConcat (convertConcat (node))
+            let conc = b.mkConcat (convertConcat node)
             builder.mkLookaround(conc,node.Options.HasFlag(RegexOptions.RightToLeft), 0, Set.empty)
             :: acc
         | RegexNodeKind.NegativeLookaround ->

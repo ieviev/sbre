@@ -529,7 +529,7 @@ type SbreCombinedSearch(words: string list, input: string) =
 
     [<Benchmark>]
     member this.MatchWithConj() =
-        this.CombinedRegex.MatchPositions(inputText) |> Seq.toArray
+        this.CombinedRegex.MatchPositions(inputText) |> Seq.length
 
 
 
@@ -1449,7 +1449,28 @@ type TestSbreAllPatternsMatchOnly(patterns: (string) list, input: string) =
     member this.Sbre() =
         this.CompiledEngine.Count(inputText)
 
+[<MemoryDiagnoser(false)>]
+[<ShortRunJob>]
+[<AbstractClass>]
+[<HideColumns([| "" |])>]
+type TestSbreAllPatternsCountSpans(patterns: (string) list, input: string) =
+    let inputText = input
+    member this.Patterns: System.Collections.Generic.IEnumerable<string> = patterns
+    member val CompiledEngine: Sbre.RegexMatcher<TSet> = Unchecked.defaultof<_> with get, set
+    [<ParamsSource("Patterns")>]
+    member val Pattern: string = "" with get, set
 
+    [<GlobalSetup>]
+    member this.Setup() =
+        let regex = Regex(this.Pattern)
+        let matcher = regex.Matcher :?> RegexMatcher<TSet>
+        this.CompiledEngine <- matcher
+        ()
+
+    [<Benchmark(Description = "Sbre")>]
+    member this.Sbre() =
+        use asd = this.CompiledEngine.llmatch_all(inputText)
+        ()
 
 [<MemoryDiagnoser(false)>]
 [<ShortRunJob>]

@@ -362,6 +362,40 @@ type TwainRegexesMatchOnly() =
             fullInput
         )
 
+let sherlock = "/mnt/g/repos/rebar/benchmarks/haystacks/sherlock.txt" |> System.IO.File.ReadAllText
+
+type Rebar1() =
+    inherit
+        Jobs.TestAllEnginesAllPatternsMatchOnly(
+            [
+               """Sherlock Holmes"""
+            ],
+            fullInput
+        )
+
+type Rebar2() =
+    inherit
+        Jobs.TestAllEnginesAllPatternsMatchOnly(
+            [
+               """\b[0-9A-Za-z_]+\b"""
+            ],
+            "/mnt/g/repos/rebar/benchmarks/haystacks/opensubtitles/en-sampled.txt" |> System.IO.File.ReadAllText
+        )
+
+
+type Rebar3() =
+    inherit
+        Jobs.TestSbreAllPatternsCountSpans(
+        // Jobs.TestSbreAllPatternsMatchOnly(
+        // Jobs.TestAllEnginesAllPatternsMatchOnly(
+            [
+               """.*.*=.*"""
+            ],
+            "/mnt/g/repos/rebar/benchmarks/haystacks/cloud-flare-redos.txt" |> System.IO.File.ReadAllText
+        )
+
+
+
 type CounterCompileTimeRegexes() =
     inherit
         Jobs.TestSbreAllPatternsWithCompileTime(
@@ -432,6 +466,8 @@ type ParagraphRegexes() =
             ["Huck"; "Finn"; "Tom"; "Sawyer"; "Usually"],
             fullInput
         )
+
+
 
 
 

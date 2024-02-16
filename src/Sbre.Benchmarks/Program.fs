@@ -134,6 +134,11 @@ let main argv =
     | "s" -> BenchmarkRunner.Run(typeof<Paper.SampleRegexes>,config) |> ignore
 
 
+    | "rebar1" -> BenchmarkRunner.Run(typeof<Paper.Rebar1>,config) |> ignore
+    | "rebar2" -> BenchmarkRunner.Run(typeof<Paper.Rebar2>,config) |> ignore
+    | "rebar3" -> BenchmarkRunner.Run(typeof<Paper.Rebar3>,config) |> ignore
+
+
     // words in paragraph
     | "paper-pg-1" -> BenchmarkRunner.Run(typeof<Paper.ParagraphLong1Word>,config) |> ignore
     | "paper-pg-2" -> BenchmarkRunner.Run(typeof<Paper.ParagraphLong2Word>,config) |> ignore
