@@ -70,22 +70,6 @@ type MatchingState(node: RegexNode<TSet>) =
     member val StartsetChars: SearchValues<char> = Unchecked.defaultof<_> with get, set
     member val StartsetIsInverted: bool = Unchecked.defaultof<_> with get, set
 
-    member this.SetStartset(c: RegexCache<TSet>, set: TSet) =
-        let setChars = c.MintermSearchValues(set)
-        match setChars with
-        | None ->
-            let minterms = c.Minterms()
-            let isInverted = Solver.elemOfSet set minterms[0]
-            this.Startset <- set
-            this.StartsetChars <- Unchecked.defaultof<_>
-            this.StartsetIsInverted <- isInverted
-        | Some setChars ->
-            let minterms = c.Minterms()
-            let isInverted = Solver.elemOfSet set minterms[0]
-            this.Startset <- set
-            this.StartsetChars <- setChars
-            this.StartsetIsInverted <- isInverted
-
 
 
 type RegexSearchMode =
@@ -725,10 +709,6 @@ type RegexMatcher<'t when 't: struct>
         (
             loc: byref<Location>,
             startStateId: int
-#if DEBUG
-            ,
-            ?debugFn: MatchingState -> unit
-#endif
         ) : int32 =
         assert (loc.Position > -1)
         let mutable looping = true
@@ -737,17 +717,14 @@ type RegexMatcher<'t when 't: struct>
 
         while looping do
             let mutable dfaState = _stateArray[currentStateId]
-            let flags = dfaState.Flags
-#if DEBUG
-            debugFn |> Option.iter (fun fn -> fn dfaState)
-#endif
+            let flags = _flagsArray[currentStateId]
+
             if flags.IsDeadend then
                 looping <- false
             else
-            if flags.CanSkip then
-                let ss = dfaState.Startset
-                if isNull dfaState.StartsetChars then () else
-                _cache.TryNextStartsetLocation(&loc, ss)
+            if flags.CanSkipLeftToRight then
+                this.TrySkipActiveLeftToRight(&loc, &currentStateId)
+
 
             // set max nullability after skipping
             if this.StateIsNullable(flags, &loc, currentStateId) then
@@ -761,7 +738,7 @@ type RegexMatcher<'t when 't: struct>
             if loc.Position < loc.Input.Length then
                 this.TakeTransition(flags, &currentStateId, &loc)
 
-                loc.Position <- Location.nextPosition loc
+                loc.Position <- loc.Position + 1
             else
                 looping <- false
 
@@ -877,6 +854,7 @@ type RegexMatcher<'t when 't: struct>
             //     false
         | InitialOptimizations.PotentialStartPrefix prefix ->
             let skipResult = _cache.TryNextStartsetLocationArrayReversed( &loc, prefix.Span )
+            // let skipResult = _cache.TryNextSetReversed( &loc, prefix.Span[0] )
             match skipResult with
             | ValueSome resultEnd ->
                 let n = resultEnd <> loc.Position
@@ -928,7 +906,20 @@ type RegexMatcher<'t when 't: struct>
                 true
             else
                 false
-
+     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+     member this.TrySkipActiveLeftToRight(loc: byref<Location>, currentStateId:byref<int>) : unit =
+        let dfaState = _stateArray[currentStateId]
+        let isInverted = Solver.elemOfSet dfaState.Startset _minterms[0]
+        let setChars = dfaState.StartsetChars
+        if isNull setChars then () else
+        let slice = loc.Input.Slice(loc.Position)
+        let sharedIndex =
+            if isInverted then slice.IndexOfAnyExcept(setChars)
+            else slice.IndexOfAny(setChars)
+        if sharedIndex = -1 then
+            loc.Position <- Location.final loc
+        else
+            loc.Position <- loc.Position + sharedIndex
 
     member this.HandleNullableRev(flags:RegexStateFlags,acc: byref<SharedResizeArrayStruct<int>>,loc,currentStateId) =
         if flags.IsPendingNullable then
@@ -1022,8 +1013,11 @@ type RegexMatcher<'t when 't: struct>
                     match _initialFixedLength with
                     | Some fl -> currStart + fl
                     | _ -> this.DfaEndPosition(&loc, DFA_R_noPrefix)
-                matches.Add({ MatchPosition.Index = currStart; Length = (matchEnd - currStart) })
-                nextValidStart <- matchEnd
+                match matchEnd with
+                | -2 -> ()
+                | _ ->
+                    matches.Add({ MatchPosition.Index = currStart; Length = (matchEnd - currStart) })
+                    nextValidStart <- matchEnd
         matches
 
 

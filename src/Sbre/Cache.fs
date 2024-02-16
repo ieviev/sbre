@@ -62,14 +62,7 @@ type RegexCache< 't
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.MintermChars(startset: TSet) : Memory<char> option = StartsetHelpers.getMintermChars(_solver,predStartsets, minterms, startset)
 
-    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    member this.SkipIndexOfAny(loc: byref<Location>, setChars: SearchValues<char>) : unit =
-        if isNull setChars then () else
-        let slice = loc.Input.Slice(loc.Position)
-        let sharedIndex = slice.IndexOfAny(setChars)
-        loc.Position <- loc.Position + sharedIndex
-        if sharedIndex = -1 then
-            loc.Position <- Location.final loc
+
 
 
 
@@ -298,6 +291,29 @@ type RegexCache< 't
                     currpos <- potential - 1
 
         resultEnd
+
+    member this.TryNextSetReversed(loc: inref<Location>, setSpan: TSet) =
+        assert loc.Reversed
+        let inputSpan = loc.Input
+        let mutable currpos = loc.Position
+        let mutable skipping = true
+        let mutable slice: ReadOnlySpan<char> = inputSpan.Slice(0, currpos)
+        match this.MintermSearchValues(setSpan) with
+        | None -> ValueNone
+        | Some chars ->
+        let isInverted = Solver.elemOfSet setSpan minterms[0]
+
+        skipping <- false
+        let sharedIndex =
+            slice <- inputSpan.Slice(0, currpos)
+            if not isInverted then
+                slice.LastIndexOfAny(chars)
+            else
+                slice.LastIndexOfAnyExcept(chars)
+
+        match sharedIndex with
+        | -1 -> ValueNone
+        | _ ->ValueSome (sharedIndex + 1)
 
     member this.TryNextStartsetLocationArrayReversed(loc: inref<Location>, setSpan: ReadOnlySpan<TSet>) =
         assert loc.Reversed

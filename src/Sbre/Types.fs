@@ -139,6 +139,9 @@ module RegexStateFlagsExtensions =
             RegexStateFlags.CanSkipFlag |||
             RegexStateFlags.InitialFlag |||
             RegexStateFlags.CanBeNullableFlag) = RegexStateFlags.CanSkipFlag
+
+        member this.CanSkipLeftToRight = this &&& RegexStateFlags.CanSkipFlag = RegexStateFlags.CanSkipFlag
+
         [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
         member this.HasPrefix = this &&& RegexStateFlags.HasPrefixFlag = RegexStateFlags.HasPrefixFlag
         [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
