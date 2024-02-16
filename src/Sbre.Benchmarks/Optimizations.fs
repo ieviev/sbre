@@ -42,7 +42,7 @@ let collectNullablePositionsNoSkip ( matcher: RegexMatcher<TSet>, loc: byref<Loc
     nullableCount
 
 
-let collectNullablePositions2 ( matcher: RegexMatcher<TSet>, loc: byref<Location> ) =
+let collectNullablePositionsOriginal ( matcher: RegexMatcher<TSet>, loc: byref<Location> ) =
     assert (loc.Position > -1)
     assert (loc.Reversed = true)
     let mutable looping = true
@@ -56,12 +56,7 @@ let collectNullablePositions2 ( matcher: RegexMatcher<TSet>, loc: byref<Location
         dfaState <- _stateArray[currentStateId]
         let flags = dfaState.Flags
         if flags.IsInitial then
-            // input: abc|def <-  pattern: abc
-            // Huck
-            // asfsdfgsdfgfgHuckgfsdgfdg|
-            // asfsdfgsdfgfgHuck|gfsdgfdg
-            let newPosition = loc.Position
-            loc.Position <- newPosition
+            matcher.TrySkipInitialRev(&loc, &dfaState, &currentStateId)
 
         if matcher.StateIsNullable(flags, rstate, &loc, dfaState) then
             nullableCount <- nullableCount + 1
@@ -239,6 +234,12 @@ type PrefixCharsetSearch () =
         let textSpan = fullInput.AsSpan()
         let mutable loc = Location.createReversedSpan textSpan // end position, location reversed
         collectNullablePositionsNoSkip (matcher,&loc)
+
+    [<Benchmark>]
+    member this.Test2() =
+        let textSpan = fullInput.AsSpan()
+        let mutable loc = Location.createReversedSpan textSpan // end position, location reversed
+        collectNullablePositionsOriginal (matcher,&loc)
 
 
     member this.TestSkip(loc:Location) : int =
