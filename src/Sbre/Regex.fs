@@ -231,6 +231,7 @@ type RegexMatcher<'t when 't: struct>
     let _initialFixedLength =
         Optimizations.getFixedLength reverseNode
 
+    member this.DfaStateArray = _stateArray
 
     override this.IsMatch(input) =
         let mutable currPos = 0
@@ -358,7 +359,7 @@ type RegexMatcher<'t when 't: struct>
         | _ -> node
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    member private this.StateIsNullable
+    member this.StateIsNullable
         (
             flags: RegexStateFlags,
             rstate,
@@ -995,7 +996,7 @@ type Regex(pattern: string, [<Optional; DefaultParameterValue(false)>] _experime
     override this.Match(input) = matcher.Match(input)
 
     member this.Matcher: GenericRegexMatcher = matcher
-
+  
     member this.TSetMatcher: RegexMatcher<TSet> = matcher :?> RegexMatcher<TSet>
     member this.InitialReversePrefix =
         Sbre.Optimizations.findInitialOptimizations
