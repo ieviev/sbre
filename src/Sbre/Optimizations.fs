@@ -439,7 +439,7 @@ let rec nodeWithoutLookbackPrefix
     (node:RegexNode<_>) =
     match node with
     | LookAround(lookBack = true) -> Epsilon
-    | Anchor _ -> Epsilon
+    | Begin | End -> Epsilon
     | Concat(head=LookAround(lookBack = true); tail=tail) ->
         nodeWithoutLookbackPrefix b tail
     | Concat(head=head; tail=tail) ->

@@ -135,10 +135,8 @@ type RegexMatcher<'t when 't: struct>
         | Concat(head, tail, _) ->
             _isNullable (&loc, head) && _isNullable (&loc, tail)
         | LookAround(body, _, _, _,info) -> _isNullable(&loc,body)
-        | Anchor regexAnchor ->
-            match regexAnchor with
-            | End -> loc.Position = loc.Input.Length
-            | Begin -> loc.Position = 0
+        | End -> loc.Position = loc.Input.Length
+        | Begin -> loc.Position = 0
 
 
     let rec _createDerivative (
@@ -261,7 +259,7 @@ type RegexMatcher<'t when 't: struct>
             | LookAround(node=R; lookBack=true; relativeTo= rel; pendingNullables= relativeNullablePos; info = info) ->
                 let der_R = _createDerivative (&loc, loc_pred, R)
                 _cache.Builder.mkLookaround(der_R, true, 0, Set.empty)
-            | Anchor _ -> _cache.False
+            | Begin | End -> _cache.False
 
 
 #if NO_CACHE_BUILDER
@@ -318,7 +316,7 @@ type RegexMatcher<'t when 't: struct>
             _cache.Builder.GetCanonical(node, mkders node,_cache.Builder.mkNot(_canonicalize inner))
         | LookAround _ ->
             node
-        | Anchor _
+        | Begin | End
         | Epsilon -> node
 
 

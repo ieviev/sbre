@@ -42,7 +42,7 @@ module RegexNode =
             let reversedList = revConcatNode [] node
             builder.mkConcat reversedList
         | Epsilon -> node
-        | Anchor regexAnchor -> node
+        | Begin | End -> node
 
     let inline getCachedTransition(pred: ^t, node: RegexNode< ^t >) =
         node.TryGetInfo

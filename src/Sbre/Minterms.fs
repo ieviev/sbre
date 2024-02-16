@@ -36,7 +36,8 @@ let rec transform
         let tail' = transformInner tail
         builder.mkConcat2(head',tail')
     | Epsilon -> Epsilon
-    | Anchor regexAnchor -> Anchor regexAnchor
+    | Begin -> Begin
+    | End -> End
 
 
 let collectSets (node: RegexNode<'tset>) =
@@ -54,7 +55,7 @@ let collectSets (node: RegexNode<'tset>) =
         | Concat(head,tail, info) ->
             collect head
             collect tail
-        | Epsilon | Anchor _ -> ()
+        | Epsilon | Begin | End -> ()
     collect node
     hs
 

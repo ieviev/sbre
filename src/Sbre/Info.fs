@@ -142,7 +142,7 @@ module rec Flags =
         | And(_, info) -> info.NodeFlags
         | Not(_, info) -> info.NodeFlags
         | LookAround(info=info) -> info.NodeFlags
-        | Anchor _ -> node.GetFlags()
+        | Begin | End -> node.GetFlags()
 
     let inferNot(inner: RegexNode<'t>) =
         let innerInfo = inferNodeOptimized inner
@@ -187,7 +187,7 @@ module Node =
             | Loop _ -> None
             | Not _ -> None
             | LookAround _ -> Some (0 + acc)
-            | Anchor _ -> Some (0 + acc)
+            | Begin | End -> Some (0 + acc)
         loop 0 node
 
     let rec getMinLength (node: RegexNode<_>) =
@@ -213,7 +213,7 @@ module Node =
             | Loop _ -> None
             | Not _ -> None
             | LookAround _ -> Some (0 + acc)
-            | Anchor _ -> Some (0 + acc)
+            | Begin | End -> Some (0 + acc)
         loop 0 node
 
     let rec containsRecursive (orNodes:NodeSet<'t>) (node: RegexNode<'t>)  =
@@ -237,7 +237,7 @@ module Node =
         | Singleton _ -> false
         | LookAround _ -> false
         | Epsilon -> false
-        | Anchor _ -> false
+        | Begin | End -> false
 
 
     let inline isAlwaysNullableV(vinfo: RegexNodeInfo<'t> voption, node:RegexNode<'t>) =
@@ -252,7 +252,7 @@ module Node =
         | Singleton _ -> false
         | LookAround _ -> true
         | Epsilon -> true
-        | Anchor _ -> true
+        | Begin | End -> true
 
     let inline canBeNullableV(vinfo: RegexNodeInfo<'t> voption, node:RegexNode<'t>)=
         match vinfo with
@@ -266,7 +266,7 @@ module Node =
         | Singleton _ -> false
         | LookAround _ -> true
         | Epsilon -> false
-        | Anchor _ -> false
+        | Begin | End -> false
 
     let inline canNotBeNullable(node: RegexNode<'t>) =
         not (canBeNullable node)

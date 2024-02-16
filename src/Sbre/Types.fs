@@ -159,7 +159,6 @@ type Transition<'tset when 'tset :> IEquatable<'tset> and 'tset: equality > = {
 type RegexNodeInfo<'tset when 'tset :> IEquatable<'tset> and 'tset: equality >() =
 
     member val NodeFlags: RegexNodeFlags = RegexNodeFlags.None with get, set
-    // member val InitialStartset: InitialStartset<'tset> = InitialStartset.Uninitialized with get, set
     member val Transitions: Dictionary<'tset,RegexNode<'tset>> = Dictionary() with get, set
     member val EndTransitions: Dictionary<'tset,RegexNode<'tset>> = Dictionary() with get, set
     member val StartTransitions: Dictionary<'tset,RegexNode<'tset>> = Dictionary() with get, set
@@ -169,12 +168,8 @@ type RegexNodeInfo<'tset when 'tset :> IEquatable<'tset> and 'tset: equality >()
     // filled in later
     member val IsCanonical: bool = false with get, set
     member val HasCanonicalForm: RegexNode<'tset> option = None with get, set
-    member val LookupPrev: bool = false with get, set
-    member val PrevCharRequired: 'tset option = None with get, set
     member val Minterms: 'tset = Unchecked.defaultof<'tset> with get, set
     member val Startset: 'tset = Unchecked.defaultof<'tset> with get, set
-    member val StateFlags: 'tset = Unchecked.defaultof<'tset> with get, set
-
     member inline this.IsAlwaysNullable =
         this.NodeFlags &&& RegexNodeFlags.IsAlwaysNullableFlag = RegexNodeFlags.IsAlwaysNullableFlag
     member inline this.HasZerowidthHead =
@@ -187,11 +182,6 @@ type RegexNodeInfo<'tset when 'tset :> IEquatable<'tset> and 'tset: equality >()
          (this.NodeFlags &&& RegexNodeFlags.CanBeNullableFlag) = RegexNodeFlags.None
     member inline this.ContainsLookaround =
         this.NodeFlags &&& RegexNodeFlags.ContainsLookaroundFlag = RegexNodeFlags.ContainsLookaroundFlag
-
-[<ReferenceEquality>]
-type RegexAnchor =
-    | End
-    | Begin
 
 
 [<ReferenceEquality>]
@@ -223,7 +213,8 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
         relativeTo : int *
         pendingNullables : Set<int> *
         info: RegexNodeInfo<'tset>
-    | Anchor of RegexAnchor
+    | Begin
+    | End
 
 
 #if DEBUG
@@ -330,10 +321,8 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
             let body = h.ToString() + t.ToString()
             body
         | Epsilon -> "ε"
-        | Anchor regexAnchor ->
-            match regexAnchor with
-            | End -> @"\z"
-            | Begin -> @"\A"
+        | End -> @"\z"
+        | Begin -> @"\A"
 
 #endif
     member inline this.TryGetInfo =
@@ -356,7 +345,7 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
             RegexNodeFlags.IsAlwaysNullableFlag |||
             RegexNodeFlags.HasZerowidthHeadFlag
         | Singleton _ -> RegexNodeFlags.None
-        | Anchor _ ->
+        | Begin | End ->
             RegexNodeFlags.DependsOnAnchorFlag |||
             RegexNodeFlags.CanBeNullableFlag |||
             RegexNodeFlags.HasZerowidthHeadFlag
@@ -382,7 +371,7 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
             | Singleton _ -> false
             | LookAround _ -> false
             | Epsilon -> true
-            | Anchor _ -> false
+            | Begin | End -> false
             | _ -> failwith "impossible case"
         )
 
@@ -394,7 +383,7 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
             | Singleton _ -> false
             | LookAround _ -> false
             | Epsilon -> true
-            | Anchor _ -> false
+            | Begin | End -> false
             | _ -> failwith "impossible case"
         )
     member this.SubsumedByMinterm (solver:ISolver<'tset>) =
@@ -405,7 +394,7 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
             | Epsilon -> solver.Full
             | Singleton pred -> pred
             | LookAround(node, _, _, _, _) -> node.SubsumedByMinterm solver
-            | Anchor _ -> solver.Empty
+            | Begin | End -> solver.Full
             | _ -> failwith "impossible case"
         )
 

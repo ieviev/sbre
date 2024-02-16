@@ -303,8 +303,8 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             )
         _wordChar = lazy b.setFromStr @"\w"
         _nonWordChar = lazy b.setFromStr @"\W"
-        _zAnchor = RegexNode<'t>.Anchor End
-        _aAnchor = RegexNode<'t>.Anchor Begin
+        _zAnchor = RegexNode<'t>.End
+        _aAnchor = RegexNode<'t>.Begin
     |}
 
     do _loopCache.Add(struct(_true, 0, Int32.MaxValue), _uniques._trueStar)
@@ -316,25 +316,25 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
         let nonWordLeft =
             lazy
                 b.mkOrSeq([|
-                    RegexNode<'t>.Anchor Begin;
+                    RegexNode<'t>.Begin;
                     b.mkLookaround( _uniques._nonWordChar.Value ,true, 0, Set.empty)
                 |])
         let wordLeft =
             lazy
                 b.mkOrSeq([|
-                    RegexNode<'t>.Anchor Begin
+                    RegexNode<'t>.Begin
                     b.mkLookaround( _uniques._wordChar.Value ,true, 0, Set.empty)
                 |])
         let nonWordRight =
             lazy
                 b.mkOrSeq(
-                    [|RegexNode<'t>.Anchor End
+                    [|RegexNode<'t>.End
                       b.mkLookaround( _uniques._nonWordChar.Value,false, 0, Set.empty) |]
                 )
         let wordRight =
             lazy
                 b.mkOrSeq(
-                    [|RegexNode<'t>.Anchor End
+                    [|RegexNode<'t>.End
                       b.mkLookaround( _uniques._wordChar.Value,false, 0, Set.empty) |]
                 )
 
@@ -392,14 +392,14 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             _nonWordLeft =
                 lazy
                     b.mkOrSeq([|
-                        RegexNode<'t>.Anchor Begin
+                        RegexNode<'t>.Begin
                         b.mkLookaround( _uniques._nonWordChar.Value ,true, 0, Set.empty)
                     |])
             // (?<=\W)
             _wordLeft =
                 lazy
                     b.mkOrSeq([|
-                        RegexNode<'t>.Anchor Begin
+                        RegexNode<'t>.Begin
                         b.mkLookaround( _uniques._wordChar.Value ,true, 0, Set.empty)
                     |])
             // (?=\W)
@@ -408,7 +408,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             _nonWordRight =
                 lazy
                     b.mkOrSeq(
-                        [|RegexNode<'t>.Anchor End
+                        [|RegexNode<'t>.End
                           b.mkLookaround( _uniques._nonWordChar.Value,false, 0, Set.empty) |]
                     )
 
@@ -418,7 +418,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             _wordRight =
                 lazy
                     b.mkOrSeq(
-                        [|RegexNode<'t>.Anchor End
+                        [|RegexNode<'t>.End
                           b.mkLookaround( _uniques._wordChar.Value,false, 0, Set.empty) |]
                     )
 
@@ -814,8 +814,8 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                     // failwith "merge look"
 
             // unoptimized cases ------------------------------
-            | _, Anchor _
-            | Anchor _, _ -> Some(mergeIntersection(),mergeUnion())
+            | _, (Begin|End)
+            | (Begin|End), _ -> Some(mergeIntersection(),mergeUnion())
             // | Not _, _ | _, Not _ -> None
             | n1,n2 ->
                 // derivative-based subsumption
@@ -1413,8 +1413,8 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
         | Epsilon, _ -> tail // ()R -> R
         | _, Epsilon -> head
         // redundant anchor branches
-        | Anchor End, tail when tail.CanNotBeNullable -> _uniques._false
-        | Anchor Begin, tail when tail.CanNotBeNullable -> _uniques._false
+        | End, tail when tail.CanNotBeNullable -> _uniques._false
+        | Begin, tail when tail.CanNotBeNullable -> _uniques._false
         | _ when refEq head _uniques._false -> _uniques._false // ⊥R -> ⊥
         | _ ->
             let key = struct (head, tail)
