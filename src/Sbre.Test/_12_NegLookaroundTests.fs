@@ -209,8 +209,6 @@ let ``nested not 1``() =
     let input = "12345.123"
     assertFirstMatchText pattern input "12345.123"
 
-
-
 [<Fact>]
 let ``intersection lookaround 1``() =
     let pattern = """.*(?=.*def)&.*def"""
@@ -221,14 +219,6 @@ let ``intersection lookaround 1``() =
 // let ``intersection lookaround 2``() =
 //     let pattern = """.*(?=.*def)&.*de"""
 //     let input = "abcdef"
-//     printAllDerivatives pattern input [
-//
-//     ]
-
-
-
-
-
-
+//     printAllDerivatives pattern input [ [] ]
 
 #endif

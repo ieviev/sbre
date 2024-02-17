@@ -138,6 +138,15 @@ let (|SingletonStarLoop|_|) (node: RegexNode<_>) =
     | Loop(node=Singleton pred;low=0;up=Int32.MaxValue) -> ValueSome(pred)
     | _ -> ValueNone
 
+
+[<return: Struct>]
+let (|LookbackPrefix|_|) (node: RegexNode<_>) =
+    match node with
+    | LookAround(lookBack=true) -> ValueSome(node)
+    | Concat(head=LookAround(lookBack=true)) -> ValueSome(node)
+    | _ -> ValueNone
+
+
 [<return: Struct>]
 let (|StarLoop|_|) (node: RegexNode<_>) =
     match node with

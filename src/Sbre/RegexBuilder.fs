@@ -1078,6 +1078,15 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             match node1, node2 with
             | n, falseNode | falseNode, n when refEq falseNode _false -> falseNode
             | n, trueStarNode | trueStarNode, n when refEq _uniques._trueStar trueStarNode -> n
+
+            // Lookaround semantics hack - bad
+            // | LookAround(lookBack=true) as look , other
+            // | other , (LookAround(lookBack=true) as look) ->
+            //     this.mkConcat2(look, other)
+            // | Concat(head=LookAround(lookBack=true); tail=looktail) as look , other
+            // | other, (Concat(head=LookAround(lookBack=true); tail=looktail) as look) ->
+            //     this.mkConcat2(look, this.mkAnd2(looktail,other))
+
             // | (And(nodes=nodes2) as p2node),  (And(nodes=nodes1) as p1node)  ->
                 // let mutable found = false
                 // check for subset equality

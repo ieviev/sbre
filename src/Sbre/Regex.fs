@@ -70,8 +70,6 @@ type MatchingState(node: RegexNode<TSet>) =
     member val StartsetChars: SearchValues<char> = Unchecked.defaultof<_> with get, set
     member val StartsetIsInverted: bool = Unchecked.defaultof<_> with get, set
 
-
-
 type RegexSearchMode =
     | FirstNullable
     | MatchEnd
@@ -164,14 +162,6 @@ type RegexMatcher<'t when 't: struct>
                     _createDerivative ( &loc, loc_pred, _cache.Builder.mkConcat2 (R, R_decr) )
             // Derx (R | S) = Derx (R) | Derx (S)
             | Or(xs, info) ->
-                // let arr = ResizeArray()
-                // use mutable e = xs.GetEnumerator()
-                // while e.MoveNext() do
-                //     let der = _createDerivative(&loc, loc_pred, e.Current)
-                //     arr.Add der
-                // arr.RemoveAll(fun v -> refEq _cache.False v) |> ignore
-                // arr.ToArray() |> _cache.Builder.mkOrSeq
-                //
                 let pool = ArrayPool<RegexNode<TSet>>.Shared
                 let rentedArray = pool.Rent(xs.Count)
                 use mutable e = xs.GetEnumerator()
@@ -187,6 +177,21 @@ type RegexMatcher<'t when 't: struct>
 
             // Derx (R & S) = Derx (R) & Derx (S)
             | And(xs, _) ->
+                // optimized
+                // let pool = ArrayPool<RegexNode<TSet>>.Shared
+                // let rentedArray = pool.Rent(xs.Count)
+                // use mutable e = xs.GetEnumerator()
+                // let mutable i = 0
+                // while e.MoveNext() do
+                //     rentedArray[i] <- _createDerivative(&loc, loc_pred, e.Current)
+                //     i <- i + 1
+                // let mem = rentedArray.AsMemory(0,i)
+                // mem.Span.Sort(physComparison)
+                // let res = _cache.Builder.mkAnd(&mem)
+                // pool.Return(rentedArray)
+                // res
+
+                // orig
                 let derivatives = ResizeArray()
                 let mutable foundFalse = false
                 for n in xs do
@@ -198,6 +203,45 @@ type RegexMatcher<'t when 't: struct>
                         | _ -> derivatives.Add der
                 if foundFalse then _cache.False else
                 _cache.Builder.mkAnd(derivatives)
+                // lookarounds
+                // let existsLookback =
+                //     xs |> Seq.exists (function
+                //         | LookbackPrefix _ ->
+                //             true | _ -> false)
+                // if existsLookback then
+                //     let lookbackDerivatives = ResizeArray()
+                //     let otherDerivatives = ResizeArray()
+                //     let otherNodes = ResizeArray()
+                //     for n in xs do
+                //         match n with
+                //         | LookbackPrefix _ ->
+                //             let der = _createDerivative (&loc, loc_pred, n)
+                //             lookbackDerivatives.Add(der)
+                //         | _ ->
+                //             otherNodes.Add(n)
+                //             otherDerivatives.Add(_createDerivative (&loc, loc_pred, n))
+                //
+                //     let mutable allLookbacksNullable = true
+                //     for n in lookbackDerivatives do
+                //         if allLookbacksNullable then
+                //             allLookbacksNullable <- _isNullable(&loc, n)
+                //
+                //     if not allLookbacksNullable then
+                //         _cache.Builder.mkAnd([ yield! lookbackDerivatives; yield! otherNodes ])
+                //     else
+                //         _cache.Builder.mkAnd([ yield! lookbackDerivatives; yield! otherDerivatives ])
+                // else
+                //     let derivatives = ResizeArray()
+                //     let mutable foundFalse = false
+                //     for n in xs do
+                //         if not foundFalse then
+                //             let der = _createDerivative (&loc, loc_pred, n)
+                //             match der with
+                //             | _ when refEq _cache.False der ->
+                //                 foundFalse <- true
+                //             | _ -> derivatives.Add der
+                //     if foundFalse then _cache.False else
+                //     _cache.Builder.mkAnd(derivatives)
             // Derx(~R) = ~Derx (R)
             | Not(inner, _) ->
                 _cache.Builder.mkNot(_createDerivative (&loc, loc_pred, inner))
@@ -854,7 +898,6 @@ type RegexMatcher<'t when 't: struct>
             //     false
         | InitialOptimizations.PotentialStartPrefix prefix ->
             let skipResult = _cache.TryNextStartsetLocationArrayReversed( &loc, prefix.Span )
-            // let skipResult = _cache.TryNextSetReversed( &loc, prefix.Span[0] )
             match skipResult with
             | ValueSome resultEnd ->
                 let n = resultEnd <> loc.Position
