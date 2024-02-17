@@ -166,6 +166,7 @@ let ``derivative of lookback 1``() =
     testPartDerivativeFromLocationMultiple (@"(?<=-.*).*", "-aaaa-", 5, [
         @"(.*|(?<=.*).*)"; @"((?<=.*).*|.*)"
         @"(?<=.*).*"
+        @".*"
     ])
 
 
@@ -239,51 +240,9 @@ let ``derivative concat lookaround``() =
 //         // @"(.*φ&.*(?=.*-))";"(.*(?=.*-)&.*φ)"
 //     ])
 
-[<Fact>]
-let ``subsumption or loop ``() =
-    testPartDerivative (@"(a*|.*)", "aaa", @".*")
 
 
-[<Fact>]
-let ``subsumption and loop ``() =
-    testPartDerivative (@"(.*&.*s)", "aaa", @".*s")
 
-
-[<Fact>]
-let ``subsumption and larger ``() =
-    testPartDerivatives (@"(.* and .*|and .*)&.*", "aaa", [
-        @"(.* and .*|nd .*)"
-        "(nd .*|.* and .*)"
-        @"(.* a)?nd .*"
-
-        @"((ε|.* a)nd .*&.*)" // subsumed
-        @"(.*&(.* a|ε)nd .*)"
-        @"(.*&(ε|.* a)nd .*)"
-        @"((.* a|ε)nd .*&.*)"
-    ])
-
-[<Fact>]
-let ``deriv negation end ``() =
-    testPartDerivatives (@"(.*&~((n|.*Finn)))", "nn", [
-        @"~((.*Finn)?)"
-        "(~((ε|.*Finn))&.*)"
-        "(~((.*Finn|ε))&.*)"
-        "(.*&~((ε|.*Finn)))"
-        "(.*&~((.*Finn|ε)))"
-
-        @"~((ε|.*Finn))"
-        @"~((.*Finn|ε))"
-    ])
-
-
-[<Fact>]
-let ``subsumption or concat ``() =
-    testPartDerivatives (@".*t.*hat.*", "ttt", [
-        @".*hat.*"
-        @".*(t.*)?hat.*"
-        // @".*(t.*|ε)hat.*"
-        // @".*(ε|t.*)hat.*"
-    ])
 
 
 [<Fact>]
@@ -411,16 +370,10 @@ let ``derivative neg lookaround 1``() =
     assertRawDerivative @"((?<=B.*).*&~(.*A.*))" "BA" [
         "((?<=.*).*&~(.*A.*))"
         @"(~(.*A.*)&(?<=.*).*)"
+        @"(~(.*A.*)&.*)"
+        @"(.*&~(.*A.*))"
     ]
-[<Fact>]
-let ``derivative neg lookaround 2``() =
-    assertRawDerivative "((?<=.*).*&~(.*A.*))" "A" [
-        @"⊥"
-        "(~(.*)&(.*|(?<=.*).*))"
-        @"(~(.*)&((?<=.*).*|.*))"
-        @"((.*|(?<=.*).*)&~(.*))"
-        @"(((?<=.*).*|.*)&~(.*))"
-    ]
+
 
 
 

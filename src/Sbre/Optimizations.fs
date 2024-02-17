@@ -421,3 +421,39 @@ let rec nodeWithoutLookbackPrefix
     | _ ->
         node
 
+
+
+
+let attemptMergeIntersectLang (_cache:RegexCache<TSet>) mkLang (oldNode:RegexNode<TSet>) (languages:RegexNode<TSet> array seq)  =
+    languages
+    |> Seq.reduce (fun (lang1) (lang2) ->
+        Seq.zip lang1 lang2
+        |> Seq.indexed
+        |> Seq.map (fun (idx,(l1,l2)) ->
+            match l1, l2 with
+            | f, _ | _, f when refEq f _cache.False -> _cache.False
+            | n1, n2 | n2, n1 when refEq n1 _cache.TrueStar -> n2
+            | n1, n2 | n2, n1 when refEq n1 _cache.Eps -> if n2.CanBeNullable then _cache.Eps else _cache.False
+            | SingletonStarLoop(pred) as p1, other | other, (SingletonStarLoop(pred) as p1) ->
+                let sub = Solver.containsS _cache.Solver pred (other.SubsumedByMinterm(_cache.Solver))
+                if sub then other else
+                    failwith "todo asdasd"
+            | _ ->
+                let sublang1 = mkLang l1
+                let sublang2 = mkLang l2
+                let merged = attemptMergeIntersectLang _cache mkLang oldNode [sublang1;sublang2]
+                let mknode = (fun _ -> _cache.Builder.mkAnd2Direct(l1,l2) )
+                let canonical = _cache.Builder.GetCanonical(oldNode,merged,mknode)
+                canonical
+        )
+        |> Seq.toArray
+    )
+
+
+
+
+
+
+
+
+

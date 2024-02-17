@@ -77,14 +77,10 @@ type RegexSearchMode =
 [<Sealed>]
 type RegexMatcher<'t when 't: struct>
     (
-        // trueStarredNode: RegexNode<TSet>,
-        // reverseTrueStarredNode: RegexNode<TSet>,
         uncanonicalizedNode: RegexNode<TSet>,
-        // reverseNode: RegexNode<TSet>,
         _cache: RegexCache<TSet>
     ) =
     inherit GenericRegexMatcher()
-    // INITIALIZE
     let InitialDfaStateCapacity = 1024
     let _stateCache = Dictionary<RegexNode<TSet>, MatchingState>()
     let mutable _stateArray = Array.zeroCreate<MatchingState> InitialDfaStateCapacity
@@ -92,6 +88,8 @@ type RegexMatcher<'t when 't: struct>
     let _minterms = _cache.Minterms()
     let _mintermsLog = BitOperations.Log2(uint64 _minterms.Length) + 1
     let mutable _dfaDelta: int[] = Array.init (InitialDfaStateCapacity <<< _mintermsLog) (fun _ -> 0) // 0 : initial state
+
+
 
     let rec _isNullable(loc: inref<Location>, node: RegexNode<_>) : bool =
         // short-circuit
@@ -117,7 +115,7 @@ type RegexMatcher<'t when 't: struct>
             not (_isNullable (&loc, inner))
         | Concat(head, tail, _) ->
             _isNullable (&loc, head) && _isNullable (&loc, tail)
-        | LookAround(body, _, _, _,info) -> _isNullable(&loc,body)
+        | LookAround(body, _, _, _,_) -> _isNullable(&loc,body)
         | End -> loc.Position = loc.Input.Length
         | Begin -> loc.Position = 0
 
@@ -161,7 +159,7 @@ type RegexMatcher<'t when 't: struct>
                 | false ->
                     _createDerivative ( &loc, loc_pred, _cache.Builder.mkConcat2 (R, R_decr) )
             // Derx (R | S) = Derx (R) | Derx (S)
-            | Or(xs, info) ->
+            | Or(xs, _) ->
                 let pool = ArrayPool<RegexNode<TSet>>.Shared
                 let rentedArray = pool.Rent(xs.Count)
                 use mutable e = xs.GetEnumerator()
@@ -190,7 +188,6 @@ type RegexMatcher<'t when 't: struct>
                 // let res = _cache.Builder.mkAnd(&mem)
                 // pool.Return(rentedArray)
                 // res
-
                 // orig
                 let derivatives = ResizeArray()
                 let mutable foundFalse = false
@@ -202,7 +199,9 @@ type RegexMatcher<'t when 't: struct>
                             foundFalse <- true
                         | _ -> derivatives.Add der
                 if foundFalse then _cache.False else
-                _cache.Builder.mkAnd(derivatives)
+                let result = _cache.Builder.mkAnd(derivatives)
+                // let canonresult = _canonicalize result
+                result
                 // lookarounds
                 // let existsLookback =
                 //     xs |> Seq.exists (function
@@ -276,7 +275,7 @@ type RegexMatcher<'t when 't: struct>
                         _cache.Builder.mkOrSeq [| R'S ;S'|]
                 else R'S
             // Lookahead
-            | LookAround(node=R; lookBack=false; relativeTo= rel; pendingNullables= pendingNulls; info = info) ->
+            | LookAround(node=R; lookBack=false; relativeTo= rel; pendingNullables= pendingNulls; info = _) ->
                 let der_R = _createDerivative (&loc, loc_pred, R)
                 match der_R with
                 // start a new pending match
@@ -285,7 +284,7 @@ type RegexMatcher<'t when 't: struct>
                 | _ -> _cache.Builder.mkLookaround(der_R, false, rel+1, pendingNulls)
 
             // Lookback
-            | LookAround(node=R; lookBack=true; relativeTo= rel; pendingNullables= relativeNullablePos; info = info) ->
+            | LookAround(node=R; lookBack=true; relativeTo= _; pendingNullables= _; info = _) ->
                 let der_R = _createDerivative (&loc, loc_pred, R)
                 _cache.Builder.mkLookaround(der_R, true, 0, Set.empty)
             | Begin | End -> _cache.False
@@ -313,6 +312,21 @@ type RegexMatcher<'t when 't: struct>
         result
 
 
+    and _tryCanonicalize(node: RegexNode<TSet>) =
+        match node.TryGetInfo with
+        | ValueSome info when info.IsCanonical -> node
+        | ValueSome info when info.HasCanonicalForm.IsSome -> info.HasCanonicalForm.Value
+        | ValueSome info when not info.PendingNullables.IsEmpty -> node
+        | _ -> node
+
+    and mkLang node =
+        _minterms
+        |> Array.map (fun mt ->
+            let loc = Location.getNonInitial()
+            _createDerivative(&loc,mt, node)
+        )
+
+
     and _canonicalize(node: RegexNode<TSet>) =
 
         match node.TryGetInfo with
@@ -322,22 +336,18 @@ type RegexMatcher<'t when 't: struct>
         | _ ->
         if node.DependsOnAnchor then node else
 
-        let mkders node =
-            _minterms
-            |> Array.map (fun mt ->
-                let loc = Location.getNonInitial()
-                _createDerivative(&loc,mt, node)
-            )
+
+
         match node with
-        | Concat(head, tail, info) ->
+        | Concat(head, tail, _) ->
             let ch = _canonicalize head
             let ct = _canonicalize tail
-            let newNode = _cache.Builder.mkConcat2(ch,ct)
-            _cache.Builder.GetCanonical(node,mkders newNode,newNode)
+            let mknode = (fun _ -> _cache.Builder.mkConcat2(ch,ct) )
+            _cache.Builder.GetCanonical(node,mkLang node,mknode)
         | Or(nodes=nodes; info = info) ->
             let cnodes = nodes |> Seq.map _canonicalize |> ofSeq |> Seq.toArray
             let isSubsumedList = ResizeArray()
-            let langs = cnodes |> Seq.map mkders |> Seq.toArray
+            let langs = cnodes |> Seq.map mkLang |> Seq.toArray
             langs
             |> Seq.indexed
             |> Seq.pairwise
@@ -363,24 +373,31 @@ type RegexMatcher<'t when 't: struct>
                         if isSubsumedList.Contains(i) then () else
                         yield cnodes[i]
                 |]
-            let newNode = _cache.Builder.mkOrSeq(keptNodes)
-            _cache.Builder.GetCanonical(node,mkders newNode, newNode)
+            let mknode = (fun v -> _cache.Builder.mkOrSeq(keptNodes) )
+            _cache.Builder.GetCanonical(node,mkLang node, mknode)
             // _cache.Builder.GetCanonical(node, mkders node,node)
-        | Singleton _ -> _cache.Builder.GetCanonical(node, mkders node,node)
+        | Singleton _ ->
+            let mknode = (fun _ -> node )
+            _cache.Builder.GetCanonical(node, mkLang node,mknode)
         | Loop(regexNode, low, up, regexNodeInfo) ->
             let inner = _canonicalize regexNode
-            let upd = _cache.Builder.mkLoop(inner, low,up)
-            _cache.Builder.GetCanonical(node,mkders node,upd)
+            let mknode = (fun _ -> _cache.Builder.mkLoop(inner, low,up) )
+            _cache.Builder.GetCanonical(node,mkLang node,mknode)
         | And (nodes=nodes) -> // node
-            let newAnd = nodes |> Seq.map _canonicalize |> _cache.Builder.mkAnd
-            _cache.Builder.GetCanonical(node,mkders node, newAnd)
+            let canonNodes =  nodes |> Seq.map _canonicalize |> Seq.toArray
+            let languages = canonNodes |> Seq.map mkLang
+            let mergedLanguage = attemptMergeIntersectLang _cache mkLang node languages
+            let mknode = (fun _ -> _cache.Builder.mkAndDirect(canonNodes) )
+            let canon = _cache.Builder.GetCanonical(node,mergedLanguage, mknode)
+            // let canon = _cache.Builder.GetCanonical(node,lang, (fun v -> node ))
+            canon
         | Not(node=inner) -> // node
-            _cache.Builder.GetCanonical(node, mkders node,_cache.Builder.mkNot(_canonicalize inner))
+            let mknode = (fun _ -> _cache.Builder.mkNot(_canonicalize inner) )
+            _cache.Builder.GetCanonical(node, mkLang node, mknode)
         | LookAround _ ->
             node
         | Begin | End
         | Epsilon -> node
-
 
 
     let _createStartset(state: MatchingState, initial: bool) =
@@ -534,7 +551,13 @@ type RegexMatcher<'t when 't: struct>
             _flagsArray[state.Id] <- state.Flags
             state
 
+#if CANONICAL
+    do _cache.Builder.CanonicalizeCallback <- Some _canonicalize
+    do _cache.Builder.InitCanonical(_minterms)
     let R_canonical = _canonicalize uncanonicalizedNode
+#else
+    let R_canonical = uncanonicalizedNode
+#endif
     let reverseNode = RegexNode.rev _cache.Builder R_canonical
     let reverseTrueStarredNode = _cache.Builder.mkConcat2 (_cache.TrueStar, reverseNode)
     let trueStarredNode = _cache.Builder.mkConcat2 (_cache.TrueStar, R_canonical)

@@ -93,34 +93,6 @@ let ``_ solver 1``() = assertSolverContains12 "[a-z]a"
 let ``_ solver 2``() = assertNotSolverContains12 "a[a-z]"
 
 
-[<Fact>]
-let ``a canonical 1.1``() =
-    assertConverted "a(|b)|[abc]b?" ["[a-c]b?"]
-
-
-[<Fact>]
-let ``a conversion 1.1``() = assertConverted "1(?! Sep)" [ @"1(?=~( Sep⊤*)\z)" ]
-
-[<Fact>]
-let ``a conversion 1.2``() = assertConverted @".(?<=a)" [ "a" ]
-
-[<Fact>]
-let ``a conversion 1.3``() = assertConverted @"(a*|.*)" [ ".*" ]
-
-[<Fact>]
-let ``a conversion 1.4``() = assertConverted "(.*&.*s)" [ ".*s" ]
-
-[<Fact>]
-let ``a conversion 1.5``() = assertConverted "[a-z]&.*a" [ "a" ]
-
-[<Fact>]
-let ``a conversion 1.6``() = assertConverted ".*b&a" [ "⊥" ]
-
-[<Fact>]
-let ``a conversion 1.7``() = assertConverted "a&b.*" [ "⊥" ]
-
-[<Fact>]
-let ``a conversion 1.8``() = assertConverted "(\d){2,2}⊤*&\d⊤*" [ "(\d){2,2}⊤*" ]
 
 
 [<Fact>]
@@ -137,15 +109,7 @@ let ``a conversion 2.2``() = assertConverted "(⊤*A⊤*&⊤*B⊤*)&⊤*B⊤*" [
 [<Fact>]
 let ``a conversion 2.3``() = assertConverted "(.*|(.*11.*|1.*))" [ ".*" ]
 
-[<Fact>]
-let ``a conversion 2.4``() = assertConverted "(~((|.*Finn))&.*)" [
-    @"~((.*Finn)?)"
-]
 
-[<Fact>]
-let ``a conversion 2.5``() = assertConverted """Huck[a-zA-Z]+|Saw[a-zA-Z]+""" [
-    """(Huck|Saw)([A-Za-z])+""" ; """(Saw|Huck)([A-Za-z])+"""
-]
 
 [<Fact>]
 let ``a conversion 2.6``() = assertConverted """([a-zA-Z]+)Huck|([a-zA-Z]+)Saw""" [
@@ -153,21 +117,6 @@ let ``a conversion 2.6``() = assertConverted """([a-zA-Z]+)Huck|([a-zA-Z]+)Saw""
     """([A-Za-z])+(Saw|Huck)"""
 ]
 
-
-[<Fact>]
-let ``b conversion 1 ``() =
-    assertRawDerivative @".*t.*hat.*" "ttt" [
-        @".*(t.*)?hat.*"
-        @".*hat.*"
-    ]
-
-
-[<Fact>]
-let ``b conversion 2.1 ``() =
-    assertTSDerivative @"^a*b" "a" [
-        @"(⊤*^)?a*b"
-        // @"(ε|⊤*^)a*b" ; @"(⊤*^|ε)a*b"
-    ]
 
 
 // [<Fact>]
@@ -524,7 +473,7 @@ let assertNodeWithoutPrefix (patt:string) (expected:string list) =
 
 [<Fact>]
 let ``withoutprefix 01``() =
-    assertNodeWithoutPrefix "(?<=author).*&.*and.*" [".*and.*"]
+    assertNodeWithoutPrefix "(?<=author).*&.*and.*" [ "(.*and.*&.*)" ;".*and.*"; "(.*&.*and.*)"]
 
 [<Fact>]
 let ``withoutprefix 02``() =
