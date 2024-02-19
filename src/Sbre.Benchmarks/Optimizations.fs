@@ -69,9 +69,73 @@ let collectNullablePositionsOriginal ( matcher: RegexMatcher<TSet>, loc: byref<L
 
     nullableCount
 
+let commonalityScore (charSet: char array) =
+    charSet |> Array.map (fun c ->
+        if Char.IsAsciiLetterLower c then 10
+        else 0)
+    |> Array.sum
+
+let prefixSearchWeightedReversed (loc: byref<Location>) (cache: RegexCache<TSet>) (weightedSets: inref<(int * TSet) list>) =
+    let textSpan = loc.Input
+    let rarestCharSet = cache.MintermChars(snd weightedSets[0]).ToArray().AsMemory()
+    let rarestCharSetIndex = fst weightedSets[0]
+    let mutable searching = true
+
+    let mutable prevMatch = loc.Position
+    while searching do
+        match textSpan.Slice(0, prevMatch).LastIndexOfAny(rarestCharSet.Span) with
+        | curMatch when (curMatch - rarestCharSetIndex >= 0 && curMatch - rarestCharSetIndex + weightedSets.Length <= loc.Position) ->
+            let absMatchStart = curMatch - rarestCharSetIndex
+            let mutable fullMatch = true
+            let mutable i = 1
+            while i < weightedSets.Length && absMatchStart + (fst weightedSets[i]) < textSpan.Length && fullMatch do
+                let set = cache.MintermChars(snd weightedSets[i])
+                if textSpan.Slice(absMatchStart + (fst weightedSets[i]), 1).IndexOfAny(set) = -1 then
+                    fullMatch <- false
+                else
+                    i <- i + 1
+            prevMatch <- absMatchStart + rarestCharSetIndex
+            if fullMatch && i = weightedSets.Length then
+                searching <- false
+                loc.Position <- absMatchStart + weightedSets.Length
+        | -1 ->
+            searching <- false
+            loc.Position <- 0
+        | outOfBounds -> prevMatch <- outOfBounds
+    ()
 
 
-[<BenchmarkDotNet.Attributes.MemoryDiagnoser>]
+let collectNullablePositionsWeightedSkip ( matcher: RegexMatcher<TSet>, loc: byref<Location>, weightedSets: inref<(int * TSet) list> ) =
+    assert (loc.Position > -1)
+    assert (loc.Reversed = true)
+    let mutable looping = true
+    let mutable currentStateId = matcher.GetOrCreateState(matcher.ReverseTrueStarredPattern).Id
+    let _stateArray = matcher.DfaStateArray
+    let rstate = Sbre.CountingSet.RegexState(matcher.Cache.NumOfMinterms())
+    let mutable dfaState = _stateArray[currentStateId]
+    let mutable nullableCount = 0
+
+    while looping do
+        dfaState <- _stateArray[currentStateId]
+        let flags = dfaState.Flags
+        if flags.IsInitial then
+            prefixSearchWeightedReversed &loc matcher.Cache &weightedSets
+            
+
+        if matcher.StateIsNullable(flags, rstate, &loc, dfaState) then
+            nullableCount <- nullableCount + 1
+
+        if loc.Position > 0 then
+            matcher.TakeTransition(rstate, flags, &currentStateId, &loc)
+            loc.Position <- Location.nextPosition loc // Also moves when location is nullable
+        else
+            looping <- false
+
+    nullableCount
+
+
+
+[<MemoryDiagnoser>]
 [<ShortRunJob>]
 [<AbstractClass>]
 type StringPrefix(pattern:string) =
@@ -207,7 +271,9 @@ type Prefix2() =
 [<ShortRunJob>]
 type PrefixCharsetSearch () =
 
-    let regex = Sbre.Regex("[a-zA-Z]+ckle|[a-zA-Z]+awy")
+    // let regex = Sbre.Regex("[a-zA-Z]+ckle|[a-zA-Z]+awy")
+    let regex = Sbre.Regex("Huck[a-zA-Z]+|Saw[a-zA-Z]+")
+    let cache = regex.TSetMatcher.Cache
     let matcher = regex.TSetMatcher
     
     let optimizations =
@@ -223,6 +289,19 @@ type PrefixCharsetSearch () =
         | InitialOptimizations.PotentialStartPrefix(prefix) -> 
             prefix
         | _ -> failwith "todo"
+        
+        
+    let prefixSets =
+        match optimizations with
+        | InitialOptimizations.PotentialStartPrefix(prefixMem) -> 
+            Array.toList (prefixMem.ToArray()) |> List.rev
+        | _ -> failwith "debug"
+    let weightedSets = prefixSets |> List.mapi (fun i set ->
+            (i, set, commonalityScore (cache.MintermChars(set).ToArray())))
+                       |> List.sortBy (fun (_, _, score) -> score )
+                       |> List.map (fun (i, set, _) -> (i, set))
+    
+    let charSetIndex = fst weightedSets[0]
 
     // let rs = "[a-zA-Z]+ckl|[a-zA-Z]+awy"
     // [<Params("[a-zA-Z]+ckle|[a-zA-Z]+awy", "Huck[a-zA-Z]+|Saw[a-zA-Z]+", ".*have.*&.*there.*")>]
@@ -230,16 +309,23 @@ type PrefixCharsetSearch () =
     
 
     [<Benchmark>]
-    member this.Test() =
+    member this.TestNoSkip() =
         let textSpan = fullInput.AsSpan()
         let mutable loc = Location.createReversedSpan textSpan // end position, location reversed
-        collectNullablePositionsNoSkip (matcher,&loc)
+        collectNullablePositionsNoSkip (matcher, &loc)
+        
 
     [<Benchmark>]
-    member this.Test2() =
+    member this.TestOriginal() =
         let textSpan = fullInput.AsSpan()
         let mutable loc = Location.createReversedSpan textSpan // end position, location reversed
-        collectNullablePositionsOriginal (matcher,&loc)
+        collectNullablePositionsOriginal (matcher, &loc)
+
+    [<Benchmark>]
+    member this.TestWeighted() =
+        let textSpan = fullInput.AsSpan()
+        let mutable loc = Location.createReversedSpan textSpan // end position, location reversed
+        collectNullablePositionsWeightedSkip (matcher, &loc, &weightedSets)
 
 
     member this.TestSkip(loc:Location) : int =

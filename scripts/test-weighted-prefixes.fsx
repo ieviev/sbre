@@ -65,6 +65,51 @@ let commonalityScore (charSet: char array) =
 
 
 
+let prefixSearchSimple regexStr (text: String) =
+    let regex = Regex(regexStr)
+    let cache = regex.TSetMatcher.Cache
+    let prefix = regex.InitialReversePrefix
+    let prefixSets =
+        match prefix with
+        | InitialOptimizations.PotentialStartPrefix(prefixMem) -> 
+            Array.toList (prefixMem.ToArray()) |> List.rev
+        | _ -> failwith "debug"
+    
+    // prefixSets
+    // prefixesToBin prefixSets
+    // printAllCharClasses cache 8
+
+    // let prefixPretty = Optimizations.printPrefixSets cache (prefixSets)
+    // "[A-Za-z];[kw];[ac];[Su]"
+
+    // Search in default order
+    let firstCharSet = cache.MintermChars(prefixSets[0]).ToArray().AsMemory()
+    let mutable searching = true
+    
+    let mutable startPos = 0
+    let textSpan = text.AsSpan()
+    let potMatches = ResizeArray(100)
+    while searching do
+        match textSpan.Slice(startPos).IndexOfAny(firstCharSet.Span) with
+        | -1 -> searching <- false
+        | spanMatchStart ->
+            let absMatchStart = spanMatchStart + startPos
+            // printfn $"Potential match start at %d{absMatchStart}"
+            let mutable fullMatch = true
+            let mutable i = 1
+            while i < prefixSets.Length && absMatchStart + i < textSpan.Length && fullMatch do
+                let set = cache.MintermChars(prefixSets[i])
+                // printfn $"Prefix {i}: %A{set.ToArray()}"
+                if textSpan.Slice(absMatchStart + i, 1).IndexOfAny(set) = -1 then
+                    fullMatch <- false
+                else
+                    i <- i + 1
+            startPos <- absMatchStart + 1
+            if fullMatch then potMatches.Add({MatchPosition.Index = absMatchStart; Length = prefixSets.Length })
+    potMatches
+
+
+
 let prefixSearchWeighted regexStr (text: String) =
     let regex = Regex(regexStr)
     let cache = regex.TSetMatcher.Cache
@@ -85,6 +130,8 @@ let prefixSearchWeighted regexStr (text: String) =
     printfn "%A" (Optimizations.printPrefixSets cache (prefixSets))
     printfn ""
     // "[A-Za-z];[kw];[ac];[Su]"
+    
+    printfn "%A" prefixSets
 
     let weightedSets = prefixSets |> List.mapi (fun i set ->
             (i, set, commonalityScore (cache.MintermChars(set).ToArray())))
@@ -121,119 +168,133 @@ let prefixSearchWeighted regexStr (text: String) =
     potMatches
     
 
-let prefixSearchSimple regexStr (text: String) =
-    let regex = Regex(regexStr)
-    let cache = regex.TSetMatcher.Cache
-    let prefix = regex.InitialReversePrefix
-    let prefixSets =
-        match prefix with
-        | InitialOptimizations.PotentialStartPrefix(prefixMem) -> 
-            Array.toList (prefixMem.ToArray()) |> List.rev
-        | _ -> failwith "debug"
 
-    
-    // prefixSets
-    // prefixesToBin prefixSets
-    // printAllCharClasses cache 8
-
-    // let prefixPretty = Optimizations.printPrefixSets cache (prefixSets)
-    // "[A-Za-z];[kw];[ac];[Su]"
-
-    // Search in default order
-    let firstCharSet = cache.MintermChars(prefixSets[0]).ToArray().AsMemory()
-    let mutable searching = true
-    
-    let mutable startPos = 0
-    let textSpan = text.AsSpan()
-    let potMatches = ResizeArray(100)
-    while searching do
-        match textSpan.Slice(startPos).IndexOfAny(firstCharSet.Span) with
-        | -1 -> searching <- false
-        | spanMatchStart ->
-            let absMatchStart = spanMatchStart + startPos
-            // printfn $"Potential match start at %d{absMatchStart}"
-            let mutable fullMatch = true
-            let mutable i = 1
-            while i < prefixSets.Length && absMatchStart + i < textSpan.Length && fullMatch do
-                let set = cache.MintermChars(prefixSets[i])
-                // printfn $"Prefix {i}: %A{set.ToArray()}"
-                if textSpan.Slice(absMatchStart + i, 1).IndexOfAny(set) = -1 then
-                    fullMatch <- false
-                else
-                    i <- i + 1
-            startPos <- absMatchStart + 1
-            if fullMatch then potMatches.Add({MatchPosition.Index = absMatchStart; Length = prefixSets.Length })
-    potMatches
-    
-    
-// let rs = "Huck[a-zA-Z]+|Saw[a-zA-Z]+"
+let rs = "Huck[a-zA-Z]+|Saw[a-zA-Z]+"
 // let rs = "[a-zA-Z]+ckl|[a-zA-Z]+awy"
-let rs = ".*have.*&.*there.*"
+// let rs = ".*have.*&.*there.*"
 let sText = fullInput[4000000..4050000]
 // let sText = fullInput[4000000..9000000]
-let potMatchesS = prefixSearchSimple rs fullInput
-let potMatchesW = prefixSearchWeighted rs sText
+// let potMatchesS = prefixSearchSimple rs fullInput
+let potMatchesW = prefixSearchWeighted rs fullInput
+// let realMatches = Regex(rs).MatchPositions(fullInput)
 let realMatches = Regex(rs).MatchPositions(fullInput)
 
-potMatchesS.Count
+// potMatchesS.Count
 potMatchesW.Count
+Regex(rs).Count(sText)
 Regex(rs).Count(fullInput)
 
 
-let matchComparerPrintLine (text: String) (startPos: int) (endPos: int) (format: int) =
-    let padLimit = 100
-    let mutable startOffset = 0
-    let mutable endOffset = 0
-    while startPos - startOffset > 0 && startOffset < padLimit && text[startPos - startOffset - 1] <> '\n' do
-        // printfn $"Start offset {startOffset + 1}"
-        startOffset <- startOffset + 1
-    while endPos + endOffset < text.Length - 1 && endOffset < padLimit && text[endPos + endOffset + 1] <> '\n' do
-        // printfn $"End offset {endOffset + 1}"
-        endOffset <- endOffset + 1
-    match format with
-    | 0 ->
-        printfn $"Overlap:   %s{text[ (startPos - startOffset) .. (endPos + endOffset) ]}"
-    | -1 -> 
-        printfn $"Potential: %s{text[ (startPos - startOffset) .. (endPos + endOffset) ]}"
-    | 1 -> 
-        printfn $"Missed:    %s{text[ (startPos - startOffset) .. (endPos + endOffset) ]}"
-    | _ -> ()
+printfn "%A" (potMatchesW.ToArray())
+
+
+let testText = "Lorem ipsum dolor"
+let testRs = "[a-z]+sum|[a-z]+lor"
+let testPot = prefixSearchWeighted testRs testText
+let testAct = Regex(testRs).MatchPositions(testText)
+testPot.Count
+printfn "%A" (testPot.ToArray())
+
+
+
+
+
+
+
+
+
+let count c = Seq.filter ((=) c) >> Seq.length
+
 
 let matchComparer
     (potentialMatches: System.Collections.Generic.IEnumerable<MatchPosition>)
     (actualMatches: System.Collections.Generic.IEnumerable<MatchPosition>)
     (text: String) =
-    let mutable potEr = potentialMatches.GetEnumerator()
-    let mutable actEr = actualMatches.GetEnumerator()
-    let mutable potMore = potEr.MoveNext()
-    let mutable actMore = actEr.MoveNext()
-    let mutable pIndex = potEr.Current.Index
-    let mutable aIndex = actEr.Current.Index
-    while potMore || actMore do
-        printfn $"P {pIndex} A {aIndex}"
-        let potMatch = potEr.Current
-        let actMatch = actEr.Current
-        if (potMore && not actMore) || (pIndex + potMatch.Length <= aIndex) then
-            matchComparerPrintLine text pIndex (pIndex + potMatch.Length - 1) -1
-            potMore <- potEr.MoveNext()
-        else if (actMore && not potMore) || (aIndex + actMatch.Length <= pIndex) then
-            matchComparerPrintLine text aIndex (aIndex + actMatch.Length - 1) 1
-            actMore <- actEr.MoveNext()
-        else
-            matchComparerPrintLine text (Math.Min(pIndex, aIndex))
-                (Math.Max(pIndex + potMatch.Length, aIndex + actMatch.Length) - 1) 0
-            potMore <- potEr.MoveNext()
-            actMore <- actEr.MoveNext()
-        pIndex <- potEr.Current.Index
-        aIndex <- actEr.Current.Index
+    let mutable potEnumerator = potentialMatches.GetEnumerator()
+    let mutable actEnumerator = actualMatches.GetEnumerator()
+    let mutable hasPotMore = potEnumerator.MoveNext()
+    let mutable hasActMore = actEnumerator.MoveNext()
+    let mutable potMatchStart = potEnumerator.Current.Index
+    let mutable actMatchStart = actEnumerator.Current.Index
+    let mutable potMatchEnd = potMatchStart + potEnumerator.Current.Length
+    let mutable actMatchEnd = actMatchStart + actEnumerator.Current.Length
+    let mutable newLineCount = 1
+    // let mutable newLineCount = count '\n' fullInput[0 .. 4000000] + 1
+    let mutable newLineIndex = 0
+    while hasPotMore || hasActMore do
+        // Find highlight regions
+        // pot: + -   act: ^ ~   both: =   empty: ' '
+        let includesPot = hasPotMore && (not hasActMore || actMatchEnd >= potMatchStart)
+        let includesAct = hasActMore && (not hasPotMore || potMatchEnd >= actMatchStart)
+        
+        // printfn $"Includes potential match: %b{includesPot} Includes actual match: %b{includesAct}"
+        // printfn $"Potential match indexes: %d{potMatchStart}  %d{potMatchEnd}"
+        // printfn $"Actual    match indexes: %d{actMatchStart}  %d{actMatchEnd}"
+        
+        let mutable changePoints = []
+        if includesPot then changePoints <- [(potMatchStart, '+'); (potMatchEnd, '-')]
+        if includesAct then changePoints <- changePoints @ [(actMatchStart, '^'); (actMatchEnd, '~')]
+        
+        let mutable state = ' '
+        let mutable stateChanges = changePoints |> List.sortBy fst |> List.map (fun (i, c) ->
+            match state with
+            | ' ' -> state <- c
+            | '=' -> state <- if c = '-' then '^' else '+'
+            | '+' -> state <- if c = '-' then ' ' else '='
+            | '^' -> state <- if c = '~' then ' ' else '='
+            | _ -> ()
+            (i, state))
+        
+        // Find start and end positions
+        let matchStartPos = if includesPot && includesAct then Math.Min(potMatchStart, actMatchStart) elif includesPot then potMatchStart else actMatchStart
+        let matchEndPos = if includesPot && includesAct then Math.Min(potMatchEnd, actMatchEnd)  elif includesPot then potMatchEnd else actMatchEnd
+        // Find entire match line indexes or 100 chars around the match
+        let padLimit = 100
+        let mutable startPad = 0
+        let mutable endPad = 0
+        while matchStartPos - startPad > 0 && startPad < padLimit && text[matchStartPos - startPad - 1] <> '\n' do
+            startPad <- startPad + 1
+        while matchEndPos + endPad < text.Length - 1 && endPad < padLimit && text[matchEndPos + endPad + 1] <> '\n' do
+            endPad <- endPad + 1
+        // Find line number
+        newLineCount <- newLineCount + count '\n' text[newLineIndex .. matchStartPos - 1]
+        // Ensure last highlight region gets shown
+        stateChanges <- stateChanges @ [(matchEndPos + endPad + 1, ' ')]
+        // Create highlight string
+        state <- ' '
+        let mutable prevIndex = matchStartPos - startPad
+        let highlights = stateChanges |> List.map (fun (i, c) ->
+            let res = String.replicate (i - prevIndex) (state.ToString())
+            state <- c
+            prevIndex <- i
+            res)
+        
+        // Print match line and highlight string
+        printfn ""  // Without this FSI freezes for some reason
+        if includesAct && not includesPot then printfn "Missed match!!!"
+        Console.Write("Line " + newLineCount.ToString() + ": ")
+        Console.WriteLine(text[ (matchStartPos - startPad) .. (matchEndPos + endPad) ])
+        printfn "%s%s" (String.replicate (7 + newLineCount.ToString().Length) " ") (String.concat "" highlights)
+        
+        // Move to next match(es)
+        newLineIndex <- matchStartPos
+        if includesPot then hasPotMore <- potEnumerator.MoveNext()
+        if includesAct then hasActMore <- actEnumerator.MoveNext()
+        potMatchStart <- potEnumerator.Current.Index
+        actMatchStart <- actEnumerator.Current.Index
+        potMatchEnd <- potMatchStart + potEnumerator.Current.Length
+        actMatchEnd <- actMatchStart + actEnumerator.Current.Length
+    ()
 
 
 
-matchComparer potMatchesS realMatches sText
+// matchComparer potMatchesW realMatches fullInput
 
-let count c = Seq.filter ((=) c) >> Seq.length
 
-count '\n' fullInput
+// matchComparer testPot testAct testText
+
+// count '\n' fullInput
+
 
 // priority of searches
 // 1. [Su] // uppercase characters are rare
@@ -246,6 +307,130 @@ count '\n' fullInput
 
 
 
+let prefixSearchWeightedReversed regexStr (text: String) =
+    let regex = Regex(regexStr)
+    let cache = regex.TSetMatcher.Cache
+    let prefix = regex.InitialReversePrefix
+    let prefixSets =
+        match prefix with
+        | InitialOptimizations.PotentialStartPrefix(prefixMem) -> 
+            Array.toList (prefixMem.ToArray()) |> List.rev
+        | _ -> failwith "debug"
+
+    
+    printfn "%A" (prefixSets)
+    printfn ""
+    printfn "%A" (prefixesToBin prefixSets)
+    printfn ""
+    printfn "%A" (printAllCharClasses cache 8)
+    printfn ""
+    printfn "%A" (Optimizations.printPrefixSets cache (prefixSets))
+    printfn ""
+    // "[A-Za-z];[kw];[ac];[Su]"
+    
+    // printf "Prefix sets: "
+    printfn "%A" prefixSets
+
+    let weightedSets = prefixSets |> List.mapi (fun i set ->
+            (i, set, commonalityScore (cache.MintermChars(set).ToArray())))
+                       |> List.sortBy (fun (_, _, score) -> score )
+                       |> List.map (fun (i, set, _) -> (i, set))
+    
+    // printf "Weighted prefix sets: "
+    printfn "%A" weightedSets
+    
+    let rarestCharSet = cache.MintermChars(snd weightedSets[0]).ToArray().AsMemory()
+    let charSetIndex = fst weightedSets[0]
+    let mutable searching = true
+
+    let mutable prevMatch = text.Length
+    let textSpan = text.AsSpan()
+    let potMatches = ResizeArray(100)
+    while searching do
+        // printfn "Previous match: %d" prevMatch
+        // printfn "Looking at \"%s\"" (textSpan.Slice(0, prevMatch).ToString())
+        match textSpan.Slice(0, prevMatch).LastIndexOfAny(rarestCharSet.Span) with
+        | curMatch when (curMatch - charSetIndex >= 0) ->
+            let absMatchStart = curMatch - charSetIndex
+            // printfn $"Potential match start at %d{absMatchStart}"
+            let mutable fullMatch = true
+            let mutable i = 1
+            while i < weightedSets.Length && absMatchStart + (fst weightedSets[i]) < textSpan.Length && fullMatch do
+                let set = cache.MintermChars(snd weightedSets[i])
+                // printfn $"Prefix {i}: %A{set.ToArray()}"
+                if textSpan.Slice(absMatchStart + (fst weightedSets[i]), 1).IndexOfAny(set) = -1 then
+                    fullMatch <- false
+                else
+                    i <- i + 1
+            prevMatch <- absMatchStart + charSetIndex
+            if fullMatch && i = weightedSets.Length then
+                // printfn "Match at %d" prevMatch
+                potMatches.Add({MatchPosition.Index = absMatchStart; Length = weightedSets.Length })
+        | -1 | _  -> searching <- false
+    potMatches
+    
+
+
+let rsr = "Huck[a-zA-Z]+|Saw[a-zA-Z]+"
+// let rs = "[a-zA-Z]+ckl|[a-zA-Z]+awy"
+// let rs = ".*have.*&.*there.*"
+let sTextr = fullInput[4000000..4050000]
+// let sTextr = "Lorem ipsum Sawyer dolor"
+// let sText = fullInput[4000000..9000000]
+// let potMatchesS = prefixSearchSimple rs fullInput
+let potMatchesWR = prefixSearchWeightedReversed rsr sTextr
+// let realMatches = Regex(rs).MatchPositions(fullInput)
+
+// potMatchesS.Count
+potMatchesWR.Count
+Regex(rsr).Count(sTextr)
+Regex(rsr).Count(fullInput)
+
+
+printfn "%A" (potMatchesWR.ToArray())
 
 
 
+
+
+
+
+let prefixSearchWeightedReversed regexStr (text: String) =
+    let regex = Regex(regexStr)
+    let cache = regex.TSetMatcher.Cache
+    let prefix = regex.InitialReversePrefix
+    let prefixSets =
+        match prefix with
+        | InitialOptimizations.PotentialStartPrefix(prefixMem) -> 
+            Array.toList (prefixMem.ToArray()) |> List.rev
+        | _ -> failwith "debug"
+
+    let weightedSets = prefixSets |> List.mapi (fun i set ->
+            (i, set, commonalityScore (cache.MintermChars(set).ToArray())))
+                       |> List.sortBy (fun (_, _, score) -> score )
+                       |> List.map (fun (i, set, _) -> (i, set))
+    
+    let rarestCharSet = cache.MintermChars(snd weightedSets[0]).ToArray().AsMemory()
+    let charSetIndex = fst weightedSets[0]
+    let mutable searching = true
+
+    let mutable prevMatch = text.Length
+    let textSpan = text.AsSpan()
+    let potMatches = ResizeArray(100)
+    while searching do
+        match textSpan.Slice(0, prevMatch).LastIndexOfAny(rarestCharSet.Span) with
+        | curMatch when (curMatch - charSetIndex >= 0) ->
+            let absMatchStart = curMatch - charSetIndex
+            let mutable fullMatch = true
+            let mutable i = 1
+            while i < weightedSets.Length && absMatchStart + (fst weightedSets[i]) < textSpan.Length && fullMatch do
+                let set = cache.MintermChars(snd weightedSets[i])
+                if textSpan.Slice(absMatchStart + (fst weightedSets[i]), 1).IndexOfAny(set) = -1 then
+                    fullMatch <- false
+                else
+                    i <- i + 1
+            prevMatch <- absMatchStart + charSetIndex
+            if fullMatch && i = weightedSets.Length then
+                potMatches.Add({MatchPosition.Index = absMatchStart; Length = weightedSets.Length })
+        | -1 | _  -> searching <- false
+    potMatches
