@@ -77,13 +77,13 @@ let commonalityScore (charSet: char array) =
 
 let prefixSearchWeightedReversed (loc: byref<Location>) (cache: RegexCache<TSet>) (weightedSets: inref<(int * TSet) list>) =
     let textSpan = loc.Input
-    let rarestCharSet = cache.MintermChars(snd weightedSets[0]).ToArray().AsMemory()
+    let rarestCharSet = cache.MintermChars(snd weightedSets[0])
     let rarestCharSetIndex = fst weightedSets[0]
     let mutable searching = true
 
     let mutable prevMatch = loc.Position
     while searching do
-        match textSpan.Slice(0, prevMatch).LastIndexOfAny(rarestCharSet.Span) with
+        match textSpan.Slice(0, prevMatch).LastIndexOfAny(rarestCharSet) with
         | curMatch when (curMatch - rarestCharSetIndex >= 0 && curMatch - rarestCharSetIndex + weightedSets.Length <= loc.Position) ->
             let absMatchStart = curMatch - rarestCharSetIndex
             let mutable fullMatch = true
@@ -267,12 +267,20 @@ type Prefix2() =
     // [HF][ui][cn][kn]
     inherit SetsPrefix("Huck|Finn")
 
-[<MemoryDiagnoser(false)>]
-[<ShortRunJob>]
+[<MemoryDiagnoser(true)>]
+// [<ShortRunJob>]
 type PrefixCharsetSearch () =
 
+    // let regex = Sbre.Regex("Huck[a-zA-Z]+|Saw[a-zA-Z]+")
     // let regex = Sbre.Regex("[a-zA-Z]+ckle|[a-zA-Z]+awy")
-    let regex = Sbre.Regex("Huck[a-zA-Z]+|Saw[a-zA-Z]+")
+    let regex = Sbre.Regex(".*have.*&.*there.*")
+    
+    
+    // let rs = "[a-zA-Z]+ckl|[a-zA-Z]+awy"
+    // [<Params("[a-zA-Z]+ckle|[a-zA-Z]+awy", "Huck[a-zA-Z]+|Saw[a-zA-Z]+", ".*have.*&.*there.*")>]
+    // member val rs: string = "" with get, set
+    
+    
     let cache = regex.TSetMatcher.Cache
     let matcher = regex.TSetMatcher
     
@@ -303,26 +311,23 @@ type PrefixCharsetSearch () =
     
     let charSetIndex = fst weightedSets[0]
 
-    // let rs = "[a-zA-Z]+ckl|[a-zA-Z]+awy"
-    // [<Params("[a-zA-Z]+ckle|[a-zA-Z]+awy", "Huck[a-zA-Z]+|Saw[a-zA-Z]+", ".*have.*&.*there.*")>]
-    // member val rs: string = "" with get, set
     
 
     [<Benchmark>]
-    member this.TestNoSkip() =
+    member this.NoSkip() =
         let textSpan = fullInput.AsSpan()
         let mutable loc = Location.createReversedSpan textSpan // end position, location reversed
         collectNullablePositionsNoSkip (matcher, &loc)
         
 
     [<Benchmark>]
-    member this.TestOriginal() =
+    member this.Original() =
         let textSpan = fullInput.AsSpan()
         let mutable loc = Location.createReversedSpan textSpan // end position, location reversed
         collectNullablePositionsOriginal (matcher, &loc)
 
     [<Benchmark>]
-    member this.TestWeighted() =
+    member this.Weighted() =
         let textSpan = fullInput.AsSpan()
         let mutable loc = Location.createReversedSpan textSpan // end position, location reversed
         collectNullablePositionsWeightedSkip (matcher, &loc, &weightedSets)
