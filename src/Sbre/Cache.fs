@@ -62,10 +62,17 @@ type RegexCache< 't
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.MintermChars(startset: TSet) : Memory<char> option = StartsetHelpers.getMintermChars(_solver,predStartsets, minterms, startset)
 
-
-
-
-
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    member this.HasMintermPrefix(loc: byref<Location>, setPrefix: ReadOnlySpan<TSet>) : bool =
+        let mutable couldBe = true
+        let mutable i = 0
+        let inputSpan = loc.Input.Slice(loc.Position)
+        while couldBe && i < setPrefix.Length do
+            let inputMinterm = this.Classify(inputSpan[i])
+            if Solver.notElemOfSet inputMinterm setPrefix[i] then
+                couldBe <- false
+            i <- i + 1
+        couldBe
 
 
     member this.SkipIndexOfAnyPrefix(loc: byref<Location>, setChars: SearchValues<char>, setPrefix: ReadOnlySpan<TSet>, termPrefix: ReadOnlySpan<TSet>) : unit =

@@ -137,8 +137,7 @@ module RegexStateFlagsExtensions =
         [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
         member this.CanSkip = this &&& (
             RegexStateFlags.CanSkipFlag |||
-            RegexStateFlags.InitialFlag |||
-            RegexStateFlags.CanBeNullableFlag) = RegexStateFlags.CanSkipFlag
+            RegexStateFlags.InitialFlag ) = RegexStateFlags.CanSkipFlag
 
         member this.CanSkipLeftToRight = this &&& RegexStateFlags.CanSkipFlag = RegexStateFlags.CanSkipFlag
 

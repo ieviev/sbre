@@ -455,17 +455,16 @@ type RegexMatcher<'t when 't: struct>
         // let dbg_startset = _cache.PrettyPrintMinterm(startsetPredicate)
         // invert empty startset (nothing to skip to)
         let setChars = _cache.MintermSearchValues(startsetPredicate)
+        let isInverted = Solver.elemOfSet startsetPredicate minterms[0]
         match setChars with
-        | None ->
+        | Some setChars ->
+            state.Startset <- startsetPredicate
+            state.StartsetChars <- setChars
+            state.StartsetIsInverted <- isInverted
+        | _ ->
             let isInverted = Solver.elemOfSet startsetPredicate minterms[0]
             state.Startset <- startsetPredicate
             state.StartsetChars <- Unchecked.defaultof<_>
-            state.StartsetIsInverted <- isInverted
-        | Some setChars ->
-
-            let isInverted = Solver.elemOfSet startsetPredicate minterms[0]
-            state.Startset <- startsetPredicate
-            state.StartsetChars <- setChars
             state.StartsetIsInverted <- isInverted
 
 
@@ -517,13 +516,13 @@ type RegexMatcher<'t when 't: struct>
             if
                 not (_cache.Solver.IsEmpty(state.Startset) || _cache.Solver.IsFull(state.Startset))
             then
-                if isNull state.StartsetChars then () else
+                if isNull state.StartsetChars || state.StartsetIsInverted then () else
                 state.Flags <- state.Flags ||| RegexStateFlags.CanSkipFlag
             else
                 ()
 
             if not isInitial
-               && not (state.Flags.HasFlag(RegexStateFlags.CanSkipFlag))
+               // && not (state.Flags.HasFlag(RegexStateFlags.CanSkipFlag))
                && not (state.Flags.HasFlag(RegexStateFlags.ContainsLookaroundFlag)) then
                 // see if limited skip possible
                 let limitedSkip =
@@ -892,39 +891,6 @@ type RegexMatcher<'t when 't: struct>
                 // no matches remaining
                 loc.Position <- Location.final loc
                 false
-        | InitialOptimizations.DebugWordBorderPrefix(_, _) ->
-            failwith "todo"
-            // let mutable doneLooping = false
-            // let mutable result = ValueNone
-            // let pretty1 = prefix.Span.Slice(1,2).ToArray()
-            // let pretty2 = prefix.Span.Slice(1,2).ToArray() |> Array.map _cache.PrettyPrintMinterm
-            // let m0 = prefix.Span[0]
-            // let m3 = prefix.Span[3]
-            // let p2 = 1
-            // while not doneLooping do
-            //     let skipResult = _cache.TryNextStartsetLocationArrayReversed( &loc, pretty1.AsSpan() )
-            //     match skipResult with
-            //     | ValueSome resultEnd ->
-            //         let suffixStart = resultEnd - prefix.Length
-            //         let mtTail = _cache.CharToMinterm(loc.Input[resultEnd])
-            //         let mtHead = _cache.CharToMinterm(loc.Input[suffixStart])
-            //
-            //         // let currSlice = loc.Input.Slice(suffixStart)
-            //         let currSlice = loc.Input.Slice(suffixStart-5)
-            //         let w = 1
-            //         failwith "todo"
-            //     | ValueNone ->
-            //         doneLooping <- true
-            // match result with
-            // | ValueSome resultEnd ->
-            //     let suffixStart = resultEnd - prefix.Length
-            //     currentStateId <- transitionNodeId
-            //     loc.Position <- suffixStart
-            //     true
-            // | ValueNone ->
-            //     // no matches remaining
-            //     loc.Position <- Location.final loc
-            //     false
         | InitialOptimizations.PotentialStartPrefix prefix ->
             let skipResult = _cache.TryNextStartsetLocationArrayReversed( &loc, prefix.Span )
             match skipResult with
@@ -936,6 +902,10 @@ type RegexMatcher<'t when 't: struct>
                 // no matches remaining
                 loc.Position <- Location.final loc
                 false
+            // let svals = _cache.MintermSearchValues(prefix.Span[0]).Value
+            // let isInverted = _cache.MintermIsInverted(prefix.Span[0])
+            // _cache.TryNextStartsetLocationRightToLeft( &loc, svals, isInverted)
+            // false
         | InitialOptimizations.NoOptimizations -> false
 
 
@@ -1069,9 +1039,21 @@ type RegexMatcher<'t when 't: struct>
     member this.getMatchEnd(loc: byref<Location>) : int =
         match _lengthLookup with
         | FixedLength fl -> loc.Position + fl
-        | FixedLengthSetLookup lookup -> this.DfaEndPosition(&loc, DFA_R_noPrefix)
-        | PrefixMatchEnd(prefixLength, transitionId) -> this.DfaEndPosition(&loc, DFA_R_noPrefix)
-        | LengthLookup.MatchEnd -> this.DfaEndPosition(&loc, DFA_R_noPrefix)
+        | _ -> this.DfaEndPosition(&loc, DFA_R_noPrefix)
+        // | FixedLengthSetLookup lookup when loc.Position <> 0 ->
+        //     // this.DfaEndPosition(&loc, DFA_R_noPrefix)
+        //     let mutable found = false
+        //     let mutable lengthResult = 0
+        //     let mutable i = 0
+        //     while not found && i < lookup.Length do
+        //         let pref,len = lookup[i]
+        //         if _cache.HasMintermPrefix(&loc,pref.Span) then
+        //             found <- true
+        //             lengthResult <- len
+        //         i <- i + 1
+        //     lengthResult
+        // | PrefixMatchEnd(prefixLength, transitionId) -> this.DfaEndPosition(&loc, DFA_R_noPrefix)
+        // | _ -> this.DfaEndPosition(&loc, DFA_R_noPrefix)
 
 
     member this.llmatch_all(input: ReadOnlySpan<char>) : SharedResizeArrayStruct<MatchPosition> =

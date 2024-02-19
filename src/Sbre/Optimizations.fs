@@ -17,7 +17,7 @@ type InitialOptimizations =
     | SetsPrefix of prefix:Memory<TSet> * transitionNodeId:int
     /// ex. (Twain|Huck) ==> potential start:[TH][wu][ac][ik]
     | PotentialStartPrefix of prefix:Memory<TSet>
-    | DebugWordBorderPrefix of prefix:Memory<TSet> * transitionNodeId:int
+    // | DebugWordBorderPrefix of prefix:Memory<TSet> * transitionNodeId:int
 
 type ActiveBranchOptimizations =
     | LimitedSkip of distance:int * termPred:SearchValues<char> * termTransitionId:int * nonTermTransitionId:int
@@ -187,13 +187,16 @@ let rec calcPrefixSets getNonInitialDerivative (getStateFlags: RegexNode<_> -> R
 
 
 let rec calcPotentialMatchStart getNonInitialDerivative (getStateFlags: RegexNode<_> -> RegexStateFlags) (cache: RegexCache<_>) (startNode: RegexNode<_>) =
+    if startNode.DependsOnAnchor then [] else // this should never really happen
     let redundant = System.Collections.Generic.HashSet<RegexNode<TSet>>(tsetComparer)
     redundant.Add(cache.False) |> ignore
     let nodes = HashSet(tsetComparer)
     let tempList = ResizeArray()
     let rec loop (acc: TSet list) =
         tempList.Clear()
-        if nodes.Count > 4 || acc.Length > 5 || nodes.Count = 0 then acc |> List.rev else
+        if
+            // nodes.Count > 6
+            nodes.Count = 0 then acc |> List.rev else
         let shouldExit = nodes |> Seq.exists (_.CanBeNullable)
         if shouldExit then acc |> List.rev else
 
@@ -306,7 +309,7 @@ let findInitialOptimizations
     | _ ->
         match Optimizations.calcPotentialMatchStart getNonInitialDerivative nodeToStateFlags c node with
         | potentialStart when potentialStart.Length > 0 ->
-            let mem = Memory(Seq.toArray potentialStart)
+            let mem = Memory(Seq.truncate 4 potentialStart |> Seq.toArray)
             InitialOptimizations.PotentialStartPrefix(mem)
         | _ -> InitialOptimizations.NoOptimizations
 
