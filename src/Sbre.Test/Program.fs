@@ -34,8 +34,12 @@ open Sbre.Test
 // pref.FirstSetIndexOfChars()
 //
 
-let pref = Learning.Learning1()
-pref.Pattern <- pref.Patterns |> Seq.head
-pref.Setup()
-for i = 1 to 50 do
-    pref.Sbre() |> ignore
+let pref = Optimizations.PrefixCharsetSearch()
+
+
+for i = 1 to 100 do
+    let r = pref.Weighted2()
+    ()
+
+let dbg = 1
+

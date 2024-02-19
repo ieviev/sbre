@@ -89,6 +89,9 @@ type RegexCache< 't
     member this.MintermSearchValues(startset: TSet) = _getMintermStartsetChars startset
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    member this.IsInverted(startset: TSet) = Solver.elemOfSet minterms[0] startset
+
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.MintermChars(startset: TSet) : Span<char> = StartsetHelpers.getMintermChars(_solver,predStartsets, minterms, startset)
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]

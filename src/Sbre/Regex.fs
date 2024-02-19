@@ -366,8 +366,7 @@ type RegexMatcher<'t when 't: struct>
             loc: byref<Location>,
             dfaState: MatchingState
         ) : bool =
-        flags.CanBeNullable && flags.IsAlwaysNullable
-        || this.IsNullable (rstate, &loc, dfaState.Node)
+        flags.CanBeNullable && (flags.IsAlwaysNullable || this.IsNullable (rstate, &loc, dfaState.Node))
 
 
     member this.HandleOptimizedNullable(unique:OptimizedUnique, loc: inref<Location>) : bool =
@@ -996,7 +995,7 @@ type Regex(pattern: string, [<Optional; DefaultParameterValue(false)>] _experime
     override this.Match(input) = matcher.Match(input)
 
     member this.Matcher: GenericRegexMatcher = matcher
-  
+
     member this.TSetMatcher: RegexMatcher<TSet> = matcher :?> RegexMatcher<TSet>
     member this.InitialReversePrefix =
         Sbre.Optimizations.findInitialOptimizations
