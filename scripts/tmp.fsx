@@ -15,35 +15,32 @@ open Thoth.Json.Net
 
 
 // let twain_full =
-
-
-let engine = Regex("ab|cd")
-let matcher = engine.Matcher :?> RegexMatcher<uint64>
-
-let pat1 = matcher.RawPattern
-
-
-pat1.ToString() // "(ab|cd)"
-
-type SimpleRegexNode =
-    | Concat of  // RE.RE
-        head: SimpleRegexNode *
-        tail: SimpleRegexNode
-    | Epsilon // ε
-    | Or of  // RE|RE
-        nodes: list<SimpleRegexNode>
-    | Singleton of string // 𝜓 predicate
-    | Loop of  // RE{𝑚, 𝑛}
-        node: SimpleRegexNode *
-        low: int *
-        up: int
-    | And of  // RE&RE ..
-        nodes: list<SimpleRegexNode>
-    | Not of node: SimpleRegexNode // ~RE
-    | Lookahead         of node: SimpleRegexNode
-    | Lookbehind        of node: SimpleRegexNode
-    | NegLookahead      of node: SimpleRegexNode
-    | NegLookbehind     of node: SimpleRegexNode
+// let engine = Regex("ab|cd")
+// let matcher = engine.Matcher :?> RegexMatcher<uint64>
+//
+// let pat1 = matcher.RawPattern
+//
+// pat1.ToString() // "(ab|cd)"
+//
+// type SimpleRegexNode =
+//     | Concat of  // RE.RE
+//         head: SimpleRegexNode *
+//         tail: SimpleRegexNode
+//     | Epsilon // ε
+//     | Or of  // RE|RE
+//         nodes: list<SimpleRegexNode>
+//     | Singleton of string // 𝜓 predicate
+//     | Loop of  // RE{𝑚, 𝑛}
+//         node: SimpleRegexNode *
+//         low: int *
+//         up: int
+//     | And of  // RE&RE ..
+//         nodes: list<SimpleRegexNode>
+//     | Not of node: SimpleRegexNode // ~RE
+//     | Lookahead         of node: SimpleRegexNode
+//     | Lookbehind        of node: SimpleRegexNode
+//     | NegLookahead      of node: SimpleRegexNode
+//     | NegLookbehind     of node: SimpleRegexNode
 
 
 
@@ -97,7 +94,7 @@ type SimpleRegexNode =
 //     | LookAround(node, lookback, negate) -> failwith "todo"
 
 
-let ex2 = Regex("[ab]b")
+// let ex2 = Regex("[ab]b")
 
 // "abc" => "1a1b1c"
 
@@ -114,19 +111,19 @@ let ex2 = Regex("[ab]b")
 
 
 // skipping - eliminating redundant transitions
-let reg16 = Regex("a.*b.*c")
-let res17 = reg16.Match("___a_________b_______abababababab____c___")
-// "___|a_________b_______abababababab____c___"
-// .*b.*c
-// "___a|_________b_______abababababab____c___"
-// "___a_|________b_______abababababab____c___" ==> .*b.*c
-// "___a_________|b_______abababababab____c___"
-// .*c
-// "___a_________b_______abababababab____|c___"
-
-
-// "a.*b.*c"
-let rm = reg16.Matcher :?> RegexMatcher<uint64>
+// let reg16 = Regex("a.*b.*c")
+// let res17 = reg16.Match("___a_________b_______abababababab____c___")
+// // "___|a_________b_______abababababab____c___"
+// // .*b.*c
+// // "___a|_________b_______abababababab____c___"
+// // "___a_|________b_______abababababab____c___" ==> .*b.*c
+// // "___a_________|b_______abababababab____c___"
+// // .*c
+// // "___a_________b_______abababababab____|c___"
+//
+//
+// // "a.*b.*c"
+// let rm = reg16.Matcher :?> RegexMatcher<uint64>
 // let state = RegexState()
 
 // let d1 =
@@ -146,8 +143,8 @@ let rm = reg16.Matcher :?> RegexMatcher<uint64>
 // obj.ReferenceEquals(d1, d2)
 
 
-let allMinterms = rm.Cache.Minterms()
-let prettyMinterms = allMinterms |> Array.map rm.Cache.PrettyPrintMinterm
+// let allMinterms = rm.Cache.Minterms()
+// let prettyMinterms = allMinterms |> Array.map rm.Cache.PrettyPrintMinterm
 
 //
 // ^ - not
@@ -240,16 +237,16 @@ let prettyMinterms = allMinterms |> Array.map rm.Cache.PrettyPrintMinterm
 // [|"⊥";        "⊥";   ".*b.*c";   "⊥";      "⊥"|]
 
 
-let r = Regex("[1-3].*[2-7].*[5-9]")
-// 1___2__5
-// 2___2__5
-// 2___2__5
-let m = r.Matcher :?> RegexMatcher<uint64>
-
-let minterms2 = m.Cache.Minterms()
-let prettyminterms2 =
-    minterms2
-    |> Array.map (fun v -> m.Cache.PrettyPrintMinterm(v))
+// let r = Regex("[1-3].*[2-7].*[5-9]")
+// // 1___2__5
+// // 2___2__5
+// // 2___2__5
+// let m = r.Matcher :?> RegexMatcher<uint64>
+//
+// let minterms2 = m.Cache.Minterms()
+// let prettyminterms2 =
+//     minterms2
+//     |> Array.map (fun v -> m.Cache.PrettyPrintMinterm(v))
 
 // [|"[^\n1-9]"; "\n"; "1"; "[23]"; "4"; "[5-7]"; "[89]"; |]
 
@@ -267,6 +264,11 @@ let prettyminterms2 =
 // [2800-28FF] - braille characters (unicode set)
 
 
+
+
+
+let reg16 = Regex("a.*b.*c")
+// let res17 = reg16.Match("___a_________b_______abababababab____c___")
 
 
 

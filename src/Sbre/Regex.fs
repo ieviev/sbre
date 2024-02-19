@@ -319,6 +319,12 @@ type RegexMatcher<'t when 't: struct>
         | ValueSome info when not info.PendingNullables.IsEmpty -> node
         | _ -> node
 
+
+    and getNonInitialDerivative (mt,node) =
+        let loc = Location.getNonInitial()
+        _createDerivative(&loc,mt, node)
+
+
     and mkLang node =
         _minterms
         |> Array.map (fun mt ->
@@ -561,9 +567,9 @@ type RegexMatcher<'t when 't: struct>
     let reverseNode = RegexNode.rev _cache.Builder R_canonical
     let reverseTrueStarredNode = _cache.Builder.mkConcat2 (_cache.TrueStar, reverseNode)
     let trueStarredNode = _cache.Builder.mkConcat2 (_cache.TrueStar, R_canonical)
+    let _noprefix = mkNodeWithoutLookbackPrefix _cache.Builder R_canonical
     let DFA_TR_rev = _getOrCreateState(reverseTrueStarredNode,reverseTrueStarredNode, true).Id // R_rev
-    let DFA_R_noPrefix =
-        _getOrCreateState(reverseTrueStarredNode,nodeWithoutLookbackPrefix _cache.Builder R_canonical, false).Id
+    let DFA_R_noPrefix = _getOrCreateState(reverseTrueStarredNode,_noprefix, false).Id
 
     let _initialOptimizations =
 #if OPTIMIZE
@@ -586,8 +592,8 @@ type RegexMatcher<'t when 't: struct>
 #else
         InitialOptimizations.NoOptimizations
 #endif
-    let _initialFixedLength =
-        Node.getFixedLength reverseNode
+    let _lengthLookup =
+        Optimizations.inferLengthLookup getNonInitialDerivative _cache _noprefix
 
 
     member this.IsMatchRev
@@ -1060,6 +1066,14 @@ type RegexMatcher<'t when 't: struct>
                 looping <- false
         ders |> Seq.toList
 
+    member this.getMatchEnd(loc: byref<Location>) : int =
+        match _lengthLookup with
+        | FixedLength fl -> loc.Position + fl
+        | FixedLengthSetLookup lookup -> this.DfaEndPosition(&loc, DFA_R_noPrefix)
+        | PrefixMatchEnd(prefixLength, transitionId) -> this.DfaEndPosition(&loc, DFA_R_noPrefix)
+        | LengthLookup.MatchEnd -> this.DfaEndPosition(&loc, DFA_R_noPrefix)
+
+
     member this.llmatch_all(input: ReadOnlySpan<char>) : SharedResizeArrayStruct<MatchPosition> =
 
         let mutable matches = new SharedResizeArrayStruct<MatchPosition>(100)
@@ -1075,10 +1089,7 @@ type RegexMatcher<'t when 't: struct>
             let currStart = startSpans[i]
             if currStart >= nextValidStart then
                 loc.Position <- currStart
-                let matchEnd =
-                    match _initialFixedLength with
-                    | Some fl -> currStart + fl
-                    | _ -> this.DfaEndPosition(&loc, DFA_R_noPrefix)
+                let matchEnd = this.getMatchEnd(&loc)
                 match matchEnd with
                 | -2 -> ()
                 | _ ->
@@ -1109,10 +1120,7 @@ type RegexMatcher<'t when 't: struct>
             let currStart = startSpans[i]
             if currStart >= nextValidStart then
                 loc.Position <- currStart
-                let matchEnd =
-                    match _initialFixedLength with
-                    | Some fl -> currStart + fl
-                    | _ -> this.DfaEndPosition(&loc, DFA_R_noPrefix)
+                let matchEnd = this.getMatchEnd(&loc)
                 match matchEnd with
                 | -2 -> ()
                 | _ ->

@@ -394,6 +394,16 @@ type Rebar3() =
             "/mnt/g/repos/rebar/benchmarks/haystacks/cloud-flare-redos.txt" |> System.IO.File.ReadAllText
         )
 
+type Rebar4() =
+    inherit
+        // Jobs.TestSbreAllPatternsCountSpans(
+        // Jobs.TestSbreAllPatternsMatchOnly(
+        Jobs.TestAllEnginesAllPatternsMatchOnly(
+            [
+               """Sherlock Holmes|John Watson|Irene Adler|Inspector Lestrade|Professor Moriarty"""
+            ],
+            "/mnt/g/repos/rebar/benchmarks/haystacks/opensubtitles/en-sampled.txt" |> System.IO.File.ReadAllText
+        )
 
 
 type CounterCompileTimeRegexes() =

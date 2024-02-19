@@ -6,6 +6,14 @@ open Sbre
 open Sbre.Benchmarks
 open Sbre.Test
 
+
+let a = 1
+
+let b = 2
+
+let c = 3
+
+
 // let regex = Regex(@"(abc)+")
 // let a = Regex(@"abc(abc)*")
 // let ab = Regex(@"abcabc")
@@ -68,7 +76,7 @@ open Sbre.Test
 // assert (ms.Length = 3)
 // let asd = 1
 
-let b = 1
+// let b = 1
 let pref = Paper.Rebar3()
 pref.Pattern <- pref.Patterns |> Seq.head
 pref.Setup()

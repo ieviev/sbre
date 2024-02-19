@@ -468,7 +468,7 @@ let ``startset 04``() = assertStartset "~(.*11.*|1.*)" false "."
 let assertNodeWithoutPrefix (patt:string) (expected:string list) =
     let m = Sbre.Regex(patt).TSetMatcher
     let n = m.RawPattern
-    let n2 = Optimizations.nodeWithoutLookbackPrefix m.Cache.Builder n
+    let n2 = Optimizations.mkNodeWithoutLookbackPrefix m.Cache.Builder n
     assertContains expected (n2.ToString())
 
 [<Fact>]

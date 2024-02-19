@@ -1,4 +1,8 @@
-module internal Sbre.Info
+module 
+#if RELEASE
+    internal 
+#endif    
+    Sbre.Info
 
 open System
 open Sbre.Types

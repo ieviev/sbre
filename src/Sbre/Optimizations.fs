@@ -24,6 +24,11 @@ type ActiveBranchOptimizations =
     | NoOptimizations
 
 
+type LengthLookup =
+    | FixedLength of length:int
+    | FixedLengthSetLookup of lookup:(Memory<TSet>*int)[]
+    | PrefixMatchEnd of prefixLength:int * transitionId:int
+    | MatchEnd
 
 
 #if DEBUG
@@ -39,6 +44,8 @@ let getImmediateDerivatives createNonInitialDerivative (cache: RegexCache<_>) (n
         let der = createNonInitialDerivative (minterm, node)
         minterm, der
     )
+
+
 let getImmediateDerivativesMerged (createNonInitialDerivative) (cache: RegexCache<_>) (node: RegexNode<TSet>) =
     cache.Minterms()
     |> Seq.map (fun minterm ->
@@ -389,18 +396,18 @@ let tryGetLimitedSkip getNonInitialDerivative (nodeToId:RegexNode<TSet> -> int) 
     | _ -> None
 
 
-let rec nodeWithoutLookbackPrefix
+let rec mkNodeWithoutLookbackPrefix
     (b:RegexBuilder<_>)
     (node:RegexNode<_>) =
     match node with
     | LookAround(lookBack = true) -> Epsilon
     | Begin | End -> Epsilon
     | Concat(head=LookAround(lookBack = true); tail=tail) ->
-        nodeWithoutLookbackPrefix b tail
+        mkNodeWithoutLookbackPrefix b tail
     | Concat(head=head; tail=tail) ->
         let convertedHead =
-            nodeWithoutLookbackPrefix b head
-            // nodes |> Seq.map (nodeWithoutLookbackPrefix b)
+            mkNodeWithoutLookbackPrefix b head
+            // nodes |> Seq.map (mkNodeWithoutLookbackPrefix b)
             // |> Seq.toArray
         match convertedHead with
         | Epsilon -> tail
@@ -408,20 +415,18 @@ let rec nodeWithoutLookbackPrefix
             node
     | Or(nodes=xs) ->
         xs
-        |> Seq.map (nodeWithoutLookbackPrefix b)
+        |> Seq.map (mkNodeWithoutLookbackPrefix b)
         |> Seq.toArray
         |> b.mkOrSeq
     | And(nodes=xs) | Or(nodes=xs) ->
         xs
-        |> Seq.map (nodeWithoutLookbackPrefix b)
+        |> Seq.map (mkNodeWithoutLookbackPrefix b)
         |> b.mkAnd
     | Not(_) ->
         // assert (not node.ContainsLookaround)
         node
     | _ ->
         node
-
-
 
 
 let attemptMergeIntersectLang (_cache:RegexCache<TSet>) mkLang (oldNode:RegexNode<TSet>) (languages:RegexNode<TSet> array seq)  =
@@ -450,10 +455,84 @@ let attemptMergeIntersectLang (_cache:RegexCache<TSet>) mkLang (oldNode:RegexNod
     )
 
 
+let rec getLengthMapping
+    createNonInitialDerivative
+    (c:RegexCache<TSet>)
+    (node: RegexNode<TSet>) : LengthLookup
+    =
+    let redundant = HashSet([c.False])
+    let rec loop (acc: (TSet array * int) list) (remainingTransitions: (TSet list * TSet * RegexNode<TSet>)[])  =
+        let transitions =
+            remainingTransitions
+            |> Seq.map (fun (preceding, tset, derivative) ->
+                let fixLengthOption = Info.Node.getFixedLength derivative
+                let newPrecedingList = preceding @ [ tset ]
+
+                match fixLengthOption with
+                | None ->
+                    // continue looking
+                    Result.Error(newPrecedingList, derivative)
+                | Some(fixLength) -> Result.Ok(newPrecedingList, fixLength)
+            )
+            |> Seq.toArray
+
+        let updatedAcc =
+            transitions
+            |> Seq.choose (fun res ->
+                match res with
+                | Error _ -> None
+                | Ok(prec, len) -> Some(Seq.toArray prec, (len + prec.Length))
+            )
+            |> Seq.toList
+            |> List.append acc
+
+        try
+            transitions
+            |> Seq.fold
+                (fun (acc: (TSet array * int) list) res ->
+                    match res with
+                    | Error(prec, der) ->
+                        let newTransitions =
+                            der
+                            |> getNonRedundantDerivatives createNonInitialDerivative c redundant
+                            |> Seq.map (fun (v1, v2) -> prec, v1, v2)
+                            |> Seq.toArray
+
+                        match newTransitions with
+                        | [||] -> acc
+                        | _ when prec.Length > 4 -> failwith "could not infer length prefix"
+                        | _ -> loop acc newTransitions
+                    | Ok(_) -> acc
+                )
+                updatedAcc
+        with e -> []
+
+    let nonRedundant =
+        node
+        |> Optimizations.getNonRedundantDerivatives createNonInitialDerivative c redundant |> Seq.toArray
+
+    let initial: (TSet list * TSet * RegexNode<TSet>) array =
+        nonRedundant
+        |> Seq.map (fun (v1,v2) -> [],v1,v2)
+        |> Seq.toArray
+    let result = loop [] initial
+    match result with
+    | [] -> LengthLookup.MatchEnd
+    | _ ->
+        result
+        |> Seq.map (fun (pref,len) -> Memory(pref),len )
+        |> Seq.toArray
+        |> LengthLookup.FixedLengthSetLookup
 
 
-
-
-
-
+let inferLengthLookup
+    createNonInitialDerivative
+    (c:RegexCache<TSet>)
+    (node: RegexNode<TSet>)
+    =
+    Info.Node.getFixedLength node
+    |> Option.map LengthLookup.FixedLength
+    |> Option.defaultWith (fun _ ->
+        getLengthMapping createNonInitialDerivative c node
+    )
 
