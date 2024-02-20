@@ -32,6 +32,11 @@ type LengthLookup =
     | PrefixMatchEnd of prefixLength:int * transitionId:int
     | MatchEnd
 
+/// override trivial literal string search
+[<RequireQualifiedAccess>]
+type OverrideRegex =
+    | FixedLengthString of string:Memory<char>
+    | FixedLengthStringCaseIgnore of string:Memory<char>
 
 #if DEBUG
 let printPrefixSets (cache:RegexCache<_>) (sets:TSet list) =
@@ -262,7 +267,6 @@ let findInitialOptimizations
 #endif
     match Optimizations.calcPrefixSets getNonInitialDerivative nodeToStateFlags c node with
     | prefix when prefix.Length > 1 ->
-
         let mts = c.Minterms()
         let singleCharPrefixes =
             prefix
@@ -273,7 +277,6 @@ let findInitialOptimizations
                 chrs |> Option.bind (fun chrs ->
                     if chrs.Length = 1 then Some (chrs.Span[0]) else None
                 )
-
             )
             |> Seq.takeWhile Option.isSome
             |> Seq.choose id
@@ -306,7 +309,6 @@ let findInitialOptimizations
                                 | [|'K';'k';'K'|] -> Some chrs.Span[0]
                                 | _ -> None
                             | _ -> None
-
                     )
                 )
                 |> Seq.takeWhile Option.isSome
@@ -318,23 +320,10 @@ let findInitialOptimizations
             let applied = Optimizations.applyPrefixSets getNonInitialDerivative c trueStarredNode (List.take caseInsensitivePrefixes.Length prefix)
             let firstSet = prefix |> List.head |> c.MintermSearchValues |> Option.defaultWith (fun v -> failwith "bug: invalid startset")
             // reverse prefix search is very slow in the span API so we use this
-            let spanString = caseInsensitivePrefixes.ToString()
+            // let spanString = caseInsensitivePrefixes.ToString()
             // let engine = System.Text.RegularExpressions.Regex(spanString, Text.RegularExpressions.RegexOptions.RightToLeft ||| Text.RegularExpressions.RegexOptions.IgnoreCase ||| Text.RegularExpressions.RegexOptions.Compiled)
             InitialOptimizations.StringPrefixCaseIgnore(firstSet,caseInsensitivePrefixes,nodeToId applied)
-            // InitialOptimizations.StringPrefixCaseIgnore(engine,nodeToId applied)
         else
-
-
-            // fail if set too large
-//             if smallPrefix.Length = 0 then
-// #if EXPERIMENTAL_LOOKAROUNDS
-//                 let mem = Memory(Seq.toArray prefix)
-//                 let applied = Optimizations.applyPrefixSets getNonInitialDerivative c trueStarredNode prefix
-//                 InitialOptimizations.DebugWordBorderPrefix(mem,nodeToId applied)
-// #else
-//                 InitialOptimizations.NoOptimizations
-// #endif
-//             else
 
             let applied = Optimizations.applyPrefixSets getNonInitialDerivative c trueStarredNode prefix
             let containsSmallSets =
@@ -480,27 +469,55 @@ let rec mkNodeWithoutLookbackPrefix
         node
 
 
-let attemptMergeIntersectLang (_cache:RegexCache<TSet>) mkLang (oldNode:RegexNode<TSet>) (languages:RegexNode<TSet> array seq)  =
+let attemptMergeIntersectLang (_cache:RegexCache<TSet>) (mkLang: RegexNode<TSet> -> RegexNode<TSet>[]) (oldNode:RegexNode<TSet>) (languages:RegexNode<TSet> array seq)  =
     languages
     |> Seq.reduce (fun (lang1) (lang2) ->
         Seq.zip lang1 lang2
         |> Seq.indexed
         |> Seq.map (fun (idx,(l1,l2)) ->
             match l1, l2 with
+            | n1, n2 | n2, n1 when refEq n1 n2 -> n1
             | f, _ | _, f when refEq f _cache.False -> _cache.False
             | n1, n2 | n2, n1 when refEq n1 _cache.TrueStar -> n2
             | n1, n2 | n2, n1 when refEq n1 _cache.Eps -> if n2.CanBeNullable then _cache.Eps else _cache.False
+            // --
             | SingletonStarLoop(pred) as p1, other | other, (SingletonStarLoop(pred) as p1) ->
                 let sub = Solver.containsS _cache.Solver pred (other.SubsumedByMinterm(_cache.Solver))
-                if sub then other else
-                    failwith "todo asdasd"
+                if sub then other else _cache.Builder.mkAnd2(l1,l2)
             | _ ->
-                let sublang1 = mkLang l1
-                let sublang2 = mkLang l2
-                let merged = attemptMergeIntersectLang _cache mkLang oldNode [sublang1;sublang2]
-                let mknode = (fun _ -> _cache.Builder.mkAnd2Direct(l1,l2) )
-                let canonical = _cache.Builder.GetCanonical(oldNode,merged,mknode)
-                canonical
+                let newNode = _cache.Builder.mkAnd2(l1,l2)
+                _cache.Builder.GetCanonical(newNode,mkLang newNode,(fun v -> newNode))
+                // infinite loop danger
+                // let sublang1 = mkLang l1
+                // let sublang2 = mkLang l2
+                // // let merged = attemptMergeIntersectLang _cache mkLang oldNode [sublang1;sublang2]
+                // let mknode = (fun _ -> _cache.Builder.mkAnd2Direct(l1,l2) )
+                // let canonical = _cache.Builder.GetCanonical(oldNode,merged,mknode)
+                // canonical
+        )
+        |> Seq.toArray
+    )
+
+
+let attemptMergeUnionLang (_cache:RegexCache<TSet>) (mkLang: RegexNode<TSet> -> RegexNode<TSet>[]) (oldNode:RegexNode<TSet>) (languages:RegexNode<TSet> array seq)  =
+    languages
+    |> Seq.reduce (fun (lang1) (lang2) ->
+        Seq.zip lang1 lang2
+        |> Seq.indexed
+        |> Seq.map (fun (idx,(l1,l2)) ->
+            match l1, l2 with
+            | n1, n2 | n2, n1 when refEq n1 n2 -> n1
+            | n1, other | other, n1 when refEq n1 _cache.False -> other
+            | n1, n2 | n2, n1 when refEq n1 _cache.TrueStar -> _cache.TrueStar
+            | n1, n2 | n2, n1 when refEq n1 _cache.Eps -> if n2.CanBeNullable then n2 else _cache.Builder.mkLoop(n2,0,1)
+            // --
+            | SingletonStarLoop(pred) as p1, other | other, (SingletonStarLoop(pred) as p1) ->
+                let sub = Solver.containsS _cache.Solver pred (other.SubsumedByMinterm(_cache.Solver))
+                if sub then p1 else _cache.Builder.mkOr2(l1,l2)
+            | _ ->
+                let newNode = _cache.Builder.mkOr2(l1,l2)
+                let canon = _cache.Builder.GetCanonical(newNode,mkLang newNode,(fun v -> newNode))
+                canon
         )
         |> Seq.toArray
     )
@@ -587,3 +604,15 @@ let inferLengthLookup
         getLengthMapping createNonInitialDerivative c node
     )
 
+let inferOverrideRegex
+    (initialOptimizations:InitialOptimizations)
+    (lengthLookup:LengthLookup)
+    (c:RegexCache<TSet>)
+    (node: RegexNode<TSet>) : OverrideRegex option
+    =
+    if node.DependsOnAnchor then None else
+    match lengthLookup, initialOptimizations with
+    | LengthLookup.FixedLength(fl), InitialOptimizations.StringPrefixCaseIgnore(_,prefix,_) when fl = prefix.Length ->
+        Some (OverrideRegex.FixedLengthStringCaseIgnore(prefix))
+    | _ ->
+        None

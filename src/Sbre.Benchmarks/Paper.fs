@@ -385,7 +385,7 @@ type Rebar2() =
 
 
 
-type Rebar3() =
+type Rebar6() =
     inherit
         Jobs.TestSbreAllPatternsCountSpans(
         // Jobs.TestSbreAllPatternsMatchOnly(
@@ -415,6 +415,17 @@ type Rebar5() =
             ],
             "/mnt/g/repos/rebar/benchmarks/haystacks/opensubtitles/en-sampled.txt" |> System.IO.File.ReadAllText
         )
+
+
+type Rebar14() =
+    inherit
+        Jobs.TestAllEnginesAllPatternsMatchOnly(
+            [
+               """.*[^A-Z]|[A-Z]"""
+            ],
+            String.replicate 200 "A"
+        )
+
 
 
 type CounterCompileTimeRegexes() =

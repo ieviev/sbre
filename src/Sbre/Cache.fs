@@ -150,7 +150,6 @@ type RegexCache< 't
         | _ -> loc.Position <- sharedIndex + 1
 
 
-
     member this.TryNextStartsetLocation(loc: byref<Location>, set: TSet) : unit =
         assert (not (Solver.isEmpty set))
         let setChars = this.MintermSearchValues(set)
@@ -249,6 +248,7 @@ type RegexCache< 't
                     loc.Position <- potential
                 else
                     loc.Position <- potential + 1
+
 
 
 

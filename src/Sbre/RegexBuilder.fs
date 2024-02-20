@@ -969,7 +969,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             match node1, node2 with
             | n, falseNode | falseNode, n when refEq falseNode _false -> n
             | n, trueStarNode | trueStarNode, n when refEq _uniques._trueStar trueStarNode -> trueStarNode
-            | n, n2 when refEq n n2 -> n
+            | n1, n2 when refEq n1 n2 -> n1
             | Epsilon, n | n, Epsilon -> this.mkLoop(n, 0, 1)
             | Loop(node=node;low=2;up=2), other | other, Loop(node=node;low=2;up=2) when refEq node other ->
                 this.mkLoop(node, 1, 2)
@@ -1059,12 +1059,12 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 | _ when twoormore.Length = 1 -> twoormore[0]
                 | _ ->
                 let newAnd = RegexNode.And(ofSeq twoormore, mergedInfo)
-#if CANONICAL
-                let newAnd =
-                    this.CanonicalizeCallback
-                    |> Option.map (fun fn -> fn newAnd )
-                    |> Option.defaultValue newAnd
-#endif
+// #if CANONICAL
+//                 let newAnd =
+//                     this.CanonicalizeCallback
+//                     |> Option.map (fun fn -> fn newAnd )
+//                     |> Option.defaultValue newAnd
+// #endif
                 _andCache.TryAdd(key,newAnd) |> ignore
                 newAnd
 
@@ -1074,9 +1074,10 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             if typeof<'t> = typeof<BDD> then createCached(key) else
 
             match node1, node2 with
-            | n, falseNode | falseNode, n when refEq falseNode _false -> falseNode
+            | n1, n2 when refEq n1 n2 -> n1
+            | n, falseNode | falseNode, n when refEq falseNode _uniques._false -> falseNode
             | n, trueStarNode | trueStarNode, n when refEq _uniques._trueStar trueStarNode -> n
-
+            | n, Epsilon | Epsilon, n -> if n.CanNotBeNullable then _uniques._false else createCached(key)
             // Lookaround semantics hack - bad
             // | LookAround(lookBack=true) as look , other
             // | other , (LookAround(lookBack=true) as look) ->

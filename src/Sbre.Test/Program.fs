@@ -76,17 +76,14 @@ let c = 3
 //
 // assert (ms.Length = 3)
 // let asd = 1
-
-
-System.Globalization.CultureInfo.CurrentCulture <- CultureInfo.InvariantCulture
-
 // let b = 1
+// let pref = Paper.Rebar14()
 let pref = Paper.Rebar2()
 pref.Pattern <- pref.Patterns |> Seq.head
 pref.Setup()
-for i = 1 to 500 do
+// for i = 1 to 500 do
 // for i = 1 to 3000 do
-    // pref.Sbre() |> ignore
-    pref.Rev2() |> ignore
+for i = 1 to 100000 do
+    pref.Sbre() |> ignore
 
 

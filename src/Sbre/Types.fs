@@ -136,10 +136,9 @@ module RegexStateFlagsExtensions =
         member this.ContainsLookaround = this &&& RegexStateFlags.ContainsLookaroundFlag = RegexStateFlags.ContainsLookaroundFlag
         [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
         member this.CanSkip = this &&& (
-            RegexStateFlags.CanSkipFlag |||
-            RegexStateFlags.InitialFlag ) = RegexStateFlags.CanSkipFlag
+            RegexStateFlags.CanSkipFlag ||| RegexStateFlags.InitialFlag ) = RegexStateFlags.CanSkipFlag
 
-        member this.CanSkipLeftToRight = this &&& RegexStateFlags.CanSkipFlag = RegexStateFlags.CanSkipFlag
+        member this.CanSkipLeftToRight = this &&& (RegexStateFlags.CanSkipFlag) = RegexStateFlags.CanSkipFlag
 
         [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
         member this.HasPrefix = this &&& RegexStateFlags.HasPrefixFlag = RegexStateFlags.HasPrefixFlag
@@ -553,7 +552,6 @@ type SharedResizeArray<'t>(initialSize:int) =
 
 
 [<Struct; IsByRefLike; >]
-// [<Struct>]
 type SharedResizeArrayStruct<'t> =
     val mutable size : int
     val mutable limit : int
@@ -583,10 +581,11 @@ type SharedResizeArrayStruct<'t> =
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.AsSpan() = this.pool.AsSpan(0, this.size)
     member this.AsArray() = this.pool.AsSpan(0, this.size).ToArray()
+    member this.Dispose() =
+        ArrayPool.Shared.Return(this.pool)
 
     interface IDisposable with
-        member this.Dispose() =
-            ArrayPool.Shared.Return(this.pool)
+        member this.Dispose() = this.Dispose()
     new(initialSize: int) =
         {
             size = 0

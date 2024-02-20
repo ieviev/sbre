@@ -1149,8 +1149,6 @@ type TestAllEnginesAllPatternsMatchOnly(patterns: string list, input: string) =
     member val Compiled_Regex: System.Text.RegularExpressions.Regex =
         Unchecked.defaultof<_> with get, set
 
-    member val Compiled_Regex2: System.Text.RegularExpressions.Regex = Unchecked.defaultof<_> with get, set
-    member val Compiled_Regex3: System.Text.RegularExpressions.Regex = Unchecked.defaultof<_> with get, set
 
     member val Sbre_Regex: Regex = Unchecked.defaultof<_>  with get, set
 
@@ -1160,8 +1158,6 @@ type TestAllEnginesAllPatternsMatchOnly(patterns: string list, input: string) =
         this.None_Regex <- System.Text.RegularExpressions.Regex(this.Pattern, opts_None)
         // this.NonBack_Regex <- System.Text.RegularExpressions.Regex(this.Pattern, opts_NonBacktracking)
         this.Compiled_Regex <- System.Text.RegularExpressions.Regex(this.Pattern, opts_Compiled)
-        this.Compiled_Regex2 <- System.Text.RegularExpressions.Regex("Sherlock Holmes", Text.RegularExpressions.RegexOptions.RightToLeft ||| Text.RegularExpressions.RegexOptions.IgnoreCase)
-        this.Compiled_Regex3 <- System.Text.RegularExpressions.Regex("Sherlock Holmes", Text.RegularExpressions.RegexOptions.RightToLeft ||| Text.RegularExpressions.RegexOptions.IgnoreCase ||| Text.RegularExpressions.RegexOptions.Compiled)
         this.Sbre_Regex <- Regex(this.Pattern)
 
 
@@ -1169,7 +1165,7 @@ type TestAllEnginesAllPatternsMatchOnly(patterns: string list, input: string) =
     // member this.Symbolic() =
     //     this.NonBack_Regex.Count(inputText)
 
-    [<Benchmark(Description = "RegexOptions.Compiled")>]
+    [<Benchmark(Description = "Compiled")>]
     member this.Compiled() =
         this.Compiled_Regex.Count(inputText)
 
@@ -1186,22 +1182,22 @@ type TestAllEnginesAllPatternsMatchOnly(patterns: string list, input: string) =
     member this.Sbre() =
         this.Sbre_Regex.Count(inputText)
 
-
-    [<Benchmark()>]
-    member this.LastIndexOfOrdinalIgnoreCase() =
-        let span = inputText.AsSpan()
-        let mutable looping = true
-        let mutable count = 0
-        let mutable currPos = inputText.Length - 1
-        while looping do
-            let slice = span.Slice(0,currPos)
-            match slice.LastIndexOf("Sherlock Holmes", StringComparison.OrdinalIgnoreCase) with
-            | -1 -> looping <- false
-            | n ->
-                count <- count + 1
-                currPos <- n
-        if count <> 522 then
-            failwith $"invalid count: {count}" |> ignore
+    //
+    // [<Benchmark()>]
+    // member this.LastIndexOfOrdinalIgnoreCase() =
+    //     let span = inputText.AsSpan()
+    //     let mutable looping = true
+    //     let mutable count = 0
+    //     let mutable currPos = inputText.Length - 1
+    //     while looping do
+    //         let slice = span.Slice(0,currPos)
+    //         match slice.LastIndexOf("Sherlock Holmes", StringComparison.OrdinalIgnoreCase) with
+    //         | -1 -> looping <- false
+    //         | n ->
+    //             count <- count + 1
+    //             currPos <- n
+    //     if count <> 522 then
+    //         failwith $"invalid count: {count}" |> ignore
     //
     // [<Benchmark()>]
     // member this.IndexOfOrdinalIgnoreCase() =

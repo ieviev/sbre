@@ -136,8 +136,9 @@ let main argv =
 
     | "rebar1" -> BenchmarkRunner.Run(typeof<Paper.Rebar1>,config) |> ignore
     | "rebar2" -> BenchmarkRunner.Run(typeof<Paper.Rebar2>,config) |> ignore
-    | "rebar3" -> BenchmarkRunner.Run(typeof<Paper.Rebar3>,config) |> ignore
     | "rebar4" -> BenchmarkRunner.Run(typeof<Paper.Rebar4>,config) |> ignore
+    | "rebar6" -> BenchmarkRunner.Run(typeof<Paper.Rebar6>,config) |> ignore
+    | "rebar14" -> BenchmarkRunner.Run(typeof<Paper.Rebar14>,config) |> ignore
 
 
     // words in paragraph
