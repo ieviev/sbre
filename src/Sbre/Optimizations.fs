@@ -12,6 +12,8 @@ type InitialOptimizations =
     | NoOptimizations
     /// ex. Twain ==> (ε|Twain)
     | StringPrefix of prefix:Memory<char> * transitionNodeId:int
+    | StringPrefixCaseIgnore of firstSet:SearchValues<char> * prefix:Memory<char> * transitionNodeId:int
+    // | StringPrefixCaseIgnore of engine:System.Text.RegularExpressions.Regex * transitionNodeId:int
     | SearchValuesPrefix of prefix:Memory<SearchValues<char>> * transitionNodeId:int
     /// ex. [Tt][Ww][Aa][Ii][Nn] ==> (ε|(?i)Twain)
     | SetsPrefix of prefix:Memory<TSet> * transitionNodeId:int
@@ -36,6 +38,12 @@ let printPrefixSets (cache:RegexCache<_>) (sets:TSet list) =
     sets
     |> Seq.map cache.PrettyPrintMinterm
     |> String.concat ";"
+
+let printPrettyDerivs (cache:RegexCache<_>) (derivs) =
+    derivs
+    |> (Array.map (fun (mt, node) -> $"{cache.PrettyPrintMinterm(mt), -13} ==> {node.ToString()}"))
+    |> String.concat "\n"
+    |> (fun v -> "\n" + v)
 #endif
 
 let getImmediateDerivatives createNonInitialDerivative (cache: RegexCache<_>) (node: RegexNode<TSet>) =
@@ -139,7 +147,6 @@ let rec calcPrefixSets getNonInitialDerivative (getStateFlags: RegexNode<_> -> R
     // nothing to complement if a match has not started
     let prefixStartNode, complementStartset =
         getPrefixNodeAndComplement cache startNode
-
 
     let rec loop (acc:TSet list) node =
         let prefix_derivs =
@@ -277,6 +284,47 @@ let findInitialOptimizations
             let applied = Optimizations.applyPrefixSets getNonInitialDerivative c trueStarredNode (List.take singleCharPrefixes.Length prefix)
             InitialOptimizations.StringPrefix(singleCharPrefixes,nodeToId applied)
         else
+        let caseInsensitivePrefixes =
+                prefix
+                |> Seq.map (fun v ->
+                    // negated set
+                    if Solver.elemOfSet v mts[0] then None else
+                    let chrs = c.MintermChars(v)
+                    chrs |> Option.bind (fun chrs ->
+                        if chrs.Length = 1 then Some (chrs.Span[0]) else
+
+                        let up c = Char.IsAsciiLetterUpper c || Char.IsWhiteSpace c
+                        let low c = Char.IsAsciiLetterLower c || Char.IsWhiteSpace c
+
+                        if (chrs.Length = 2) &&
+                           ((up chrs.Span[0] && low chrs.Span[1])
+                            || (low chrs.Span[0] && up chrs.Span[1]) )
+                        then Some (chrs.Span[0]) else
+                            match chrs.Length with
+                            | 3 ->
+                                match chrs.ToArray() with
+                                | [|'K';'k';'K'|] -> Some chrs.Span[0]
+                                | _ -> None
+                            | _ -> None
+
+                    )
+                )
+                |> Seq.takeWhile Option.isSome
+                |> Seq.choose id
+                |> Seq.rev
+                |> Seq.toArray
+                |> Memory
+        if caseInsensitivePrefixes.Length > 1 then
+            let applied = Optimizations.applyPrefixSets getNonInitialDerivative c trueStarredNode (List.take caseInsensitivePrefixes.Length prefix)
+            let firstSet = prefix |> List.head |> c.MintermSearchValues |> Option.defaultWith (fun v -> failwith "bug: invalid startset")
+            // reverse prefix search is very slow in the span API so we use this
+            let spanString = caseInsensitivePrefixes.ToString()
+            // let engine = System.Text.RegularExpressions.Regex(spanString, Text.RegularExpressions.RegexOptions.RightToLeft ||| Text.RegularExpressions.RegexOptions.IgnoreCase ||| Text.RegularExpressions.RegexOptions.Compiled)
+            InitialOptimizations.StringPrefixCaseIgnore(firstSet,caseInsensitivePrefixes,nodeToId applied)
+            // InitialOptimizations.StringPrefixCaseIgnore(engine,nodeToId applied)
+        else
+
+
             // fail if set too large
 //             if smallPrefix.Length = 0 then
 // #if EXPERIMENTAL_LOOKAROUNDS

@@ -38,6 +38,7 @@
         </Compile>
         <Compile Include="System\Collections\HashtableExtensions.cs" />
         <Compile Include="System\Text\RegularExpressions\ExtendedRegexParser.cs" />
+        <Compile Include="System\Text\RegularExpressions\Symbolic\ReversePrefixSearch.cs" />
         <Compile Include="System\Text\RegularExpressions\Symbolic\UInt32Solver.cs" />
         <Compile Include="System\Text\RegularExpressions\ValueMatch.cs" />
         <Compile Include="System\Threading\StackHelper.cs" />

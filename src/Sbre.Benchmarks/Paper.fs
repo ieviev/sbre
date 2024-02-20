@@ -372,15 +372,17 @@ type Rebar1() =
             ],
             fullInput
         )
-
 type Rebar2() =
     inherit
+        // Jobs.TestSbreAllPatternsCountSpans(
+        // Jobs.TestSbreAllPatternsMatchOnly(
         Jobs.TestAllEnginesAllPatternsMatchOnly(
             [
-               """\b[0-9A-Za-z_]+\b"""
+               """(?i)Sherlock Holmes"""
             ],
             "/mnt/g/repos/rebar/benchmarks/haystacks/opensubtitles/en-sampled.txt" |> System.IO.File.ReadAllText
         )
+
 
 
 type Rebar3() =
@@ -401,6 +403,15 @@ type Rebar4() =
         Jobs.TestAllEnginesAllPatternsMatchOnly(
             [
                """Sherlock Holmes|John Watson|Irene Adler|Inspector Lestrade|Professor Moriarty"""
+            ],
+            "/mnt/g/repos/rebar/benchmarks/haystacks/opensubtitles/en-sampled.txt" |> System.IO.File.ReadAllText
+        )
+
+type Rebar5() =
+    inherit
+        Jobs.TestAllEnginesAllPatternsMatchOnly(
+            [
+               """\b[0-9A-Za-z_]+\b"""
             ],
             "/mnt/g/repos/rebar/benchmarks/haystacks/opensubtitles/en-sampled.txt" |> System.IO.File.ReadAllText
         )

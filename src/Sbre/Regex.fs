@@ -867,6 +867,30 @@ type RegexMatcher<'t when 't: struct>
                 currentStateId <- transitionNodeId
                 loc.Position <- resultStart
                 true
+        | InitialOptimizations.StringPrefixCaseIgnore(firstSet, prefix, transitionNodeId) ->
+            // case insensitive Span.LastIndexOf is SLOW AND NOT VECTORIZED
+            let mutable resultStart = loc.Position
+            let mutable found = false
+            let prefixSpan = prefix.Span.Slice(0,prefix.Length-1)
+            let textSpan = loc.Input
+            while not found  do
+                let mutable slice = textSpan.Slice(0, resultStart)
+                resultStart <- slice.LastIndexOfAny(firstSet)
+                if resultStart = -1 then found <- true else
+                slice <- textSpan.Slice(0, resultStart)
+                match slice.EndsWith(prefixSpan, StringComparison.OrdinalIgnoreCase) with
+                | true ->
+                    resultStart <- resultStart - prefix.Span.Length + 1
+                    found <- true
+                | _ -> ()
+
+            if resultStart = -1 then
+                loc.Position <- Location.final loc
+                false
+            else
+                currentStateId <- transitionNodeId
+                loc.Position <- resultStart
+                true
         | InitialOptimizations.SearchValuesPrefix(prefix, transitionNodeId) ->
             let skipResult = _cache.TryNextStartsetLocationSearchValuesReversed( &loc, prefix.Span )
             match skipResult with

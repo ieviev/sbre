@@ -2,6 +2,7 @@
 
 module Program
 
+open System.Globalization
 open Sbre
 open Sbre.Benchmarks
 open Sbre.Test
@@ -76,11 +77,16 @@ let c = 3
 // assert (ms.Length = 3)
 // let asd = 1
 
+
+System.Globalization.CultureInfo.CurrentCulture <- CultureInfo.InvariantCulture
+
 // let b = 1
-let pref = Paper.Rebar4()
+let pref = Paper.Rebar2()
 pref.Pattern <- pref.Patterns |> Seq.head
 pref.Setup()
 for i = 1 to 500 do
-    pref.Sbre() |> ignore
+// for i = 1 to 3000 do
+    // pref.Sbre() |> ignore
+    pref.Rev2() |> ignore
 
 
