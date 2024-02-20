@@ -112,7 +112,7 @@ let assertPotentialPrefix pattern expected =
             (fun node -> matcher.GetOrCreateState(node).Flags)
             matcher.Cache matcher.ReversePattern matcher.ReverseTrueStarredPattern
     match optimizations with
-    | Optimizations.InitialOptimizations.PotentialStartPrefix(prefix) ->
+    | Optimizations.InitialOptimizations.SetsPotentialStart(prefix) ->
         let prefixString = Optimizations.printPrefixSets matcher.Cache (prefix.ToArray() |> Seq.toList)
         Assert.Equal(expected, prefixString)
     | _ -> failwith $"invalid optimization result: {optimizations}"

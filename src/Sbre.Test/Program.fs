@@ -79,7 +79,7 @@ let c = 3
 // let asd = 1
 // let b = 1
 // let pref = Paper.Rebar14()
-let pref = Paper.Rebar2()
+let pref = Paper.Rebar10()
 pref.Pattern <- pref.Patterns |> Seq.head
 pref.Setup()
 // for i = 1 to 500 do

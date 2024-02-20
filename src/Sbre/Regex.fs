@@ -559,7 +559,7 @@ type RegexMatcher<'t when 't: struct>
         let cannotUsePrefix =
             match opts with
             | InitialOptimizations.SetsPrefix(prefix=prefix)
-            | InitialOptimizations.PotentialStartPrefix prefix ->
+            | InitialOptimizations.SetsPotentialStart prefix ->
                 let chrs = _cache.MintermChars(prefix.Span[0])
                 chrs.IsNone
             | _ -> false
@@ -837,7 +837,7 @@ type RegexMatcher<'t when 't: struct>
                 currentStateId <- transitionNodeId
                 loc.Position <- resultStart
                 true
-        | InitialOptimizations.PotentialStartSingle (prefix,inverted) ->
+        | InitialOptimizations.SinglePotentialStart (prefix,inverted) ->
             let slice = loc.Input.Slice(0, loc.Position)
             let resultStart =
                 if not inverted then (slice.LastIndexOfAny(prefix))
@@ -897,7 +897,18 @@ type RegexMatcher<'t when 't: struct>
                 // no matches remaining
                 loc.Position <- Location.final loc
                 false
-        | InitialOptimizations.PotentialStartPrefix prefix ->
+        | InitialOptimizations.SearchValuesPotentialStart prefix ->
+            let skipResult = _cache.TryNextStartsetLocationSearchValuesReversed( &loc, prefix.Span )
+            match skipResult with
+            | ValueSome resultEnd ->
+                let n = resultEnd <> loc.Position
+                loc.Position <- resultEnd
+                n
+            | ValueNone ->
+                // no matches remaining
+                loc.Position <- Location.final loc
+                false
+        | InitialOptimizations.SetsPotentialStart prefix ->
             let skipResult = _cache.TryNextStartsetLocationArrayReversed( &loc, prefix.Span )
             match skipResult with
             | ValueSome resultEnd ->
@@ -913,6 +924,8 @@ type RegexMatcher<'t when 't: struct>
             // _cache.TryNextStartsetLocationRightToLeft( &loc, svals, isInverted)
             // false
         | InitialOptimizations.NoOptimizations -> false
+
+
 
 
 
@@ -1011,7 +1024,7 @@ type RegexMatcher<'t when 't: struct>
 
         while looping do
             let flags = _flagsArray[currentStateId]
-            let dfaState = _stateArray[currentStateId]
+            // let dfaState = _stateArray[currentStateId]
 #if SKIP
             if (flags.CanSkipInitial && this.TrySkipInitialRev(&loc, &currentStateId))
 
@@ -1118,7 +1131,7 @@ type RegexMatcher<'t when 't: struct>
                     if start = -1 then looping <- false else
                     match slice.Slice(start).StartsWith(pspan, StringComparison.OrdinalIgnoreCase) with
                     | false -> currPos <- currPos + start + 1
-                    | n ->
+                    | _ ->
                         acc.Add({ MatchPosition.Index = start; Length = textLength })
                         currPos <- currPos + start + textLength
 

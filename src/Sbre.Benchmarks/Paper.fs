@@ -391,7 +391,8 @@ type Rebar2() =
         // Jobs.TestSbreAllPatternsMatchOnly(
         Jobs.TestAllEnginesAllPatternsMatchOnly(
             [
-               """Sherlock Holmes|John Watson|Irene Adler|Inspector Lestrade|Professor Moriarty"""
+               // """Sherlock Holmes|John Watson|Irene Adler|Inspector Lestrade|Professor Moriarty"""
+               """Sherlock H|John W|Irene A|Inspector L|Professor M"""
             ],
             "/mnt/g/repos/rebar/benchmarks/haystacks/opensubtitles/en-sampled.txt" |> System.IO.File.ReadAllText
         )
@@ -425,6 +426,16 @@ type Rebar5() =
                """\b[0-9A-Za-z_]+\b"""
             ],
             "/mnt/g/repos/rebar/benchmarks/haystacks/opensubtitles/en-sampled.txt" |> System.IO.File.ReadAllText
+        )
+
+
+type Rebar10() =
+    inherit
+        Jobs.TestAllEnginesAllPatternsMatchOnly(
+            [
+               """[A-Za-z]{10}\s+[\s\S]{0,100}Result[\s\S]{0,100}\s+[A-Za-z]{10}"""
+            ],
+            "/mnt/g/repos/rebar/benchmarks/haystacks/rust-src-tools-3b0d4813.txt" |> System.IO.File.ReadAllText
         )
 
 

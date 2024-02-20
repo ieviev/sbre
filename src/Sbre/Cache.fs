@@ -261,15 +261,12 @@ type RegexCache< 't
         let mutable skipping = true
         let mutable resultEnd = ValueNone
         let mutable slice: ReadOnlySpan<char> = inputSpan.Slice(0, currpos)
-
-        /// vectorize the search for the first character
-        let firstSetChars = setSpan[0]
         let tailPrefixSpan = setSpan.Slice(1)
 
         while skipping do
+            slice <- slice.Slice(0, currpos)
             let sharedIndex =
-                slice <- inputSpan.Slice(0, currpos)
-                slice.LastIndexOfAny(firstSetChars)
+                slice.LastIndexOfAny(setSpan[0])
 
 
             if sharedIndex = -1 then
@@ -286,7 +283,7 @@ type RegexCache< 't
 
                 // l to r
                 let mutable i = tailPrefixSpan.Length - 1
-                while couldBe && i >= 0 do
+                while couldBe && i <> -1 do
                     if not (tailPrefixSpan[i].Contains(inputSpan[potential - i - 2])) then
                         couldBe <- false
                     i <- i - 1
@@ -296,7 +293,6 @@ type RegexCache< 't
                     resultEnd <- ValueSome(potential)
                 else
                     currpos <- potential - 1
-
         resultEnd
 
     member this.TryNextSetReversed(loc: inref<Location>, setSpan: TSet) =

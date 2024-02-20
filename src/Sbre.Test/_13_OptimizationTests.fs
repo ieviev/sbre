@@ -144,7 +144,7 @@ let ``initialOptimizations 01``() =
 let ``initialOptimizations 02``() =
     let optimizations = getInitOptimizations "Tom|Sawyer|Huckleberry|Finn"
     match optimizations with
-    | Optimizations.InitialOptimizations.PotentialStartPrefix(prefix) ->
+    | Optimizations.InitialOptimizations.SetsPotentialStart(prefix) ->
         Assert.True(prefix.Length = 3)
     | _ -> failwith "invalid optimization result"
 
@@ -174,7 +174,7 @@ let ``initialOptimizations 04``() =
 let ``initialOptimizations 05``() =
     let optimizations = getInitOptimizations ".*t.*hat.*&.*a.*nd.*&.*t.*he.*&.*w.*as.*"
     match optimizations with
-    | Optimizations.InitialOptimizations.PotentialStartPrefix(prefix) ->
+    | Optimizations.InitialOptimizations.SetsPotentialStart(prefix) ->
         Assert.Equal(3,prefix.Length)
     | _ -> failwith "invalid optimization result"
 

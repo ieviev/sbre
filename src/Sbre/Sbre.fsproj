@@ -27,7 +27,7 @@
     <!--    <DefineConstants>$(DefineConstants);NO_SKIP_LOOKAROUNDS</DefineConstants>-->
     <!--    <DefineConstants>$(DefineConstants);NO_CACHE_BUILDER</DefineConstants>-->
     <!--    <DefineConstants>$(DefineConstants);NO_REWRITE</DefineConstants>-->
-<!--    <DefineConstants>$(DefineConstants);CANONICAL</DefineConstants>-->
+    <DefineConstants>$(DefineConstants);CANONICAL</DefineConstants>
     <DefineConstants>$(DefineConstants);OPTIMIZE</DefineConstants>
     <DefineConstants>$(DefineConstants);REWRITE_INNER</DefineConstants>
     <DefineConstants>$(DefineConstants);SUBSUME</DefineConstants>

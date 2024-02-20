@@ -17,10 +17,10 @@ type InitialOptimizations =
     | SearchValuesPrefix of prefix:Memory<SearchValues<char>> * transitionNodeId:int
     /// ex. [Tt][Ww][Aa][Ii][Nn] ==> (ε|(?i)Twain)
     | SetsPrefix of prefix:Memory<TSet> * transitionNodeId:int
+    | SearchValuesPotentialStart of prefix:Memory<SearchValues<char>>
     /// ex. (Twain|Huck) ==> potential start:[TH][wu][ac][ik]
-    | PotentialStartPrefix of prefix:Memory<TSet>
-    | PotentialStartSingle of prefix:SearchValues<char> * inverted:bool
-    // | DebugWordBorderPrefix of prefix:Memory<TSet> * transitionNodeId:int
+    | SetsPotentialStart of prefix:Memory<TSet>
+    | SinglePotentialStart of prefix:SearchValues<char> * inverted:bool
 
 type ActiveBranchOptimizations =
     | LimitedSkip of distance:int * termPred:SearchValues<char> * termTransitionId:int * nonTermTransitionId:int
@@ -376,8 +376,32 @@ let findInitialOptimizations
             //     InitialOptimizations.PotentialStartPrefix(mem)
             // )
             // let mem = Memory(Seq.truncate 5 potentialStart |> Seq.toArray)
-            let mem = Memory(potentialStart |> Seq.toArray)
-            InitialOptimizations.PotentialStartPrefix(mem)
+
+            // small sets
+            let containsSmallSets =
+                potentialStart |> Seq.forall (fun v -> not (c.MintermIsInverted(v)))
+                && potentialStart |> Seq.forall (fun v ->
+                    let chrs = c.MintermChars(v)
+                    chrs.IsSome && chrs.Value.Length <= 5
+                )
+            if containsSmallSets then
+                let searchPrefix = potentialStart |> Seq.map c.MintermSearchValues |> Seq.toArray
+                if searchPrefix |> Seq.exists (fun v -> v.IsNone) || searchPrefix.Length < 3 then
+                    // default
+                    let mem = Memory(potentialStart |> Seq.toArray)
+                    InitialOptimizations.SetsPotentialStart(mem)
+                else
+                    // only small sets, allocate searchvalues
+                    // let searchPrefix = Array.choose id searchPrefix |> Memory
+                    let searchPrefix =
+                        Seq.choose id searchPrefix
+                        // |> Seq.truncate 7
+                        |> Seq.toArray |> Memory
+                    InitialOptimizations.SearchValuesPotentialStart(searchPrefix)
+            else
+                // default
+                let mem = Memory(potentialStart |> Seq.toArray)
+                InitialOptimizations.SetsPotentialStart(mem)
         | _ -> InitialOptimizations.NoOptimizations
 
 

@@ -129,7 +129,7 @@ type SetsPrefix(pattern:string) =
             matcher.ReverseTrueStarredPattern
     let prefixSets =
         match optimizations with
-        | InitialOptimizations.PotentialStartPrefix(prefix) ->
+        | InitialOptimizations.SetsPotentialStart(prefix) ->
             let reverseSpan = prefix.Span
             reverseSpan.Reverse()
             reverseSpan.ToArray()
