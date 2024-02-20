@@ -435,7 +435,10 @@ type Rebar10() =
             [
                """[A-Za-z]{10}\s+[\s\S]{0,100}Result[\s\S]{0,100}\s+[A-Za-z]{10}"""
             ],
-            "/mnt/g/repos/rebar/benchmarks/haystacks/rust-src-tools-3b0d4813.txt" |> System.IO.File.ReadAllText
+            // "/mnt/g/repos/rebar/benchmarks/haystacks/rust-src-tools-3b0d4813.txt" |> System.IO.File.ReadAllText
+            let all = "/mnt/g/repos/rebar/benchmarks/haystacks/rust-src-tools-3b0d4813.txt" |> System.IO.File.ReadAllText
+            // all[..500000]
+            all
         )
 
 

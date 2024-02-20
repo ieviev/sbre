@@ -164,10 +164,14 @@ type RegexMatcher<'t when 't: struct>
                 let rentedArray = pool.Rent(xs.Count)
                 use mutable e = xs.GetEnumerator()
                 let mutable i = 0
+                let mutable count = 0
                 while e.MoveNext() do
-                    rentedArray[i] <- _createDerivative(&loc, loc_pred, e.Current)
+                    let der = _createDerivative(&loc, loc_pred, e.Current)
+                    if not (refEq _cache.False der) then
+                        rentedArray[count] <- der
+                        count <- count + 1
                     i <- i + 1
-                let mem = rentedArray.AsMemory(0,i)
+                let mem = rentedArray.AsMemory(0,count)
                 mem.Span.Sort(physComparison)
                 let res = _cache.Builder.mkOr(&mem)
                 pool.Return(rentedArray)
@@ -568,7 +572,7 @@ type RegexMatcher<'t when 't: struct>
         InitialOptimizations.NoOptimizations
 #endif
     let _lengthLookup =
-        Optimizations.inferLengthLookup getNonInitialDerivative _cache _noprefix
+        Optimizations.inferLengthLookup (fun node -> _getOrCreateState(reverseTrueStarredNode,node,false).Id ) getNonInitialDerivative _cache _noprefix
 
     let _regexOverride =
         Optimizations.inferOverrideRegex _initialOptimizations _lengthLookup _cache R_canonical
@@ -773,7 +777,8 @@ type RegexMatcher<'t when 't: struct>
                 looping <- false
             else
             if flags.CanSkipLeftToRight then
-                this.TrySkipActiveLeftToRight(&loc, &currentStateId)
+                this.TrySkipActiveFwd(flags,&loc,&currentStateId) |> ignore
+                // this.TrySkipActiveLeftToRight(&loc, &currentStateId)
 
             // set max nullability after skipping
             if this.StateIsNullable(flags, &loc, currentStateId) then
@@ -787,43 +792,44 @@ type RegexMatcher<'t when 't: struct>
         currentMax
 
 
-    member this.DfaMatchEnd
-        (
-            loc: byref<Location>,
-            startStateId: int,
-            searchMode:RegexSearchMode
-        ) : int32 =
-        assert (loc.Position > -1)
-        let mutable looping = true
-        let mutable currentStateId = startStateId
-        let mutable currentMax = -2
-
-        while looping do
-            let mutable dfaState = _stateArray[currentStateId]
-            let flags = dfaState.Flags
-            if flags.IsDeadend then
-                looping <- false
-            else
-
-            if flags.CanSkip then
-                let ss = dfaState.Startset
-                _cache.TryNextStartsetLocation(&loc, ss)
-
-            // set max nullability after skipping
-            if this.StateIsNullable(flags, &loc, currentStateId) then
-                currentMax <- loc.Position
-                match searchMode with
-                | RegexSearchMode.FirstNullable ->
-                    loc.Position <- Location.final loc
-                | _ -> ()
-
-            if not (Location.isFinal loc) then
-                this.TakeTransition(flags, &currentStateId, &loc)
-                loc.Position <- Location.nextPosition loc
-            else
-                looping <- false
-
-        currentMax
+    // member this.DfaMatchEnd
+    //     (
+    //         loc: byref<Location>,
+    //         startStateId: int,
+    //         searchMode:RegexSearchMode
+    //     ) : int32 =
+    //     assert (loc.Position > -1)
+    //     let mutable looping = true
+    //     let mutable currentStateId = startStateId
+    //     let mutable currentMax = -2
+    //
+    //     while looping do
+    //         let mutable dfaState = _stateArray[currentStateId]
+    //         let flags = dfaState.Flags
+    //         if flags.IsDeadend then
+    //             looping <- false
+    //         else
+    //
+    //         if flags.CanSkip then
+    //             // let ss = dfaState.Startset
+    //             this.TrySkipActiveFwd(flags,&loc,&currentStateId) |> ignore
+    //             // _cache.TryNextStartsetLocation(&loc, ss)
+    //
+    //         // set max nullability after skipping
+    //         if this.StateIsNullable(flags, &loc, currentStateId) then
+    //             currentMax <- loc.Position
+    //             match searchMode with
+    //             | RegexSearchMode.FirstNullable ->
+    //                 loc.Position <- Location.final loc
+    //             | _ -> ()
+    //
+    //         if not (Location.isFinal loc) then
+    //             this.TakeTransition(flags, &currentStateId, &loc)
+    //             loc.Position <- Location.nextPosition loc
+    //         else
+    //             looping <- false
+    //
+    //     currentMax
 
     member this.TrySkipInitialRev(loc:byref<Location>, currentStateId:byref<int>) : bool =
         match _initialOptimizations with
@@ -840,7 +846,7 @@ type RegexMatcher<'t when 't: struct>
         | InitialOptimizations.SinglePotentialStart (prefix,inverted) ->
             let slice = loc.Input.Slice(0, loc.Position)
             let resultStart =
-                if not inverted then (slice.LastIndexOfAny(prefix))
+                if not inverted then slice.LastIndexOfAny(prefix)
                 else (slice.LastIndexOfAnyExcept(prefix))
             if resultStart = -1 then
                 loc.Position <- Location.final loc
@@ -927,7 +933,53 @@ type RegexMatcher<'t when 't: struct>
 
 
 
-
+    member this.TrySkipActiveFwd(flags:RegexStateFlags, loc: byref<Location>, currentStateId:byref<int>) =
+        let dfaState = _stateArray[currentStateId]
+        if loc.Position = loc.Input.Length then false else
+        if flags.HasFlag(RegexStateFlags.ActiveBranchOptimizations) then
+            match dfaState.ActiveOptimizations with
+            // | ActiveBranchOptimizations.PossibleStringPrefix(prefix,transId) ->
+            //     let limitedSlice = loc.Input.Slice(0, loc.Position)
+            //     let pspan = prefix.Span
+            //     if limitedSlice.EndsWith(pspan) then
+            //         loc.Position <- loc.Position - pspan.Length
+            //         currentStateId <- transId
+            //         true
+            //     else
+            //         false
+            | LimitedSkip(distance, termPred, termTransitionId, nonTermTransitionId) ->
+                if loc.Input.Length < loc.Position + distance then // no more matches
+                    loc.Position <- Location.final loc
+                    false
+                else
+                let limitedSlice = loc.Input.Slice(loc.Position, distance)
+                match limitedSlice.IndexOfAny(termPred) with
+                | -1 ->
+                    loc.Position <- loc.Position + distance
+                    currentStateId <- nonTermTransitionId
+                    true
+                | idx ->
+                    let newPos = loc.Position + distance - idx
+                    // let relativepos = loc.Input.Slice(loc.Position - distance + idx, 10)
+                    // let debug = relativepos.ToString()
+                    // let newState = _stateArray[termTransitionId]
+                    loc.Position <- newPos
+                    currentStateId <- termTransitionId
+                    true // mark nullable
+            | _ -> false
+        else
+        // default single char skip
+        let isInverted = dfaState.StartsetIsInverted
+        let setChars = dfaState.StartsetChars
+        let slice = loc.Input.Slice(loc.Position)
+        let sharedIndex =
+            if isInverted then slice.IndexOfAnyExcept(setChars)
+            else slice.IndexOfAny(setChars)
+        if sharedIndex = -1 then
+            loc.Position <- Location.final loc
+        else
+            loc.Position <- loc.Position + sharedIndex
+        false
 
 
     member this.TrySkipActiveRev(flags:RegexStateFlags,loc:byref<Location>, currentStateId:byref<int>, acc: byref<SharedResizeArrayStruct<int>>) : bool =
@@ -982,6 +1034,7 @@ type RegexMatcher<'t when 't: struct>
      // [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
      member this.TrySkipActiveLeftToRight(loc: byref<Location>, currentStateId:byref<int>) : unit =
         let dfaState = _stateArray[currentStateId]
+
         let isInverted = dfaState.StartsetIsInverted
         let setChars = dfaState.StartsetChars
         let slice = loc.Input.Slice(loc.Position)
@@ -1077,6 +1130,9 @@ type RegexMatcher<'t when 't: struct>
     member this.getMatchEnd(loc: byref<Location>) : int =
         match _lengthLookup with
         | LengthLookup.FixedLength fl -> loc.Position + fl
+        | LengthLookup.FixedLengthPrefixMatchEnd (fl,stateId) ->
+            loc.Position <- loc.Position + fl
+            this.DfaEndPosition(&loc, stateId)
         | _ -> this.DfaEndPosition(&loc, DFA_R_noPrefix)
         // | FixedLengthSetLookup lookup when loc.Position <> 0 ->
         //     // this.DfaEndPosition(&loc, DFA_R_noPrefix)

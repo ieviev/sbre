@@ -1,7 +1,7 @@
-module 
+module
 #if RELEASE
-    internal 
-#endif    
+    internal
+#endif
     Sbre.Info
 
 open System
@@ -219,6 +219,8 @@ module Node =
             | LookAround _ -> Some (0 + acc)
             | Begin | End -> Some (0 + acc)
         loop 0 node
+
+
 
     let rec containsRecursive (orNodes:NodeSet<'t>) (node: RegexNode<'t>)  =
         if orNodes.Contains(node) then true else

@@ -1164,7 +1164,7 @@ type TestAllEnginesAllPatternsMatchOnly(patterns: string list, input: string) =
     // [<Benchmark(Description = "NonBacktrack")>]
     // member this.Symbolic() =
     //     this.NonBack_Regex.Count(inputText)
-
+    //
     // [<Benchmark(Description = "Compiled")>]
     // member this.Compiled() =
     //     this.Compiled_Regex.Count(inputText)

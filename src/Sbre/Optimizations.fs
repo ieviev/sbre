@@ -29,9 +29,13 @@ type ActiveBranchOptimizations =
 
 
 type LengthLookup =
+    /// skip match end lookup entirely
     | FixedLength of length:int
+    /// work in progress
     | FixedLengthSetLookup of lookup:(Memory<TSet>*int)[]
-    | PrefixMatchEnd of prefixLength:int * transitionId:int
+    /// skip some transitions as we already know where match starts
+    | FixedLengthPrefixMatchEnd of prefixLength:int * transitionId:int
+    /// default match end lookup
     | MatchEnd
 
 /// override trivial literal string search
@@ -414,9 +418,12 @@ let tryGetLimitedSkip getNonInitialDerivative
     (node:RegexNode<_>) =
     assert(not node.ContainsLookaround)
     let redundant = HashSet([revTrueStarNode; ])
-    let skipTerm = getStartset revTrueStarNode // m.GetOrCreateState(initial).Startset
+    let skipTerm = getStartset revTrueStarNode
+    let skipTermSize = c.MintermChars(skipTerm)
+    // todo: tune this
+    if skipTermSize.IsNone || skipTermSize.Value.Length > 30 then None else
     match node with
-    | Or(nodes, info) when info.CanNotBeNullable() ->
+    | Or(nodes, info) when info.CanNotBeNullable() && nodes.Count < 5  ->
         let nonInitial = nodes |> Seq.where (fun v -> not (refEq v revTrueStarNode)) |> Seq.toArray |> c.Builder.mkOrSeq
         let nonTermDerivatives (node: RegexNode<TSet>) =
             let ders1 = Optimizations.getNonRedundantDerivatives getNonInitialDerivative c redundant node
@@ -427,6 +434,8 @@ let tryGetLimitedSkip getNonInitialDerivative
 
         match nonInitialNonTerm with
         | [| singlePath |] ->
+
+
             let path = ResizeArray()
             let rec loop (node: RegexNode<_>) =
                 match nonTermDerivatives node with
@@ -625,7 +634,33 @@ let attemptMergeUnionLang (_cache:RegexCache<TSet>) (mkLang: RegexNode<TSet> -> 
     )
 
 
+let rec getFixedPrefixLength (c:RegexCache<TSet>) (node: RegexNode<_>) =
+    let rec loop (acc:int) node : int option * RegexNode<_> option =
+        match node with
+        | Concat(head, tail, _) ->
+            let headprf = loop acc head
+            match headprf with
+            | Some n, None -> loop n tail
+            | _ ->
+                match acc with
+                | 0 -> None, None
+                | n -> Some n, Some node
+        | Epsilon -> Some (0 + acc), None
+        | Or(nodes, _) | And(nodes, _) -> None, Some node
+        | Singleton _ -> Some (1 + acc), None
+        | Loop(Singleton _, low, up, _) when low = up -> Some (low + acc), None
+        | Loop(Singleton _ as body, low, up, _) when low <> 0 ->
+            let remainingUp = if up = Int32.MaxValue then up else up - low
+            Some(low+acc), Some (c.Builder.mkLoop(body,0,remainingUp)) // could be inferred
+        | Loop _ -> None, Some node
+        | Not _ -> None, Some node
+        | LookAround _ -> Some (0 + acc), None
+        | Begin | End -> Some (0 + acc), None
+    let r = loop 0 node
+    r
+
 let rec getLengthMapping
+    getNodeId
     createNonInitialDerivative
     (c:RegexCache<TSet>)
     (node: RegexNode<TSet>) : LengthLookup
@@ -687,7 +722,15 @@ let rec getLengthMapping
         |> Seq.toArray
     let result = loop [] initial
     match result with
-    | [] -> LengthLookup.MatchEnd
+    | [] ->
+        let fixedPrefix =
+            getFixedPrefixLength c node
+        match fixedPrefix with
+        | Some len, Some remaining ->
+            let stateId = getNodeId remaining
+            LengthLookup.FixedLengthPrefixMatchEnd(len,stateId)
+        | _ ->
+            LengthLookup.MatchEnd
     | _ ->
         result
         |> Seq.map (fun (pref,len) -> Memory(pref),len )
@@ -696,6 +739,7 @@ let rec getLengthMapping
 
 
 let inferLengthLookup
+    getNodeId
     createNonInitialDerivative
     (c:RegexCache<TSet>)
     (node: RegexNode<TSet>)
@@ -703,7 +747,7 @@ let inferLengthLookup
     Info.Node.getFixedLength node
     |> Option.map LengthLookup.FixedLength
     |> Option.defaultWith (fun _ ->
-        getLengthMapping createNonInitialDerivative c node
+        getLengthMapping getNodeId createNonInitialDerivative c node
     )
 
 let inferOverrideRegex

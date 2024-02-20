@@ -27,6 +27,7 @@ let twainPatterns = [
 
 let twain_input =
     File.ReadAllText(__SOURCE_DIRECTORY__ + "/data/input-text.txt")
+    |> (fun v -> v[..500000])
 
 
 
@@ -266,6 +267,19 @@ let ``line test 2``() =
 //     Assert.Equal(15, r.Length)
 //
 //
+
+let rebar_input_5k =
+    "/mnt/g/repos/rebar/benchmarks/haystacks/opensubtitles/en-sampled.txt"
+    |> File.ReadLines
+    |> Seq.take 5000
+    |> String.concat "\n"
+
+
+[<Fact>]
+let rebar_counts_1() =
+    assertEqual 1833 (Sbre.Regex("[A-Za-z]{8,13}").Count(rebar_input_5k))
+
+
 
 
 #endif

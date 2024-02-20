@@ -152,6 +152,8 @@ module
 
 
 
+
+
 [<AutoOpen>]
 module private BuilderHelpers =
     [<Flags>]
@@ -1336,17 +1338,18 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
         else
         if derivatives.Count = 1 then derivatives |> Seq.head else
 
-        let nodeSet = derivatives |> this.trySubsumeOr |> Seq.toArray
-        Array.sortInPlaceBy LanguagePrimitives.PhysicalHash nodeSet
+        // let nodeSet = derivatives |> this.trySubsumeOr |> Seq.toArray
+        // Array.sortInPlaceBy LanguagePrimitives.PhysicalHash nodeSet
 
-        if nodeSet.Length = 0 then
+        if derivatives.Count = 0 then
             _uniques._false
         else
-            let createNode(nodes: RegexNode< 't >[]) =
+            let createNode(nodes: RegexNode< 't >Memory) =
                 match nodes with
                 | _ when nodes.Length = 0 -> _uniques._false
-                | _ when nodes.Length = 1 -> (head nodes)
+                | _ when nodes.Length = 1 -> (nodes.Span[0])
                 | twoormore ->
+                    let twoormore = twoormore.ToArray()
                     let flags = Flags.inferOr twoormore
 
                     let minterms2 =
@@ -1360,14 +1363,30 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
 
                     RegexNode.Or(ofSeq twoormore, mergedInfo)
 
-            match _orCache.TryGetValue(nodeSet) with
-            | true, v -> v
+            //
+            // let nodeSet = derivatives |> Seq.toArray
+            let pool = ArrayPool<RegexNode<'t>>.Shared
+            let rentedArray = pool.Rent(derivatives.Count)
+            use mutable e = derivatives.GetEnumerator()
+            let mutable i = 0
+            while e.MoveNext() do
+                rentedArray[i] <- e.Current
+                i <- i + 1
+            let mem = rentedArray.AsMemory(0,i)
+            mem.Span.Sort(physComparison)
+
+            match _orCache.TryGetValue(mem) with
+            | true, v ->
+                pool.Return(rentedArray)
+                v
+
             | _ ->
-                let v = createNode nodeSet
+                let v = createNode mem
                 let newArr = Array.zeroCreate key.Length
                 for i = 0 to key.Length - 1 do
                     newArr[i] <- key.Span[i]
-                _orCache.Add(nodeSet, v)
+                _orCache.Add(newArr, v)
+                pool.Return(rentedArray)
                 v
 
     member this.mkNot(inner: RegexNode< 't >) =
