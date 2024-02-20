@@ -250,6 +250,7 @@ let ``activeOptimizations 1``() =
     let optimizations =
         Optimizations.tryGetLimitedSkip
             getder
+            (fun node -> matcher.GetOrCreateState(node).Flags)
             (fun node -> matcher.GetOrCreateState(node).Id)
             (fun node -> matcher.GetOrCreateState(node).Startset)
             matcher.Cache matcher.ReverseTrueStarredPattern der2

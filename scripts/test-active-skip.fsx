@@ -13,6 +13,8 @@ open Sbre.Info
 open Sbre.Optimizations
 open System.Collections.Generic
 open Sbre.Algorithm.RegexNode
+open System.Runtime.Intrinsics
+
 
 let input =
     "/mnt/g/repos/rebar/benchmarks/haystacks/opensubtitles/en-sampled.txt"

@@ -368,22 +368,33 @@ type Rebar1() =
     inherit
         Jobs.TestAllEnginesAllPatternsMatchOnly(
             [
-               """Sherlock Holmes"""
+               // """Sherlock Holmes"""
+               """(?i)Sherlock Holmes"""
             ],
             fullInput
         )
+type Rebar1Ru() =
+    inherit
+        // Jobs.TestSbreAllPatternsCountSpans(
+        // Jobs.TestSbreAllPatternsMatchOnly(
+        Jobs.TestAllEnginesAllPatternsMatchOnly(
+            [
+               // """Шерлок Холмс"""
+               """(?i)Шерлок Холмс"""
+            ],
+            "/mnt/g/repos/rebar/benchmarks/haystacks/opensubtitles/ru-sampled.txt" |> System.IO.File.ReadAllText
+        )
+
 type Rebar2() =
     inherit
         // Jobs.TestSbreAllPatternsCountSpans(
         // Jobs.TestSbreAllPatternsMatchOnly(
         Jobs.TestAllEnginesAllPatternsMatchOnly(
             [
-               """(?i)Sherlock Holmes"""
+               """Sherlock Holmes|John Watson|Irene Adler|Inspector Lestrade|Professor Moriarty"""
             ],
             "/mnt/g/repos/rebar/benchmarks/haystacks/opensubtitles/en-sampled.txt" |> System.IO.File.ReadAllText
         )
-
-
 
 type Rebar6() =
     inherit

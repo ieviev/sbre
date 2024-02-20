@@ -505,6 +505,7 @@ type RegexMatcher<'t when 't: struct>
                         (fun (mt,node) ->
                             let mutable loc = Location.getNonInitial()
                             _createDerivative(&loc,mt,node) )
+                        (fun v -> _getOrCreateState(revTruestar,v,false).Flags )
                         (fun v -> _getOrCreateState(revTruestar,v,false).Id )
                         (fun v -> _getOrCreateState(revTruestar,v,false).Startset )
                         _cache
@@ -836,7 +837,18 @@ type RegexMatcher<'t when 't: struct>
                 currentStateId <- transitionNodeId
                 loc.Position <- resultStart
                 true
-        | InitialOptimizations.StringPrefixCaseIgnore(firstSet, prefix, transitionNodeId) ->
+        | InitialOptimizations.PotentialStartSingle (prefix,inverted) ->
+            let slice = loc.Input.Slice(0, loc.Position)
+            let resultStart =
+                if not inverted then (slice.LastIndexOfAny(prefix))
+                else (slice.LastIndexOfAnyExcept(prefix))
+            if resultStart = -1 then
+                loc.Position <- Location.final loc
+                false
+            else
+                loc.Position <- resultStart + 1
+                false
+        | InitialOptimizations.StringPrefixCaseIgnore(headSet,tailSet, prefix, ascii, transitionNodeId) ->
             // case insensitive Span.LastIndexOf is SLOW AND NOT VECTORIZED
             let mutable resultStart = loc.Position
             let mutable found = false
@@ -844,7 +856,7 @@ type RegexMatcher<'t when 't: struct>
             let textSpan = loc.Input
             while not found  do
                 let mutable slice = textSpan.Slice(0, resultStart)
-                resultStart <- slice.LastIndexOfAny(firstSet)
+                resultStart <- slice.LastIndexOfAny(tailSet)
                 if resultStart = -1 then found <- true else
                 slice <- textSpan.Slice(0, resultStart)
                 match slice.EndsWith(prefixSpan, StringComparison.OrdinalIgnoreCase) with
@@ -903,11 +915,22 @@ type RegexMatcher<'t when 't: struct>
         | InitialOptimizations.NoOptimizations -> false
 
 
+
+
     member this.TrySkipActiveRev(flags:RegexStateFlags,loc:byref<Location>, currentStateId:byref<int>, acc: byref<SharedResizeArrayStruct<int>>) : bool =
         let dfaState = _stateArray[currentStateId]
         // if loc.Position = 0 then false else
         if flags.HasFlag(RegexStateFlags.ActiveBranchOptimizations) then
             match dfaState.ActiveOptimizations with
+            | ActiveBranchOptimizations.PossibleStringPrefix(prefix,transId) ->
+                let limitedSlice = loc.Input.Slice(0, loc.Position)
+                let pspan = prefix.Span
+                if limitedSlice.EndsWith(pspan) then
+                    loc.Position <- loc.Position - pspan.Length
+                    currentStateId <- transId
+                    true
+                else
+                    false
             | LimitedSkip(distance, termPred, termTransitionId, nonTermTransitionId) ->
                 if distance > loc.Position then // no more matches
                     loc.Position <- Location.final loc
@@ -1063,29 +1086,42 @@ type RegexMatcher<'t when 't: struct>
         | OverrideRegex.FixedLengthString s ->
             let pspan = s.Span
             let mutable looping = true
-            let mutable currPos = 0
+            let mutable currPos = tspan.Length - 1
             let textLength = s.Length
             while looping do
-                let slice = tspan.Slice(currPos)
-                match slice.IndexOf(pspan, StringComparison.Ordinal) with
+                let slice = tspan.Slice(0,currPos)
+                match slice.LastIndexOf(pspan, StringComparison.Ordinal) with
                 | -1 -> looping <- false
                 | n ->
-                    let start = currPos + n
-                    acc.Add({ MatchPosition.Index = start; Length = textLength })
-                    currPos <- start + textLength
-        | OverrideRegex.FixedLengthStringCaseIgnore s ->
+                    acc.Add({ MatchPosition.Index = n; Length = textLength })
+                    currPos <- n
+        | OverrideRegex.FixedLengthStringCaseIgnore (headSet,s, ascii) ->
             let pspan = s.Span
             let mutable looping = true
             let mutable currPos = 0
             let textLength = s.Length
-            while looping do
-                let slice = tspan.Slice(currPos)
-                match slice.IndexOf(pspan, StringComparison.OrdinalIgnoreCase) with
-                | -1 -> looping <- false
-                | n ->
-                    let start = currPos + n
-                    acc.Add({ MatchPosition.Index = start; Length = textLength })
-                    currPos <- start + textLength
+            // ascii in .net is implicitly vectorized - use it if possible
+            if ascii then
+                while looping do
+                    // LastIndexOf with ignore case is NOT VECTORIZED
+                    match tspan.Slice(currPos).IndexOf(pspan, StringComparison.OrdinalIgnoreCase) with
+                    | -1 -> looping <- false
+                    | n ->
+                        let start = currPos + n
+                        acc.Add({ MatchPosition.Index = start; Length = textLength })
+                        currPos <- start + textLength
+            // case insensitive unicode is suboptimal for now
+            else
+                while looping do
+                    let slice = tspan.Slice(currPos)
+                    let start = slice.IndexOfAny(headSet)
+                    if start = -1 then looping <- false else
+                    match slice.Slice(start).StartsWith(pspan, StringComparison.OrdinalIgnoreCase) with
+                    | false -> currPos <- currPos + start + 1
+                    | n ->
+                        acc.Add({ MatchPosition.Index = start; Length = textLength })
+                        currPos <- currPos + start + textLength
+
 
 
     member this.llmatch_all(input: ReadOnlySpan<char>) : SharedResizeArrayStruct<MatchPosition> =

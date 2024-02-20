@@ -504,6 +504,16 @@ module Enumerator =
         hash
 
 
+module Memory =
+    let inline forall ([<InlineIfLambda>] f) (mem: Memory<'t>) =
+        let span = mem.Span
+        let mutable e = span.GetEnumerator()
+        let mutable forall = true
+        while forall && e.MoveNext()  do
+            forall <- f e.Current
+        forall
+
+
 type TSet = uint64
 type TSolver = UInt64Solver
 
@@ -556,16 +566,20 @@ type SharedResizeArrayStruct<'t> =
     val mutable size : int
     val mutable limit : int
     val mutable pool : 't array
+
+    // [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.Add(item) =
-        if this.size = this.limit then
-            let newLimit = this.limit * 2
-            let newArray = ArrayPool.Shared.Rent(newLimit)
-            Array.Copy(this.pool,newArray,this.size)
-            ArrayPool.Shared.Return(this.pool)
-            this.pool <- newArray
-            this.limit <- this.limit * 2
+        if this.size = this.limit then this.Grow()
         this.pool[this.size] <- item
         this.size <- this.size + 1
+
+    member this.Grow() =
+        let newLimit = this.limit * 2
+        let newArray = ArrayPool.Shared.Rent(newLimit)
+        Array.Copy(this.pool,newArray,this.size)
+        ArrayPool.Shared.Return(this.pool)
+        this.pool <- newArray
+        this.limit <- this.limit * 2
     member this.Clear() =
         this.size <- 0
     member this.Contains(item) =
@@ -578,9 +592,12 @@ type SharedResizeArrayStruct<'t> =
         let mutable e = this.pool.AsSpan(0, this.size).GetEnumerator()
         e
     member this.Length = this.size
+
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.AsSpan() = this.pool.AsSpan(0, this.size)
     member this.AsArray() = this.pool.AsSpan(0, this.size).ToArray()
+
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.Dispose() =
         ArrayPool.Shared.Return(this.pool)
 

@@ -2,6 +2,7 @@
 
 module Program
 
+open System
 open System.Globalization
 open Sbre
 open Sbre.Benchmarks
@@ -82,8 +83,15 @@ let pref = Paper.Rebar2()
 pref.Pattern <- pref.Patterns |> Seq.head
 pref.Setup()
 // for i = 1 to 500 do
-// for i = 1 to 3000 do
-for i = 1 to 100000 do
+for i = 1 to 3000 do
     pref.Sbre() |> ignore
+
+
+// let pref = Optimizations.StringPrefix("a")
+
+// for i = 1 to 500 do
+// for i = 1 to 3000 do
+// for i = 1 to 50 do
+//     pref.SpanIndexOf3()
 
 

@@ -1165,9 +1165,9 @@ type TestAllEnginesAllPatternsMatchOnly(patterns: string list, input: string) =
     // member this.Symbolic() =
     //     this.NonBack_Regex.Count(inputText)
 
-    [<Benchmark(Description = "Compiled")>]
-    member this.Compiled() =
-        this.Compiled_Regex.Count(inputText)
+    // [<Benchmark(Description = "Compiled")>]
+    // member this.Compiled() =
+    //     this.Compiled_Regex.Count(inputText)
 
     // [<Benchmark(Description = "Sbre")>]
     // member this.Sbre() =
