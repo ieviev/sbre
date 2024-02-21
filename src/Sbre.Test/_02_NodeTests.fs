@@ -230,20 +230,20 @@ let ``conversion conc ``() = assertConverted "Twain" ["Twain"]
 
 
 [<Fact>]
-let ``flags 1``() =
+let ``flags 01``() =
     let matcher = Regex(@"^\d$").TSetMatcher
     let f = matcher.ReverseTrueStarredPattern.GetFlags()
     assertFlag f Flag.DependsOnAnchorFlag
 
 [<Fact>]
-let ``flags 2``() =
+let ``flags 02``() =
     let matcher = Regex("""(?<=\W)\w+nn(?=\W)""").TSetMatcher
     let f = matcher.ReverseTrueStarredPattern.GetFlags()
     assertNotFlag f Flag.DependsOnAnchorFlag
 
 
 [<Fact>]
-let ``flags 3``() =
+let ``flags 03``() =
     let matcher = Regex("""(?<=.?)""").TSetMatcher
     let f = matcher.ReverseTrueStarredPattern.GetFlags()
     assertFlag f Flag.CanBeNullableFlag
@@ -251,57 +251,8 @@ let ``flags 3``() =
 
 
 
-
-
-// [<Fact>]
-// let ``flags 1``() =
-//     let matcher = Regex("(\d⊤*|⊤*\d{2,2}⊤*)").TSetMatcher
-//     let flags = Flags.inferInitialFlags matcher.RawPattern
-//
-//     if flags.HasCounter then
-//         assertEqual (Flag.CanBeNullableFlag ||| Flag.HasCounterFlag) flags
-
-
-// [<Fact>]
-// let ``flags 2``() =
-//     let matcher = Regex(@"(.*b|)").TSetMatcher
-//
-//     match matcher.RawPattern with
-//     | Types.Or(nodes, info) ->
-//         // let flags = Flags.inferNode matcher.RawPattern
-//         // let info = Cache.mkInfoOfOr (matcher.Cache, nodes)
-//         let flags = Flags.inferInitialFlags matcher.RawPattern
-//
-//         Assert.Equal(
-//             Flag.CanBeNullableFlag ||| Flag.IsAlwaysNullableFlag ||| Flag.ContainsEpsilonFlag,
-//             flags
-//         )
-//     | _ -> Assert.True(false, "wrong node type")
-
-
-// [<Fact>]
-// let ``flags 3``() =
-//     let matcher = Regex(@"\d{2}⊤*").TSetMatcher
-//     let flags = matcher.RawPattern.GetFlags()
-//
-//     if flags.HasCounter then
-//         assertTrue (flags.HasFlag(Flag.HasCounterFlag)) "hascounter"
-//         assertTrue (flags.HasFlag(Flag.IsCounterFlag)) "iscounter"
-
-
-// [<Fact>]
-// let ``flags 4``() =
-//     let matcher = Regex(@"⊤*\d{2}⊤*").TSetMatcher
-//     let flags = matcher.RawPattern.GetFlags()
-//
-//     if flags.HasCounter then
-//         assertTrue (flags.HasFlag(Flag.HasCounterFlag)) "hascounter"
-//         assertTrue (flags.HasFlag(Flag.CanBeNullableFlag)) "canbenullable"
-//         assertFalse (flags.HasFlag(Flag.IsCounterFlag)) "iscounter"
-
-
 [<Fact>]
-let ``flags 5``() =
+let ``flags 05``() =
     let matcher = Regex(@"~(⊤*\d{2}⊤*)").TSetMatcher
     let flags = matcher.RawPattern.GetFlags()
     ()
@@ -311,12 +262,28 @@ let ``flags 5``() =
 
 
 [<Fact>]
-let ``flags 6``() =
+let ``flags 06``() =
     let matcher = Regex(@"~(\z)").TSetMatcher
     let flags = matcher.RawPattern.GetFlags()
     Assert.False(flags.HasFlag(Flag.IsAlwaysNullableFlag))
 
+[<Fact>]
+let ``flags 07``() =
+    let matcher = Regex(@"a(?=b)").TSetMatcher
+    let f = matcher.RawPattern.GetFlags()
+    assertFlag f Flag.HasSuffixLookaheadFlag
 
+[<Fact>]
+let ``flags 08``() =
+    let matcher = Regex(@"(a|b)(?=b)").TSetMatcher
+    let f = matcher.RawPattern.GetFlags()
+    assertFlag f Flag.HasSuffixLookaheadFlag
+
+[<Fact>]
+let ``flags 09``() =
+    let matcher = Regex(@"(?<=b)(a|b)").TSetMatcher
+    let f = matcher.RawPattern.GetFlags()
+    assertFlag f Flag.HasPrefixLookbehindFlag
 
 
 [<Fact>]

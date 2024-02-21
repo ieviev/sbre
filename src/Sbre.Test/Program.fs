@@ -31,12 +31,12 @@ let c = 3
 // suite.Setup()
 
 
-// let suite = Paper.SampleRegexes()
-// for pat in suite.Patterns do
-//     suite.Pattern <- pat
-//     suite.Setup()
-//     for i = 1 to 1000 do
-//         suite.Sbre() |> ignore
+let suite = Paper.SampleRegexes()
+for pat in suite.Patterns do
+    suite.Pattern <- pat
+    suite.Setup()
+    for i = 1 to 1000 do
+        suite.Sbre() |> ignore
 
 
 // let pref = Optimizations.Prefix2()
@@ -79,12 +79,12 @@ let c = 3
 // let asd = 1
 // let b = 1
 // let pref = Paper.Rebar14()
-let pref = Paper.Rebar10()
-pref.Pattern <- pref.Patterns |> Seq.head
-pref.Setup()
-// for i = 1 to 500 do
-for i = 1 to 3000 do
-    pref.Sbre() |> ignore
+// let pref = Paper.Rebar10()
+// pref.Pattern <- pref.Patterns |> Seq.head
+// pref.Setup()
+// // for i = 1 to 500 do
+// for i = 1 to 3000 do
+//     pref.Sbre() |> ignore
 
 
 // let pref = Optimizations.StringPrefix("a")

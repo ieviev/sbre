@@ -34,7 +34,7 @@ type LengthLookup =
     /// skip match end lookup entirely
     | FixedLength of length:int
     /// work in progress - maybe useless
-    | FixedLengthSetLookup of lookup:(Memory<TSet>*int)[]
+    | FixedLengthSetLookup of lookup:(struct(Memory<TSet>*int))[]
     /// skip some transitions as we already know where match starts
     | FixedLengthPrefixMatchEnd of prefixLength:int * transitionId:int
     /// default match end lookup
@@ -592,9 +592,9 @@ let attemptMergeIntersectLang (_cache:RegexCache<TSet>) (mkLang: RegexNode<TSet>
             | n1, n2 | n2, n1 when refEq n1 _cache.TrueStar -> n2
             | n1, n2 | n2, n1 when refEq n1 _cache.Eps -> if n2.CanBeNullable then _cache.Eps else _cache.False
             // --
-            // | SingletonStarLoop(pred) as p1, other | other, (SingletonStarLoop(pred) as p1) ->
-            //     let sub = Solver.containsS _cache.Solver pred (other.SubsumedByMinterm(_cache.Solver))
-            //     if sub then other else _cache.Builder.mkAnd2(l1,l2)
+            | SingletonStarLoop(pred) as p1, other | other, (SingletonStarLoop(pred) as p1) ->
+                let sub = Solver.containsS _cache.Solver pred (other.SubsumedByMinterm(_cache.Solver))
+                if sub then other else _cache.Builder.mkAnd2(l1,l2)
             | _ ->
                 let mapCanonical (node:RegexNode<TSet>) =
                     node.TryGetInfo
@@ -635,9 +635,9 @@ let attemptMergeUnionLang (_cache:RegexCache<TSet>) (mkLang: RegexNode<TSet> -> 
             | n1, n2 | n2, n1 when refEq n1 _cache.TrueStar -> _cache.TrueStar
             | n1, n2 | n2, n1 when refEq n1 _cache.Eps -> if n2.CanBeNullable then n2 else _cache.Builder.mkLoop(n2,0,1)
             // --
-            // | SingletonStarLoop(pred) as p1, other | other, (SingletonStarLoop(pred) as p1) ->
-            //     let sub = Solver.containsS _cache.Solver pred (other.SubsumedByMinterm(_cache.Solver))
-            //     if sub then p1 else _cache.Builder.mkOr2(l1,l2)
+            | SingletonStarLoop(pred) as p1, other | other, (SingletonStarLoop(pred) as p1) ->
+                let sub = Solver.containsS _cache.Solver pred (other.SubsumedByMinterm(_cache.Solver))
+                if sub then p1 else _cache.Builder.mkOr2(l1,l2)
             | _ ->
                 let mapCanonical (node:RegexNode<TSet>) =
                     node.TryGetInfo
@@ -759,7 +759,7 @@ let rec getLengthMapping
             LengthLookup.MatchEnd
     | _ ->
         result
-        |> Seq.map (fun (pref,len) -> Memory(pref),len )
+        |> Seq.map (fun (pref,len) -> struct(Memory(pref),len) )
         |> Seq.toArray
         |> LengthLookup.FixedLengthSetLookup
 

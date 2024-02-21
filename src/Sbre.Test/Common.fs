@@ -313,8 +313,8 @@ let printAllDerivatives (pattern:string) (input:string) (expected: string list l
     let matcher = regex.TSetMatcher
     let mutable loc = Location.createReversedSpan (input.AsSpan())
     use mutable acc = new SharedResizeArrayStruct<int>(100)
-    let result = matcher.PrintAllDerivatives(&acc,&loc)
-    failwith $"%A{result}"
+    let result = matcher.PrintAllDerivatives(&acc,&loc) |> String.concat "\n"
+    failwith $"%s{result}"
     ()
 
 
@@ -332,8 +332,11 @@ let getDfaMatchEnd (pattern:string) (input:string) (startPos:int)  =
 let getFirstLLmatch (pattern:string) (input:string) =
     let regex = Regex(pattern)
     let matcher = regex.TSetMatcher
-    let llmatches = matcher.llmatch_all(input).AsArray()[0]
-    (llmatches.Index,llmatches.Index+llmatches.Length)
+    let llmatches = matcher.llmatch_all(input).AsArray()
+    let firstmatch =
+        if Array.isEmpty llmatches then failwith "did not match!"
+        llmatches[0]
+    (firstmatch.Index,firstmatch.Index+firstmatch.Length)
 
 let getFirstLLmatchText (pattern:string) (input:string) =
     let (ms,me) = getFirstLLmatch pattern input
@@ -356,6 +359,7 @@ let assertFirstMatch (pattern:string) (input:string) (expected) =
 
 let assertFirstMatchText (pattern:string) (input:string) (expected) =
     let result = getFirstLLmatch pattern input
+
     Assert.Equal(expected, input.AsSpan().Slice(fst result, snd result - fst result).ToString())
 
 let assertNoMatch (pattern:string) (input:string)  =

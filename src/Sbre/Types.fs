@@ -72,9 +72,13 @@ type RegexNodeFlags =
     | IsAlwaysNullableFlag = 2uy
     | HasZerowidthHeadFlag = 64uy
     | ContainsLookaroundFlag = 4uy
+    | DependsOnAnchorFlag = 8uy
+    | HasSuffixLookaheadFlag = 16uy
+    | HasPrefixLookbehindFlag = 32uy
+    // | IsSuffixLookahead = 16uy
     // | ContainsEpsilonFlag = 8uy
     // | HasCounterFlag = 16uy
-    | DependsOnAnchorFlag = 32uy
+
     // | IsImmediateLookaroundFlag = 64uy
     // | IsAnchorFlag = 128uy
 
@@ -86,6 +90,8 @@ module RegexNodeFlagsExtensions =
         member this.HasZerowidthHead = byte (this &&& RegexNodeFlags.HasZerowidthHeadFlag) <> 0uy
         member this.CanBeNullable = byte (this &&& RegexNodeFlags.CanBeNullableFlag) <> 0uy
         member this.ContainsLookaround = byte (this &&& RegexNodeFlags.ContainsLookaroundFlag) <> 0uy
+        member this.HasSuffixLookahead = byte (this &&& RegexNodeFlags.HasSuffixLookaheadFlag) <> 0uy
+        member this.HasPrefixLookbehind = byte (this &&& RegexNodeFlags.HasPrefixLookbehindFlag) <> 0uy
         // member this.HasCounter = (this &&& RegexNodeFlags.HasCounterFlag) = RegexNodeFlags.HasCounterFlag
         member this.DependsOnAnchor = (this &&& RegexNodeFlags.DependsOnAnchorFlag) = RegexNodeFlags.DependsOnAnchorFlag
 
@@ -359,6 +365,10 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
     member this.CanBeNullable = this.GetFlags().CanBeNullable
     member this.CanNotBeNullable = not (this.GetFlags().CanBeNullable)
     member this.ContainsLookaround = this.GetFlags().ContainsLookaround
+    member this.HasPrefixOrSuffix =
+        let f = this.GetFlags()
+        f &&& (RegexNodeFlags.HasPrefixLookbehindFlag ||| RegexNodeFlags.HasSuffixLookaheadFlag) <> RegexNodeFlags.None
+
     member this.DependsOnAnchor = this.GetFlags().DependsOnAnchor
 
     member this.PendingNullables =

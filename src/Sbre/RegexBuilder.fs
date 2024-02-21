@@ -536,75 +536,6 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             v
 
 
-    member this.trySubsumeOr(nodes: HashSet<RegexNode< 't >>) : RegexNode< 't > seq =
-        let mutable result = ValueNone
-        let starLoops =
-            nodes
-            |> Seq.choose (fun v ->
-                match v with
-                | SingletonStarLoop(pred) -> Some struct (pred, v)
-                | _ -> None
-            )
-            |> Seq.toArray
-
-        // ((ab)*|⊤*(ab)*) ==> (ab)*
-        // (⊤*~(⊤*\n\n⊤*)|~(⊤*\n\n⊤*))
-        // if nodes |> Seq.forall (_.IsAlwaysNullable)  then
-        //     match tryFindV (function TrueStarredConcat solver tail as currNode -> ValueSome (currNode, tail) | _ -> ValueNone) nodes with
-        //     | ValueSome (currNode,tail) ->
-        //         if (nodes.Count = 2 && nodes.Contains(tail) ) then
-        //             result <- ValueSome (Seq.singleton currNode)
-        //         else ()
-        //     | _ -> ()
-
-        if result.IsSome then result.Value else
-
-        match starLoops.Length > 0 with
-        | true ->
-            let struct (largestPred, largestStarLoop) =
-                starLoops
-                |> Seq.reduce (fun struct (e1, e1node) struct (e2, e2node) ->
-                    let conj = solver.And(e1, e2)
-                    if conj = e1 then (struct (e2, e2node))
-                    elif conj = e2 then (struct (e1, e1node))
-                    else (solver.Empty, Unchecked.defaultof<_>)
-                )
-
-            if solver.IsEmpty(largestPred) then
-                nodes
-            else
-
-                let mutable e = nodes.GetEnumerator()
-
-                while e.MoveNext() do
-                    let curr = e.Current
-
-                    if loopSubsumesBranch solver largestPred curr then
-                        nodes.Remove(curr) |> ignore
-
-                nodes.Add(largestStarLoop) |> ignore
-                nodes
-        | _ ->
-
-            match nodes with
-            | AllSameHead(shead) when typeof<'t> = typeof<TSet>  ->
-                match nodes |> unbox with
-                | TrySubsumeSameTail s -> Seq.singleton (unbox s) //:?> RegexNode<'t> seq
-                | _ ->
-                    let mergeTails =
-                        nodes |> Seq.map (fun v ->
-                            match v with
-                            | Concat(regexNode, tail, regexNodeInfo) -> tail
-                            | _ -> failwith "todo: subsumption bug"
-                        )
-                        |> this.mkOrSeq
-                    nodes.Clear()
-                    nodes.Add(this.mkConcat2(shead, mergeTails)) |> ignore
-                    nodes
-            | _ ->
-                nodes
-
-
     member this.trySubsumeAnd(nodes: RegexNode< 't > seq) : RegexNode< 't > seq =
         nodes
         |> Seq.indexed
@@ -678,24 +609,41 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 let v = this.mkConcat2(chead1, newtail)
                 addToCache v
             | _ ->
-                // match this.combineLanguage(node1, node2) with
-                // | Some (smaller,larger) -> addToCache larger
-                // | _ ->
                 createCached(key)
 
+
+    member this.mergeAndPrefixSuffix (nodes: RegexNode<'t>seq) : RegexNode<'t> =
+        let prefixes = ResizeArray()
+        let suffixes = ResizeArray()
+        let remaining =
+            nodes
+            |> Seq.map this.stripPrefixSuffix
+            |> Seq.map (fun (p,n,s) ->
+                prefixes.AddRange(p)
+                suffixes.AddRange(s)
+                n
+            )
+            |> Seq.where (fun v -> not (refEq _uniques._trueStar v))
+            |> Seq.toArray
+        assert (not(prefixes.Count = 0 && suffixes.Count = 0))
+        let prefs = b.mkConcatResizeArray(prefixes)
+        let sufs = b.mkConcatResizeArray(suffixes)
+        let node = b.mkAnd(remaining)
+        let newAnd = b.mkConcat2(prefs,b.mkConcat2(node,sufs))
+        newAnd
 
     member this.mkAnd2 (node1: RegexNode<'t>, node2: RegexNode<'t>) : RegexNode<'t> =
         let key = [|node1;node2|] |> Seq.toArray
         Array.sortInPlaceBy LanguagePrimitives.PhysicalHash key
 
-        let addToCache(result: RegexNode< 't >) =
-            _andCache.TryAdd(key,result) |> ignore
-            result
-
         let createCached(nodes: RegexNode<_>[]) =
             match nodes with
             | _ when nodes.Length = 0 -> _uniques._trueStar
             | _ when nodes.Length = 1 -> nodes[0]
+            | twoormore when twoormore |> Seq.exists (_.HasPrefixOrSuffix) ->
+                let newAnd = this.mergeAndPrefixSuffix(twoormore)
+                _andCache.TryAdd(key,newAnd) |> ignore
+                newAnd
             | twoormore ->
                 let flags = Flags.inferAnd twoormore
                 let minterms2 =
@@ -705,20 +653,22 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 let inner = twoormore |> Seq.map (fun v -> v.PendingNullables) |> Set.unionMany
                 let mergedInfo =
                     this.CreateInfo(flags, minterms2, inner)
+
+
                 //
                 match twoormore with
                 | _ when twoormore.Length = 0 -> _uniques._trueStar
                 | _ when twoormore.Length = 1 -> twoormore[0]
                 | _ ->
-                let newAnd = RegexNode.And(ofSeq twoormore, mergedInfo)
+                    let newAnd = RegexNode.And(ofSeq twoormore, mergedInfo)
 // #if CANONICAL
 //                 let newAnd =
 //                     this.CanonicalizeCallback
 //                     |> Option.map (fun fn -> fn newAnd )
 //                     |> Option.defaultValue newAnd
 // #endif
-                _andCache.TryAdd(key,newAnd) |> ignore
-                newAnd
+                    _andCache.TryAdd(key,newAnd) |> ignore
+                    newAnd
 
         match _andCache.TryGetValue(key) with
         | true, v -> v
@@ -730,38 +680,13 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             | n, falseNode | falseNode, n when refEq falseNode _uniques._false -> falseNode
             | n, trueStarNode | trueStarNode, n when refEq _uniques._trueStar trueStarNode -> n
             | n, Epsilon | Epsilon, n -> if n.CanNotBeNullable then _uniques._false else createCached(key)
-            // Lookaround semantics hack - bad
-            // | LookAround(lookBack=true) as look , other
-            // | other , (LookAround(lookBack=true) as look) ->
-            //     this.mkConcat2(look, other)
-            // | Concat(head=LookAround(lookBack=true); tail=looktail) as look , other
-            // | other, (Concat(head=LookAround(lookBack=true); tail=looktail) as look) ->
-            //     this.mkConcat2(look, this.mkAnd2(looktail,other))
-
-            // | (And(nodes=nodes2) as p2node),  (And(nodes=nodes1) as p1node)  ->
-                // let mutable found = false
-                // check for subset equality
-                // failwith "todo and sub"
-                // let diff1 = nodes1.Except(nodes2)
-                // let diff2 = nodes2.Except(nodes1)
-                // let inter = this.mkAnd(nodes2.Intersect(nodes1))
-                // if diff1.Count = 1 && diff2.Count = 1 then
-                //     let diffLang = this.combineLanguage(diff1 |> Seq.head,diff2 |> Seq.head)
-                //     match diffLang with
-                //     | Some (small,big) -> Some (this.mkAnd2(small,inter),this.mkAnd2(big,inter))
-                //     | _ -> Some(mergeIntersection(),mergeUnion())
-                // else
-                // // TODO: optimization potential
-                // Some(mergeIntersection(),mergeUnion())
             | And(nodes=nodes) as andNode, other | other, (And(nodes=nodes) as andNode) ->
                 if nodes.Contains(other) then andNode else
                 let merged = this.mkAnd([|yield! nodes;other|])
                 merged
             | _ ->
                 createCached(key)
-            // match this.combineLanguage(node1, node2) with
-            // | Some (smaller,larger) -> addToCache smaller
-            // | _ -> _uniques._false
+
 
 
     member this.mkAndDirect
@@ -792,6 +717,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             _andCache.Add(key,newAnd)
             newAnd
 
+
     member this.mkAnd
         (
             nodes: RegexNode<'t> seq
@@ -814,6 +740,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
         let derivatives = ResizeArray()
         // let prefixes = ResizeArray()
         // let suffixes = ResizeArray()
+
         use mutable e = nodes.GetEnumerator()
         while e.MoveNext() = true && enumerating do
             let rec handleNode deriv =
@@ -837,19 +764,12 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
         | MkAndFlags.ContainsEpsilon when derivatives.Exists(fun v -> v.CanNotBeNullable) ->
             _uniques._false
         | _ ->
-            // if prefixes.Count > 0 || suffixes.Count > 0 then
-            //     let ps = this.mkConcat(Seq.toList prefixes)
-            //     let ss = this.mkConcat(Seq.toList suffixes)
-            //     let inner = this.mkAnd(derivatives)
-            //     let combined = this.mkConcat([ps;inner;ss])
-            //     _andCache.Add(key, combined)
-            //     combined
-            // else
-
             let createNode(nodes: RegexNode<_>[]) =
                 match nodes with
                 | _ when nodes.Length = 0 -> _uniques._trueStar
                 | _ when nodes.Length = 1 -> nodes[0]
+                | twoormore when twoormore |> Seq.exists (_.HasPrefixOrSuffix) ->
+                    this.mergeAndPrefixSuffix(twoormore)
                 | twoormore ->
                     let flags = Flags.inferAnd twoormore
                     let minterms2 =
@@ -874,9 +794,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             match _andCache.TryGetValue(asArray) with
             | true, v -> v
             | _ ->
-
                 let v = createNode asArray
-
                 _andCache.Add(key, v)
                 v
 
@@ -1159,26 +1077,79 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
 #if REWRITE_INNER
                 // TODO: ⊤*(?<=aaa) not correct - this does not have the same semantics
                 // a(?<=[a-z]) to (a&(⊤*[a-z])
-                | head, LookAround(node=node;lookBack=true) ->
+                // [a-f]{3}((?<=bc)ijk)|(?<=cd)def))
+                // [a-f]{3}((?<=bc)ijk)|(?<=cd)def))
+                // [a-f](bcijk|cddef)
+                // aaa&...(?<=[a-z]{3})
+                // aaa&(?=[a-z]{3})...
+                | head, LookAround(node=node;lookBack=true) when not (refEq head b.trueStar) ->
                     // only rewrite trivial examples!
-                    let v = b.mkAnd([
-                        head
-                        b.mkConcat2(b.trueStar,node)
-                    ])
-                    _concatCache.Add(key, v)
-                    v
-                // (?=[a-z])a to (a&(⊤*[a-z])
+                    // failwith "todo: rewrite lookback"
+                    let dbg = 1
+                    let rewrite =
+                        match node with
+                        | Singleton _ ->
+                            b.mkAnd([ head; b.mkConcat2(b.trueStar,node) ])
+                        | Loop(node=Singleton _; low=0; up=1) ->
+                            b.mkAnd([ head; b.mkConcat2(b.trueStar,node) ])
+                        | _ ->
+                            failwith $"nontrivial inner lookarounds are not yet supported! pattern: {head.ToString()}{tail.ToString()}"
+                    _concatCache.Add(key, rewrite)
+                    rewrite
+                // (?=[a-z])a to (a&([a-z]⊤*)
+                // (?=ab)a to (a&(?=ab)
                 | LookAround(node=node;lookBack=false),tail  ->
+                    match tail with
+                    | SingletonStarLoop(_) ->
+                        let v =
+                            let flags = Flags.inferConcat head tail
+                            let mergedMinterms = solver.Or(head.SubsumedByMinterm(solver),tail.SubsumedByMinterm(solver))
+                            let info = this.CreateInfo(flags, mergedMinterms, Set.union head.PendingNullables tail.PendingNullables)
+                            Concat(head, tail, info)
+
+                        _concatCache.Add(key, v)
+                        v
+                    | _ ->
+
                     // only rewrite trivial examples!
-                    let v = b.mkAnd([
-                        tail
-                        b.mkConcat2(node,b.trueStar)
-                    ])
-                    _concatCache.Add(key, v)
-                    v
+                    // failwith "todo: rewrite2"
+                    let rewrite =
+                        match node with
+                        | Singleton _ ->
+                            let v = b.mkAnd([
+                                tail
+                                b.mkConcat2(node,b.trueStar)
+                                //
+                                // head
+                                // (?=1)11 ==> (11&(?=1⊤*))
+                                // let newbody = b.mkLookaround(b.mkConcat2(node,b.trueStar),false, 0, Set.empty)
+                                // b.mkConcat2(newbody)
+                            ])
+                            v
+                        | _ ->
+                            let a = 1
+                            // orig: (?=.*a)...
+                            // case1: ...&.*a⊤*
+                            // case2: ...&(?=.*a)⊤*
+                            // rewrite: (...&.*a⊤*)|(...(?=.*a))
+                            // rewrite: (...&.*a⊤*)|(...(?=.*a))
+
+                            let v = b.mkAnd([
+                                tail
+                                b.mkConcat2(head,b.trueStar)
+                                //
+                                // head
+                                // (?=1)11 ==> (11&(?=1⊤*))
+                                // let newbody = b.mkLookaround(b.mkConcat2(node,b.trueStar),false, 0, Set.empty)
+                                // b.mkConcat2(newbody)
+                            ])
+                            v
+                            // failwith "nontrivial inner lookaheads are not yet supported"
+                    _concatCache.Add(key, rewrite)
+                    rewrite
 #else
                 | LookAround(node=_;lookBack=false),other | other, LookAround(node=_;lookBack=true) when not (refEq other _uniques._trueStar ) ->
-                    failwith "Sbre does not support inner lookarounds"
+                    failwith "Sbre does not yet support inner lookarounds"
 #endif
                 | _ ->
                     let v =
@@ -1219,7 +1190,10 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             _lookaroundCache.Add(key, newNode)
             newNode
 
+    /// returns remaining pattern, suffix
     member this.stripSuffixes(node: RegexNode< 't >)  =
+        if not node.ContainsLookaround then
+            node, [] else
         match node with
         | Concat(head=LookAround(lookBack = true) as look; tail=tail) -> node, []
         | Concat(head=head; tail=LookAround(lookBack = false) as look) -> head, [look]
@@ -1231,6 +1205,50 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             let hd2,suf = this.stripSuffixes tail
             this.mkConcat2(head,hd2), suf
         | LookAround(lookBack=false) -> this.uniques._eps, [node]
+        | LookAround(lookBack=true) -> node, []
+        | Or(nodes=nodes; info=info) -> node, []
+
+        // | Or(nodes=nodes; info=info) when info.ContainsLookaround ->
+        //     let prefixes = ResizeArray()
+        //     let suffixes = ResizeArray()
+        //     let remaining =
+        //         nodes
+        //         |> Seq.map this.stripPrefixSuffix
+        //         |> Seq.map (fun (p,n,s) ->
+        //             prefixes.AddRange(p)
+        //             suffixes.AddRange(s)
+        //             n
+        //         )
+        //         |> Seq.toArray
+        //     if prefixes.Count = 0 && suffixes.Count = 0 then node,[] else
+        //
+        //     let prefs = b.mkConcatResizeArray(prefixes)
+        //     let sufs = b.mkConcatResizeArray(suffixes)
+        //     let node = b.mkOrSeq(remaining)
+        //
+        //     let newAnd = b.mkConcat2(prefs,b.mkConcat2(node,sufs))
+        //     newAnd
+        | _ -> failwith "todo suffix"
+
+    member this.stripPrefixSuffix(node: RegexNode< 't >)  =
+        if not node.ContainsLookaround then [], node, [] else
+        match node with
+        | Concat(head=LookAround(lookBack=true) as look; tail=tail) ->
+            let prf,node,suf = this.stripPrefixSuffix(tail)
+            look :: prf, node, suf
+
+        | Concat(head=head; tail=LookAround(lookBack = false) as look) -> [], head, [look]
+        | Concat(head=head; tail=Concat(head=LookAround(lookBack = false) as look1; tail=tail)) ->
+            let innerHead,innerSuffixes = this.stripSuffixes tail
+            assert (innerHead = Epsilon)
+            [], head, look1 :: innerSuffixes
+        | Concat(head=head; tail=tail) ->
+            let hd2,suf = this.stripSuffixes tail
+            [], this.mkConcat2(head,hd2), suf
+        | LookAround(lookBack=false) -> [],this.uniques._eps, [node]
+        | LookAround(lookBack=true) -> [node], this.uniques._eps, []
+        | Or(nodes=nodes; info=info) -> [],node, []
+        | _ -> [],node, []
         | _ -> failwith "todo suffix"
 
     member this.getConcatList(node: RegexNode< 't >)  =
@@ -1243,11 +1261,6 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             | node -> acc.Add(node)
         loop node
         acc
-    // member this.stripTail(node: RegexNode< 't >)  =
-    //     let revNodes = this.getConcatList node
-    //     this.mkConcat(revNodes |> Seq.take (revNodes.Count-2) |> Seq.toList),
-    //     revNodes[revNodes.Count-1]
-
 
     member this.mkConcat(nodesCorrectOrder: RegexNode< 't > list) : RegexNode< 't > =
         match nodesCorrectOrder with
@@ -1257,6 +1270,24 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
         | rest ->
             let combined =
                 rest
+                |> Seq.rev
+                |> Seq.fold
+                    (fun acc v ->
+                        match acc with
+                        | Epsilon -> v
+                        | _ -> this.mkConcat2 (v, acc)
+                    )
+                    Epsilon
+            combined
+
+    member this.mkConcatResizeArray(nodesCorrectOrder: RegexNode< 't >ResizeArray) : RegexNode< 't > =
+        match nodesCorrectOrder.Count with
+        | 0 -> Epsilon
+        | 1 -> nodesCorrectOrder[0]
+        | 2 -> this.mkConcat2 (nodesCorrectOrder[0], nodesCorrectOrder[1])
+        | rest ->
+            let combined =
+                nodesCorrectOrder
                 |> Seq.rev
                 |> Seq.fold
                     (fun acc v ->

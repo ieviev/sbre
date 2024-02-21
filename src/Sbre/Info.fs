@@ -115,7 +115,18 @@ module rec Flags =
             if dependsOnAnchor then
                 Flag.DependsOnAnchorFlag
             else Flag.None
-        andFlags ||| orFlags ||| dependsOnFlags
+        let lookaroundFlags =
+            let suf =
+                match tail with
+                | Pat.HasSuffixLookahead -> Flag.HasSuffixLookaheadFlag
+                | _ -> Flag.None
+            let pref =
+                match head with
+                | Pat.HasPrefixLookback -> Flag.HasPrefixLookbehindFlag
+                | _ -> Flag.None
+            pref ||| suf
+
+        andFlags ||| orFlags ||| dependsOnFlags ||| lookaroundFlags
 
     let inferLookaround (inner: RegexNode<'t>) (lookBack: bool) =
         let innerFlags = inner.GetFlags()
@@ -131,8 +142,9 @@ module rec Flags =
         // non nullable lookahead
         | false, false ->
             nullFlags |||
-            RegexNodeFlags.ContainsLookaroundFlag ||| RegexNodeFlags.HasZerowidthHeadFlag
-            ||| ancFlag
+            RegexNodeFlags.ContainsLookaroundFlag |||
+            RegexNodeFlags.HasZerowidthHeadFlag |||
+            ancFlag
         // nullable lookback
         | _, true -> ancFlag ||| nullFlags ||| RegexNodeFlags.ContainsLookaroundFlag
 

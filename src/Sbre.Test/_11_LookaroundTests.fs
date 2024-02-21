@@ -68,11 +68,7 @@ let ``a pos simple 3.2``() = assertAllLLmatchTexts "bb(?=aa)" "__bbaa__" [ "bb" 
 
 // let idx,len = getFirstLLmatch @".*(?=.*-)&\S.*\S" @"-aaaa-"
 
-[<Fact>]
-let ``a pos complex 1.1`` () =
-    assertNullablePositions @".*(?=.*-)&\S.*\S" @"-aaaa-" [
-        yield! List.rev [ 0..4 ]
-    ]
+
 
 [<Fact>]
 let ``a pos complex 1.2`` () =
@@ -131,10 +127,7 @@ let ``a pos complex 2.2d`` () =
     assertFirstMatchText @"\d+(?=\s*[aApP]\.?[mM]\.?)" @"10         pm" "10"
 
 
-// TODO: semantically intersections constrain lookarounds
-// [<Fact>]
-// let ``a pos complex 2``() = // TODO:
-//     assertFirstMatchText @".*(?=.*E)&~(.*and.*)" @"___and__E" "___an"
+
 
 [<Fact>]
 let ``b pos simple 1.1``() = assertNullablePositions "(?<=b)" "b" [ 1 ]

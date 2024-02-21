@@ -78,6 +78,7 @@ let ``derivative neg lookaround 2``() =
         // @"(~(.*)&((?<=.*).*|.*))"
         // @"((.*|(?<=.*).*)&~(.*))"
         // @"(((?<=.*).*|.*)&~(.*))"
+        @"(~((.*A.*|.*))&.*)"
         @"(~((.*|.*A.*))&.*)"
         @"(.*&~((.*|.*A.*)))"
         @"(.*&~((.*A.*|.*)))"
@@ -114,7 +115,7 @@ let ``subsumption or loop ``() =
 let ``a conversion 2.5``() = assertConverted """Huck[a-zA-Z]+|Saw[a-zA-Z]+""" [
     @"(Saw([A-Za-z])+|Huck([A-Za-z])+)"
     @"(Huck([A-Za-z])+|Saw([A-Za-z])+)"
-    // this is probably detrimental
+    // this optimization is probably detrimental
     """(Huck|Saw)([A-Za-z])+"""
     """(Saw|Huck)([A-Za-z])+"""
 ]
@@ -148,6 +149,18 @@ let ``a canonical 1.1``() =
 
 [<Fact>]
 let ``a conversion 2.3``() = assertConverted "(.*|(.*11.*|1.*))" [ ".*" ]
+
+
+[<Fact>]
+let ``rewrite suffix 1``() = assertConverted """.*(?=.*def)&.*def""" [ ".*def(?=.*def)" ]
+
+
+[<Fact>]
+let ``rewrite prefix 1``() = assertConverted """(?<=abc).*&.*def""" [ "(?<=abc).*def" ]
+
+
+
+
 
 
 #endif

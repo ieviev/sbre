@@ -146,6 +146,33 @@ let (|LookbackPrefix|_|) (node: RegexNode<_>) =
     | Concat(head=LookAround(lookBack=true)) -> ValueSome(node)
     | _ -> ValueNone
 
+[<return: Struct>]
+let (|HasPrefixLookback|_|) (node: RegexNode<_>) =
+    match node with
+    | LookAround(lookBack=true) -> ValueSome()
+    | Concat(info=info) ->
+        if info.NodeFlags.HasPrefixLookbehind then  ValueSome()
+        else ValueNone
+    | _ -> ValueNone
+
+[<return: Struct>]
+let (|HasSuffixLookahead|_|) (node: RegexNode<_>) =
+    match node with
+    | LookAround(lookBack=false) -> ValueSome()
+    | Concat(info=info) ->
+        if info.NodeFlags.HasSuffixLookahead then ValueSome()
+        else ValueNone
+    | _ -> ValueNone
+
+
+[<return: Struct>]
+let (|HasPrefixOrSuffix|_|) (node: RegexNode<_>) =
+    match node with
+    | LookAround(lookBack=true) -> ValueSome()
+    | Concat(head=LookAround(lookBack=true)) -> ValueSome()
+    | Concat(tail=LookAround(lookBack=true)) -> ValueSome()
+    | Concat(tail=HasPrefixOrSuffix()) -> ValueSome()
+    | _ -> ValueNone
 
 [<return: Struct>]
 let (|StarLoop|_|) (node: RegexNode<_>) =
@@ -344,6 +371,9 @@ module Location =
 /// same as obj.ReferenceEquals(x, y)
 let inline refEq x y =
     // obj.ReferenceEquals(x, y)
-    // System.Runtime.CompilerServices.RuntimeHelpers.Equals(x,y)
     // obj.ReferenceEquals(x, y)
     LanguagePrimitives.PhysicalEquality x y
+
+/// same pointer location
+let inline same(x:inref<_>, y:inref<_>) =
+    Runtime.CompilerServices.Unsafe.AreSame(&x,&y)
