@@ -19,9 +19,7 @@ type RegexCache< 't
         _solver: ISolver<TSet>,
         _charsetSolver: CharSetSolver,
         _bddMinterms: BDD[],
-        // _implicitDotstarPattern: RegexNode<TSet>,
         _rawPattern: RegexNode<TSet>,
-        // _reversePattern: RegexNode<TSet>,
         _builder: RegexBuilder<TSet>
     ) =
     let classifier = (_solver :?> TSolver)._classifier
@@ -422,7 +420,7 @@ type RegexCache< 't
         | Some firstSetChars ->
 
         /// '.' to ^\n -> it's easier to invert large sets
-        let isInverted = Solver.elemOfSet mergedPrefix minterms[0]
+        let isInverted = this.MintermIsInverted(mergedPrefix)
 
         while skipping do
             if loc.Reversed then
@@ -581,8 +579,6 @@ type RegexCache< 't
     member val False: RegexNode< _ > = _builder.uniques._false
     member val Eps: RegexNode< _ > = _builder.uniques._eps
     member val TrueStar: RegexNode< _ > = _builder.uniques._trueStar
-
-
 
 
 

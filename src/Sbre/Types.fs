@@ -131,6 +131,9 @@ module RegexStateFlagsExtensions =
             RegexStateFlags.DependsOnAnchor) <> RegexStateFlags.None
 
         [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+        member this.HasActiveBranchOptimizations = this &&& RegexStateFlags.ActiveBranchOptimizations = RegexStateFlags.ActiveBranchOptimizations
+
+        [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
         member this.CanBeNullable = this &&& RegexStateFlags.CanBeNullableFlag = RegexStateFlags.CanBeNullableFlag
         [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
         member this.ContainsLookaround = this &&& RegexStateFlags.ContainsLookaroundFlag = RegexStateFlags.ContainsLookaroundFlag

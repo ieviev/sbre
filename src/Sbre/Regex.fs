@@ -536,13 +536,16 @@ type RegexMatcher<'t when 't: struct>
             _flagsArray[state.Id] <- state.Flags
             state
 
-#if CANONICAL
-    // do _cache.Builder.CanonicalizeCallback <- Some _canonicalize
+// #if CANONICAL
+//     // do _cache.Builder.CanonicalizeCallback <- Some _canonicalize
+//     do _cache.Builder.InitCanonical(_minterms)
+//     let R_canonical = _canonicalize uncanonicalizedNode
+// #else
+//     let R_canonical = uncanonicalizedNode
+// #endif
+//
     do _cache.Builder.InitCanonical(_minterms)
     let R_canonical = _canonicalize uncanonicalizedNode
-#else
-    let R_canonical = uncanonicalizedNode
-#endif
     let reverseNode = RegexNode.rev _cache.Builder R_canonical
     let reverseTrueStarredNode = _cache.Builder.mkConcat2 (_cache.TrueStar, reverseNode)
     let trueStarredNode = _cache.Builder.mkConcat2 (_cache.TrueStar, R_canonical)
@@ -746,7 +749,7 @@ type RegexMatcher<'t when 't: struct>
     ) : RegexNode<TSet> =
 
         let canonNode = node
-            // expensive
+            // too expensive
             // match node.TryGetInfo with
             // | ValueSome info when info.IsCanonical -> node
             // | _ ->
@@ -790,46 +793,6 @@ type RegexMatcher<'t when 't: struct>
             else
                 looping <- false
         currentMax
-
-
-    // member this.DfaMatchEnd
-    //     (
-    //         loc: byref<Location>,
-    //         startStateId: int,
-    //         searchMode:RegexSearchMode
-    //     ) : int32 =
-    //     assert (loc.Position > -1)
-    //     let mutable looping = true
-    //     let mutable currentStateId = startStateId
-    //     let mutable currentMax = -2
-    //
-    //     while looping do
-    //         let mutable dfaState = _stateArray[currentStateId]
-    //         let flags = dfaState.Flags
-    //         if flags.IsDeadend then
-    //             looping <- false
-    //         else
-    //
-    //         if flags.CanSkip then
-    //             // let ss = dfaState.Startset
-    //             this.TrySkipActiveFwd(flags,&loc,&currentStateId) |> ignore
-    //             // _cache.TryNextStartsetLocation(&loc, ss)
-    //
-    //         // set max nullability after skipping
-    //         if this.StateIsNullable(flags, &loc, currentStateId) then
-    //             currentMax <- loc.Position
-    //             match searchMode with
-    //             | RegexSearchMode.FirstNullable ->
-    //                 loc.Position <- Location.final loc
-    //             | _ -> ()
-    //
-    //         if not (Location.isFinal loc) then
-    //             this.TakeTransition(flags, &currentStateId, &loc)
-    //             loc.Position <- Location.nextPosition loc
-    //         else
-    //             looping <- false
-    //
-    //     currentMax
 
     member this.TrySkipInitialRev(loc:byref<Location>, currentStateId:byref<int>) : bool =
         match _initialOptimizations with
@@ -985,7 +948,7 @@ type RegexMatcher<'t when 't: struct>
     member this.TrySkipActiveRev(flags:RegexStateFlags,loc:byref<Location>, currentStateId:byref<int>, acc: byref<SharedResizeArrayStruct<int>>) : bool =
         let dfaState = _stateArray[currentStateId]
         // if loc.Position = 0 then false else
-        if flags.HasFlag(RegexStateFlags.ActiveBranchOptimizations) then
+        if flags.HasActiveBranchOptimizations then
             match dfaState.ActiveOptimizations with
             | ActiveBranchOptimizations.PossibleStringPrefix(prefix,transId) ->
                 let limitedSlice = loc.Input.Slice(0, loc.Position)
@@ -1009,14 +972,10 @@ type RegexMatcher<'t when 't: struct>
                     true
                 | idx ->
                     let newPos = loc.Position - distance + idx
-                    // let relativepos = loc.Input.Slice(loc.Position - distance + idx, 10)
-                    // let debug = relativepos.ToString()
-                    // let newState = _stateArray[termTransitionId]
                     loc.Position <- newPos
                     currentStateId <- termTransitionId
-
                     true // mark nullable
-            | _ -> failwith "todo"
+            | NoOptimizations -> false
         else
             let tmp_loc = loc.Position
             _cache.TryNextStartsetLocationRightToLeft(
@@ -1142,7 +1101,6 @@ type RegexMatcher<'t when 't: struct>
         //         i <- i + 1
         //     lengthResult
         | _ -> this.DfaEndPosition(&loc, DFA_R_noPrefix)
-        // | _ -> this.DfaEndPosition(&loc, DFA_R_noPrefix)
 
     member this.llmatch_all_override(acc:byref<SharedResizeArrayStruct<MatchPosition>>, loc: byref<Location>, overridden:OverrideRegex) =
         let tspan = loc.Input
@@ -1298,11 +1256,8 @@ module Helpers =
             Debug.debuggerSolver <- Some solver
 #endif
             let uintbuilder = RegexBuilder(converter, solver, charsetSolver)
-            uintbuilder.InitializeUniqueMap(bddBuilder)
 
             let rawNode = (Minterms.transform bddBuilder uintbuilder charsetSolver solver) symbolicBddnode
-
-
 
 
             let cache =
@@ -1310,15 +1265,11 @@ module Helpers =
                     solver,
                     charsetSolver,
                     bddMinterms,
-                    // _implicitDotstarPattern = trueStarredNode,
                     _rawPattern = rawNode,
-                    // _reversePattern = reverseNode,
                     _builder = uintbuilder
                 )
 
-
-
-            RegexMatcher<TSet>(rawNode, cache) //:> GenericRegexMatcher
+            RegexMatcher<TSet>(rawNode, cache)
         | n -> failwith $"bitvector too large, size: {n}"
 
 

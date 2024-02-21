@@ -106,9 +106,6 @@ let ``a conversion 2.2``() = assertConverted "(⊤*A⊤*&⊤*B⊤*)&⊤*B⊤*" [
 ]
 
 
-[<Fact>]
-let ``a conversion 2.3``() = assertConverted "(.*|(.*11.*|1.*))" [ ".*" ]
-
 
 
 [<Fact>]

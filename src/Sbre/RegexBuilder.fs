@@ -489,28 +489,6 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
         this.CanonicalCache.Add(struct(false,true, falseLang),_uniques._eps)
         // --
 
-
-    member this.TryGetCanonical(oldNode:RegexNode<'t>, ders:Memory<RegexNode<'t>>) =
-        // if refEq oldNode node then node else
-        let key = struct(oldNode.DependsOnAnchor,oldNode.CanBeNullable , ders)
-        match this.CanonicalCache.TryGetValue(key) with
-        | true, v ->
-            oldNode.TryGetInfo |> ValueOption.iter (fun inf ->
-                inf.HasCanonicalForm <- Some v
-            )
-            Some v
-        | _ ->
-            None
-
-    member this.InitializeUniqueMap(oldBuilder:RegexBuilder<BDD>) =
-        // _uniquesDict.Add(oldBuilder.anchors._aAnchor.Value,this.anchors._aAnchor.Value)
-        // _uniquesDict.Add(oldBuilder.anchors._bigAAnchor,this.anchors._bigAAnchor)
-        // _uniquesDict.Add(oldBuilder.anchors._caretAnchor.Value,this.anchors._caretAnchor.Value)
-        // _uniquesDict.Add(oldBuilder.anchors._dollarAnchor.Value,this.anchors._dollarAnchor.Value)
-        // _uniquesDict.Add(oldBuilder.anchors._wordBorder.Value,this.anchors._wordBorder.Value)
-        // _uniquesDict.Add(oldBuilder.anchors._zAnchor,this.anchors._zAnchor)
-        ()
-
     member this.setFromNode(node: RegexNode) =
         let bdd = converter.CreateBDDFromSetString(node.Str)
         let a2 = solver.ConvertFromBDD(bdd, bcss)
