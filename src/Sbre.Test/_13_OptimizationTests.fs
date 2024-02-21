@@ -144,6 +144,8 @@ let ``initialOptimizations 01``() =
 let ``initialOptimizations 02``() =
     let optimizations = getInitOptimizations "Tom|Sawyer|Huckleberry|Finn"
     match optimizations with
+    | Optimizations.InitialOptimizations.SearchValuesPotentialStart(prefix=prefix) ->
+        Assert.True(prefix.Length = 3)
     | Optimizations.InitialOptimizations.SetsPotentialStart(prefix) ->
         Assert.True(prefix.Length = 3)
     | _ -> failwith "invalid optimization result"
@@ -203,21 +205,14 @@ let ``initialOptimizations 09``() =
 [<Fact>]
 let ``initialOptimizations 10``() =
     // TODO: use this after optimizations done
-    // assertSetsPrefix @"(?<=\W)hello(?=\W)" @"\W;o;l;l;e;h;\W"
+    assertSetsPrefix @"(?<=\W)hello(?=\W)" @"\W;o;l;l;e;h;\W"
     ()
     // assertPotentialPrefix @"(?<=\W)hello(?=\W)" @"\W;o;l;l;e;h;\W"
 
 [<Fact>]
 let ``initialOptimizations 11``() =
     assertPotentialPrefix
-        // @"@( |)G( |)R( |)[a,A,@,(\/\\))]" @"[(),/@A\\a];[ R];[ G];[ @]"
         @"@( |)G( |)R( |)[a,A,@,(\/\\))]" @"[(),/@A\\a];[ R];[ GR];[ @G]"
-    //
-    // let optimizations = getInitOptimizations @"@( |)G( |)R( |)[a,A,@,(\/\\))]"
-    // match optimizations with
-    // | Optimizations.InitialOptimizations.PotentialStartPrefix(prefix) ->
-    //     Assert.Equal(2,prefix.Length)
-    // | _ -> failwith "invalid optimization result"
 
 
 [<Fact>]
@@ -231,6 +226,11 @@ let ``initialOptimizations 13``() =
 [<Fact>]
 let ``initialOptimizations 14``() =
     assertPotentialPrefix @"(?<=a.*)(\bx)(?=.*c)" @"c;[^\n];.;."
+
+
+[<Fact>]
+let ``initialOptimizations 15``() =
+    assertPrefixLength @"(?:[A-Z][a-z]+\s*){10,100}" 20
 
 
 

@@ -13,13 +13,15 @@ type InitialOptimizations =
     /// ex. Twain ==> (ε|Twain)
     | StringPrefix of prefix:Memory<char> * transitionNodeId:int
     | StringPrefixCaseIgnore of headSet:SearchValues<char> * tailSet:SearchValues<char> * prefix:Memory<char> * isAscii:bool * transitionNodeId:int
-    // | StringPrefixCaseIgnore of engine:System.Text.RegularExpressions.Regex * transitionNodeId:int
+    /// | StringPrefixCaseIgnore of engine:System.Text.RegularExpressions.Regex * transitionNodeId:int
     | SearchValuesPrefix of prefix:Memory<SearchValues<char>> * transitionNodeId:int
     /// ex. [Tt][Ww][Aa][Ii][Nn] ==> (ε|(?i)Twain)
     | SetsPrefix of prefix:Memory<TSet> * transitionNodeId:int
-    | SearchValuesPotentialStart of prefix:Memory<SearchValues<char>>
+    /// potential start prefix from searchvalues
+    | SearchValuesPotentialStart of prefix:Memory<SearchValues<char>> * tsetprefix:Memory<TSet>
     /// ex. (Twain|Huck) ==> potential start:[TH][wu][ac][ik]
     | SetsPotentialStart of prefix:Memory<TSet>
+    /// just a single set like [ae]
     | SinglePotentialStart of prefix:SearchValues<char> * inverted:bool
 
 type ActiveBranchOptimizations =
@@ -31,14 +33,14 @@ type ActiveBranchOptimizations =
 type LengthLookup =
     /// skip match end lookup entirely
     | FixedLength of length:int
-    /// work in progress
+    /// work in progress - maybe useless
     | FixedLengthSetLookup of lookup:(Memory<TSet>*int)[]
     /// skip some transitions as we already know where match starts
     | FixedLengthPrefixMatchEnd of prefixLength:int * transitionId:int
     /// default match end lookup
     | MatchEnd
 
-/// override trivial literal string search
+/// override for trivial literal string search
 [<RequireQualifiedAccess>]
 type OverrideRegex =
     | FixedLengthString of string:Memory<char>
@@ -273,7 +275,6 @@ let rec applyPrefixSetsWhileNotNullable
     | [] -> node, sets.Length
     | head :: tail ->
         let der = getNonInitialDerivative (head, node)
-        if refEq node der then failwith "bug"
         applyPrefixSetsWhileNotNullable getNonInitialDerivative cache der tail
 
 let findInitialOptimizations
@@ -341,9 +342,6 @@ let findInitialOptimizations
             let tailSet = prefix |> List.head |> c.MintermSearchValues |> Option.defaultWith (fun v -> failwith "bug: invalid startset")
             let headSet = prefix |> List.last |> c.MintermSearchValues |> Option.defaultWith (fun v -> failwith "bug: invalid startset")
             let allAscii = caseInsensitivePrefixes |> Memory.forall Char.IsAscii
-            // reverse prefix search is very slow in the span API so we use this
-            // let spanString = caseInsensitivePrefixes.ToString()
-            // let engine = System.Text.RegularExpressions.Regex(spanString, Text.RegularExpressions.RegexOptions.RightToLeft ||| Text.RegularExpressions.RegexOptions.IgnoreCase ||| Text.RegularExpressions.RegexOptions.Compiled)
             InitialOptimizations.StringPrefixCaseIgnore(headSet,tailSet,caseInsensitivePrefixes, allAscii,nodeToId applied)
         else
 
@@ -396,12 +394,9 @@ let findInitialOptimizations
                     InitialOptimizations.SetsPotentialStart(mem)
                 else
                     // only small sets, allocate searchvalues
-                    // let searchPrefix = Array.choose id searchPrefix |> Memory
-                    let searchPrefix =
-                        Seq.choose id searchPrefix
-                        // |> Seq.truncate 7
-                        |> Seq.toArray |> Memory
-                    InitialOptimizations.SearchValuesPotentialStart(searchPrefix)
+                    let searchPrefix = Seq.choose id searchPrefix |> Seq.toArray |> Memory
+                    let mem = Memory(potentialStart |> Seq.toArray)
+                    InitialOptimizations.SearchValuesPotentialStart(searchPrefix, mem)
             else
                 // default
                 let mem = Memory(potentialStart |> Seq.toArray)
@@ -434,8 +429,6 @@ let tryGetLimitedSkip getNonInitialDerivative
 
         match nonInitialNonTerm with
         | [| singlePath |] ->
-
-
             let path = ResizeArray()
             let rec loop (node: RegexNode<_>) =
                 match nonTermDerivatives node with
@@ -447,7 +440,7 @@ let tryGetLimitedSkip getNonInitialDerivative
             let finalNode = loop (snd singlePath)
             if path.Count < 2 then None else
                 if c.MintermIsInverted(skipTerm) then None else
-                    // failwith "todo: inverted minterm"
+                    // "todo: inverted minterm"
                 let chrs = c.MintermChars(skipTerm)
                 if chrs.IsNone || chrs.Value.Length > 100 then
                     None
@@ -497,7 +490,7 @@ let tryGetLimitedSkip getNonInitialDerivative
                     Optimizations.applyPrefixSetsWhileNotNullable
                         getNonInitialDerivative
                         c node (List.take singleCharPrefixes.Length (prefix))
-                if reducedLength > 0 then failwith "todo optimization bug"
+                if reducedLength > 0 then None else // todo: edge case here
 
                 Some (ActiveBranchOptimizations.PossibleStringPrefix(singleCharPrefixes,nodeToId applied))
 
@@ -596,6 +589,19 @@ let attemptMergeIntersectLang (_cache:RegexCache<TSet>) (mkLang: RegexNode<TSet>
                 let sub = Solver.containsS _cache.Solver pred (other.SubsumedByMinterm(_cache.Solver))
                 if sub then other else _cache.Builder.mkAnd2(l1,l2)
             | _ ->
+                let mapCanonical (node:RegexNode<TSet>) =
+                    node.TryGetInfo
+                    |> ValueOption.map (fun info ->
+                        if info.IsCanonical then node else
+                        if info.HasCanonicalForm.IsSome then info.HasCanonicalForm.Value else
+                        let canonForm = _cache.Builder.GetCanonical(node,mkLang node,(fun v -> node))
+                        canonForm
+                    )
+                    |> ValueOption.defaultValue node
+
+                let l1 = mapCanonical l1
+                let l2 = mapCanonical l2
+
                 let newNode = _cache.Builder.mkAnd2(l1,l2)
                 _cache.Builder.GetCanonical(newNode,mkLang newNode,(fun v -> newNode))
                 // infinite loop danger
@@ -626,6 +632,19 @@ let attemptMergeUnionLang (_cache:RegexCache<TSet>) (mkLang: RegexNode<TSet> -> 
                 let sub = Solver.containsS _cache.Solver pred (other.SubsumedByMinterm(_cache.Solver))
                 if sub then p1 else _cache.Builder.mkOr2(l1,l2)
             | _ ->
+                let mapCanonical (node:RegexNode<TSet>) =
+                    node.TryGetInfo
+                    |> ValueOption.map (fun info ->
+                        if info.IsCanonical then node else
+                        if info.HasCanonicalForm.IsSome then info.HasCanonicalForm.Value else
+                        let canonForm = _cache.Builder.GetCanonical(node,mkLang node,(fun v -> node))
+                        canonForm
+                    )
+                    |> ValueOption.defaultValue node
+
+                let l1 = mapCanonical l1
+                let l2 = mapCanonical l2
+
                 let newNode = _cache.Builder.mkOr2(l1,l2)
                 let canon = _cache.Builder.GetCanonical(newNode,mkLang newNode,(fun v -> newNode))
                 canon
