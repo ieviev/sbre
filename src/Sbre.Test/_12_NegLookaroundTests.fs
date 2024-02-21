@@ -242,16 +242,47 @@ let ``nested not 1``() =
     let input = "12345.123"
     assertFirstMatchText pattern input "12345.123"
 
+// semantic differences
+
 [<Fact>]
-let ``intersection lookaround 1``() =
+let ``constrained test 1.1 - inner lookarounds are constrained``() =
+    let pattern = """\d(?=.*a)\d\d"""
+    let input = "123___a"
+    assertNoMatch pattern input
+
+[<Fact>]
+let ``constrained test 1.2 - inner lookarounds find a match in range``() =
+    let pattern = """\d(?=.*a)\d.\d"""
+    let input = "12a3___"
+    assertFirstMatchText pattern input "12a3"
+
+[<Fact>]
+let ``constrained test 2.1 - intersections constrain match``() =
     let pattern = """.*(?=.*def)&.*def"""
     let input = "abcdef"
     assertFirstMatchText pattern input "abc"
 
-// [<Fact>]
-// let ``intersection lookaround 2``() =
-//     let pattern = """.*(?=.*def)&.*de"""
-//     let input = "abcdef"
-//     printAllDerivatives pattern input [ [] ]
+[<Fact>]
+let ``constrained test 2.2 - intersection range is pre-constrained``() =
+    let pattern = """.*(?=.*def)&.*de"""
+    let input = "abcdef"
+    assertNoMatch pattern input
+
+[<Fact>]
+let ``constrained test 2.3 - suffixes work as usual``() =
+    let pattern = """(.*a.*&.*c.*)(?=.*def)"""
+    let input = "abcdef"
+    assertFirstMatchText pattern input "abc"
+
+
+[<Fact>]
+let ``constrained test 3.1 - union does not constrain lookarounds``() =
+    let pattern = """ab(?=.*def)|de(?=.*f)"""
+    let input = "abcdef"
+    assertAllLLmatchTexts pattern input [ "ab" ; "de" ]
+
+
+
+
 
 #endif
