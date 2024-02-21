@@ -182,64 +182,19 @@ let assertStringPrefix pattern expected =
         Assert.Equal(expected, prefixString)
     | _ -> failwith $"invalid optimization result: {optimizations}"
 
-// let assertCounterStates (regex:Regex) (input:string) (expectedStates:(CounterState * int) list list)  =
-//     let matcher = regex.TSetMatcher
-//     let cache = matcher.Cache
-//     let mutable loc = (Location.create input 0)
-//     let mutable currNode =
-//         match matcher.RawPattern with
-//         | Not(_) -> matcher.RawPattern
-//         | _ -> matcher.TrueStarredPattern
-//     let mutable remainingStates = expectedStates
-//     let mutable endNullable = false
-//
-//
-//     while (not (Location.isFinal loc)) && not (refEq currNode cache.False) && not remainingStates.IsEmpty do
-//
-//         // let pre = ctrs |> Seq.map (fun v -> v.Queue)
-//         let minterm = cache.MintermForLocation(loc)
-//
-//         let isnull =
-//             let endNullable = matcher.IsNullable(&loc, currNode)
-//             endNullable
-//         endNullable <- isnull
-//
-//         let locpos = loc.Position
-//
-//         // bump counters
-//         let counters = state.Counters()
-//
-//         let deriv = matcher.CreateDerivative ( &loc, minterm, currNode)
-//         currNode <- deriv
-//
-//         Seq.zip state.ActiveCounters.Values remainingStates.Head
-//         |> Seq.iter (fun (cs,(excs, exof)) ->
-//             Assert.True(cs.GetState() = excs, $"pos: {locpos}, expected:{excs}, real:{cs.GetState()}")
-//             Assert.True(cs.Offset = exof, $"pos: {locpos}, expected:{exof}, real:{cs.Offset}")
-//         )
-//
-//         if currNode.HasCounter then
-//             state.ActiveCounters |> Seq.iter (_.Value.TryReset())
-//             CountingSet.stepCounters state minterm
-//
-//             // CountingSet.bumpCounters state minterm currNode
-//
-//
-//
-//         loc.Position <- loc.Position + 1
-//         remainingStates <- remainingStates.Tail
-//
-//
-//     let isnull =
-//         let endNullable = matcher.IsNullable(  &loc, currNode)
-//         endNullable
-//     endNullable <- isnull
-//
-//     {|
-//       Node = currNode
-//       State = state
-//       IsNullable = endNullable
-//       |}
+
+let assertOptimizationPrefixSets pattern expected =
+    let regex = Regex(pattern)
+    let matcher = regex.TSetMatcher
+    let getflags = (fun node -> matcher.GetOrCreateState(node).Flags)
+    let getder = (fun (mt,node) ->
+        let loc = Pat.Location.getNonInitial()
+        matcher.CreateDerivative(&loc, mt,node)
+    )
+    let prefix =
+        Optimizations.calcPrefixSets getder getflags matcher.Cache matcher.ReversePattern
+    let prefixString = Optimizations.printPrefixSets matcher.Cache prefix
+    assertEqual expected prefixString
 
 
 let assertRevStates (pattern:string) (input:string) (expectedRegexesList:string list list)  =

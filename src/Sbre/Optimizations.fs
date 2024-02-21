@@ -50,6 +50,12 @@ type OverrideRegex =
 let printPrefixSets (cache:RegexCache<_>) (sets:TSet list) =
     sets
     |> Seq.map cache.PrettyPrintMinterm
+    |> Seq.map (fun v ->
+        match v with
+        | @"[^\n]" -> "."
+        | c when c.Length > 12 -> "φ" // dont expand massive sets
+        | c -> c
+    )
     |> String.concat ";"
 
 let printPrettyDerivs (cache:RegexCache<_>) (derivs) =
