@@ -1,6 +1,7 @@
 [<Xunit.Collection("Sequential")>]
 module Sbre.Test._13_OptimizationTests
 
+open System.Buffers
 open Sbre
 open Sbre.Benchmarks.Jobs
 open Sbre.CountingSet
@@ -63,7 +64,7 @@ let ``calc reverse prefix 3``() =
 [<Fact>]
 let ``calc reverse prefix 4``() =
     assertOptimizationPrefixSets @"~(⊤*\n\n⊤*)&⊤*Huck⊤*" "k;c;u;H"
-    
+
 
 [<Fact>]
 let ``calc reverse prefix 5``() =
@@ -147,15 +148,15 @@ let ``initialOptimizations 05``() =
 
 [<Fact>]
 let ``initialOptimizations 06``() =
-    assertPotentialPrefix "Huck[a-zA-Z]+|Saw[a-zA-Z]+" "[A-Za-z];[kw];[ac];[Su]"
+    assertPotentialStart "Huck[a-zA-Z]+|Saw[a-zA-Z]+" "[A-Za-z];[kw];[ac];[Su]"
 
 [<Fact>]
 let ``initialOptimizations 07``() =
-    assertPotentialPrefix "Tom|Sawyer|Huckleberry|Finn" "[mnry];[enor];[Tiry]"
+    assertPotentialStart "Tom|Sawyer|Huckleberry|Finn" "[mnry];[enor];[Tiry]"
 
 [<Fact>]
 let ``initialOptimizations 08``() =
-    assertPotentialPrefix "\s([A-Za-z]awyer|[A-Za-z]inn)\s" "\s;[nr];[en];[iy];[A-Za-z];φ"
+    assertPotentialStart "\s([A-Za-z]awyer|[A-Za-z]inn)\s" "\s;[nr];[en];[iy];[A-Za-z];φ"
 
 
 [<Fact>]
@@ -168,13 +169,13 @@ let ``initialOptimizations 10``() =
 
 [<Fact>]
 let ``initialOptimizations 11``() =
-    assertPotentialPrefix
+    assertPotentialStart
         @"@( |)G( |)R( |)[a,A,@,(\/\\))]" @"[(),/@A\\a];[ R];[ GR];[ @G]"
 
 
 [<Fact>]
 let ``initialOptimizations 12``() =
-    assertPotentialPrefix @"a( |)b( |)c( |)d" @"d;[ c];[ bc];[ ab]"
+    assertPotentialStart @"a( |)b( |)c( |)d" @"d;[ c];[ bc];[ ab]"
 
 [<Fact>]
 let ``initialOptimizations 13``() =
@@ -182,7 +183,7 @@ let ``initialOptimizations 13``() =
 
 [<Fact>]
 let ``initialOptimizations 14``() =
-    assertPotentialPrefix @"(?<=a.*)(\bx)(?=.*c)" @"c;.;.;."
+    assertPotentialStart @"(?<=a.*)(\bx)(?=.*c)" @"c;.;.;."
 
 
 [<Fact>]
@@ -198,7 +199,26 @@ let ``initialOptimizations 17``() =
     assertSetsPrefix @"\w+\s+Holmes\s+\w+" @"φ;φ"
 
 
+[<Fact>]
+let ``initialOptimizations 18``() =
+    assertPotentialStart
+        @"Sherlock Holmes|John Watson|Irene Adler|Inspector Lestrade|Professor Moriarty"
+        @"[enrsy];[deot];[almrs];[adlrt];[Aaiot];[ HWrs];[ eo];[LMkn];[ ceh];[or];[IJlo]"
 
+// Pr[o]fess[o]r Moriarty
+// ___[or]____[ eo]
+
+[<Fact>]
+let ``initialOptimizations 19``() =
+    assertPotentialStart
+        @"(?i)Sherlock Holmes|John Watson|Irene Adler|Inspector Lestrade|Professor Moriarty"
+        @"[ENRSYenrsy];[DEOTdeot];[ALMRSalmrs];[ADLRTadlrt];[AIOTaiot];[ HRSWhrsw];[ EOeo];[K-Nk-n\u212A];[ CEHceh];[ORor];[IJLOijlo]"
+
+[<Fact>]
+let ``initialOptimizations 20``() =
+    assertPotentialStart
+        @"(?:[A-Z][a-z]+\s*){10,100}"
+        @"φ;φ;φ;φ;φ;φ;φ;φ;φ;φ;φ;φ;φ;φ;φ;φ;φ;φ;φ;φ" // ? maybe vector256 to see if all equal
 
 
 

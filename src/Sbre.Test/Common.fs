@@ -98,7 +98,7 @@ let getInitOptimizations pattern =
             matcher.Cache matcher.ReversePattern matcher.ReverseTrueStarredPattern
     optimizations
 
-let assertPotentialPrefix pattern expected =
+let assertPotentialStart pattern expected =
     let regex = Regex(pattern)
     let matcher = regex.TSetMatcher
     let getder = (fun (mt,node) ->

@@ -43,26 +43,26 @@ type StringPrefix(pattern:string) =
         // if tc <> 811 then failwith $"invalid count {tc}"
         // if tc <> 2673 then failwith $"invalid count {tc}"
 
-    // [<Benchmark>]
-    // member x.SpanIndexOf1() =
-    //     let span = fullInput.AsSpan()
-    //     let mutable currpos = fullInput.Length
-    //     let mutable looping = true
-    //     let mutable tc = 0
-    //     let tlen = "Twain".Length
-    //     while looping do
-    //         // vectorize only to first char
-    //         let slice = span.Slice(0,currpos)
-    //         let newPos = slice.LastIndexOfAny(svals.Span)
-    //         if newPos = -1 || newPos < tlen then looping <- false else
-    //         currpos <- newPos
-    //         let mstart = currpos - tlen + 1
-    //         let validStart = slice.Slice(mstart).StartsWith("Twain")
-    //         if validStart then
-    //             tc <- tc + 1
-    //             currpos <- mstart
-    //         else currpos <- currpos - 1
-    //     if tc <> 811 then failwith $"invalid count: {tc}"
+    [<Benchmark>]
+    member x.SpanIndexOf1() =
+        let span = fullInput.AsSpan()
+        let mutable currpos = fullInput.Length
+        let mutable looping = true
+        let mutable tc = 0
+        let tlen = "Twain".Length
+        while looping do
+            // vectorize only to first char
+            let slice = span.Slice(0,currpos)
+            let newPos = slice.IndexOfAny(svals.Span)
+            if newPos = -1 || newPos < tlen then looping <- false else
+            currpos <- newPos
+            let mstart = currpos - tlen + 1
+            let validStart = slice.Slice(mstart).StartsWith("Twain")
+            if validStart then
+                tc <- tc + 1
+                currpos <- mstart
+            else currpos <- currpos - 1
+        if tc <> 811 then failwith $"invalid count: {tc}"
 
 
     // member x.VecLastIndex(vecSpans:ReadOnlySpan<Vector256<uint16>>) =
@@ -77,34 +77,34 @@ type StringPrefix(pattern:string) =
     //     //             return i * vectorLength + k;
     //     // }
 
-    // [<Benchmark>]
-    // member x.SpanIndexOf2() =
-    //     let origspan = fullInput.AsSpan()
-    //     let mutable tc = 0
-    //     let alignAmount = origspan.Length % 16
-    //     let alignSpan = origspan.Slice(alignAmount)
-    //     let inputVectors = MemoryMarshal.Cast<char, Vector256<uint16>>(alignSpan)
-    //     let searchVector = Vector256.Create<uint16>(uint16 'n')
-    //     let onevec = Vector256<uint16>.AllBitsSet
-    //     let idx = inputVectors.Length - 1
-    //     let tlen = "Twain".Length
-    //     let outArray = Array.zeroCreate<uint16> 16
-    //     let outSpan = outArray.AsSpan()
-    //
-    //     for i = idx downto 0 do
-    //         let result = Vector256.Equals(inputVectors[i], searchVector)
-    //         if not (Vector256.EqualsAny(result, onevec)) then () else
-    //         Vector256.CopyTo(result,outSpan)
-    //         for j = 0 to 15 do
-    //             if outSpan[j] <> 0us then
-    //                 if j > 0 && inputVectors[i][j-1] <> uint16 'i' then () else
-    //                 let absoluteIndex = (i * 16) + j
-    //                 let mstart = absoluteIndex - tlen + 1
-    //                 let validStart = alignSpan.Slice(mstart).StartsWith("Twain")
-    //                 if validStart then
-    //                     tc <- tc + 1
-    //     if tc <> 811 then failwith $"invalid count: {tc}"
-    //
+    [<Benchmark>]
+    member x.SpanIndexOf2() =
+        let origspan = fullInput.AsSpan()
+        let mutable tc = 0
+        let alignAmount = origspan.Length % 16
+        let alignSpan = origspan.Slice(alignAmount)
+        let inputVectors = MemoryMarshal.Cast<char, Vector256<uint16>>(alignSpan)
+        let searchVector = Vector256.Create<uint16>(uint16 'n')
+        let onevec = Vector256<uint16>.AllBitsSet
+        let idx = inputVectors.Length - 1
+        let tlen = "Twain".Length
+        let outArray = Array.zeroCreate<uint16> 16
+        let outSpan = outArray.AsSpan()
+
+        for i = idx downto 0 do
+            let result = Vector256.Equals(inputVectors[i], searchVector)
+            if not (Vector256.EqualsAny(result, onevec)) then () else
+            Vector256.CopyTo(result,outSpan)
+            for j = 0 to 15 do
+                if outSpan[j] <> 0us then
+                    if j > 0 && inputVectors[i][j-1] <> uint16 'i' then () else
+                    let absoluteIndex = (i * 16) + j
+                    let mstart = absoluteIndex - tlen + 1
+                    let validStart = alignSpan.Slice(mstart).StartsWith("Twain")
+                    if validStart then
+                        tc <- tc + 1
+        if tc <> 811 then failwith $"invalid count: {tc}"
+
 
 
 

@@ -261,7 +261,15 @@ type RegexMatcher<'t when 't: struct>
                 let R' = _createDerivative (&loc, loc_pred, head)
                 let R'S = _cache.Builder.mkConcat2 (R', tail)
                 let S' = _createDerivative (&loc, loc_pred, tail)
-                if (not (_isNullable (&loc, head)) && R'.CanNotBeNullable) || refEq _cache.Builder.uniques._false S' then
+
+                let lookaheadEpsilon =
+                    // small semantic detail when lookaround is not in the end
+                    // ex. "1\b-2" \b has to be nullable
+                    match R' with
+                    | LookAround(node=Epsilon;lookBack=false) -> false
+                    | _ -> true
+
+                if not (_isNullable (&loc, head)) && lookaheadEpsilon then
                     R'S
                 else
                     if refEq R'S _cache.False then S' else
@@ -553,8 +561,9 @@ type RegexMatcher<'t when 't: struct>
     let DFA_TR_rev = _getOrCreateState(reverseTrueStarredNode,reverseTrueStarredNode, true).Id // R_rev
     let DFA_R_noPrefix = _getOrCreateState(reverseTrueStarredNode,_noprefix, false).Id
 
-    let _initialOptimizations =
+
 #if OPTIMIZE
+    let _initialOptimizations =
         let opts =
             Optimizations.findInitialOptimizations
                 (fun (mt,node) ->
@@ -571,11 +580,14 @@ type RegexMatcher<'t when 't: struct>
                 chrs.IsNone
             | _ -> false
         if cannotUsePrefix then InitialOptimizations.NoOptimizations else opts
-#else
-        InitialOptimizations.NoOptimizations
-#endif
     let _lengthLookup =
         Optimizations.inferLengthLookup (fun node -> _getOrCreateState(reverseTrueStarredNode,node,false).Id ) getNonInitialDerivative _cache _noprefix
+#else
+    let _initialOptimizations =
+        InitialOptimizations.NoOptimizations
+    let _lengthLookup =
+        LengthLookup.MatchEnd
+#endif
 
     let _regexOverride =
         Optimizations.inferOverrideRegex _initialOptimizations _lengthLookup _cache R_canonical
@@ -1033,7 +1045,7 @@ type RegexMatcher<'t when 't: struct>
 
         while looping do
             let flags = _flagsArray[currentStateId]
-            // let dfaState = _stateArray[currentStateId]
+            let dfaState = _stateArray[currentStateId]
 #if SKIP
             if (flags.CanSkipInitial && this.TrySkipInitialRev(&loc, &currentStateId))
 
@@ -1075,7 +1087,20 @@ type RegexMatcher<'t when 't: struct>
             if loc.Position > 0 then
                 this.TakeTransition(flags, &currentStateId, &loc)
                 let state = _stateArray[currentStateId]
-                ders.Add(state.Node.ToString())
+
+                let modified =
+                    match state.Node with
+                    | Or(nodes=nodes) ->
+                        nodes
+                        |> Seq.where (function
+                            Concat(head=Pat.TrueStar _cache.Solver) -> false
+                            | _ -> true
+                        )
+                        |> _cache.Builder.mkOrSeq
+                    | _ -> state.Node
+
+                // ders.Add(state.Node.ToString())
+                ders.Add(modified.ToString())
                 loc.Position <- loc.Position - 1
             else
                 looping <- false
@@ -1165,11 +1190,8 @@ type RegexMatcher<'t when 't: struct>
                 if currStart >= nextValidStart then
                     loc.Position <- currStart
                     let matchEnd = this.getMatchEnd(&loc)
-                    match matchEnd with
-                    | -2 -> ()
-                    | _ ->
-                        matches.Add({ MatchPosition.Index = currStart; Length = (matchEnd - currStart) })
-                        nextValidStart <- matchEnd
+                    matches.Add({ MatchPosition.Index = currStart; Length = (matchEnd - currStart) })
+                    nextValidStart <- matchEnd
         matches
 
 
@@ -1195,7 +1217,9 @@ type RegexMatcher<'t when 't: struct>
                     loc.Position <- currStart
                     let matchEnd = this.getMatchEnd(&loc)
                     match matchEnd with
-                    | -2 -> ()
+                    | -2 ->
+                        failwith "invalid match"
+                        ()
                     | _ ->
                         matches.Add({ MatchPosition.Index = currStart; Length = (matchEnd - currStart) })
                         nextValidStart <- matchEnd

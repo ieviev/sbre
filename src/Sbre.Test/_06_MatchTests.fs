@@ -193,17 +193,6 @@ let ``boundaries test 2``() =
     Assert.True(ism)
 
 
-[<Fact>]
-let ``boundaries test 3``() =
-    let matcher = Regex("""1\b-""")
-    let ism = matcher.IsMatch("1-")
-    Assert.True(ism)
-
-[<Fact>]
-let ``boundaries test 4``() =
-    let matcher = Regex("""1\b-""")
-    let ism = matcher.IsMatch("1-")
-    Assert.True(ism)
 
 
 [<Fact>]

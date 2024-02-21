@@ -53,7 +53,8 @@ let printPrefixSets (cache:RegexCache<_>) (sets:TSet list) =
     |> Seq.map (fun v ->
         match v with
         | @"[^\n]" -> "."
-        | c when c.Length > 12 -> "φ" // dont expand massive sets
+        // | c when c.Length > 12 -> "φ" // dont expand massive sets
+        | c when c.Length > 25 -> "φ" // dont expand massive sets
         | c -> c
     )
     |> String.concat ";"
@@ -591,9 +592,9 @@ let attemptMergeIntersectLang (_cache:RegexCache<TSet>) (mkLang: RegexNode<TSet>
             | n1, n2 | n2, n1 when refEq n1 _cache.TrueStar -> n2
             | n1, n2 | n2, n1 when refEq n1 _cache.Eps -> if n2.CanBeNullable then _cache.Eps else _cache.False
             // --
-            | SingletonStarLoop(pred) as p1, other | other, (SingletonStarLoop(pred) as p1) ->
-                let sub = Solver.containsS _cache.Solver pred (other.SubsumedByMinterm(_cache.Solver))
-                if sub then other else _cache.Builder.mkAnd2(l1,l2)
+            // | SingletonStarLoop(pred) as p1, other | other, (SingletonStarLoop(pred) as p1) ->
+            //     let sub = Solver.containsS _cache.Solver pred (other.SubsumedByMinterm(_cache.Solver))
+            //     if sub then other else _cache.Builder.mkAnd2(l1,l2)
             | _ ->
                 let mapCanonical (node:RegexNode<TSet>) =
                     node.TryGetInfo
@@ -634,9 +635,9 @@ let attemptMergeUnionLang (_cache:RegexCache<TSet>) (mkLang: RegexNode<TSet> -> 
             | n1, n2 | n2, n1 when refEq n1 _cache.TrueStar -> _cache.TrueStar
             | n1, n2 | n2, n1 when refEq n1 _cache.Eps -> if n2.CanBeNullable then n2 else _cache.Builder.mkLoop(n2,0,1)
             // --
-            | SingletonStarLoop(pred) as p1, other | other, (SingletonStarLoop(pred) as p1) ->
-                let sub = Solver.containsS _cache.Solver pred (other.SubsumedByMinterm(_cache.Solver))
-                if sub then p1 else _cache.Builder.mkOr2(l1,l2)
+            // | SingletonStarLoop(pred) as p1, other | other, (SingletonStarLoop(pred) as p1) ->
+            //     let sub = Solver.containsS _cache.Solver pred (other.SubsumedByMinterm(_cache.Solver))
+            //     if sub then p1 else _cache.Builder.mkOr2(l1,l2)
             | _ ->
                 let mapCanonical (node:RegexNode<TSet>) =
                     node.TryGetInfo

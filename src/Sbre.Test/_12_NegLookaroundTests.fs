@@ -68,6 +68,39 @@ let ``lookarounds test 2``() =
 
 
 [<Fact>]
+let ``lookarounds test 2.1``() =
+    let matcher = Regex("""^(1(?! (Sep)))$""")
+    let ism = matcher.IsMatch("1 Sep")
+    Assert.False(ism)
+
+[<Fact>]
+let ``lookarounds test 2.2``() =
+    let matcher = Regex("""^(a(?!b))$""")
+    let ism = matcher.IsMatch("ab")
+    Assert.False(ism)
+
+[<Fact>]
+let ``lookarounds test 2.3``() =
+    let matcher = Regex("""^(a(?!b)).*$""")
+    let ism = matcher.IsMatch("ab")
+    Assert.False(ism)
+    // printAllDerivatives """^(a(?!b)).*$""" "ab" []
+
+[<Fact>]
+let ``lookarounds test 2.4``() =
+    let matcher = Regex("""1\b-""")
+    let ism = matcher.IsMatch("1-")
+    Assert.True(ism)
+
+[<Fact>]
+let ``lookarounds test 2.5``() =
+    let matcher = Regex("""1\b-""")
+    let ism = matcher.IsMatch("1-")
+    Assert.True(ism)
+
+
+
+[<Fact>]
 let ``lookarounds test 3``() =
     let matcher = Regex("""^(1(?! (Sep))).*$""")
     let ism = matcher.IsMatch("1 Sep")
