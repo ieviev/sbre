@@ -5,6 +5,7 @@ module Program
 open Sbre
 open Sbre.Benchmarks
 open Sbre.Test
+open System
 
 // let regex = Regex(@"(abc)+")
 // let a = Regex(@"abc(abc)*")
@@ -36,10 +37,20 @@ open Sbre.Test
 
 let pref = Optimizations.PrefixCharsetSearch()
 
+let switch = false
 
-for i = 1 to 100 do
-    let r = pref.Weighted2()
-    ()
+if switch then
+     let r = pref.Original()
+     let ra = pref.Weighted()
+     let raa = pref.Weighted2()
+     let raaa = pref.Weighted3()
+     ()
+else 
+     for i = 1 to 2000000 do
+          // let r = pref.Weighted()
+          let r2 = pref.Weighted2()
+          // let r3 = pref.Weighted3()
+          ()
 
 let dbg = 1
 

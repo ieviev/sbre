@@ -4,7 +4,11 @@
 
 // open System.Collections.Generic
 open System
+open System.Text.Json
+open System.Text.Json.Nodes
+open System.Text.Json.Serialization
 open System.Threading
+open Microsoft.FSharp.Core
 open Microsoft.VisualBasic.CompilerServices
 open Sbre
 open FSharp.Data
@@ -14,8 +18,95 @@ open Sbre.Pat
 open Sbre.Optimizations
 
 
-let fullInput =
-    __SOURCE_DIRECTORY__ + "/input-text.txt" |> System.IO.File.ReadAllText
+let fullInput = __SOURCE_DIRECTORY__ + "/input-text.txt" |> System.IO.File.ReadAllText
+let smallText = "ABCabcabcd"
+
+
+let frequenciesJsonText = __SOURCE_DIRECTORY__ + "/characterWeights.json"  |> System.IO.File.ReadAllText
+
+
+let count c = Seq.filter ((=) c) >> Seq.length
+
+
+// Count how many times all characters occur in the text
+let findLetterFrequency(text: string) =
+    text |> Seq.distinct
+    // |> Seq.filter (fun c -> not (Char.IsControl(c)))
+    |> Seq.map (fun (c: char) -> (c, count c text))
+    |> Seq.sortByDescending snd
+    |> Array.ofSeq
+
+let freq = findLetterFrequency fullInput
+
+let writeCharFrequenciesToJsonFile (frequencyByType: (char * int) array) filename =
+    let charFreqJsonArray =
+        frequencyByType |> Array.map (fun (character, count) ->
+        $"{{\"character\": \"{JsonEncodedText.Encode(Char.ToString(character)).Value}\", \"frequency\": %.6f{float 100 * (float count) / (float fullInput.Length)}}}"
+        ) |> String.concat ","
+    let fullJson = "{\"characters\": [" + charFreqJsonArray + "]}"
+    // Console.WriteLine(fullJson)
+    let res = (JsonValue.Parse fullJson).ToJsonString(JsonSerializerOptions(WriteIndented = true))
+    System.IO.File.WriteAllText(filename, res)
+    ()
+    
+let a = writeCharFrequenciesToJsonFile freq (__SOURCE_DIRECTORY__ + "/charFreqWithControl.json")
+
+
+
+
+
+
+
+
+
+
+
+// Count how many times different types of characters occur
+let countFrequencyTypes (charCounts: (char * int) array) =
+    let mutable uppercase = 0
+    let mutable lowercase = 0
+    let mutable number = 0
+    let mutable newline = 0
+    let mutable space = 0
+    let mutable other = 0
+    for charCount in charCounts do
+        let character, count = charCount
+        match character with
+            | c when Char.IsUpper(c) -> uppercase <- uppercase + count
+            | c when Char.IsLower(c) -> lowercase <- lowercase + count
+            | c when Char.IsNumber(c) -> number <- number + count
+            | '\n' -> newline <- newline + count
+            | ' ' -> space <- space + count
+            | _ -> other <- other + count
+    [| "uppercase", uppercase; "lowercase", lowercase; "number", number; "newline", newline
+       "space", space; "other", other|]
+
+let freqByType = countFrequencyTypes freq
+
+// Print what percentage of a text character types make up
+let printFreqTypeProportions frequencyByType =
+    frequencyByType |> Array.map (fun (charType, count) ->
+            printfn $"{charType}: {100f * float32 count / float32 fullInput.Length}"
+        )
+
+printFreqTypeProportions freqByType
+
+// Print what percentage of a text characters make up
+let printCharFrequencyProportions charFrequnecies =
+    charFrequnecies |> Array.sortByDescending snd |> Array.map (fun (character, count) ->
+            printfn $"{character}: {100f * float32 count / float32 fullInput.Length}"
+        )
+
+printCharFrequencyProportions freq
+
+// Load character frequencies from JSON file
+let loadJsonCharFrequencies (jsonText: string) =
+    let json = JsonValue.Parse jsonText
+    (json.Item "characters").AsArray() |> Seq.map (fun charFreq ->
+        ((charFreq.Item "character").GetValue<char>(), (charFreq.Item "frequency").GetValue<float>())
+        ) |> dict
+
+loadJsonCharFrequencies frequenciesJsonText
 
 
 
@@ -169,9 +260,9 @@ let prefixSearchWeighted regexStr (text: String) =
     
 
 
-let rs = "Huck[a-zA-Z]+|Saw[a-zA-Z]+"
+// let rs = "Huck[a-zA-Z]+|Saw[a-zA-Z]+"
 // let rs = "[a-zA-Z]+ckl|[a-zA-Z]+awy"
-// let rs = ".*have.*&.*there.*"
+let rs = ".*have.*&.*there.*"
 let sText = fullInput[4000000..4050000]
 // let sText = fullInput[4000000..9000000]
 // let potMatchesS = prefixSearchSimple rs fullInput

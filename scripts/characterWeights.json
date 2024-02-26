@@ -1,0 +1,12 @@
+{
+  "characters": [
+    {
+      "character": "a",
+      "frequency": 4
+    },
+    {
+      "character": "b",
+      "frequency": 9.7
+    }
+  ]
+}
