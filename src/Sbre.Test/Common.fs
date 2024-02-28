@@ -397,6 +397,8 @@ let assertAllLLmatchTexts (pattern:string) (input:string) (expected) =
     let result =
         getAllLLmatches pattern input
         |> Seq.map _.GetText(input)
+        |> Seq.toArray
+    if result.Length = 0 then failwith "did not match!"
     Assert.Equal<string>(expected, result)
 
 let assertMatchEnd (pattern:string) (input:string) (startPos:int) (expectedEndPos:int)  =

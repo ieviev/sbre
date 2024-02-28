@@ -87,6 +87,20 @@ module rec Flags =
             | _ -> RegexNodeFlags.None
         inferNodeOptimized R ||| nullableLoopFlag
 
+
+    let private getPrefixSuffixFlags node =
+        let suf =
+            match node with
+            | Pat.HasSuffixLookahead -> Flag.HasSuffixLookaheadFlag
+            | _ -> Flag.None
+        let pref =
+            match node with
+            | Pat.HasPrefixLookback -> Flag.HasPrefixLookbehindFlag
+            | _ -> Flag.None
+        pref ||| suf
+
+
+
     let inferAnd(xs: seq<RegexNode<'t>>) : RegexNodeFlags =
         xs
         |> Seq.map inferNodeOptimized
@@ -102,7 +116,7 @@ module rec Flags =
             let orflags = (b ||| f) &&& (
                     Flag.CanBeNullableFlag ||| Flag.IsAlwaysNullableFlag |||
                     Flag.ContainsLookaroundFlag ||| Flag.HasZerowidthHeadFlag |||
-                    Flag.DependsOnAnchorFlag)
+                    Flag.DependsOnAnchorFlag ||| Flag.HasSuffixLookaheadFlag ||| Flag.HasPrefixLookbehindFlag)
             orflags
         )
     let inferConcat (head: RegexNode<'t>) (tail: RegexNode<'t>) =
@@ -138,15 +152,18 @@ module rec Flags =
             nullFlags |||
             RegexNodeFlags.ContainsLookaroundFlag |||
             RegexNodeFlags.HasZerowidthHeadFlag |||
+            RegexNodeFlags.HasSuffixLookaheadFlag |||
             ancFlag
         // non nullable lookahead
         | false, false ->
             nullFlags |||
             RegexNodeFlags.ContainsLookaroundFlag |||
             RegexNodeFlags.HasZerowidthHeadFlag |||
+            RegexNodeFlags.HasSuffixLookaheadFlag |||
             ancFlag
-        // nullable lookback
-        | _, true -> ancFlag ||| nullFlags ||| RegexNodeFlags.ContainsLookaroundFlag
+        // lookback
+        | _, true ->
+            ancFlag ||| nullFlags ||| RegexNodeFlags.ContainsLookaroundFlag ||| RegexNodeFlags.HasPrefixLookbehindFlag
 
     let inferNodeOptimized(node: RegexNode<'t>) : RegexNodeFlags =
         match node with

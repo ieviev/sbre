@@ -31,12 +31,12 @@ let c = 3
 // suite.Setup()
 
 
-let suite = Paper.SampleRegexes()
-for pat in suite.Patterns do
-    suite.Pattern <- pat
-    suite.Setup()
-    for i = 1 to 1000 do
-        suite.Sbre() |> ignore
+// let suite = Paper.SampleRegexes()
+// for pat in suite.Patterns do
+//     suite.Pattern <- pat
+//     suite.Setup()
+//     for i = 1 to 1000 do
+//         suite.Sbre() |> ignore
 
 
 // let pref = Optimizations.Prefix2()
@@ -85,13 +85,4 @@ for pat in suite.Patterns do
 // // for i = 1 to 500 do
 // for i = 1 to 3000 do
 //     pref.Sbre() |> ignore
-
-
-// let pref = Optimizations.StringPrefix("a")
-
-// for i = 1 to 500 do
-// for i = 1 to 3000 do
-// for i = 1 to 50 do
-//     pref.SpanIndexOf3()
-
 

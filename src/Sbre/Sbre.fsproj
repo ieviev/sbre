@@ -27,7 +27,7 @@
     <!--    <DefineConstants>$(DefineConstants);NO_SKIP_LOOKAROUNDS</DefineConstants>-->
     <!--    <DefineConstants>$(DefineConstants);NO_CACHE_BUILDER</DefineConstants>-->
     <!--    <DefineConstants>$(DefineConstants);NO_REWRITE</DefineConstants>-->
-<!--    <DefineConstants>$(DefineConstants);CANONICAL</DefineConstants>-->
+    <!--    <DefineConstants>$(DefineConstants);CANONICAL</DefineConstants>-->
     <DefineConstants>$(DefineConstants);OPTIMIZE</DefineConstants>
     <DefineConstants>$(DefineConstants);REWRITE_INNER</DefineConstants>
     <DefineConstants>$(DefineConstants);SUBSUME</DefineConstants>
@@ -58,12 +58,12 @@
     <PackageOutputPath>./nupkg</PackageOutputPath>
     <Authors>ieviev</Authors>
     <Title>$(ProjectName)</Title>
-    <Version>0.1.8</Version>
+    <Version>0.1.10</Version>
   </PropertyGroup>
   <ItemGroup>
     <!-- nuget pack -->
 <!--    <ProjectReference Include="..\RuntimeRegexCopy\RuntimeRegexCopy.csproj" PrivateAssets="all" />-->
-    <ProjectReference Include="..\RuntimeRegexCopy\RuntimeRegexCopy.csproj"  />
+      <ProjectReference Include="..\RuntimeRegexCopy\RuntimeRegexCopy.csproj"  />
   </ItemGroup>
   <ItemGroup>
     <Content Include="$(MSBuildThisFileDirectory)../RuntimeRegexCopy/bin/Release/net8.0/RuntimeRegexCopy.dll">
@@ -73,6 +73,6 @@
     </Content>
   </ItemGroup>
   <ItemGroup>
-<!--    <PackageReference Update="FSharp.Core" Version="8.0.*" />-->
+    <!--    <PackageReference Update="FSharp.Core" Version="8.0.*" />-->
   </ItemGroup>
 </Project>

@@ -147,11 +147,17 @@ let (|LookbackPrefix|_|) (node: RegexNode<_>) =
     | _ -> ValueNone
 
 [<return: Struct>]
+let (|HasInfo|_|) (node: RegexNode<_>) =
+    match node with
+    | Concat(info=info) | Or(info=info) | Not(info=info) | And(info=info) | LookAround(info=info) -> ValueSome info
+    | _ -> ValueNone
+
+[<return: Struct>]
 let (|HasPrefixLookback|_|) (node: RegexNode<_>) =
     match node with
     | LookAround(lookBack=true) -> ValueSome()
-    | Concat(info=info) ->
-        if info.NodeFlags.HasPrefixLookbehind then  ValueSome()
+    | HasInfo info ->
+        if info.NodeFlags.HasPrefixLookbehind then ValueSome()
         else ValueNone
     | _ -> ValueNone
 
@@ -159,7 +165,7 @@ let (|HasPrefixLookback|_|) (node: RegexNode<_>) =
 let (|HasSuffixLookahead|_|) (node: RegexNode<_>) =
     match node with
     | LookAround(lookBack=false) -> ValueSome()
-    | Concat(info=info) ->
+    | HasInfo info ->
         if info.NodeFlags.HasSuffixLookahead then ValueSome()
         else ValueNone
     | _ -> ValueNone

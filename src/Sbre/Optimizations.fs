@@ -250,7 +250,8 @@ let rec calcPotentialMatchStart getNonInitialDerivative (getStateFlags: RegexNod
                 nodes.Add(snd v) |> ignore
             )
         )
-        loop (merged_pred :: acc)
+        if acc.Length > 100 then [] // this is an arbitrary limit
+        else loop (merged_pred :: acc)
 
     let prefixStartNode, complementStartset = getPrefixNodeAndComplement cache startNode
     nodes.Add(prefixStartNode) |> ignore

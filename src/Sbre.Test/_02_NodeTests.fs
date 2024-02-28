@@ -287,6 +287,13 @@ let ``flags 09``() =
 
 
 [<Fact>]
+let ``flags 10``() =
+    let matcher = Regex(""".*$""").TSetMatcher
+    let f = matcher.RawPattern.GetFlags()
+    assertFlag f Flag.HasSuffixLookaheadFlag
+
+
+[<Fact>]
 let ``identity derivative 2``() =
     let m = Regex(@"((⊤*t|)neW⊤*&⊤*erohsa⊤*&⊤*lirpA⊤*&⊤*yadsruhT⊤*)")
     let deriv = der1Node m "test" true

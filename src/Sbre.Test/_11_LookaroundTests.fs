@@ -356,26 +356,52 @@ let ``g bibtex extraction 1.4``() =
     assertAllLLmatchTexts @"(?<=or=\{.*)(?<=\W)(~(.*and.*)&[A-Z][\w-{}\\' ,]+)(?=.*\},)(?=\W)" bibtexEntry [
         "De Vathaire, Florent"; "Le Vu, B{\\'e}atrice"; "Challeton-de Vathaire, C{\\'e}cile"
     ]
+
+
+[<Fact>]
+let ``g bibtex extraction 1.5``() =
+    assertAllLLmatchTexts
+        (String.concat "&" [
+           """~(.*and.*)"""
+           """[A-Z][\w-{}\\' ,]+"""
+           @"(?<=or=\{.*).*"
+           @"(?<=\W).*"
+           @".*(?=.*\},)"
+           @".*(?=\W)"
+        ])
+        bibtexEntry
+        [
+            "De Vathaire, Florent"; "Le Vu, B{\\'e}atrice"; "Challeton-de Vathaire, C{\\'e}cile"
+        ]
+
+
+[<Fact>]
+let ``g bibtex extraction 1.6 unmatchable``() =
+    assertNoMatch
+        (String.concat "&" [
+           """~(.*and.*)"""
+           """[A-Z][\w-{}\\' ,]+"""
+           @"(?<=or=\{.*).*"
+           @"(?<=\W).*"
+           @".*(?=.*\},)"
+           @".*(?=\W)b"
+        ])
+        bibtexEntry
+
+
     // printAllDerivatives @"(?<=or=\{.*)(?<=\W)(~(.*and.*)&[A-Z][\w-{}\\' ,]+)(?=.*\},)(?=\W)" bibtexEntry [
     //     ["De Vathaire, Florent";]
     // ]
 
-
 //
-// [<Fact>]
-// let ``complex pos 1.2``() = assertNullablePositions @"(?=.*A)(?=.*a)(?=.*1)..." "Aa1" [ 0 ]
-
-// [<Fact>]
-// let ``derivative boundary 5``() =
-//     testPartDerivativeFromLocation (@"(?=\w)a", "1a", 1, "ε")
-
-
-// (?=(.*A⊤*&.*a⊤*&.*1⊤*))
-// (?=.*a).*b => (.*a⊤*&.*b)
-
-// [<Fact>]
-// let ``complex pos 12``() = assertFirstMatchText @"(?=.*A)(?=.*a)(?=.*1)..." "Aa1" "Aa1"
-
+// join "&" [
+//             // """(?<=or=\{.*)\b(~(.*and.*)&\S[\w-{}\\' ,]+\S)\b(?=.*\},)"""
+//             """~(.*and.*)&[A-Z][\w-{}\\' ,]+"""
+//             @"(?<=or=\{.*).*"
+//             @"(?<=\W).*"
+//             @".*(?=.*\},)"
+//             @".*(?=\W)"
+//         ]
 
 
 [<Fact>]
@@ -559,6 +585,15 @@ let ``rewrite anchors 1.1a``() =
 [<Fact>]
 let ``rewrite anchors 1.1b``() =
     assertFirstMatchText """11\b""" "11 " "11"
+
+
+[<Fact>]
+let ``app test 1``() =
+    assertFirstMatchText """[0-9]{2}[/.-][0-9]{2}[/.-]([0-9]{4}|[0-9]{2})&^.*$""" "01.01.2023" "01.01.2023"
+
+[<Fact>]
+let ``app test 2``() =
+    assertFirstMatchText """[0-9]{2}[/.-][0-9]{2}[/.-]([0-9]{4}|[0-9]{2})&.*$""" "01.01.2023\n" "01.01.2023"
 
 
 #endif

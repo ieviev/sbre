@@ -369,6 +369,10 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
         let f = this.GetFlags()
         f &&& (RegexNodeFlags.HasPrefixLookbehindFlag ||| RegexNodeFlags.HasSuffixLookaheadFlag) <> RegexNodeFlags.None
 
+    member this.HasPrefix =
+        let f = this.GetFlags()
+        f &&& (RegexNodeFlags.HasPrefixLookbehindFlag) <> RegexNodeFlags.None
+
     member this.DependsOnAnchor = this.GetFlags().DependsOnAnchor
 
     member this.PendingNullables =

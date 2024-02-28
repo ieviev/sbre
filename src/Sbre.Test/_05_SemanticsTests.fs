@@ -86,6 +86,7 @@ let ``constrained test 3.3 - prefixes can be merged``() =
     let pattern = """(?<=f)(?<=e.*)(?<=c.*).+"""
     let input = "abcdefghij"
     assertAllLLmatchTexts pattern input [ "ghij" ]
+    // printAllDerivatives pattern input []
 
 [<Fact>]
 let ``non-space char`` () =
@@ -94,12 +95,11 @@ let ``non-space char`` () =
     ]
 
 
-
 [<Fact>]
 let ``unsupported test 1``() =
     let success =
         try
-            assertFirstMatchText @"..(?<=A.*)" "Aa" "Aa"
+            assertFirstMatchText @"..(?<=a.*)" "aa" "aa"
             true
         with e ->
             false

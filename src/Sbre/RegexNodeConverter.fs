@@ -110,9 +110,16 @@ let rewriteWordBorder (b:RegexBuilder<BDD>) (css:CharSetSolver) (outer:RegexNode
     | Some false, _  -> b.anchors._wordRight.Value    // nonwordleft
     | _ ->
         if outer.Length = 1 then
-            b.anchors._wordBorder.Value
+            let single = outer[0]
+            if isNull single.Parent.Parent then b.anchors._wordBorder.Value else
+            let p2 = single.Parent
+            let p2outer = children2Seq single.Parent.Parent |> Seq.toArray
+            let p2index =
+                p2outer
+                |> Seq.findIndex (fun v -> obj.ReferenceEquals(v, p2))
+            rewriteWordBorder b css p2outer p2index node
         else
-            failwith @"Sbre does not support unconstrained word borders, rewrite \b.* to \b\w.* or .*\w\b to show which side the word is on"
+            failwith @"Sbre does not support unconstrained word borders, rewrite \b.*\b to \b\w+\b or \b\s+\b to show which side the word is on"
 
 
 
@@ -236,9 +243,6 @@ let convertToSymbolicRegexNode
         | RegexNodeKind.End -> b.anchors._zAnchor :: acc //b.anchors._zAnchor.Value :: acc // end of string only
         | RegexNodeKind.Boundary ->
             failwith "TODO: rewrite to lookaround"
-            // // TODO :WB
-            // RegexNode<BDD>.Anchor WordBorder :: acc
-            // b.anchors._wordBorder.Value :: acc
         | RegexNodeKind.NonBoundary ->
             failwith "TODO: reimplement word border"
             b.anchors._nonWordBorder.Value :: acc
@@ -266,4 +270,5 @@ let convertToSymbolicRegexNode
 
     let result = loop [] rootNode
 
+    // result |> List.rev |> b.mkConcat
     result |> List.rev |> b.mkConcat

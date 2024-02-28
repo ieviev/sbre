@@ -47,6 +47,7 @@ let ``der neg anchor lb 1``() = _04_DerivativeTests.testPartDerivative (@"(?<!a)
 [<Fact>]
 let ``der neg anchor lb 2``() = _04_DerivativeTests.testPartDerivatives (@"(?<!a)b", "bb", [
     "ε" // subsumed
+    "(?=ε)" // subsumed
     // @"(ε&(⊤*\A~(⊤*a)|~(⊤*a)))" // not subsumed
 ])
 
