@@ -230,7 +230,11 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
 #if DEBUG
 
     override this.ToString() =
-
+        let maxwidth : int =
+            AppContext.GetData("RegexNode.MaxPrintWidth")
+            |> Option.ofObj
+            |> Option.map (fun v -> v :?> int)
+            |> Option.defaultValue 12
         let print node =
             if typeof<'tset> = typeof<BDD> then
                 Debug.debugcharSetSolver.PrettyPrint(unbox (box node))
@@ -256,7 +260,7 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
             else
                 match print v with
                 | @"[^\n]" -> "."
-                | c when c.Length > 12 -> "φ" // dont expand massive sets
+                | c when c.Length > maxwidth -> "φ" // dont expand massive sets
                 | c -> c
 
         match this with

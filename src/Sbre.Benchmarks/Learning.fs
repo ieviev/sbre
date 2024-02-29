@@ -77,9 +77,12 @@ type Learning4() =
     inherit Jobs.TestSbreAllPatternsMatchOnly(
         [
             // @"(?<=(\s\s|e\s|n\s).*).*(?=.*(\n\n|\.\n|,\s|\s\())&(?<=(\s\s|e\s|n\s)|[a-z,\)]?\s(\s\n|\s\s)?).*&.*(?=(\n\n|\.\n|,\s|\s\()|.{2})&\b.*\b"
-            @"(?<=or=(\{|.*\W))(~(.*and.*)&\S[\w-{}\\' ,]+\w)(?=(\W.*|)\},)"
+            // @"(?<=or=(\{|.*\W))(~(.*and.*)&\S[\w-{}\\' ,]+\w)(?=(\W.*|)\},)"
+
+            // @"(?<=\n\s\sauthor=\{.*)(?<=\n\s\sauthor=\{|\sand\s)(~(.*(\},)?\s(\},|and)\s.{6,13}.*)&~(.*\sand\s.*))(?=.*(\},)?\s(\},|and)\s.{6,13})(?=(\},)?\s(\},|and)\s.{6,13}|\sand\s)"
+
+            @"(?<=,\n\s\sauthor=\{.*)(?<=,\n\s\sauthor=\{|\sand\s)(~(.*\sand\s.*)&.{2,37}\s.{1,24})(?=.*(\sand\sothers)?\}.{0,13})(?=(\sand\sothers)?\}.{0,13}|\sand\s)"
         ],
         allBibtexEntries
     )
-
 

@@ -42,11 +42,11 @@ let c = 3
 // let pref = Optimizations.Prefix2()
 // pref.FirstSetIndexOfChars()
 
-// let pref = Learning.Learning1()
-// pref.Pattern <- pref.Patterns |> Seq.head
-// pref.Setup()
-// for i = 1 to 50 do
-//     pref.Sbre() |> ignore
+let pref = Learning.Learning4()
+pref.Pattern <- pref.Patterns |> Seq.head
+pref.Setup()
+for i = 1 to 50 do
+    pref.Sbre() |> ignore
 //
 
 //

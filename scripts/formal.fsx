@@ -12,87 +12,69 @@ open Sbre.Pat
 open Sbre.Types
 open Thoth.Json.Net
 
-
-
-// let twain_full =
-// let engine = Regex("ab|cd")
-// let matcher = engine.Matcher :?> RegexMatcher<uint64>
-// let pat1 = matcher.RawPattern
-// pat1.ToString() // "(ab|cd)"
-//
-type SimpleRegexNode =
+[<RequireQualifiedAccess>]
+type LeanRegexNode =
     | Concat of  // RE.RE
-        head: SimpleRegexNode *
-        tail: SimpleRegexNode
+        head: LeanRegexNode *
+        tail: LeanRegexNode
     | Epsilon // ε
     | Or of  // RE|RE
-        nodes: list<SimpleRegexNode>
+        nodes: list<LeanRegexNode>
     | Singleton of string // 𝜓 predicate
     | Loop of  // RE{𝑚, 𝑛}
-        node: SimpleRegexNode *
+        node: LeanRegexNode *
         low: int *
         up: int
     | And of  // RE&RE ..
-        nodes: list<SimpleRegexNode>
-    | Not of node: SimpleRegexNode // ~RE
-    | Lookahead         of node: SimpleRegexNode
-    | Lookbehind        of node: SimpleRegexNode
-    | NegLookahead      of node: SimpleRegexNode
-    | NegLookbehind     of node: SimpleRegexNode
+        nodes: list<LeanRegexNode>
+    | Not of node: LeanRegexNode // ~RE
+    | Lookahead of node: LeanRegexNode
+    | Lookbehind of node: LeanRegexNode
+    | NegLookahead of node: LeanRegexNode
+    | NegLookbehind of node: LeanRegexNode
+
+let mkLeanRegexNode (cache:RegexCache<_>) (tsetToLean:TSet -> string) (node: RegexNode<_>) =
+    let trueNode = LeanRegexNode.Singleton(tsetToLean cache.Solver.Full)
+    let rec loop node =
+        match node with
+        | RegexNode.Concat(head = head; tail = tail) ->
+            LeanRegexNode.Concat(loop head, loop tail)
+        | RegexNode.Epsilon -> LeanRegexNode.Epsilon
+        | RegexNode.Or(nodes = nodes) -> LeanRegexNode.Or(Seq.map loop nodes |> List.ofSeq)
+        | RegexNode.And(nodes = nodes) -> LeanRegexNode.And(Seq.map loop nodes |> List.ofSeq)
+        | RegexNode.Singleton(set) -> LeanRegexNode.Singleton(tsetToLean set)
+        | RegexNode.Loop(node=node; low=low; up=up) -> LeanRegexNode.Loop(loop node, low, up)
+        | RegexNode.Not(node=node) -> LeanRegexNode.Not(loop node)
+        | RegexNode.LookAround(node=node; lookBack=lookback; pendingNullables=pendingnullables) ->
+            assert (pendingnullables.IsEmpty) // this changes the lookaround body
+            match lookback with
+            | false -> LeanRegexNode.Lookahead(loop node)
+            | true -> LeanRegexNode.Lookbehind(loop node)
+        | RegexNode.Begin -> LeanRegexNode.NegLookbehind(trueNode)
+        | RegexNode.End -> LeanRegexNode.NegLookahead(trueNode)
+    loop node
 
 
+let pat2lean (pattern:string) =  
+    let m = Regex(pattern).TSetMatcher
+    let mts = m.Cache.Minterms()
+    let leanMtLookup =
+        mts
+        |> Seq.mapi (fun i v -> v, char (97 + i))
+        |> Map
+    let tsetToLean (ts: TSet) =
+        mts
+        |> Seq.where (Solver.elemOfSet ts)
+        |> Seq.map (fun v -> (Map.find v leanMtLookup))
+        |> Seq.toArray
+        |> System.String
+    mkLeanRegexNode m.Cache (tsetToLean) (m.RawPattern)
 
-// let pat2 = Epsilon |> Encode.Auto.toString |> File.writeTo "/home/ian/Desktop/temp-disk/encoded-samples/epsilon.json"
-// let pat2 =
-//     (Or(
-//         [
-//             Concat(Singleton("a"), Singleton("b"))
-//             Concat(Singleton("c"), Singleton("d"))
-//         ]
-//     ) : SimpleRegexNode )
-//     |> Encode.Auto.toString |> File.writeTo "/home/ian/Desktop/temp-disk/encoded-samples/(ab|cd).json"
-//
-// let pat3 =
-//     (Loop(Concat(Singleton("a"), Singleton("b")) , 1, 2 ) : SimpleRegexNode )
-//     |> Encode.Auto.toString |> File.writeTo "/home/ian/Desktop/temp-disk/encoded-samples/(ab){1,2}.json"
-//
-// let pat4 =
-//     (Loop(Concat(Singleton("a"), Singleton("b")) , 2, 2 ) : SimpleRegexNode )
-//     |> Encode.Auto.toString |> File.writeTo "/home/ian/Desktop/temp-disk/encoded-samples/(ab){2}.json"
-//
-// let pat5 =
-//     (Loop(Concat(Singleton("a"), Singleton("b")) , 0, Int32.MaxValue ) : SimpleRegexNode )
-//     |> Encode.Auto.toString |> File.writeTo "/home/ian/Desktop/temp-disk/encoded-samples/(ab)*.json"
-//
-// let pat6 =
-//     (And([Concat(Singleton "ab", Singleton("cd")); Concat(Singleton "a", Singleton("c")) ]) : SimpleRegexNode )
-//     |> Encode.Auto.toString |> File.writeTo "/home/ian/Desktop/temp-disk/encoded-samples/([ab][cd]&ac).json"
+let encodePat (leanNode:LeanRegexNode) = Encode.Auto.toString leanNode 
 
+let p1 = pat2lean "abc"
+let p2 = pat2lean "(ab|cd)"
 
-// let encoded = Encode.Auto.toString (pat1)
-//
-// let jsonString = """["Or",[["Concat",["Singleton","a"],["Singleton","b"]],["Concat",["Singleton","c"],["Singleton","d"]]]]"""
-//
-// let jsonValue2 = System.Text.Json.JsonDocument.Parse jsonString
-//
-// let jsonRoot = jsonValue2.RootElement
-//
-// jsonRoot[1]
-
-
-// let structure =
-//     match pat1 with
-//     | Concat(head, tail, info) -> failwith "todo"
-//     | Epsilon -> failwith "todo"
-//     | Or(nodes, info) -> failwith "todo"
-//     | Singleton(set) -> failwith "todo"
-//     | Loop(node, low, up, info) -> failwith "todo"
-//     | And(nodes, info) -> failwith "todo"
-//     | Not(node, info) -> failwith "todo"
-//     | LookAround(node, lookback, negate) -> failwith "todo"
-
-
-// let ex2 = Regex("[ab]b")
 
 // "abc" => "1a1b1c"
 
@@ -104,8 +86,6 @@ type SimpleRegexNode =
 // 6. STAR - a* -> "a"*
 // 7. LOOP (future todo) - a{1,9} -> ?
 // 8. LOOKAROUND (future todo) - (?=a) -> ?="abc"
-
-
 
 
 // skipping - eliminating redundant transitions
@@ -261,12 +241,4 @@ type SimpleRegexNode =
 // [0-9] - (arabic) digits 0 to 9
 // [2800-28FF] - braille characters (unicode set)
 
-
-
-
-
-let reg16 = Regex("a.*b.*c")
 // let res17 = reg16.Match("___a_________b_______abababababab____c___")
-
-
-

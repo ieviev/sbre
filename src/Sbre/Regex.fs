@@ -53,6 +53,7 @@ type GenericRegexMatcher() =
     // abstract member MatchText: input:ReadOnlySpan<char> -> string option
     abstract member Match: input: ReadOnlySpan<char> -> SingleMatchResult
     abstract member Count: input: ReadOnlySpan<char> -> int
+    abstract member ProcessedPattern: string
 
 
 [<Sealed>]
@@ -403,10 +404,12 @@ type RegexMatcher<'t when 't: struct>
         // invert empty startset (nothing to skip to)
         let setChars = _cache.MintermSearchValues(startsetPredicate)
         let isInverted = Solver.elemOfSet startsetPredicate minterms[0]
-        match setChars with
-        | Some setChars ->
+        // TODO:
+        match setChars.Mode with
+        | MintermSearchMode.InvertedSearchValues
+        | MintermSearchMode.SearchValues ->
             state.Startset <- startsetPredicate
-            state.StartsetChars <- setChars
+            state.StartsetChars <- setChars.SearchValues
             state.StartsetIsInverted <- isInverted
         | _ ->
             let isInverted = Solver.elemOfSet startsetPredicate minterms[0]
@@ -1207,9 +1210,11 @@ type RegexMatcher<'t when 't: struct>
     /// return just the positions of matches without allocating the result
     override this.MatchPositions(input) = (this.llmatch_all input).AsArray()
     override this.EnumerateMatches(input) = (this.llmatch_all input).AsSpan()
-
-
-
+    override this.ProcessedPattern =
+        AppContext.SetData("RegexNode.MaxPrintWidth", 100000)
+        let a = _cache.PrettyPrintNode(R_canonical)
+        AppContext.SetData("RegexNode.MaxPrintWidth", null)
+        a
 
     // accessors
     member this.TrueStarredPattern = trueStarredNode
@@ -1345,6 +1350,8 @@ type Regex(pattern: string, [<Optional; DefaultParameterValue(false)>] _experime
             this.TSetMatcher.Cache
             this.TSetMatcher.ReversePattern
             this.TSetMatcher.ReverseTrueStarredPattern
+
+    override this.ProcessedPattern = matcher.ProcessedPattern
 #if DEBUG
     // member this.UInt16Matcher: RegexMatcher<uint16> = matcher :?> RegexMatcher<uint16>
     // member this.ByteMatcher: RegexMatcher<byte> = matcher :?> RegexMatcher<byte>

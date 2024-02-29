@@ -8,32 +8,30 @@ open FSharp.Data
 open System.Text.RuntimeRegexCopy
 open System.Globalization
 
-let sampleText = " \n  author={Capp, Bernard Stuart and Capp, Bernard},\n  y"
-
-let pattern = // "(?<=\{).*&.*(?=\})&.*(?=[\s\S]* y)&[a-zA-Z ,]*&Capp.*&.*nard&.*Stuart.*&~(.*Berg.*)&~(app.*)&~(.*ar)&.*\p{Ll}"
-    String.Join("&",[
-        @"(?<=\{).*"   // { required before match on same line
-        @".*(?=\})"    // } required after match on same line
-        @".*(?=[\s\S]* y)" // " y" required after match anywhere in the text
-        "[a-zA-Z ,]*"  // only these symbols used in match
-        "Capp.*"       // must start with Capp
-        ".*nard"       // must end with with nard
-        ".*Stuart.*"   // must contain Stuart
-        "~(.*Berg.*)"  // must not contain Berg
-        "~(app.*)"     // must not start with app
-        "~(.*ar)"      // must not end with ar
-        @".*\p{Ll}"    // must end with a character in the Ll unicode category
-    ])
-let regex = Sbre.Regex(pattern)
-let res = regex.Match(sampleText)
+// let sampleText = " \n  author={Capp, Bernard Stuart and Capp, Bernard},\n  y"
+//
+// let pattern = // "(?<=\{).*&.*(?=\})&.*(?=[\s\S]* y)&[a-zA-Z ,]*&Capp.*&.*nard&.*Stuart.*&~(.*Berg.*)&~(app.*)&~(.*ar)&.*\p{Ll}"
+//     String.Join("&",[
+//         @"(?<=\{).*"   // { required before match on same line
+//         @".*(?=\})"    // } required after match on same line
+//         @".*(?=[\s\S]* y)" // " y" required after match anywhere in the text
+//         "[a-zA-Z ,]*"  // only these symbols used in match
+//         "Capp.*"       // must start with Capp
+//         ".*nard"       // must end with with nard
+//         ".*Stuart.*"   // must contain Stuart
+//         "~(.*Berg.*)"  // must not contain Berg
+//         "~(app.*)"     // must not start with app
+//         "~(.*ar)"      // must not end with ar
+//         @".*\p{Ll}"    // must end with a character in the Ll unicode category
+//     ])
+// let regex = Sbre.Regex(pattern)
+// let res = regex.Match(sampleText)
 // startsets
 
-
-
-
-
-
-
+// let regex = Sbre.Regex("a(|b)|[abc]b?")
+// let regex = Sbre.Regex("ab&a")
+let regex = Sbre.Regex(@"~(.*and.*)&[A-Z][\w-{}\\' ,]+&(?<=or=\{.*).*&(?<=\W).*&.*(?=.*\},)&.*(?=\W)")
+let pat = regex.ProcessedPattern
 
 // ---
 let s = System.IO.File.ReadAllText(__SOURCE_DIRECTORY__ + "/textsample.txt")

@@ -79,7 +79,7 @@ module
     let static_merged_chars = Array.zeroCreate 1024 |> ResizeArray<char>
 
     /// None means set is too big to search
-    let getMintermChars
+    let tryGetMintermChars
         (
             _solver: ISolver<TSet>,
             predStartsetArray: Types.PredStartset array,
@@ -145,7 +145,7 @@ module
         )
         : SearchValues<char> option
         =
-        let mts = getMintermChars(_solver,predStartsetArray,uintMinterms,startset)
+        let mts = tryGetMintermChars(_solver,predStartsetArray,uintMinterms,startset)
         match mts with
         | None -> None
         | Some v -> Some (SearchValues.Create v.Span)
@@ -1103,7 +1103,10 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                         | Loop(node=Singleton _; low=0; up=1) ->
                             b.mkAnd([ head; b.mkConcat2(b.trueStar,node) ])
                         | _ ->
-                            // .*(?<=aaa) = .*(?=aaa)  zero-width trivial rewrite
+                            // .*(?<=aaa) = .*aaa
+
+                            // a(?<=...)
+
                             // orig: ..(?<=a.*)
                             // case 1: ⊤*a.*&..     (same range)
                             // case 2: (?<=a.*)..   (before start range)
@@ -1136,22 +1139,28 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                                 b.mkConcat2(lookbody,b.trueStar)
                                 //
                                 // head
-                                // (?=1)11 ==> (11&(?=1⊤*))
-                                // let newbody = b.mkLookaround(b.mkConcat2(node,b.trueStar),false, 0, Set.empty)
-                                // b.mkConcat2(newbody)
+                                // (?=1)11 ==> (11&1⊤*)
                             ])
                             v
                         | _ ->
-                            // orig: (?=.*a)...
-                            // case1: ...&.*a⊤*
-                            // case2: ...&(?=.*a)⊤*
-                            // case2: ...(?=⊤*)&.*a⊤*
-                            // rewrite: (...&.*a⊤*)|(...(?=.*a))
-                            // rewrite: (...&.*a⊤*)|(...(?=.*a))
+
+                            // (?=⊤*)
                             let unboundedLook =
                                 b.mkLookaround(b.trueStar,false,0,Set.empty)
 
+                            // ...(?<=a.*)
+                            // case 1 : (?<=a.*)...
+                            // case 2 : ⊤*a.*&...
+
                             // (?=.*a)...
+                            // a..
+                            // .a.
+                            // ..a
+                            // ...(?=.*a)
+
+                            // (?=.*b.*a)...
+                            // case 1: .*b.*a⊤*&...
+                            // case 2: ...&.*b.*(?=.*a)
 
                             let case1 =
                                 // ...(?=⊤*)
@@ -1164,11 +1173,6 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                             let v = b.mkAnd([
                                 case1
                                 case2
-                                //
-                                // head
-                                // (?=1)11 ==> (11&(?=1⊤*))
-                                // let newbody = b.mkLookaround(b.mkConcat2(node,b.trueStar),false, 0, Set.empty)
-                                // b.mkConcat2(newbody)
                             ])
                             v
                             // failwith "nontrivial inner lookaheads are not yet supported"

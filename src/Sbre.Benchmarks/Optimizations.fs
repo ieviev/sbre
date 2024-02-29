@@ -165,19 +165,6 @@ type SetsPrefix(pattern:string) =
             | n ->
                 searching <- false
 
-    [<Benchmark>]
-    member x.FirstSetIndexOfSearchValues() =
-        let firstSetChars =
-            match matcher.Cache.MintermSearchValues(prefixSets[0]) with
-            | None -> failwith "search set too big"
-            | Some v -> v
-        let inputSpan = fullInput.AsSpan()
-        let mutable searching = true
-        while searching do
-            match inputSpan.IndexOfAny(firstSetChars) with
-            | -1 -> failwith "failed search"
-            | n ->
-                searching <- false
 
 
 
