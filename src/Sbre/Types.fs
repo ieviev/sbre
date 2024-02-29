@@ -341,6 +341,7 @@ type StartsetFlags =
     | IsFull = 1uy
     | IsEmpty = 2uy
     | Inverted = 4uy
+    | TooBig = 8uy
 
 /// collection of concrete startset chars for vectorization purposes
 type PredStartset = {

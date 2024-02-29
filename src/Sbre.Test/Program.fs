@@ -30,6 +30,14 @@ open System
 //     for i = 1 to 100 do
 //         suite.Sbre() |> ignore
 
+let r = Regex("\wabc\W")
+
+let mts = r.TSetMatcher.Cache.Minterms()
+let searchvalues =
+    mts
+    |> Array.map r.TSetMatcher.Cache.MintermSearchValues2
+
+let dbg1 =1
 
 // let pref = Optimizations.Prefix2()
 // pref.FirstSetIndexOfChars()
@@ -45,7 +53,7 @@ if switch then
      let raa = pref.Weighted2()
      let raaa = pref.Weighted3()
      ()
-else 
+else
      for i = 1 to 2000000 do
           // let r = pref.Weighted()
           let r2 = pref.Weighted2()

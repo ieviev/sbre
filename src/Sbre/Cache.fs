@@ -13,6 +13,72 @@ open Sbre.Pat
 open Info
 
 
+type MintermSearchMode =
+    | TSet = 0
+    | SearchValues = 1
+    | InvertedSearchValues = 2
+
+type MintermSearchValues
+    (
+        tset: TSet,
+        mode: MintermSearchMode,
+        searchValues: SearchValues<char>,
+        characters: Memory<char> option,
+        minterms: TSet[],
+        classifier: MintermClassifier
+    ) =
+    member val Classifier: MintermClassifier = classifier with get, set
+    member val Mode: MintermSearchMode = mode with get, set
+    member val Minterm: TSet = tset with get, set
+    member val SearchValues: SearchValues<char> = searchValues with get, set
+    member val CharactersInMinterm: Memory<char> option = characters with get, set
+    member this.Contains(chr: char) =
+        match mode with
+        | MintermSearchMode.TSet ->
+            let mtid = classifier.GetMintermID(int chr)
+            let charminterm = minterms[mtid]
+            Solver.elemOfSet this.Minterm charminterm
+        | MintermSearchMode.SearchValues -> this.SearchValues.Contains(chr)
+        | MintermSearchMode.InvertedSearchValues -> not(this.SearchValues.Contains(chr))
+        | _ -> ArgumentOutOfRangeException() |> raise
+
+    override this.ToString() =
+        let desc =
+            match this.Mode with
+            | MintermSearchMode.TSet -> $"{this.Minterm}"
+            | MintermSearchMode.SearchValues -> $"%A{this.CharactersInMinterm.Value}"
+            | MintermSearchMode.InvertedSearchValues -> $"%A{this.CharactersInMinterm.Value}"
+            | _ -> ArgumentOutOfRangeException() |> raise
+        $"{this.Mode.ToString()}: {desc}"
+
+    new(tset: TSet, minterms: TSet[], classifier:MintermClassifier) =
+        MintermSearchValues(
+            tset,
+            MintermSearchMode.TSet,
+            Unchecked.defaultof<_>,
+            None,
+            minterms,
+            classifier
+        )
+
+    new(tset: TSet, characters: Memory<char>, invert: bool) =
+        let mode =
+            if invert then
+                MintermSearchMode.InvertedSearchValues
+            else
+                MintermSearchMode.SearchValues
+
+        MintermSearchValues(
+            tset,
+            mode,
+            SearchValues.Create(characters.Span),
+            Some characters,
+            Unchecked.defaultof<_>,
+            Unchecked.defaultof<_>
+        )
+
+
+
 type OptimizedUnique =
     | WordBorder
     | StartOfString
@@ -71,8 +137,12 @@ type RegexCache< 't
                     minterms,
                     minterm
                 )
-            _cachedStartsets.Add(minterm, newSpan)
-            newSpan
+            let newSpan2 =
+                if newSpan.IsNone then
+                    System.Buffers.SearchValues.Create("")
+                else newSpan.Value
+            _cachedStartsets.Add(minterm, newSpan2)
+            newSpan2
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.Minterms() = minterms
@@ -88,11 +158,26 @@ type RegexCache< 't
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.MintermSearchValues(startset: TSet) = _getMintermStartsetChars startset
 
+    /// newer implementation with inverted sets and tsets
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    member this.MintermSearchValues2(tset: TSet) =
+        let mintermCharsOpt =
+            StartsetHelpers.tryGetMintermChars (_solver, predStartsets, minterms, tset)
+        let searchValues =
+            match mintermCharsOpt with
+            // set too big
+            | None -> MintermSearchValues(tset, minterms, classifier)
+            | Some chars ->
+                let isInverted = _solver.isElemOfSet (tset, minterms[0])
+                MintermSearchValues(tset, chars, isInverted)
+        searchValues
+
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.IsInverted(startset: TSet) = Solver.elemOfSet minterms[0] startset
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    member this.MintermChars(startset: TSet) : Span<char> = StartsetHelpers.getMintermChars(_solver,predStartsets, minterms, startset)
+    member this.MintermChars(startset: TSet) : Span<char> =
+        StartsetHelpers.tryGetMintermChars(_solver,predStartsets, minterms, startset).Value.Span
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.SkipIndexOfAny(loc: byref<Location>, setChars: SearchValues<char>) : unit =
