@@ -18,6 +18,7 @@ type MintermSearchMode =
     | SearchValues = 1
     | InvertedSearchValues = 2
 
+[<Sealed>]
 type MintermSearchValues
     (
         tset: TSet,
