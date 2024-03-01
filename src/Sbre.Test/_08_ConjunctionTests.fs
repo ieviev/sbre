@@ -368,8 +368,8 @@ name "
 
 [<Fact>]
 let ``implication 1 ``() =
-    let pattern = @"(?<=\n\n|\A)~(⊤*\n\n⊤*)(?=\n\n)&(~(⊤*mistake⊤*)|(⊤*strawberries⊤*))"
-    assertAllLLmatchTexts pattern shortPg ["";"\n\"mistake of saying strawberries.\""]
+    let pattern = @"(?<=\n\n|\A)(~(⊤*\n\n⊤*)&(~(⊤*mistake⊤*)|(⊤*strawberries⊤*)))(?=\n\n)"
+    assertAllLLmatchTexts pattern shortPg ["";"\"mistake of saying strawberries.\""]
 
 
 [<Fact>]

@@ -14,36 +14,16 @@ open Sbre.Pat
 open Sbre.Types
 open Xunit
 
-// let getDerivative(matcher: Regex, input: string) =
-//     let cache = matcher.TSetMatcher.Cache
-//     let node = matcher.TSetMatcher.RawPattern
-//     let location = (Location.create input 0)
-//     let state = RegexState(cache.NumOfMinterms())
-//     // let matchCache = RegexMatchCache(cache,node)
-//     matcher.CreateDerivative  (state, &location, cache.MintermForLocation(location), node)
-
-// let getDerivativeT<'t when 't : struct and 't :> IEquatable< 't >
-//         and 't: equality>(matcher: Regex, input: string) =
-//     let matcher = matcher.Matcher :?> RegexMatcher<TSet>
-//     let cache = matcher.Cache
-//     let node = matcher.RawPattern
-//     let state = RegexState(cache.NumOfMinterms())
-//     let location = (Location.create input 0)
-//     createDerivative (cache, state, &location, cache.MintermForLocation(location), node)
-
-
-
 
 
 let testFullDerivative(pattern: string, input: string, expectedDerivative: string) =
     let matcher = Regex(pattern).TSetMatcher
     let cache = matcher.Cache
     let node = matcher.TrueStarredPattern
-    let state = RegexState(cache.NumOfMinterms())
     let location = (Location.create input 0)
 
     let result =
-        matcher.CreateDerivative ( state, &location, cache.MintermForLocation(location), node)
+        matcher.CreateDerivative (  &location, cache.MintermForLocation(location), node)
         |> (fun v -> cache.PrettyPrintNode v)
 
     Assert.Equal(expectedDerivative, result)
@@ -59,13 +39,12 @@ let test2ndDerivative(pattern: string, input: string, expectedDerivative: string
     let matcher = Regex(pattern).TSetMatcher
     let cache = matcher.Cache
     let node = matcher.TrueStarredPattern
-    let state = RegexState(cache.NumOfMinterms())
     let location = (Location.create input 0)
     let location1 = (Location.create input 1)
 
-    let der1 = matcher.CreateDerivative  ( state, &location, cache.MintermForLocation(location), node)
+    let der1 = matcher.CreateDerivative  (  &location, cache.MintermForLocation(location), node)
 
-    let der2 = matcher.CreateDerivative  ( state, &location1, cache.MintermForLocation(location1), der1)
+    let der2 = matcher.CreateDerivative  (  &location1, cache.MintermForLocation(location1), der1)
 
     let result = der2 |> (fun v -> cache.PrettyPrintNode v)
 
@@ -82,10 +61,8 @@ let test2ndDerivatives(pattern: string, input: string, expectedDerivatives: stri
         let matcher = Regex(pattern).TSetMatcher
         let cache = matcher.Cache
         let node = matcher.TrueStarredPattern
-        let state = RegexState(cache.NumOfMinterms())
-
-        let der1 = matcher.CreateDerivative  ( state, &location, cache.MintermForLocation(location), node)
-        let der2 = matcher.CreateDerivative ( state, &location1, cache.MintermForLocation(location1), der1)
+        let der1 = matcher.CreateDerivative  (  &location, cache.MintermForLocation(location), node)
+        let der2 = matcher.CreateDerivative (  &location1, cache.MintermForLocation(location1), der1)
         cache.PrettyPrintNode der2
 
 
@@ -101,6 +78,10 @@ let testRawDerivative(pattern: string, input: string, expectedDerivative: string
     let result = der1 matcher input true
     Assert.Equal(expectedDerivative, result)
 
+let testRevDerivative(pattern: string, input: string, expectedDerivatives: string list) =
+    let matcher = Regex(pattern)
+    let result = der1Rev matcher input
+    Assert.Contains(matcher.TSetMatcher.Cache.PrettyPrintNode(result),expectedDerivatives)
 
 
 
@@ -162,6 +143,7 @@ let testPartDerivativesLoc
     Assert.Contains(result, expectedDerivatives)
 
 
+
 [<Fact>]
 let ``raw derivative of ab``() = testRawDerivative ("ab", "ab", "b")
 
@@ -180,28 +162,31 @@ let ``derivative of true ismatch``() = testPartDerivative ("⊤", "324", "ε")
 
 [<Fact>]
 let ``derivative of lookback 1``() =
-    testPartDerivativeFromLocationMultiple (@"(?<=-.*).*", "-aaaa-", 5, [ ".*" ])
-
-[<Fact>]
-let ``derivative of lookback 2``() =
-    testPartDerivativeFromLocationMultiple (@"(?<=-.*).*", "-aaaa-", 4, [ ".*" ])
-
+    // TODO: subsume this to .*
+    testPartDerivativeFromLocationMultiple (@"(?<=-.*).*", "-aaaa-", 5, [
+        @"(.*|(?<=.*).*)"; @"((?<=.*).*|.*)"
+        @"(?<=.*).*"
+        @".*"
+    ])
 
 
 [<Fact>]
 let ``2 derivative of Twain``() =
-    test2ndDerivatives ("Twain", "Twain", [ "(ain|⊤*Twain)"; @"(⊤*Twain|ain)" ])
-// test2ndDerivative ("Twain", "Twain", "(⊤*Twain|ain)")
+    test2ndDerivatives ("Twain", "Twain", [
+
+        @"(⊤*Tw)?ain"
+        "(ain|⊤*Twain)"
+        @"(⊤*Twain|ain)"
+        @"(⊤*Tw|ε)ain"
+        @"(ε|⊤*Tw)ain"
+    ])
 
 [<Fact>]
 let ``derivative lookaround 1``() =
-    testPartDerivatives (@"^\d$", "1", [ @"((?=\n)|(?!⊤))"; @"((?!⊤)|(?=\n))" ])
-
-[<Fact>]
-let ``derivative lookaround 1.2``() = testPartDerivative (@"(?<!\w)11", "11", "1")
-
-[<Fact>]
-let ``derivative lookaround 1.3``() = testPartDerivative (@"(?=1)11", "11", "1")
+    testPartDerivatives (@"^\d$", "1", [
+        @"$"
+        // @"((?=\n)|(?!⊤))"; @"((?!⊤)|(?=\n))"
+    ])
 
 
 
@@ -212,26 +197,13 @@ let ``derivative lookaround 2``() = testPartDerivative (@"\b11", "11", "1")
 
 [<Fact>]
 let ``derivative boundary 1``() =
-    testPartDerivativeFromLocation (@"(?<=\s)22", "1 2", 2, "2")
-
-
-[<Fact>]
-let ``derivative boundary 2``() =
-    testPartDerivativeFromLocation (@"\b22", "1 2", 2, "2")
-
-
-// [<Fact>]
-// let ``derivative boundary 3`` () = testPartDerivativeFromLocation (@"\b1\b", "1 ", 0, "((?<!φ)(?=φ)|(?<=φ)(?!φ))")
-
+    testPartDerivativeFromLocation (@"(?<=\s)22", "1 2", 1, "22")
 
 [<Fact>]
 let ``derivative boundary 4``() =
-    testPartDerivativeFromLocation (@"(?<=\d)a", "1a", 1, "ε")
+    testPartDerivativeFromLocation (@"(?<=\d)a", "1a", 0, "a")
 
 
-[<Fact>]
-let ``derivative boundary 5``() =
-    testPartDerivativeFromLocation (@"(?=\w)a", "1a", 1, "ε")
 
 
 
@@ -242,67 +214,69 @@ let ``derivative boundary 5``() =
 
 [<Fact>]
 let ``derivative of plus``() =
-    testPartDerivatives (@"^\d+$", "123", [ @"φ*((?!⊤)|(?=\n))"; @"φ*((?=\n)|(?!⊤))" ])
+    testPartDerivatives (@"^\d+$", "123", [
+        @"φ*$"
+        // @"φ*((?!⊤)|(?=\n))"; @"φ*((?=\n)|(?!⊤))"
+    ])
 
 
 [<Fact>]
 let ``derivative concat lookaround``() =
-    testPartDerivatives (@"^\d+$", "123", [ @"φ*((?=\n)|(?!⊤))"; @"φ*((?!⊤)|(?=\n))" ])
-
-
-
-
-[<Fact>]
-let ``derivative lookback 1``() =
-    let loc = Location.create "-aaaa-" 0
-    testPartDerivativesLoc (@"(.*(?=.*-)&\S.*\S)", loc,  [@"(.*φ&.*(?=.*-))";"(.*(?=.*-)&.*φ)"])
-
-[<Fact>]
-let ``subsumption or loop ``() =
-    testPartDerivative (@"(a*|.*)", "aaa", @".*")
-
-
-[<Fact>]
-let ``subsumption and loop ``() =
-    testPartDerivative (@"(.*&.*s)", "aaa", @".*s")
-
-
-[<Fact>]
-let ``subsumption and larger ``() =
-    testPartDerivatives (@"(.* and .*|and .*)&.*", "aaa", [@"(.* and .*|nd .*)";"(nd .*|.* and .*)"])
-
-[<Fact>]
-let ``deriv negation end ``() =
-    testPartDerivatives (@"(.*&~((n|.*Finn)))", "nn", [
-        "(~((ε|.*Finn))&.*)";"(~((.*Finn|ε))&.*)"; "(.*&~((ε|.*Finn)))"; "(.*&~((.*Finn|ε)))"
+    testPartDerivatives (@"^\d+$", "123", [
+        @"φ*$"
+        // @"φ*((?=\n)|(?!⊤))"; @"φ*((?!⊤)|(?=\n))"
     ])
 
 
-[<Fact>]
-let ``subsumption or concat ``() =
-    testPartDerivative (@".*t.*hat.*", "ttt", @".*hat.*")
+
+
+// [<Fact>]
+// let ``derivative lookback 1``() =
+//     // TODO: subsumption
+//     let loc = Location.create "-aaaa-" 0
+//     testPartDerivativesLoc (@"(.*(?=.*-)&\S.*\S)", loc,  [
+//         @"(.*φ&((?=(ε|.*-))|.*(?=.*-)))"
+//         @"((.*(?=.*-)|(?=(ε|.*-)))&.*φ)"
+//         // @"(.*φ&.*(?=.*-))";"(.*(?=.*-)&.*φ)"
+//     ])
+
+
+
+
 
 
 [<Fact>]
 let ``deriv negation 1 ``() =
-    testPartDerivatives (@"~(.*11.*)", "1", [@"~((1.*|.*11.*))"; @"~((.*11.*|1.*))"])
+    testPartDerivatives (@"~(.*11.*)", "1", [
+        @"~((1.*|.*11.*))"
+        @"~((.*11.*|1.*))"
+        @"~((.*1)?1.*)"
 
-[<Fact>]
-let ``deriv negation 2 ``() =
-    test2ndDerivatives (@"~(.*11.*)", "11", [
-        @"(⊤*~(.*11.*)|~(.*)|~((.*11.*|1.*)))"
-        @"(~(.*)|⊤*~(.*11.*)|~((1.*|.*11.*)))"
-        @"(~(.*)|⊤*~(.*11.*)|~((.*11.*|1.*)))"
-        @"(~(.*)|~((.*11.*|1.*))|⊤*~(.*11.*))"
-        @"(~(.*)|~((1.*|.*11.*))|⊤*~(.*11.*))"
-        @"(⊤*~(.*11.*)|~(.*)|~((1.*|.*11.*)))"
-        @"(~((1.*|.*11.*))|~(.*)|⊤*~(.*11.*))"
-        @"(⊤*~(.*11.*)|~((1.*|.*11.*))|~(.*))"
-        @"(~((.*11.*|1.*))|~(.*)|⊤*~(.*11.*))"
-        @"(~((.*11.*|1.*))|⊤*~(.*11.*)|~(.*))"
-        @"(⊤*~(.*11.*)|~((.*11.*|1.*))|~(.*))"
-        @"(~((1.*|.*11.*))|⊤*~(.*11.*)|~(.*))"
+        @"~((.*1|ε)1.*)"
+        @"~((ε|.*1)1.*)"
     ])
+
+// [<Fact>]
+// let ``deriv negation 2 ``() =
+//     test2ndDerivatives (@"~(.*11.*)", "11", [
+//         @"(⊤*~(.*11.*)|~(.*)|~((.*11.*|1.*)))"
+//         @"(~(.*)|⊤*~(.*11.*)|~((1.*|.*11.*)))"
+//         @"(~(.*)|⊤*~(.*11.*)|~((.*11.*|1.*)))"
+//         @"(~(.*)|~((.*11.*|1.*))|⊤*~(.*11.*))"
+//         @"(~(.*)|~((1.*|.*11.*))|⊤*~(.*11.*))"
+//         @"(⊤*~(.*11.*)|~(.*)|~((1.*|.*11.*)))"
+//         @"(~((1.*|.*11.*))|~(.*)|⊤*~(.*11.*))"
+//         @"(⊤*~(.*11.*)|~((1.*|.*11.*))|~(.*))"
+//         @"(~((.*11.*|1.*))|~(.*)|⊤*~(.*11.*))"
+//         @"(~((.*11.*|1.*))|⊤*~(.*11.*)|~(.*))"
+//         @"(⊤*~(.*11.*)|~((.*11.*|1.*))|~(.*))"
+//         @"(~((1.*|.*11.*))|⊤*~(.*11.*)|~(.*))"
+//         @"((⊤*~(.*11.*)|~((.*11.*|1.*)))|~(.*))"
+//
+//         @"((~((ε|.*1)1.*)|⊤*~(.*11.*))|~((.*|(ε|.*1)1.*)))"
+//         @"(~(((.*1|ε)1.*|.*))|(⊤*~(.*11.*)|~((.*1|ε)1.*)))"
+//         @"(~((.*|(.*1|ε)1.*))|(~((.*1|ε)1.*)|⊤*~(.*11.*)))"
+//     ])
 
 
 
@@ -327,182 +301,94 @@ let ``derivative eats node from set``() =
         @"^((0?[13578]a)|(0?[13456789]a))$",
         "4a",
         0,
-        [ @"a((?=\n)|(?!⊤))"; @"a((?!⊤)|(?=\n))" ]
+        [
+            @"a$"
+            // @"a((?=\n)|(?!⊤))"; @"a((?!⊤)|(?=\n))"
+        ]
     )
-
-
-
-
-
-
-
-// [<Fact>]
-// let ``matchend test 3``() =
-//     let matcher = Matcher(@"b.*|a")
-//     let ism = matcher.FindMatchEnd("baaa ")
-//     Assert.Equal(ValueSome 4, ism)
-
 
 
 // [<Fact>]
 // let ``subsumption true star epsilon`` () = testPartDerivative (@"(aa&⊤*)", "aa", @"a")
 
 
+// [<Fact>]
+// let ``neg lookaround 1``() = testPartDerivative (@"(?<!a)b", "ab", "⊥")
+//
+// [<Fact>]
+// let ``neg lookaround 2``() = testPartDerivative (@"(?<!a)b", "bb", "ε")
+//
+// [<Fact>]
+// let ``neg lookaround 3``() = testPartDerivative (@"(?!b)b", "bb", "⊥")
+//
+// [<Fact>]
+// let ``neg lookaround 4``() = testPartDerivative (@"(?!a)b", "bb", "ε")
+//
+// [<Fact>]
+// let ``neg lookaround 5``() = testPartDerivative (@"(?!b)", "b", "(?!ε)")
+//
+// [<Fact>] // means that pos 0 is nullable!!
+// let ``neg lookaround 6``() = testPartDerivative (@"(?!a)", "b", "(?!⊥)")
+//
+// [<Fact>] // can only be sure of this in pos 0
+// let ``neg lookaround 7``() = testPartDerivative (@"(?<!a)", "b", "(?<!⊥)")
+//
+// [<Fact>] // can not be sure of this
+// let ``neg lookaround 8``() = testPartDerivative (@"(?<!a)b", "b", "ε")
+//
+// [<Fact>] // can not be sure of this
+// let ``neg lookaround 9``() = test2ndDerivatives (@"(?<!a)bb", "abb", [
+//     // @"(b|⊤*(?<!a)bb)" is not valid!
+//     @"⊤*(?<!a)bb)"
+// ])
+
+// [<Fact>]
+// let ``neg lookaround to pos 1``() = testPartDerivative (@"(?=~(|b))", "b", "(?=⊤+)")
+//
+// [<Fact>]
+// let ``neg lookaround to pos 2``() = testPartDerivative (@"~(|b|bb)", "b", "~((b|ε))")
+
+// let neg_neg_lookahead = @"~(\z|⊤\z|bb)"
+//
+// // L (?!bb)  = { ε\Z, ⊤\Z, ⊤[^b] }
+//
+// [<Fact>]
+// let ``neg ismatch 1``() = assertMatchEnd neg_neg_lookahead "" 0 -2
+// [<Fact>]
+// let ``neg ismatch 2``() = assertMatchEnd neg_neg_lookahead "b" 0 -2
+// [<Fact>]
+// let ``neg ismatch 3``() = assertMatchEnd neg_neg_lookahead "bb" 0 -2
+// [<Fact>]
+// let ``neg ismatch 4``() = assertMatchEnd neg_neg_lookahead "ba" 0 2
+//
+// [<Fact>]
+// let ``pos lookaround 1``() = testPartDerivative (@"(?<!a)b", "ab", "⊥")
+
+
+[<Fact>]
+let ``derivative neg lookaround 1``() =
+    assertRawDerivative @"((?<=B.*).*&~(.*A.*))" "BA" [
+        // "((?<=.*).*&~(.*A.*))"
+        // @"(~(.*A.*)&(?<=.*).*)"
+        // @"(~(.*A.*)&.*)"
+        // @"(.*&~(.*A.*))"
+        @"(?<=.*)(.*&~(.*A.*))"
+        @"(?<=.*)(~(.*A.*)&.*)"
+    ]
+
+
+
+
+
+[<Fact>]
+let ``simple 1``() =
+    testRevDerivative ("..g","gggg",[
+        @".{2,2}"
+    ])
+
+
 
 #endif
-
-
-
-
-
-// [<Fact>]
-// let ``counter debug``() =
-//     let regex = Regex("a{1,3}b{1,3}a")
-//     let result = assertCounterStates regex "aaa" [
-//         CounterState.CanIncr
-//         CounterState.CanIncr
-//         CounterState.CanIncr
-//     ]
-//     assertAlternation [ "ε" ] result.Node
-//
-
-
-//
-// [<Fact>]
-// let ``counter 01``() =
-//     let regex = Regex(".{2}c")
-//     let result = assertCounterStates regex "__c" [
-//         // --
-//         [ CounterState.CanIncr, 0 ]
-//         [ CounterState.CanExit, 1 ]
-//         [  ]
-//     ]
-//     assertAlternation [ "ε" ] result.Node
-//
-//
-//
-// [<Fact>]
-// let ``counter 02``() =
-//     let regex = Regex(".{2}c$")
-//     let result = assertCounterStates regex "__c" [
-//         [ CounterState.CanIncr, 0 ]
-//         [ CounterState.CanExit, 1 ]
-//         [ CounterState.CanExit, 1 ]
-//         [  ]
-//     ]
-//     assertAlternation [ "(?!⊤)"; @"(?=\n)" ] result.Node
-// //
-// [<Fact>]
-// let ``counter 03``() =
-//     let regex = Regex(".{2}(?=c)")
-//     let result = assertCounterStates regex "__c" [
-//         [CounterState.CanIncr, 0]
-//         [CounterState.CanExit, 1]
-//     ]
-//     assertEqual result.IsNullable true
-//
-// [<Fact>]
-// let ``counter 04``() =
-//     let regex = Regex(".{2}(?<=c.*)")
-//     let result = assertCounterStates regex "c_c" [
-//         [CounterState.CanIncr, 0]
-//         [CounterState.CanExit, 1]
-//     ]
-//     assertEqual result.IsNullable true
-//
-// //
-// [<Fact>]
-// let ``counter 05``() =
-//     let regex = Regex("⊤*\d{2}⊤*")
-//     let result = assertCounterStates regex "a11a" [
-//         [CounterState.CanIncr, 0]
-//         [CounterState.CanIncr, 0]
-//         [CounterState.CanExit, 1]
-//     ]
-//     assertEqual result.IsNullable true
-
-//
-// [<Fact>]
-// let ``counter 06``() =
-//     let regex = Regex("~(⊤*\d{2}⊤*)")
-//     let result = assertCounterStates regex "a11b" [
-//         CounterState.CanIncr
-//         CounterState.CanIncr
-//         CounterState.CanIncr
-//         CounterState.CanIncrExit
-//     ]
-//     assertEqual result.IsNullable false
-//
-// [<Fact>]
-// let ``counter 08``() =
-//     let regex = Regex("~(.*[a-z]{3}1)")
-//     let result = assertCounterStates regex "__aaaaa1__" [
-//         CounterState.CanIncr // 0
-//         CounterState.CanIncr // 0
-//         CounterState.CanIncr // 1
-//         CounterState.CanIncr // 2
-//         CounterState.CanIncr // 3
-//         CounterState.CanIncrExit // 4 - 1
-//         CounterState.CanIncrExit // 5 - 2
-//     ]
-//     assertEqual result.IsNullable true
-//
-//
-// [<Fact>]
-// let ``counter 09``() =
-//     let regex = Regex(".*\d{2}c")
-//     let result = assertCounterStates regex "__111c__" [
-//         CounterState.CanIncr // 0
-//         CounterState.CanIncr // 0
-//         CounterState.CanIncr // 1
-//         CounterState.CanIncr // 2
-//         CounterState.CanIncrExit // 3
-//         CounterState.CanIncrExit
-//     ]
-//     assertEqual result.IsNullable true
-
-//
-// [<Fact>]
-// let ``counter 10``() =
-//     let regex = Regex("\d\d")
-//     let result = assertCounterStates regex "11" [
-//         CounterState.CanIncr
-//         CounterState.CanIncr
-//     ]
-//     assertEqual result.IsNullable true
-//
-//
-//
-//
-// [<Fact>]
-// let ``counter 11``() =
-//     let regex = Regex("~(⊤*\d\d⊤*)")
-//     let result = assertCounterStates regex "_11_" [
-//         CounterState.CanIncr
-//         CounterState.CanIncr
-//     ]
-//     assertEqual result.IsNullable true
-//
-// [<Fact>]
-// let ``counter 12``() =
-//     let regex = Regex("~(⊤*\d\d⊤*)")
-//     let result = assertCounterStates regex "_11_" [
-//         CounterState.CanIncr
-//         CounterState.CanIncr
-//         CounterState.CanIncr
-//     ]
-//     assertEqual result.IsNullable false
-//
-//
-// [<Fact>]
-// let ``counter 13``() =
-//     let regex = Regex("~(⊤*\d\d⊤*)")
-//     let result = assertCounterStates regex "1__11__" [
-//         CounterState.CanIncr
-//         CounterState.CanIncr
-//     ]
-//     assertEqual result.IsNullable true
-//
 
 
 

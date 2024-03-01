@@ -7,7 +7,6 @@ open Common
 //
 #if DEBUG
 
-
 // TODO: reimplement
 [<Fact>]
 let ``negation test 1: password``() =
@@ -49,12 +48,7 @@ let ``negation skipping test``() =
 //
 //
 //
-// [<Fact>]
-// let ``negation test 4: until semantics``() =
-//     let matcher = Regex(@"a~(⊤*e⊤*)")
-//     let result = matcher.MatchText("abcdefghijklmnop")
-//     Assert.Equal(Some("abcd"), result)
-//
+
 
 let twainExample1 = """
 

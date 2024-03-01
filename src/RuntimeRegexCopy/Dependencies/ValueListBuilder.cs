@@ -69,9 +69,14 @@ namespace System.Collections.Generic
             _pos = pos + 1;
         }
 
-        public ReadOnlySpan<T> AsSpan()
+        public Span<T> AsSpan()
         {
             return _span.Slice(0, _pos);
+        }
+
+        public Memory<T> AsMemory()
+        {
+            return _arrayFromPool.AsMemory(0, _pos);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

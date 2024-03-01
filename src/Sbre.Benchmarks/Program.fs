@@ -77,6 +77,9 @@ let main argv =
     | "prefixW" -> BenchmarkRunner.Run(typeof<Optimizations.PrefixCharsetSearch>,config) |> ignore
     // ---
     | "learning1" -> BenchmarkRunner.Run(typeof<Learning.Learning1>,config) |> ignore
+    | "learning2" -> BenchmarkRunner.Run(typeof<Learning.Learning2>,config) |> ignore
+    | "learning3" -> BenchmarkRunner.Run(typeof<Learning.Learning3>,config) |> ignore
+    | "learning4" -> BenchmarkRunner.Run(typeof<Learning.Learning4>,config) |> ignore
     // ---
     | "outer-none" -> BenchmarkRunner.Run(typeof<ParagraphOuter.None1>,config) |> ignore
     | "outer-nonb" -> BenchmarkRunner.Run(typeof<ParagraphOuter.NonBack1>,config) |> ignore
@@ -125,12 +128,20 @@ let main argv =
     // ------------
 
     // standard benchmarks
-    | "twain-1" -> BenchmarkRunner.Run(typeof<Paper.Twain_1>,config) |> ignore
     | "twain" -> BenchmarkRunner.Run(typeof<Paper.TwainRegexes>,config) |> ignore
     | "twain-m" -> BenchmarkRunner.Run(typeof<Paper.TwainRegexesMatchOnly>,config) |> ignore
     | "count-c" -> BenchmarkRunner.Run(typeof<Paper.CounterCompileTimeRegexes>,config) |> ignore
     | "count-m" -> BenchmarkRunner.Run(typeof<Paper.CounterMatchTimeRegexes>,config) |> ignore
     | "s" -> BenchmarkRunner.Run(typeof<Paper.SampleRegexes>,config) |> ignore
+
+
+    | "rebar1" -> BenchmarkRunner.Run(typeof<Paper.Rebar1>,config) |> ignore
+    | "rebar1ru" -> BenchmarkRunner.Run(typeof<Paper.Rebar1Ru>,config) |> ignore
+    | "rebar2" -> BenchmarkRunner.Run(typeof<Paper.Rebar2>,config) |> ignore
+    | "rebar4" -> BenchmarkRunner.Run(typeof<Paper.Rebar4>,config) |> ignore
+    | "rebar6" -> BenchmarkRunner.Run(typeof<Paper.Rebar6>,config) |> ignore
+    | "rebar10" -> BenchmarkRunner.Run(typeof<Paper.Rebar10>,config) |> ignore
+    | "rebar14" -> BenchmarkRunner.Run(typeof<Paper.Rebar14>,config) |> ignore
 
 
     // words in paragraph

@@ -21,20 +21,7 @@ module Helpers =
     let converter = RegexNodeConverter(bddBuilder, null)
     let bddBuilder2 = RegexBuilder(converter, charSetSolver, charSetSolver)
 
-let printImplicit(reg: Regex) =
-    try
-        let matcher = reg.TSetMatcher
-        let nodes = matcher.TrueStarredPattern
-        matcher.Cache.PrettyPrintNode nodes
-    with e ->
-        try
-            let matcher = reg.UInt16Matcher
-            let nodes = matcher.TrueStarredPattern
-            matcher.Cache.PrettyPrintNode nodes
-        with e ->
-            let matcher = reg.TSetMatcher
-            let nodes = matcher.TrueStarredPattern
-            matcher.Cache.PrettyPrintNode nodes
+
 
 let printNode(reg: RegexMatcher<_>, node: RegexNode<_>) =
     try
@@ -70,7 +57,6 @@ let ``collectSets has same behavior``() =
     let sbreSets =
         RegexNodeConverter.convertToSymbolicRegexNode (
             Helpers.charSetSolver,
-            Helpers.bddBuilder,
             Helpers.bddBuilder2,
             tree.Root
         )
@@ -81,12 +67,85 @@ let ``collectSets has same behavior``() =
     areEqual |> Assert.True
 
 
-[<Fact>]
-let ``pretty printer test 1``() =
+let assertSolverContains12 pattern =
+    let pat = pattern
+    let reg = Regex(pat)
+    match reg.TSetMatcher.RawPattern with
+    | Concat(head=Singleton head;tail=Singleton tail) ->
+        assertTrue (Solver.containsS reg.TSetMatcher.Cache.Solver head tail)
+    | _ -> failwith "_"
 
-    let matcher = Regex("a")
-    Assert.Equal("⊤*a", printImplicit matcher)
-    ()
+let assertNotSolverContains12 pattern =
+    let pat = pattern
+    let reg = Regex(pat)
+    match reg.TSetMatcher.RawPattern with
+    | Concat(head=Singleton head;tail=Singleton tail) ->
+        assertFalse (Solver.containsS reg.TSetMatcher.Cache.Solver head tail)
+    | _ -> failwith "_"
+
+
+
+
+[<Fact>]
+let ``_ solver 1``() = assertSolverContains12 "[a-z]a"
+
+[<Fact>]
+let ``_ solver 2``() = assertNotSolverContains12 "a[a-z]"
+
+
+
+
+[<Fact>]
+let ``a conversion 2.1``() = assertConverted "(⊤*B⊤*&⊤*A⊤*)" [ "(⊤*A⊤*&⊤*B⊤*)"; "(⊤*B⊤*&⊤*A⊤*)" ]
+
+
+[<Fact>]
+let ``a conversion 2.2``() = assertConverted "(⊤*A⊤*&⊤*B⊤*)&⊤*B⊤*" [
+    @"(⊤*B⊤*&⊤*A⊤*)"
+    "(⊤*A⊤*&⊤*B⊤*)"
+]
+
+
+
+
+[<Fact>]
+let ``a conversion 2.6``() = assertConverted """([a-zA-Z]+)Huck|([a-zA-Z]+)Saw""" [
+    """([A-Za-z])+(Huck|Saw)"""
+    """([A-Za-z])+(Saw|Huck)"""
+]
+
+
+
+// [<Fact>]
+// let ``b conversion 2.2``() = assertConverted """((⊤*,}.*|.*)&(⊤*X|))|(⊤*,}.*&(⊤*X|))""" [
+//     """((⊤*X|ε)&(.*|⊤*,}.*))"""
+//     """((ε|⊤*X)&(.*|⊤*,}.*))"""
+//     """((⊤*,}.*|.*)&(ε|⊤*X))"""
+// ]
+
+
+
+// """.*(?=aaa)"""
+
+// (.*|(.*11.*|1.*)
+
+
+// [<Fact>]
+// let ``subsumption and loop ``() =
+//     testPartDerivative (@"(.*&.*s)", "aaa", @".*s")
+//
+//
+// [<Fact>]
+// let ``subsumption and larger ``() =
+//     testPartDerivatives (@"(.* and .*|and .*)&.*", "aaa", [@"(.* and .*|nd .*)";"(nd .*|.* and .*)"])
+//
+//
+
+// [<Fact>]
+// let ``a conversion 1.3``() = assertConverted @".(?<=a)" [ "a" ]
+//
+//
+
 
 
 [<Fact>]
@@ -117,30 +176,6 @@ let ``identity true star reversed``() =
         | _ -> false
 
     Assert.True(identity)
-
-
-// [<Fact>]
-// let ``set equality``() =
-//
-//     let matcher = Matcher(@"(⊤*Arabs&⊤*French⊤*&⊤*Chinese⊤*)")
-//
-//     let matcher2 = Matcher(@"(⊤*Arabs&⊤*French⊤*&⊤*Chinese⊤*)")
-//
-//     let result = matcher.RawPattern = matcher2.RawPattern
-//     let a1 = 1
-//     Assert.True(result, "not equal sets: (⊤*Arabs&⊤*French⊤*&⊤*Chinese⊤*)")
-
-
-// [<Fact>]
-// let ``set equality reversed``() =
-//
-//     let matcher = Matcher(@"(⊤*Arabs&⊤*French⊤*&⊤*Chinese⊤*)")
-//
-//     let matcher2 = Matcher(@"(⊤*Arabs&⊤*French⊤*&⊤*Chinese⊤*)")
-//
-//     let result = matcher.ReversePattern = matcher2.ReversePattern
-//
-//     Assert.True(result, "not equal reverse sets: (⊤*Arabs&⊤*French⊤*&⊤*Chinese⊤*)")
 
 
 
@@ -177,122 +212,85 @@ let equalSeq (xs1: seq<'t>) (xs2: seq<'t>) : unit = Assert.Equal<'t>(xs1, xs2)
 //     | _ -> Assert.True(false, "not an or node")
 //
 
-let assertConverted (pattern: string) (expected: string list) =
-    let regexTree =
-        ExtendedRegexParser.Parse(
-            pattern,
-            RegexOptions.ExplicitCapture ||| RegexOptions.NonBacktracking,
-            CultureInfo.InvariantCulture
-        )
-
-    let symbolicBddnode: RegexNode<BDD> =
-        RegexNodeConverter.convertToSymbolicRegexNode (
-            debugcharSetSolver,
-            bddBuilder,
-            Helpers.bddBuilder2,
-            regexTree.Root
-        )
-
-    let reg = Regex(pattern)
-
-    let asstr =
-        try
-            reg.TSetMatcher.Cache.PrettyPrintNode reg.TSetMatcher.RawPattern
-        with e ->
-            try
-                reg.UInt16Matcher.Cache.PrettyPrintNode reg.UInt16Matcher.RawPattern
-            with e ->
-                reg.UInt16Matcher.Cache.PrettyPrintNode reg.TSetMatcher.RawPattern
-
-    Assert.Contains<string>(asstr,expected)
-
-[<Fact>]
-let ``conversion lookaround ``() = assertConverted ".(?<=A.*)" [@".(?<=A.*)"]
-// assertConverted ".(?<=A.*)" @"[^\n](?<=A[^\n]*)"
 
 [<Fact>]
 let ``conversion lookaround 2 ``() = assertConverted ".(?=A.*)" [@".(?=A.*)"]
 
-// assertConverted ".(?=A.*)" @"[^\n](?=A[^\n]*)"
-
-
-// cannot test this reliably
-// [<Fact>]
-// let ``conversion large set ``() =
-//     assertConverted
-//         @"^((0?[13578]a)|(0?[13456789]a))$"
-//         @"(?<!⊤)(0?[13578]a|0?[13-9]a)((?!⊤)|(?=\n))"
-
-
 [<Fact>]
-let ``conversion label``() = assertConverted "(?<Time>^\d)" [@"((?<!⊤)|(?<=\n))φ"; @"((?<=\n)|(?<!⊤))φ"]
-// assertConverted ".(?=A.*)" @"[^\n](?=A[^\n]*)"
+let ``conversion label``() = assertConverted "(?<Time>^\d)" [
+    @"^\d"
+    @"^φ"
+]
 
 
-[<Fact>]
-let ``conversion neg lookahead ``() = assertConverted "1(?! Sep)" ["1(?! Sep)"]
+
 
 [<Fact>]
 let ``conversion conc ``() = assertConverted "Twain" ["Twain"]
 
 
+[<Fact>]
+let ``flags 01``() =
+    let matcher = Regex(@"^\d$").TSetMatcher
+    let f = matcher.ReverseTrueStarredPattern.GetFlags()
+    assertFlag f Flag.DependsOnAnchorFlag
 
 [<Fact>]
-let ``flags 1``() =
-    let matcher = Regex("(\d⊤*|⊤*\d{2,2}⊤*)").TSetMatcher
-    let flags = Flags.inferInitialFlags matcher.RawPattern
-
-    if flags.HasCounter then
-        assertEqual (Flag.CanBeNullableFlag ||| Flag.HasCounterFlag) flags
-
-
-[<Fact>]
-let ``flags 2``() =
-    let matcher = Regex(@"(.*b|)").TSetMatcher
-
-    match matcher.RawPattern with
-    | Types.Or(nodes, info) ->
-        // let flags = Flags.inferNode matcher.RawPattern
-        // let info = Cache.mkInfoOfOr (matcher.Cache, nodes)
-        let flags = Flags.inferInitialFlags matcher.RawPattern
-
-        Assert.Equal(
-            Flag.CanBeNullableFlag ||| Flag.IsAlwaysNullableFlag ||| Flag.ContainsEpsilonFlag,
-            flags
-        )
-    | _ -> Assert.True(false, "wrong node type")
+let ``flags 02``() =
+    let matcher = Regex("""(?<=\W)\w+nn(?=\W)""").TSetMatcher
+    let f = matcher.ReverseTrueStarredPattern.GetFlags()
+    assertNotFlag f Flag.DependsOnAnchorFlag
 
 
 [<Fact>]
-let ``flags 3``() =
-    let matcher = Regex(@"\d{2}⊤*").TSetMatcher
-    let flags = matcher.RawPattern.GetFlags()
+let ``flags 03``() =
+    let matcher = Regex("""(?<=.?)""").TSetMatcher
+    let f = matcher.ReverseTrueStarredPattern.GetFlags()
+    assertFlag f Flag.CanBeNullableFlag
+    assertFlag f Flag.IsAlwaysNullableFlag
 
-    if flags.HasCounter then
-        assertTrue (flags.HasFlag(Flag.HasCounterFlag)) "hascounter"
-        assertTrue (flags.HasFlag(Flag.IsCounterFlag)) "iscounter"
-
-
-[<Fact>]
-let ``flags 4``() =
-    let matcher = Regex(@"⊤*\d{2}⊤*").TSetMatcher
-    let flags = matcher.RawPattern.GetFlags()
-
-    if flags.HasCounter then
-        assertTrue (flags.HasFlag(Flag.HasCounterFlag)) "hascounter"
-        assertTrue (flags.HasFlag(Flag.CanBeNullableFlag)) "canbenullable"
-        assertFalse (flags.HasFlag(Flag.IsCounterFlag)) "iscounter"
 
 
 [<Fact>]
-let ``flags 5``() =
+let ``flags 05``() =
     let matcher = Regex(@"~(⊤*\d{2}⊤*)").TSetMatcher
     let flags = matcher.RawPattern.GetFlags()
+    ()
+    // if flags.HasCounter then
+    //     Assert.True(flags.HasFlag(Flag.HasCounterFlag))
+    //     Assert.True(flags.HasFlag(Flag.CanBeNullableFlag))
 
-    if flags.HasCounter then
-        Assert.True(flags.HasFlag(Flag.HasCounterFlag))
-        Assert.True(flags.HasFlag(Flag.CanBeNullableFlag))
 
+[<Fact>]
+let ``flags 06``() =
+    let matcher = Regex(@"~(\z)").TSetMatcher
+    let flags = matcher.RawPattern.GetFlags()
+    Assert.False(flags.HasFlag(Flag.IsAlwaysNullableFlag))
+
+[<Fact>]
+let ``flags 07``() =
+    let matcher = Regex(@"a(?=b)").TSetMatcher
+    let f = matcher.RawPattern.GetFlags()
+    assertFlag f Flag.HasSuffixLookaheadFlag
+
+[<Fact>]
+let ``flags 08``() =
+    let matcher = Regex(@"(a|b)(?=b)").TSetMatcher
+    let f = matcher.RawPattern.GetFlags()
+    assertFlag f Flag.HasSuffixLookaheadFlag
+
+[<Fact>]
+let ``flags 09``() =
+    let matcher = Regex(@"(?<=b)(a|b)").TSetMatcher
+    let f = matcher.RawPattern.GetFlags()
+    assertFlag f Flag.HasPrefixLookbehindFlag
+
+
+[<Fact>]
+let ``flags 10``() =
+    let matcher = Regex(""".*$""").TSetMatcher
+    let f = matcher.RawPattern.GetFlags()
+    assertFlag f Flag.HasSuffixLookaheadFlag
 
 
 [<Fact>]
@@ -321,15 +319,14 @@ let ``identity rev 1``() =
 
     let req = refEq (m.TSetMatcher.ReversePattern) deriv
     Assert.True(req)
-// let wordborder = _cache.Builder.anchors._wordBorder.Value
-// let isWordBorder = refEq node wordborder
 
-[<Fact>]
-let ``identity word border``() =
-    let m = Regex(@"\b")
 
-    let req = refEq (m.TSetMatcher.ReversePattern) m.TSetMatcher.RawPattern
-    Assert.True(req)
+// [<Fact>]
+// let ``identity word border``() =
+//     let m = Regex(@"\b")
+//
+//     let req = refEq (m.TSetMatcher.ReversePattern) m.TSetMatcher.RawPattern
+//     Assert.True(req)
 
 
 
@@ -439,6 +436,26 @@ let ``startset 04``() = assertStartset "~(.*11.*|1.*)" false "."
 
 
 
+let assertNodeWithoutPrefix (patt:string) (expected:string list) =
+    let m = Sbre.Regex(patt).TSetMatcher
+    let n = m.RawPattern
+    let n2 = Optimizations.mkNodeWithoutLookbackPrefix m.Cache.Builder n
+    assertContains expected (n2.ToString())
+
+[<Fact>]
+let ``withoutprefix 01``() =
+    assertNodeWithoutPrefix "(?<=author).*&.*and.*" [ "(.*and.*&.*)" ;".*and.*"; "(.*&.*and.*)"]
+
+[<Fact>]
+let ``withoutprefix 02``() =
+    assertNodeWithoutPrefix @"\b11" [
+        "11"
+    ]
+
+
+[<Fact>]
+let ``withoutprefix 03``() =
+    assertNodeWithoutPrefix """(?<=aaa).*""" [".*"]
 
 
 

@@ -30,13 +30,10 @@ let testCapture0InRange fromRange toRange =
 
         // testing only matches
         for isMatch in entry.Matches do
-            try
-                let result =
-                    Common.getFirstLLmatch pattern (isMatch) |> (fun (s,e) -> isMatch[s..s+e] )
-                let result2 = runtime.Match(isMatch).Value
-                Assert.True((result = result2), $"should be the same: {entry.Title}\n{pattern}\n{isMatch}\nmyregex:\n{result}\nruntime:\n{result2}")
-            with e ->
-                Assert.True(false, $"exception in {counter}:{entry.Title}\n{pattern}\n{isMatch}\n{e.Message}")
+            let result =
+                Common.getFirstLLmatch pattern (isMatch) |> (fun (s,e) -> isMatch[s..s+e] )
+            let result2 = runtime.Match(isMatch).Value
+            Assert.True((result = result2), $"should be the same: {entry.Title}\n{pattern}\n{isMatch}\nmyregex:\n{result}\nruntime:\n{result2}")
 
 
 [<Fact>]

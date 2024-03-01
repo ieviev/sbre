@@ -11,6 +11,12 @@ open Sbre.Types
 open Sbre.Pat
 open Sbre.Optimizations
 
+let r = Regex ("a(|b)|[abc][abc]?")
+
+r.TSetMatcher.Cache.Minterms()
+
+// [abc]{0,1}
+
 let regex1 = Sbre.Regex(".*have.*&.*there.*")
 let cache1 = regex1.TSetMatcher.Cache
 let prefix1 = regex1.InitialReversePrefix
@@ -110,3 +116,5 @@ let charIsNegated =
     Solver.elemOfSet (cache5.Minterms()[0]) prefixSets5[0]
 
 let test5 = "\n\n\n____b_".AsSpan().IndexOfAnyExcept(chars)
+
+

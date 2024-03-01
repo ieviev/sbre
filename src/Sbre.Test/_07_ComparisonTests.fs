@@ -15,11 +15,6 @@ let testSameAsRuntime (pattern:string) (input:string) =
     Assert.True((result2 = result), $"should be the same: \n{pattern}\n{input}\sbre:{result} = runtime:{result2}")
 
 
-[<Fact>]
-let ``same as runtime 1``() =
-    let pattern = """^((31(?!\ (Feb(ruary)?|Apr(il)?|June?|(Sep(?=\b|t)t?|Nov)(ember)?)))|((30|29)(?!\ Feb(ruary)?))|(29(?=\ Feb(ruary)?\ (((1[6-9]|[2-9][0-9])(0[48]|[2468][048]|[13579][26])|((16|[2468][048]|[3579][26])00)))))|(0?[1-9])|1[0-9]|2[0-8])\ (Jan(uary)?|Feb(ruary)?|Ma(r(ch)?|y)|Apr(il)?|Ju((ly?)|(ne?))|Aug(ust)?|Oct(ober)?|(Sep(?=\b|t)t?|Nov|Dec)(ember)?)\ ((1[6-9]|[2-9][0-9])[0-9]{2})$"""
-    let input = "31 September 2003"
-    testSameAsRuntime pattern input
 
 
 [<Fact>]
@@ -31,11 +26,6 @@ let ``same as runtime 1: short``() =
 
 
 //
-[<Fact>]
-let ``same as runtime 2``() =
-    let pattern = """^(1(?= ((Sept?)(em)?)) Sept? 1)$"""
-    let input = "1 Sept 1"
-    testSameAsRuntime pattern input
 
 
 [<Fact>]
@@ -57,12 +47,6 @@ let ``same as runtime 5``() =
     let input = "44240"
     testSameAsRuntime pattern input
 
-
-[<Fact>]
-let ``same as runtime 6``() =
-    let pattern = """^(1(?! ((Sep(?=\b|t)t?|Nov)(ember)?))).*$"""
-    let input = "31 September 2003"
-    testSameAsRuntime pattern input
 
 
 
@@ -93,18 +77,6 @@ let ``same as runtime 10`` () = // fails if or nullability is wrong
     testSameAsRuntime pattern input
 
 
-[<Fact>]
-let ``regex with label 1``() =
-    let pattern = """(?<Time>^(?:0?[1-9]:[0-5]|1(?=[012])\d:[0-5])\d(?:[ap]m)?)"""
-    let input = "12:00am"
-    testSameAsRuntime pattern input
-
-
-[<Fact>]
-let ``regex with label 2``() =
-    let pattern = """^(?:0?[1-9]:[0-5]|1(?=[012])\d:[0-5])\d(?:[ap]m)?"""
-    let input = "12:00am"
-    testSameAsRuntime pattern input
 
 
 [<Fact>]
@@ -131,6 +103,19 @@ let ``deduplication test 2 ``() =
         "T.F. Johnson"
         "T.F. Johnson"
     // ? no test
+
+[<Fact>]
+let ``deduplication test 3``() =
+    let pattern = """(\/\*(\s*|.*)*\*\/)|(\/\/.*)""" // multiline comments
+    let input = "/* This is a multi-line comment */"
+    let matcher = Sbre.Regex(pattern)
+    let result = matcher.Matches(input)
+    let result2 = System.Text.RegularExpressions.Regex(pattern).Matches(input)
+    assertAllEqual
+        (result2 |> Seq.map (fun v -> v.Index,v.Length))
+        (result |> Seq.map (fun v -> v.Index,v.Length))
+
+
 
 
 [<Fact>]

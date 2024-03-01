@@ -1059,6 +1059,12 @@ public ref struct ExtendedRegexParser
                     ? null
                     : new RegexNode(RegexNodeKind.Set, _options & ~RegexOptions.IgnoreCase,
                         UseOptionE() ? RegexCharClass.ECMAWordClass : RegexCharClass.WordClass);
+            case 'T': // \T as TRUE
+                MoveRight();
+                return scanOnly
+                    ? null
+                    : new RegexNode(RegexNodeKind.Set, _options & ~RegexOptions.IgnoreCase,
+                        RegexCharClass.NotSpaceSpaceClass);
             case 'W':
                 MoveRight();
                 return scanOnly
@@ -1525,6 +1531,7 @@ public ref struct ExtendedRegexParser
         {
             'b' => UseOptionE() ? RegexNodeKind.ECMABoundary : RegexNodeKind.Boundary,
             'B' => UseOptionE() ? RegexNodeKind.NonECMABoundary : RegexNodeKind.NonBoundary,
+            'a' => RegexNodeKind.Beginning, // adding \a because why not
             'A' => RegexNodeKind.Beginning,
             'G' => RegexNodeKind.Start,
             'Z' => RegexNodeKind.EndZ,

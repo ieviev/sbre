@@ -2,10 +2,20 @@
 
 module Program
 
+open System
+open System.Globalization
 open Sbre
 open Sbre.Benchmarks
 open Sbre.Test
 open System
+
+
+let a = 1
+
+let b = 2
+
+let c = 3
+
 
 // let regex = Regex(@"(abc)+")
 // let a = Regex(@"abc(abc)*")
@@ -21,13 +31,12 @@ open System
 // let suite = Paper.Twain_1()
 // suite.Setup()
 
-// let suite = Paper.SampleRegexes()
+
 // let suite = Paper.SampleRegexes()
 // for pat in suite.Patterns do
 //     suite.Pattern <- pat
 //     suite.Setup()
-//
-//     for i = 1 to 100 do
+//     for i = 1 to 1000 do
 //         suite.Sbre() |> ignore
 
 let r = Regex("\wabc\W")
@@ -41,7 +50,6 @@ let dbg1 =1
 
 // let pref = Optimizations.Prefix2()
 // pref.FirstSetIndexOfChars()
-//
 
 let pref = Optimizations.PrefixCharsetSearch()
 

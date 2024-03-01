@@ -529,7 +529,7 @@ type SbreCombinedSearch(words: string list, input: string) =
 
     [<Benchmark>]
     member this.MatchWithConj() =
-        this.CombinedRegex.MatchPositions(inputText) |> Seq.toArray
+        this.CombinedRegex.MatchPositions(inputText) |> Seq.length
 
 
 
@@ -1149,32 +1149,108 @@ type TestAllEnginesAllPatternsMatchOnly(patterns: string list, input: string) =
     member val Compiled_Regex: System.Text.RegularExpressions.Regex =
         Unchecked.defaultof<_> with get, set
 
+
     member val Sbre_Regex: Regex = Unchecked.defaultof<_>  with get, set
 
 
     [<GlobalSetup>]
     member this.Setup() =
         this.None_Regex <- System.Text.RegularExpressions.Regex(this.Pattern, opts_None)
-        this.NonBack_Regex <- System.Text.RegularExpressions.Regex(this.Pattern, opts_NonBacktracking)
+        // this.NonBack_Regex <- System.Text.RegularExpressions.Regex(this.Pattern, opts_NonBacktracking)
         this.Compiled_Regex <- System.Text.RegularExpressions.Regex(this.Pattern, opts_Compiled)
         this.Sbre_Regex <- Regex(this.Pattern)
 
 
-    [<Benchmark(Description = "NonBacktrack")>]
-    member this.Symbolic() =
-        this.NonBack_Regex.Count(inputText)
+    // [<Benchmark(Description = "NonBacktrack")>]
+    // member this.Symbolic() =
+    //     this.NonBack_Regex.Count(inputText)
     //
-    [<Benchmark(Description = "Compiled")>]
-    member this.Compiled() =
-        this.Compiled_Regex.Count(inputText)
+    // [<Benchmark(Description = "Compiled")>]
+    // member this.Compiled() =
+    //     this.Compiled_Regex.Count(inputText)
 
-    [<Benchmark(Description = "None")>]
-    member this.None() =
-        this.None_Regex.Count(inputText)
+    // [<Benchmark(Description = "Sbre")>]
+    // member this.Sbre() =
+    //     this.Sbre_Regex.Count(inputText)
+
+    //
+    // [<Benchmark(Description = "None")>]
+    // member this.None() =
+    //     this.None_Regex.Count(inputText)
 
     [<Benchmark(Description = "Sbre")>]
     member this.Sbre() =
         this.Sbre_Regex.Count(inputText)
+
+    //
+    // [<Benchmark()>]
+    // member this.LastIndexOfOrdinalIgnoreCase() =
+    //     let span = inputText.AsSpan()
+    //     let mutable looping = true
+    //     let mutable count = 0
+    //     let mutable currPos = inputText.Length - 1
+    //     while looping do
+    //         let slice = span.Slice(0,currPos)
+    //         match slice.LastIndexOf("Sherlock Holmes", StringComparison.OrdinalIgnoreCase) with
+    //         | -1 -> looping <- false
+    //         | n ->
+    //             count <- count + 1
+    //             currPos <- n
+    //     if count <> 522 then
+    //         failwith $"invalid count: {count}" |> ignore
+    //
+    // [<Benchmark()>]
+    // member this.IndexOfOrdinalIgnoreCase() =
+    //     let span = inputText.AsSpan()
+    //     let mutable looping = true
+    //     let mutable count = 0
+    //     let mutable currPos = 0
+    //     let textLength = "Sherlock Holmes".Length
+    //     while looping do
+    //         let slice = span.Slice(currPos)
+    //         match slice.IndexOf("Sherlock Holmes", StringComparison.OrdinalIgnoreCase) with
+    //         | -1 -> looping <- false
+    //         | n ->
+    //             count <- count + 1
+    //             currPos <- currPos + n + textLength
+    //     if count <> 522 then
+    //         failwith $"invalid count: {count}" |> ignore
+
+    // [<Benchmark()>]
+    // member this.LastIndexOfOrdinal() =
+    //     let span = inputText.AsSpan()
+    //     let mutable looping = true
+    //     let mutable count = 0
+    //     let mutable currPos = inputText.Length - 1
+    //     while looping do
+    //         let slice = span.Slice(0,currPos)
+    //         match slice.LastIndexOf("Sherlock Holmes", StringComparison.Ordinal) with
+    //         | -1 -> looping <- false
+    //         | n ->
+    //             count <- count + 1
+    //             currPos <- n
+    //     if count <> 513 then
+    //         failwith $"{count}" |> ignore
+    //
+
+    //
+    // [<Benchmark()>]
+    // member this.IndexOfOrdinal() =
+    //     let span = inputText.AsSpan()
+    //     let mutable looping = true
+    //     let mutable count = 0
+    //     let mutable currPos = 0
+    //     let textLength = "Sherlock Holmes".Length
+    //     while looping do
+    //         let slice = span.Slice(currPos)
+    //         match slice.IndexOf("Sherlock Holmes", StringComparison.Ordinal) with
+    //         | -1 -> looping <- false
+    //         | n ->
+    //             count <- count + 1
+    //             currPos <- currPos + n + textLength
+    //     if count <> 513 then
+    //         failwith $"{count}" |> ignore
+
 
 
 
@@ -1368,7 +1444,7 @@ type TestAllEnginesAllPatternsWithCompileTime(patterns: (string) list, input: st
     // member val NumOfWords: int = 0 with get, set
     //
     member this.Patterns: System.Collections.Generic.IEnumerable<string> = patterns
-    member val CompiledEngine: Sbre.RegexMatcher<uint64> = Unchecked.defaultof<_> with get, set
+    member val CompiledEngine: Sbre.RegexMatcher<TSet> = Unchecked.defaultof<_> with get, set
 
     [<ParamsSource("Patterns")>]
     member val Pattern: string = "" with get, set
@@ -1376,7 +1452,7 @@ type TestAllEnginesAllPatternsWithCompileTime(patterns: (string) list, input: st
     [<GlobalSetup>]
     member this.Setup() =
         let regex = Regex(this.Pattern)
-        let matcher = regex.Matcher :?> RegexMatcher<uint64>
+        let matcher = regex.Matcher :?> RegexMatcher<TSet>
         this.CompiledEngine <- matcher
         ()
 
@@ -1416,7 +1492,7 @@ type TestAllEnginesAllPatternsWithCompileTime(patterns: (string) list, input: st
 type TestSbreAllPatternsWithCompileTime(patterns: (string) list, input: string) =
     let inputText = input
     member this.Patterns: System.Collections.Generic.IEnumerable<string> = patterns
-    member val CompiledEngine: Sbre.RegexMatcher<uint64> = Unchecked.defaultof<_> with get, set
+    member val CompiledEngine: Sbre.RegexMatcher<TSet> = Unchecked.defaultof<_> with get, set
     [<ParamsSource("Patterns")>]
     member val Pattern: string = "" with get, set
 
@@ -1434,14 +1510,14 @@ type TestSbreAllPatternsWithCompileTime(patterns: (string) list, input: string) 
 type TestSbreAllPatternsMatchOnly(patterns: (string) list, input: string) =
     let inputText = input
     member this.Patterns: System.Collections.Generic.IEnumerable<string> = patterns
-    member val CompiledEngine: Sbre.RegexMatcher<uint64> = Unchecked.defaultof<_> with get, set
+    member val CompiledEngine: Sbre.RegexMatcher<TSet> = Unchecked.defaultof<_> with get, set
     [<ParamsSource("Patterns")>]
     member val Pattern: string = "" with get, set
 
     [<GlobalSetup>]
     member this.Setup() =
         let regex = Regex(this.Pattern)
-        let matcher = regex.Matcher :?> RegexMatcher<uint64>
+        let matcher = regex.Matcher :?> RegexMatcher<TSet>
         this.CompiledEngine <- matcher
         ()
 
@@ -1449,7 +1525,28 @@ type TestSbreAllPatternsMatchOnly(patterns: (string) list, input: string) =
     member this.Sbre() =
         this.CompiledEngine.Count(inputText)
 
+[<MemoryDiagnoser(false)>]
+[<ShortRunJob>]
+[<AbstractClass>]
+[<HideColumns([| "" |])>]
+type TestSbreAllPatternsCountSpans(patterns: (string) list, input: string) =
+    let inputText = input
+    member this.Patterns: System.Collections.Generic.IEnumerable<string> = patterns
+    member val CompiledEngine: Sbre.RegexMatcher<TSet> = Unchecked.defaultof<_> with get, set
+    [<ParamsSource("Patterns")>]
+    member val Pattern: string = "" with get, set
 
+    [<GlobalSetup>]
+    member this.Setup() =
+        let regex = Regex(this.Pattern)
+        let matcher = regex.Matcher :?> RegexMatcher<TSet>
+        this.CompiledEngine <- matcher
+        ()
+
+    [<Benchmark(Description = "Sbre")>]
+    member this.Sbre() =
+        use asd = this.CompiledEngine.llmatch_all(inputText)
+        ()
 
 [<MemoryDiagnoser(false)>]
 [<ShortRunJob>]

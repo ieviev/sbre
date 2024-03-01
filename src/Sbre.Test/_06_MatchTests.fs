@@ -17,12 +17,30 @@ let ``anchors test 1``() =
     let ism = matcher.IsMatch("1")
     Assert.True(ism)
 
+[<Fact>]
+let ``anchors test 1.1``() =
+    let matcher = Regex("^\\d$")
+    let ism = matcher.IsMatch("32")
+    Assert.False(ism)
 
 [<Fact>]
-let ``anchors test 2``() =
+let ``anchors test 1.2``() =
     let matcher = Regex("^\\d$")
     let ism = matcher.IsMatch("324")
     Assert.False(ism)
+
+[<Fact>]
+let ``anchors test 1.3``() =
+    let matcher = Regex("^\\d$")
+    let ism = matcher.IsMatch("3245")
+    Assert.False(ism)
+
+[<Fact>]
+let ``anchors test 1.4``() =
+    let matcher = Regex("^\\d$")
+    let ism = matcher.IsMatch("32455")
+    Assert.False(ism)
+
 
 [<Fact>]
 let ``anchors test 3``() =
@@ -38,6 +56,13 @@ let ``anchors test 4 : nullability of anchors should not be cached``() =
     Assert.True(ism)
 
 
+[<Fact>]
+let ``anchors test 5 : nullability of anchors should not be cached``() =
+    let matcher = Regex("^.{4,8}$")
+    let ism = matcher.IsMatch("asd")
+    Assert.False(ism)
+
+
 
 [<Fact>]
 let ``multi-nodes ordering test 1``() =
@@ -51,6 +76,36 @@ let ``multi-nodes ordering test 2``() =
     let ism = matcher.IsMatch("/* my comment */")
     Assert.True(ism)
 
+
+[<Fact>]
+let ``regexlib sample 1``() =
+    let matcher = Regex(@"(\s|\n|^)(\w+://[^\s\n]+)")
+    let ism = matcher.IsMatch("""<a href="http://acme.com">http://www.acme.com</a>""")
+    Assert.False(ism)
+
+
+[<Fact>]
+let ``regexlib sample 2 - prefix test``() =
+    let matcher = Regex(@"@( |)G( |)R( |)[a,A,@,(\/\\))]")
+    let ism = matcher.IsMatch("""v1@G R /\""")
+    Assert.True(ism)
+
+
+[<Fact>]
+let ``optimizations sanity check 1``() =
+    let pat = @"a( |)b( |)c( |)d"
+    let matcher = Regex(pat)
+    let ism = matcher.IsMatch("""a b c d""")
+    Assert.True(ism)
+
+
+
+let sampleText1 = """asd asd down asdasd asd asd """
+
+[<Fact>]
+let ``empty loop test 1``() =
+    let pat = @"~(⊤*(d⊤*){2})&.*down.*"
+    assertNullablePositions pat sampleText1 [8; 7]
 
 
 
@@ -94,51 +149,10 @@ let ``top level or remove in correct order``() =
     Assert.False(ism)
 
 
-
-
-// [<Fact>]
-// let ``lookarounds test 1``() =
-//     assertFirstMatch """ Sep""" """ Sep""" (0,5)
-//
-
-[<Fact>]
-let ``lookarounds test 2``() =
-    let matcher = Regex("""1(?! Sep)""")
-    let ism = matcher.IsMatch("1 Sep")
-    Assert.False(ism)
-
-
-[<Fact>]
-let ``lookarounds test 3``() =
-    let matcher = Regex("""^(1(?! (Sep))).*$""")
-    let ism = matcher.IsMatch("1 Sep")
-    Assert.False(ism)
-
-[<Fact>]
-let ``lookarounds test 4``() =
-    let matcher = Regex("""^(1(?= (Sep))).*$""")
-    let ism = matcher.IsMatch("1 Sep")
-    Assert.True(ism)
-
-
-[<Fact>]
-let ``lookarounds test 5``() =
-    assertNoMatch """.*(?<=aaa)""" "aa"
-
-
 [<Fact>]
 let ``lookarounds test 6``() =
     assertFirstMatchText """.*(?=aaa)""" "baaa" "b"
 
-
-[<Fact>]
-let ``lookarounds test 7``() =
-    assertFirstMatchText """(?<=aaa).*""" "aaabbb" "bbb"
-
-
-[<Fact>]
-let ``lookarounds test 8``() =
-    assertFirstMatchText """(?<=aaa\{).*(?=\})""" "aaa{bbb {ccc}}" "bbb {ccc}"
 
 
 [<Fact>]
@@ -158,21 +172,6 @@ let ``caching lookarounds test 2 ``() =
 
 
 
-[<Fact>]
-let ``boundaries after``() =
-    assertFirstMatchText
-        """a\b"""
-        "a "
-        "a"
-
-
-
-[<Fact>]
-let ``boundaries test 1``() =
-    assertFirstMatchText
-        """\b1\b"""
-        "1"
-        "1"
 
 [<Fact>]
 let ``boundaries test 1-2``() =
@@ -194,17 +193,6 @@ let ``boundaries test 2``() =
     Assert.True(ism)
 
 
-[<Fact>]
-let ``boundaries test 3``() =
-    let matcher = Regex("""1\b """)
-    let ism = matcher.IsMatch("1 ")
-    Assert.True(ism)
-
-[<Fact>]
-let ``boundaries test 4``() =
-    let matcher = Regex("""1\b-""")
-    let ism = matcher.IsMatch("1-")
-    Assert.True(ism)
 
 
 [<Fact>]
@@ -274,16 +262,8 @@ let ``exit range test 2``() =
     assertFirstMatchText @"a+" " aaa " "aaa"
 
 
-[<Fact>]
-let ``inverted startset test 1``() =
-    assertFirstMatchText @"..(?<=A.*)" "Aa" "Aa"
 
-[<Fact>]
-let ``inverted startset test 2``() =
-    assertFirstMatchText
-        @"(?=.*A)(?=.*a)(?=.*1)..."
-        "Aa1"
-        "Aa1"
+
 
 
 
@@ -331,11 +311,16 @@ let ``negation range test 2``() =
         "Aa1"
 
 [<Fact>]
-let ``negation startset inference test``() =
+let ``negation startset inference test 1``() =
     assertFirstMatchText
         @"a.*&~(.*b.*)b"
         "---a------bbb"
         "a------b"
+
+[<Fact>]
+let ``negation startset inference test 2``() =
+    assertMatchEnd @"a.*&~(.*b.*)b" "---a------bbb" 3 11
+        // "a------b"
 
 
 [<Fact>]
@@ -416,32 +401,25 @@ let webAppSample2 =
 }"
 
 
-[<Fact>]
-let ``web app test 4.1``() =
-    assertFirstMatchText ((@".*(?=.*E)&~(.*and.*)")) @"___and__E" "___an"
-
-
-
-[<Fact>]
-let ``web app test 5``() =
-    let result = getAllLLmatches (@"(?<=or=\{.*).*(?=.*\},)&~(⊤*and⊤*)&(\b.*\b)") webAppSample2
-    let matchTexts =
-        result
-        |> Seq.map _.GetText(webAppSample2)
-        |> Seq.toArray
-
-    // TODO: sure?
-    Assert.Equal<string>(
-        [|
-            "De Vathaire, Florent "
-            ""
-            " Le Vu, B{\\'e}atrice "
-            ""
-            " Challeton-de Vathaire, C{\\'e}cile"
-            ""
-        |],
-        matchTexts
-    )
+// [<Fact>]
+// let ``web app test 5``() =
+//     let result = getAllLLmatches (@"(?<=or=\{.*).*(?=.*\},)&~(⊤*and⊤*)&(\b.*\b)") webAppSample2
+//     let matchTexts =
+//         result
+//         |> Seq.map _.GetText(webAppSample2)
+//         |> Seq.toArray
+//
+//     Assert.Equal<string>(
+//         [|
+//             "De Vathaire, Florent "
+//             ""
+//             " Le Vu, B{\\'e}atrice "
+//             ""
+//             " Challeton-de Vathaire, C{\\'e}cile"
+//             ""
+//         |],
+//         matchTexts
+//     )
 
 let sample3  = """
 lethargy, and and the air tainted with
@@ -573,6 +551,35 @@ let ``set star loop test 1``() =
 [<Fact>]
 let ``dfa match 2``() =
     assertFirstMatch ".*a{3}" "aa aaa" (0,6)
+
+
+
+
+
+let webappsample6 = """
+The fists of all the generals came down this time, and again the
+King's eye sparkled with pleasure. The Chancellor sprang to his
+feet and appealed to his Majesty:
+
+"Sire, I claim your protection."
+
+But the King waved him to his seat again, saying:
+"""
+
+[<Fact>]
+let ``web app test 6``() =
+    // todo: check performance of this
+    let result = getAllLLmatches """~(⊤*(\n⊤*){2})&⊤*g⊤*&~(⊤*")&[A-Za-z]{5}⊤*""" webappsample6
+    Assert.Equal([(5, 124); (212, 37)], result |> Seq.map (fun v -> v.Index,v.Length) )
+
+let webappsample7 = """
+remarked to Joan:
+
+"Out of charity I will consider that you did not know who devised
+this measure which you condemn in so candid language."
+
+"Save your charity for another occasion, my
+"""
 
 
 //

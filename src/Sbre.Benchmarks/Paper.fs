@@ -145,7 +145,6 @@ type DebugSbre3() =
         "\s([A-Za-z]awyer|[A-Za-z]inn)\s"
 
         // "Twain"
-
         // Permutations.permuteConjInLine ["th.*at"; "an.*d"; "th.*e";"wa.*s"]
         // Permutations.permuteAltInLine [@"whi[a-z]*h";@"cou[a-z]*d"; @"the[a-z]*e" ]
     ], fullInput)
@@ -316,25 +315,6 @@ type Lines2() =
         )
 
 
-//
-// .*Huck.*&.*Finn.*&~(.*berry.*)
-
-
-
-type Twain_1() =
-    inherit
-        Jobs.TestAllEngines(
-            // "Twain", // OK
-            // "(?i)Twain", // .net faster
-            // "[a-z]shing", // .net faster
-            @"Huck[a-zA-Z]+|Saw[a-zA-Z]+", // .net
-            // "[a-q][^u-z]{13}x", // ????
-            // "Tom|Sawyer|Huckleberry|Finn", // same
-            fullInput
-        )
-
-
-
 type TwainRegexes() =
     inherit
         Jobs.TestAllEnginesAllPatternsWithCompileTime(
@@ -362,6 +342,8 @@ type TwainRegexesMatchOnly() =
     inherit
         Jobs.TestAllEnginesAllPatternsMatchOnly(
             [
+               // """(?<=\W)\w+nn(?=\W)"""
+               """\b\w+nn\b"""
                "Twain"
                "(?i)Twain"
                "[a-z]shing"
@@ -379,6 +361,97 @@ type TwainRegexesMatchOnly() =
             ],
             fullInput
         )
+
+let sherlock = "/mnt/g/repos/rebar/benchmarks/haystacks/sherlock.txt" |> System.IO.File.ReadAllText
+
+type Rebar1() =
+    inherit
+        Jobs.TestAllEnginesAllPatternsMatchOnly(
+            [
+               // """Sherlock Holmes"""
+               """(?i)Sherlock Holmes"""
+            ],
+            fullInput
+        )
+type Rebar1Ru() =
+    inherit
+        // Jobs.TestSbreAllPatternsCountSpans(
+        // Jobs.TestSbreAllPatternsMatchOnly(
+        Jobs.TestAllEnginesAllPatternsMatchOnly(
+            [
+               // """Шерлок Холмс"""
+               """(?i)Шерлок Холмс"""
+            ],
+            "/mnt/g/repos/rebar/benchmarks/haystacks/opensubtitles/ru-sampled.txt" |> System.IO.File.ReadAllText
+        )
+
+type Rebar2() =
+    inherit
+        // Jobs.TestSbreAllPatternsCountSpans(
+        // Jobs.TestSbreAllPatternsMatchOnly(
+        Jobs.TestAllEnginesAllPatternsMatchOnly(
+            [
+               // """Sherlock Holmes|John Watson|Irene Adler|Inspector Lestrade|Professor Moriarty"""
+               """Sherlock H|John W|Irene A|Inspector L|Professor M"""
+            ],
+            "/mnt/g/repos/rebar/benchmarks/haystacks/opensubtitles/en-sampled.txt" |> System.IO.File.ReadAllText
+        )
+
+type Rebar6() =
+    inherit
+        Jobs.TestSbreAllPatternsCountSpans(
+        // Jobs.TestSbreAllPatternsMatchOnly(
+        // Jobs.TestAllEnginesAllPatternsMatchOnly(
+            [
+               """.*.*=.*"""
+            ],
+            "/mnt/g/repos/rebar/benchmarks/haystacks/cloud-flare-redos.txt" |> System.IO.File.ReadAllText
+        )
+
+type Rebar4() =
+    inherit
+        // Jobs.TestSbreAllPatternsCountSpans(
+        // Jobs.TestSbreAllPatternsMatchOnly(
+        Jobs.TestAllEnginesAllPatternsMatchOnly(
+            [
+               """Sherlock Holmes|John Watson|Irene Adler|Inspector Lestrade|Professor Moriarty"""
+            ],
+            "/mnt/g/repos/rebar/benchmarks/haystacks/opensubtitles/en-sampled.txt" |> System.IO.File.ReadAllText
+        )
+
+type Rebar5() =
+    inherit
+        Jobs.TestAllEnginesAllPatternsMatchOnly(
+            [
+               """\b[0-9A-Za-z_]+\b"""
+            ],
+            "/mnt/g/repos/rebar/benchmarks/haystacks/opensubtitles/en-sampled.txt" |> System.IO.File.ReadAllText
+        )
+
+
+type Rebar10() =
+    inherit
+        Jobs.TestAllEnginesAllPatternsMatchOnly(
+            [
+               """[A-Za-z]{10}\s+[\s\S]{0,100}Result[\s\S]{0,100}\s+[A-Za-z]{10}"""
+            ],
+            // "/mnt/g/repos/rebar/benchmarks/haystacks/rust-src-tools-3b0d4813.txt" |> System.IO.File.ReadAllText
+            let all = "/mnt/g/repos/rebar/benchmarks/haystacks/rust-src-tools-3b0d4813.txt" |> System.IO.File.ReadAllText
+            // all[..500000]
+            all
+        )
+
+
+type Rebar14() =
+    inherit
+        Jobs.TestAllEnginesAllPatternsMatchOnly(
+            [
+               """.*[^A-Z]|[A-Z]"""
+            ],
+            String.replicate 200 "A"
+        )
+
+
 
 type CounterCompileTimeRegexes() =
     inherit
@@ -410,23 +483,27 @@ type CounterMatchTimeRegexes() =
 
 type SampleRegexes() =
     inherit
-        Jobs.TestSbreAllPatternsMatchOnly(
+        // Jobs.TestSbreAllPatternsMatchOnly(
+        Jobs.TestSbreAllPatternsCountSpans(
             [
-               "Twain"
-               "(?i)Twain"
-               "[a-z]shing"
-               @"Huck[a-zA-Z]+|Saw[a-zA-Z]+"
-               "[a-q][^u-z]{13}x"
-               // "Tom|Sawyer|Huckleberry|Finn"
-               // "(?i)Tom|Sawyer|Huckleberry|Finn"
-               // ".{0,2}(Tom|Sawyer|Huckleberry|Finn)"
-               // ".{2,4}(Tom|Sawyer|Huckleberry|Finn)"
+               // "Twain"
+               // "(?i)Twain"
+               // "[a-z]shing"
+               // @"Huck[a-zA-Z]+|Saw[a-zA-Z]+"
+               // "[a-q][^u-z]{13}x"
+               "Tom|Sawyer|Huckleberry|Finn"
+               "(?i)Tom|Sawyer|Huckleberry|Finn"
+               ".{0,2}(Tom|Sawyer|Huckleberry|Finn)"
+               ".{2,4}(Tom|Sawyer|Huckleberry|Finn)"
                // "Tom.{10,25}river|river.{10,25}Tom"
                // "[a-zA-Z]+ing"
                // "\s[a-zA-Z]{0,12}ing\s"
                // "\s([A-Za-z]awyer|[A-Za-z]inn)\s"
                // """["'][^"']{0,30}[?!\.]["']"""
+               // """\b\w+nn\b"""
                // -----------------
+               // """(?<=\W)\w+nn(?=\W)"""
+               // """(?<=\a|\W)\w+nn(?=\W|\z)"""
                // @"[a-z][a-z]shing"
                // @"[a-z][a-z]sh(?=ing)"
                 // Permutations.permuteConjInParagraph ["Huck";]
@@ -447,6 +524,8 @@ type ParagraphRegexes() =
             ["Huck"; "Finn"; "Tom"; "Sawyer"; "Usually"],
             fullInput
         )
+
+
 
 
 
