@@ -72,7 +72,4 @@
       <PackagePath>lib/$(TargetFramework)/</PackagePath>
     </Content>
   </ItemGroup>
-  <ItemGroup>
-    <!--    <PackageReference Update="FSharp.Core" Version="8.0.*" />-->
-  </ItemGroup>
 </Project>
