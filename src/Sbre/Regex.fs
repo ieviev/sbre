@@ -1212,9 +1212,9 @@ type RegexMatcher<'t when 't: struct>
     override this.EnumerateMatches(input) = (this.llmatch_all input).AsSpan()
     override this.ProcessedPattern =
         AppContext.SetData("RegexNode.MaxPrintWidth", 100000)
-        let a = _cache.PrettyPrintNode(R_canonical)
+        // let a = _cache.PrettyPrintNode(R_canonical)
         AppContext.SetData("RegexNode.MaxPrintWidth", null)
-        a
+        ""
 
     // accessors
     member this.InitialOptimizations = _initialOptimizations

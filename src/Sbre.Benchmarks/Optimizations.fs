@@ -179,7 +179,7 @@ let prefixSearchWeightedReversed3
         match textSpan.Slice(0, prevMatch).LastIndexOfAny(rarestCharSet.SearchValues) with
         // | curMatch when (curMatch - rarestCharSetIndex >= 0 && curMatch - rarestCharSetIndex + weightedSets.Length < textSpan.Length) ->
         | curMatch when (curMatch - rarestCharSetIndex >= 0 && curMatch - rarestCharSetIndex + charSetsCount <= currentPosition) ->
-            let absMatchStart = curMatch - rarestCharSetIndex 
+            let absMatchStart = curMatch - rarestCharSetIndex
             let mutable fullMatch = true
             let mutable i = 1
             while fullMatch && i < charSetsCount do
@@ -283,17 +283,17 @@ let collectNullablePositionsWeightedSkip3 ( matcher: RegexMatcher<TSet>, loc: by
 
     nullableCount
 
-    
+
 
 
 [<MemoryDiagnoser(true)>]
-// [<ShortRunJob>]
+[<ShortRunJob>]
 type PrefixCharsetSearch () =
 
     // let regex = Sbre.Regex("Huck[a-zA-Z]+|Saw[a-zA-Z]+")
     // let regex = Sbre.Regex("[a-zA-Z]+ckle|[a-zA-Z]+awy")
     // let regex = Sbre.Regex(".*have.*&.*there.*")
-    
+
     let regex = Sbre.Regex("Sherlock Holmes|John Watson|Irene Adler|Inspector Lestrade|Professor Moriarty")
     // Sets:          [IJlo];[or];[ ceh.0];[LMkn];[ eo];[ HWrs];[Aaiot];[adlrt];[almrs];[deot];[enrsy]
     // Weighted sets 1: [or];[ eo];[IJlo];[LMkn];[ HWrs];[ ceh];[deot];[Aaiot];[adlrt];[almrs];[enrsy]
@@ -309,17 +309,22 @@ type PrefixCharsetSearch () =
     let cache = regex.TSetMatcher.Cache
     let matcher = regex.TSetMatcher
     let optimizations = matcher.InitialOptimizations
-     
+
     let reversedPrefixSpan =
         match optimizations with
-        | InitialOptimizations.SetsPotentialStart(prefix) ->
-            prefix
+        | InitialOptimizations.SetsPotentialStart(prefix) -> prefix
+        | InitialOptimizations.SearchValuesPotentialStart(_,prefix) -> prefix
+        | InitialOptimizations.SetsPrefix(prefix, stateId) -> prefix
         | _ -> failwith "todo"
 
     let prefixSets =
         match optimizations with
         | InitialOptimizations.SetsPotentialStart(prefixMem) ->
             Array.toList (prefixMem.ToArray()) |> List.rev
+        | InitialOptimizations.SearchValuesPotentialStart(_,prefixMem) ->
+            Array.toList (prefixMem.ToArray()) |> List.rev
+        | InitialOptimizations.SetsPrefix(prefix, transitionNodeId) ->
+            Array.toList (prefix.ToArray()) |> List.rev
         | _ -> failwith "debug"
 
     let test = cache.MintermSearchValues(prefixSets[0])
@@ -368,7 +373,7 @@ type PrefixCharsetSearch () =
         )
         |> Seq.toArray
 
-    
+
     // [<Benchmark>]
     // member this.NoSkip() =
     //     let textSpan = fullInput.AsSpan()
@@ -402,9 +407,9 @@ type PrefixCharsetSearch () =
         let textSpan = testInput.AsSpan()
         let mutable loc = Location.createReversedSpan textSpan // end position, location reversed
         collectNullablePositionsWeightedSkip3 (matcher, &loc, &weightedCharsetsArray3)
-        
-        
-    
+
+
+
     member this.TestSkip(loc:Location) : int =
         let skipResult = matcher.Cache.TryNextStartsetLocationArrayReversed( &loc, reversedPrefixSpan.Span )
         match skipResult with
