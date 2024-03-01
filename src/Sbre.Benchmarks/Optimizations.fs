@@ -208,20 +208,22 @@ let prefixSearchWeightedReversed3
             | MintermSearchMode.InvertedSearchValues -> textSpan.Slice(0, prevMatch).LastIndexOfAnyExcept(rarestCharSet.SearchValues)
             | MintermSearchMode.SearchValues -> textSpan.Slice(0, prevMatch).LastIndexOfAny(rarestCharSet.SearchValues)
             | MintermSearchMode.TSet ->
-                let slice = textSpan.Slice(0, prevMatch)
-                let mutable e = slice.GetEnumerator()
-                let sequenceOfChars =
-                    seq {
-                        while e.MoveNext() do
-                            yield e.Current
-                    }
-                let index =
-                    sequenceOfChars
-                    |> Seq.findIndex (fun v ->
-                        let mt = cache.Classify(v)
-                        Solver.elemOfSet mt rarestCharSet.Minterm
-                    )
-                index
+                // let slice = textSpan.Slice(0, prevMatch)
+                // // [| 0; 1; 3; ;4 5|]
+                // //       ________
+                // let mutable e = slice.GetEnumerator()
+                // let sequenceOfChars =
+                //     seq {
+                //         while e.MoveNext() do
+                //             yield e.Current
+                //     }
+                // let index =
+                //     sequenceOfChars
+                //     |> Seq.findIndex (fun v ->
+                //         let mt = cache.Classify(v)
+                //         Solver.elemOfSet mt rarestCharSet.Minterm
+                    // )
+                failwith "todo: search TSet from text"
             | _ -> failwith "invalid enum"
 
 
@@ -319,7 +321,7 @@ let collectNullablePositionsWeightedSkip3 ( matcher: RegexMatcher<TSet>, loc: by
         dfaState <- _stateArray[currentStateId]
         let flags = dfaState.Flags
         if flags.IsInitial then
-            prefixSearchWeightedReversed3 &loc &weightedSets
+            prefixSearchWeightedReversed3 matcher.Cache &loc &weightedSets
 
         if matcher.StateIsNullable(flags, &loc, currentStateId) then
             nullableCount <- nullableCount + 1
