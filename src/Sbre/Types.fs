@@ -132,6 +132,10 @@ module RegexStateFlagsExtensions =
         member this.IsAlwaysNullable = this &&& RegexStateFlags.AlwaysNullableFlag = RegexStateFlags.AlwaysNullableFlag
 
         [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+        member this.IsInitial = this &&& RegexStateFlags.InitialFlag = RegexStateFlags.InitialFlag
+
+
+        [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
         member this.CannotBeCached = this &&& (
             // RegexStateFlags.ContainsLookaroundFlag |||
             RegexStateFlags.DependsOnAnchor) <> RegexStateFlags.None

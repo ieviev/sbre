@@ -39,12 +39,20 @@ let c = 3
 //     for i = 1 to 1000 do
 //         suite.Sbre() |> ignore
 
-let r = Regex("\wabc\W")
 
-let mts = r.TSetMatcher.Cache.Minterms()
-let searchvalues =
-    mts
-    |> Array.map r.TSetMatcher.Cache.MintermSearchValues2
+let data = 
+    "/home/ian/f/ttu/sbre-optimization/src/Sbre.Benchmarks/data/sherlock.txt"
+    |> System.IO.File.ReadAllText
+
+let r = Regex(@"\w+nn\W")
+
+
+let count = r.Count(data)
+
+// let mts = r.TSetMatcher.Cache.Minterms()
+// let searchvalues =
+//     mts
+//     |> Array.map r.TSetMatcher.Cache.MintermSearchValues
 
 let dbg1 =1
 

@@ -1217,6 +1217,8 @@ type RegexMatcher<'t when 't: struct>
         a
 
     // accessors
+    member this.InitialOptimizations = _initialOptimizations
+    member this.DfaStateArray = _stateArray
     member this.TrueStarredPattern = trueStarredNode
     member this.ReverseTrueStarredPattern = reverseTrueStarredNode
     member this.RawPattern = R_canonical

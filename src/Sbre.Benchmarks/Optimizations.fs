@@ -12,6 +12,7 @@ open System
 open Sbre.Pat
 open Sbre.Types
 open System.Text.Json.Nodes
+open System.Buffers
 // let fullInput = __SOURCE_DIRECTORY__ + "/data/input-text.txt" |> System.IO.File.ReadAllText
 let fullInput = __SOURCE_DIRECTORY__ + "/data/sherlock.txt" |> System.IO.File.ReadAllText
                 |> String.replicate 100
@@ -32,7 +33,6 @@ let collectNullablePositionsNoSkip ( matcher: RegexMatcher<TSet>, loc: byref<Loc
     let mutable looping = true
     let mutable currentStateId = matcher.GetOrCreateState(matcher.ReverseTrueStarredPattern).Id
     let _stateArray = matcher.DfaStateArray
-    let rstate = Sbre.CountingSet.RegexState(matcher.Cache.NumOfMinterms())
     let mutable dfaState = _stateArray[currentStateId]
     let mutable nullableCount = 0
 
@@ -42,11 +42,11 @@ let collectNullablePositionsNoSkip ( matcher: RegexMatcher<TSet>, loc: byref<Loc
         if flags.IsInitial then
             loc.Position <- loc.Position
 
-        if matcher.StateIsNullable(flags, rstate, &loc, dfaState) then
+        if matcher.StateIsNullable(flags, &loc, currentStateId) then
             nullableCount <- nullableCount + 1
 
         if loc.Position > 0 then
-            matcher.TakeTransition(rstate, flags, &currentStateId, &loc)
+            matcher.TakeTransition(flags, &currentStateId, &loc)
             loc.Position <- Location.nextPosition loc
         else
             looping <- false
@@ -60,7 +60,6 @@ let collectNullablePositionsOriginal ( matcher: RegexMatcher<TSet>, loc: byref<L
     let mutable looping = true
     let mutable currentStateId = matcher.GetOrCreateState(matcher.ReverseTrueStarredPattern).Id
     let _stateArray = matcher.DfaStateArray
-    let rstate = Sbre.CountingSet.RegexState(matcher.Cache.NumOfMinterms())
     let mutable dfaState = _stateArray[currentStateId]
     let mutable nullableCount = 0
 
@@ -68,19 +67,19 @@ let collectNullablePositionsOriginal ( matcher: RegexMatcher<TSet>, loc: byref<L
         dfaState <- _stateArray[currentStateId]
         let flags = dfaState.Flags
         if flags.IsInitial then
-            matcher.TrySkipInitialRev(&loc, &dfaState, &currentStateId)
+            matcher.TrySkipInitialRev(&loc, &currentStateId) |> ignore
 
-        if matcher.StateIsNullable(flags, rstate, &loc, dfaState) then
+        if matcher.StateIsNullable(flags, &loc, currentStateId) then
             nullableCount <- nullableCount + 1
 
         if loc.Position > 0 then
-            matcher.TakeTransition(rstate, flags, &currentStateId, &loc)
+            matcher.TakeTransition(flags, &currentStateId, &loc)
             loc.Position <- Location.nextPosition loc
         else
             looping <- false
 
     nullableCount
-    
+
 let loadJsonCharFrequencies (jsonText: string) =
     let json = JsonValue.Parse jsonText
     (json.Item "characters").AsArray() |> Seq.map (fun charFreq ->
@@ -102,7 +101,7 @@ let commonalityScore3 (charSet: char array) =
     |> Array.sum
 
 let prefixSearchWeightedReversed (loc: byref<Location>) (cache: RegexCache<TSet>)
-    (weightedSets: inref<(int * SearchValues<char>) list>) =
+    (weightedSets: inref<(int * MintermSearchValues) list>) =
     let textSpan = loc.Input
     let rarestCharSet = snd weightedSets[0]
     let rarestCharSetIndex = fst weightedSets[0]
@@ -110,7 +109,7 @@ let prefixSearchWeightedReversed (loc: byref<Location>) (cache: RegexCache<TSet>
 
     let mutable prevMatch = loc.Position
     while searching do
-        match textSpan.Slice(0, prevMatch).LastIndexOfAny(rarestCharSet) with
+        match textSpan.Slice(0, prevMatch).LastIndexOfAny(rarestCharSet.SearchValues) with
         // | curMatch when (curMatch - rarestCharSetIndex >= 0 && curMatch - rarestCharSetIndex + weightedSets.Length <= textSpan.Length) ->
         | curMatch when (curMatch - rarestCharSetIndex >= 0 && curMatch - rarestCharSetIndex + weightedSets.Length <= loc.Position) ->
             let absMatchStart = curMatch - rarestCharSetIndex
@@ -118,7 +117,7 @@ let prefixSearchWeightedReversed (loc: byref<Location>) (cache: RegexCache<TSet>
             let mutable i = 1
             while i < weightedSets.Length && absMatchStart + (fst weightedSets[i]) < textSpan.Length && fullMatch do
                 let set = snd weightedSets[i]
-                if textSpan.Slice(absMatchStart + (fst weightedSets[i]), 1).IndexOfAny(set) = -1 then
+                if textSpan.Slice(absMatchStart + (fst weightedSets[i]), 1).IndexOfAny(set.SearchValues) = -1 then
                     fullMatch <- false
                 else
                     i <- i + 1
@@ -134,14 +133,15 @@ let prefixSearchWeightedReversed (loc: byref<Location>) (cache: RegexCache<TSet>
 
 let prefixSearchWeightedReversed2
     (loc: byref<Location>)
-    (weightedSets: inref<struct(int * SearchValues<char>) array>) =
+    (weightedSets: inref<struct(int * MintermSearchValues) array>) =
     // (a * b) is a reference tuple, struct(a * b) is a struct tuple
     let textSpan = loc.Input
     let struct(rarestCharSetIndex, rarestCharSet) = weightedSets[0]
     let mutable searching = true
     let mutable prevMatch = loc.Position
     while searching do
-        match textSpan.Slice(0, prevMatch).LastIndexOfAny(rarestCharSet) with
+        // todo: .SearchValues
+        match textSpan.Slice(0, prevMatch).LastIndexOfAny(rarestCharSet.SearchValues) with
         | curMatch when (curMatch - rarestCharSetIndex >= 0 && curMatch - rarestCharSetIndex + weightedSets.Length <= loc.Position) ->
             let absMatchStart = curMatch - rarestCharSetIndex
             let mutable fullMatch = true
@@ -168,7 +168,7 @@ let prefixSearchWeightedReversed2
 
 let prefixSearchWeightedReversed3
     (loc: byref<Location>)
-    (weightedSets: inref<struct(int * SearchValues<char>) array>) =
+    (weightedSets: inref<struct(int * MintermSearchValues) array>) =
     let textSpan = loc.Input
     let currentPosition = loc.Position
     let charSetsCount = weightedSets.Length
@@ -176,7 +176,7 @@ let prefixSearchWeightedReversed3
     let mutable searching = true
     let mutable prevMatch = currentPosition
     while searching do
-        match textSpan.Slice(0, prevMatch).LastIndexOfAny(rarestCharSet) with
+        match textSpan.Slice(0, prevMatch).LastIndexOfAny(rarestCharSet.SearchValues) with
         // | curMatch when (curMatch - rarestCharSetIndex >= 0 && curMatch - rarestCharSetIndex + weightedSets.Length < textSpan.Length) ->
         | curMatch when (curMatch - rarestCharSetIndex >= 0 && curMatch - rarestCharSetIndex + charSetsCount <= currentPosition) ->
             let absMatchStart = curMatch - rarestCharSetIndex 
@@ -203,13 +203,12 @@ let prefixSearchWeightedReversed3
     ()
 
 
-let collectNullablePositionsWeightedSkip ( matcher: RegexMatcher<TSet>, loc: byref<Location>, weightedSets: inref<(int * SearchValues<char>) list> ) =
+let collectNullablePositionsWeightedSkip ( matcher: RegexMatcher<TSet>, loc: byref<Location>, weightedSets: inref<(int * MintermSearchValues) list> ) =
     assert (loc.Position > -1)
     assert (loc.Reversed = true)
     let mutable looping = true
     let mutable currentStateId = matcher.GetOrCreateState(matcher.ReverseTrueStarredPattern).Id
     let _stateArray = matcher.DfaStateArray
-    let rstate = Sbre.CountingSet.RegexState(matcher.Cache.NumOfMinterms())
     let mutable dfaState = _stateArray[currentStateId]
     let mutable nullableCount = 0
 
@@ -219,12 +218,11 @@ let collectNullablePositionsWeightedSkip ( matcher: RegexMatcher<TSet>, loc: byr
         if flags.IsInitial then
             prefixSearchWeightedReversed &loc matcher.Cache &weightedSets
 
-
-        if matcher.StateIsNullable(flags, rstate, &loc, dfaState) then
+        if matcher.StateIsNullable(flags, &loc, currentStateId) then
             nullableCount <- nullableCount + 1
 
         if loc.Position > 0 then
-            matcher.TakeTransition(rstate, flags, &currentStateId, &loc)
+            matcher.TakeTransition(flags, &currentStateId, &loc)
             loc.Position <- Location.nextPosition loc
         else
             looping <- false
@@ -232,19 +230,15 @@ let collectNullablePositionsWeightedSkip ( matcher: RegexMatcher<TSet>, loc: byr
     nullableCount
 
 // ---------- slightly modified
-let collectNullablePositionsWeightedSkip2 (
-    matcher: RegexMatcher<TSet>,
-    loc: byref<Location>,
-    weightedSets: inref<struct (int * SearchValues<char>) array> // <- F# list lookup is slow
-    ) =
+
+let collectNullablePositionsWeightedSkip2 ( matcher: RegexMatcher<TSet>, loc: byref<Location>, weightedSets: inref<struct (int * MintermSearchValues) array> ) =
+    assert (loc.Position > -1)
     assert (loc.Reversed = true)
     let mutable looping = true
     let mutable currentStateId = matcher.GetOrCreateState(matcher.ReverseTrueStarredPattern).Id
     let _stateArray = matcher.DfaStateArray
-    let rstate = Sbre.CountingSet.RegexState(matcher.Cache.NumOfMinterms())
     let mutable dfaState = _stateArray[currentStateId]
     let mutable nullableCount = 0
-
 
     while looping do
         dfaState <- _stateArray[currentStateId]
@@ -252,30 +246,25 @@ let collectNullablePositionsWeightedSkip2 (
         if flags.IsInitial then
             prefixSearchWeightedReversed2 &loc &weightedSets
 
-        if matcher.StateIsNullable(flags, rstate, &loc, dfaState) then
+        if matcher.StateIsNullable(flags, &loc, currentStateId) then
             nullableCount <- nullableCount + 1
 
         if loc.Position > 0 then
-            matcher.TakeTransition(rstate, flags, &currentStateId, &loc)
+            matcher.TakeTransition(flags, &currentStateId, &loc)
             loc.Position <- Location.nextPosition loc
         else
             looping <- false
 
     nullableCount
-    
-let collectNullablePositionsWeightedSkip3 (
-    matcher: RegexMatcher<TSet>,
-    loc: byref<Location>,
-    weightedSets: inref<struct (int * SearchValues<char>) array>
-    ) =
+
+let collectNullablePositionsWeightedSkip3 ( matcher: RegexMatcher<TSet>, loc: byref<Location>, weightedSets: inref<struct (int * MintermSearchValues) array> ) =
+    assert (loc.Position > -1)
     assert (loc.Reversed = true)
     let mutable looping = true
     let mutable currentStateId = matcher.GetOrCreateState(matcher.ReverseTrueStarredPattern).Id
     let _stateArray = matcher.DfaStateArray
-    let rstate = Sbre.CountingSet.RegexState(matcher.Cache.NumOfMinterms())
     let mutable dfaState = _stateArray[currentStateId]
     let mutable nullableCount = 0
-
 
     while looping do
         dfaState <- _stateArray[currentStateId]
@@ -283,17 +272,18 @@ let collectNullablePositionsWeightedSkip3 (
         if flags.IsInitial then
             prefixSearchWeightedReversed3 &loc &weightedSets
 
-        if matcher.StateIsNullable(flags, rstate, &loc, dfaState) then
+        if matcher.StateIsNullable(flags, &loc, currentStateId) then
             nullableCount <- nullableCount + 1
 
         if loc.Position > 0 then
-            matcher.TakeTransition(rstate, flags, &currentStateId, &loc)
+            matcher.TakeTransition(flags, &currentStateId, &loc)
             loc.Position <- Location.nextPosition loc
         else
             looping <- false
 
     nullableCount
 
+    
 
 
 [<MemoryDiagnoser(true)>]
@@ -318,31 +308,27 @@ type PrefixCharsetSearch () =
 
     let cache = regex.TSetMatcher.Cache
     let matcher = regex.TSetMatcher
-    let optimizations =
-        Sbre.Optimizations.findInitialOptimizations
-            (fun node -> matcher.GetOrCreateState(node).Id)
-            (fun node -> matcher.GetOrCreateState(node).Flags)
-            matcher.Cache
-            matcher.ReversePattern
-            matcher.ReverseTrueStarredPattern
-
+    let optimizations = matcher.InitialOptimizations
+     
     let reversedPrefixSpan =
         match optimizations with
-        | InitialOptimizations.PotentialStartPrefix(prefix) ->
+        | InitialOptimizations.SetsPotentialStart(prefix) ->
             prefix
         | _ -> failwith "todo"
 
     let prefixSets =
         match optimizations with
-        | InitialOptimizations.PotentialStartPrefix(prefixMem) ->
+        | InitialOptimizations.SetsPotentialStart(prefixMem) ->
             Array.toList (prefixMem.ToArray()) |> List.rev
         | _ -> failwith "debug"
+
+    let test = cache.MintermSearchValues(prefixSets[0])
     let weightedSets = prefixSets |> List.mapi (fun i set ->
-            (i, set, commonalityScore (cache.MintermChars(set).ToArray())))
+            (i, set, commonalityScore (cache.MintermChars(set).Value.Span.ToArray())))
                        |> List.sortBy (fun (_, _, score) -> score )
                        |> List.map (fun (i, set, _) -> (i, set))
     let weightedSets3 = prefixSets |> List.mapi (fun i set ->
-            (i, set, commonalityScore3 (cache.MintermChars(set).ToArray())))
+            (i, set, commonalityScore3 (cache.MintermChars(set).Value.Span.ToArray())))
                        |> List.sortBy (fun (_, _, score) -> score )
                        |> List.map (fun (i, set, _) -> (i, set))
 
