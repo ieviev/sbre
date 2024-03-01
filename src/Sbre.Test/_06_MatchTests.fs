@@ -618,6 +618,13 @@ this measure which you condemn in so candid language."
 //         |> Seq.toArray
 //     Assert.Equal([4; 7; 12], result |> Seq.map (fun v -> v.Index) )
 
+let input = """[assembly: InternalsVisibleTo("Microsoft.Automata.Z3, PublicKey=" +
+
+[assembly: InternalsVisibleTo("Experimentation, PublicKey=" +"""
+
+[<Fact>]
+let ``match order test``() = assertAllLLmatches "Pu" input [54,2; 117,2]
+
 
 
 #endif

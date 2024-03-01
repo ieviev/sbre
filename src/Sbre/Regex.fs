@@ -53,7 +53,7 @@ type GenericRegexMatcher() =
     // abstract member MatchText: input:ReadOnlySpan<char> -> string option
     abstract member Match: input: ReadOnlySpan<char> -> SingleMatchResult
     abstract member Count: input: ReadOnlySpan<char> -> int
-    abstract member ProcessedPattern: string
+
 
 
 [<Sealed>]
@@ -1115,15 +1115,16 @@ type RegexMatcher<'t when 't: struct>
         | OverrideRegex.FixedLengthString s ->
             let pspan = s.Span
             let mutable looping = true
-            let mutable currPos = tspan.Length - 1
+            let mutable currPos = 0
             let textLength = s.Length
             while looping do
-                let slice = tspan.Slice(0,currPos)
-                match slice.LastIndexOf(pspan, StringComparison.Ordinal) with
-                | -1 -> looping <- false
-                | n ->
-                    acc.Add({ MatchPosition.Index = n; Length = textLength })
-                    currPos <- n
+                    // LastIndexOf with ignore case is NOT VECTORIZED
+                    match tspan.Slice(currPos).IndexOf(pspan, StringComparison.Ordinal) with
+                    | -1 -> looping <- false
+                    | n ->
+                        let start = currPos + n
+                        acc.Add({ MatchPosition.Index = start; Length = textLength })
+                        currPos <- start + textLength
         | OverrideRegex.FixedLengthStringCaseIgnore (headSet,s, ascii) ->
             let pspan = s.Span
             let mutable looping = true
@@ -1210,11 +1211,14 @@ type RegexMatcher<'t when 't: struct>
     /// return just the positions of matches without allocating the result
     override this.MatchPositions(input) = (this.llmatch_all input).AsArray()
     override this.EnumerateMatches(input) = (this.llmatch_all input).AsSpan()
+
+#if DEBUG
     override this.ProcessedPattern =
         AppContext.SetData("RegexNode.MaxPrintWidth", 100000)
         let a = _cache.PrettyPrintNode(R_canonical)
         AppContext.SetData("RegexNode.MaxPrintWidth", null)
         a
+#endif
 
     // accessors
     member this.TrueStarredPattern = trueStarredNode
@@ -1351,7 +1355,7 @@ type Regex(pattern: string, [<Optional; DefaultParameterValue(false)>] _experime
             this.TSetMatcher.ReversePattern
             this.TSetMatcher.ReverseTrueStarredPattern
 
-    override this.ProcessedPattern = matcher.ProcessedPattern
+
 #if DEBUG
     // member this.UInt16Matcher: RegexMatcher<uint16> = matcher :?> RegexMatcher<uint16>
     // member this.ByteMatcher: RegexMatcher<byte> = matcher :?> RegexMatcher<byte>
