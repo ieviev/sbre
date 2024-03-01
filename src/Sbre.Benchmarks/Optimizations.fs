@@ -193,6 +193,7 @@ let prefixSearchWeightedReversed2
     ()
 
 let prefixSearchWeightedReversed3
+    (cache: RegexCache<_>)
     (loc: byref<Location>)
     (weightedSets: inref<struct(int * MintermSearchValues) array>) =
     let textSpan = loc.Input
@@ -202,7 +203,29 @@ let prefixSearchWeightedReversed3
     let mutable searching = true
     let mutable prevMatch = currentPosition
     while searching do
-        match textSpan.Slice(0, prevMatch).LastIndexOfAny(rarestCharSet.SearchValues) with
+        let nextMatch =
+            match rarestCharSet.Mode with
+            | MintermSearchMode.InvertedSearchValues -> textSpan.Slice(0, prevMatch).LastIndexOfAnyExcept(rarestCharSet.SearchValues)
+            | MintermSearchMode.SearchValues -> textSpan.Slice(0, prevMatch).LastIndexOfAny(rarestCharSet.SearchValues)
+            | MintermSearchMode.TSet ->
+                let slice = textSpan.Slice(0, prevMatch)
+                let mutable e = slice.GetEnumerator()
+                let sequenceOfChars =
+                    seq {
+                        while e.MoveNext() do
+                            yield e.Current
+                    }
+                let index =
+                    sequenceOfChars
+                    |> Seq.findIndex (fun v ->
+                        let mt = cache.Classify(v)
+                        Solver.elemOfSet mt rarestCharSet.Minterm
+                    )
+                index
+            | _ -> failwith "invalid enum"
+
+
+        match nextMatch with
         // | curMatch when (curMatch - rarestCharSetIndex >= 0 && curMatch - rarestCharSetIndex + weightedSets.Length < textSpan.Length) ->
         | curMatch when (curMatch - rarestCharSetIndex >= 0 && curMatch - rarestCharSetIndex + charSetsCount <= currentPosition) ->
             let absMatchStart = curMatch - rarestCharSetIndex
