@@ -59,12 +59,12 @@
     <PackageOutputPath>./nupkg</PackageOutputPath>
     <Authors>ieviev</Authors>
     <Title>$(ProjectName)</Title>
-    <Version>0.1.16</Version>
+    <Version>0.1.18</Version>
   </PropertyGroup>
   <ItemGroup>
     <!-- nuget pack -->
-    <!--    <ProjectReference Include="..\RuntimeRegexCopy\RuntimeRegexCopy.csproj" PrivateAssets="all" />-->
-    <ProjectReference Include="..\RuntimeRegexCopy\RuntimeRegexCopy.csproj" />
+    <ProjectReference Include="..\RuntimeRegexCopy\RuntimeRegexCopy.csproj" PrivateAssets="all" />
+    <!--    <ProjectReference Include="..\RuntimeRegexCopy\RuntimeRegexCopy.csproj" />-->
   </ItemGroup>
   <ItemGroup>
     <Content Include="$(MSBuildThisFileDirectory)../RuntimeRegexCopy/bin/Release/net8.0/RuntimeRegexCopy.dll">

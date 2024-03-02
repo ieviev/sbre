@@ -47,6 +47,16 @@ type Context2 =
     Assert.Equal(expectedOutput, result)
 
 
+[<Fact>]
+let ``replace 2`` () =
+    let r = Sbre.Regex("a")
+    let input = """a a a a a"""
+    let expectedOutput = """ab ab ab ab ab"""
+    let result = r.Replace(input, "$0b")
+    Assert.Equal(expectedOutput, result)
+
+
+
 let escapeNegConj (str:string) = str.Replace("&",@"\&").Replace("~",@"\~")
 let testCapture0InRange fromRange toRange =
     let mutable counter = fromRange

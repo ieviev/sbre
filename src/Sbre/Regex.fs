@@ -616,11 +616,30 @@ type RegexMatcher<'t when 't: struct>
             }
 
     /// replace all occurrences in string
-    override this.Replace(input, replacement) =
+    override this.Replace(input, replacementPattern) =
         let sb = System.Text.StringBuilder()
         let mutable offset = 0
+        let replacementCount = replacementPattern.Count("$0")
+        // let replacementBuilder = System.Text.StringBuilder()
+        // let replacementLength = replacementPattern.Length - (numOfReplacements * 2)
+        let replacementString = replacementPattern.ToString()
+
         for result in this.MatchPositions(input) do
             let preceding = input.Slice(offset, result.Index - offset)
+
+            let replacement =
+                if replacementCount > 0 then
+                    // let expectedSize = numOfReplacements*result.Length + replacementLength
+                    // let rentedarray = ArrayPool.Shared.Rent(expectedSize)
+                    // let rentedSlice = rentedarray.AsSpan()
+                    // replacementPattern.Replace(rentedSlice,"$0", "asd" )
+
+                    // suboptimal allocation
+                    let textSlice = input.Slice(result.Index, result.Length).ToString()
+                    let replacement = replacementString.Replace("$0", textSlice)
+                    replacement.AsSpan()
+                else
+                    replacementPattern
             sb.Append(preceding) |> ignore
             sb.Append(replacement) |> ignore
             let nextStart = offset + preceding.Length + result.Length
