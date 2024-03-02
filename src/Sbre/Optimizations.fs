@@ -272,7 +272,7 @@ let rec calcPotentialMatchStart
         let rec loop(acc: TSet list) =
             tempList.Clear()
 
-            if nodes.Count > 20 || acc.Length > 50 || nodes.Count = 0 then
+            if nodes.Count > 30 || acc.Length > 50 || nodes.Count = 0 then
                 acc |> List.rev
             else
                 let shouldExit = nodes |> Seq.exists (_.CanBeNullable)
@@ -1015,7 +1015,7 @@ let inferOverrideRegex
     (node: RegexNode<TSet>)
     : OverrideRegex option
     =
-    if node.DependsOnAnchor then
+    if node.DependsOnAnchor || node.HasZerowidthHead then
         None
     else
         match lengthLookup, initialOptimizations with

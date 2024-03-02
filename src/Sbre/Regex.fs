@@ -617,14 +617,16 @@ type RegexMatcher<'t when 't: struct>
 
     /// replace all occurrences in string
     override this.Replace(input, replacement) =
-        let sb = System.Text.StringBuilder(input.ToString())
+        let sb = System.Text.StringBuilder()
         let mutable offset = 0
-
         for result in this.MatchPositions(input) do
-            let start = offset + result.Index
-            sb.Remove(start, result.Length + 1).Insert(start, replacement) |> ignore
-            offset <- replacement.Length - result.Length - 1
-
+            let preceding = input.Slice(offset, result.Index - offset)
+            sb.Append(preceding) |> ignore
+            sb.Append(replacement) |> ignore
+            let nextStart = offset + preceding.Length + result.Length
+            offset <- nextStart
+        let remaining = input.Slice(offset)
+        sb.Append(remaining) |> ignore
         sb.ToString()
 
     /// return all matches on input
@@ -1028,7 +1030,7 @@ type RegexMatcher<'t when 't: struct>
 
         while looping do
             let flags = _flagsArray[currentStateId]
-            // let dfaState = _stateArray[currentStateId]
+            let dfaState = _stateArray[currentStateId]
 #if SKIP
             if (flags.CanSkipInitial && this.TrySkipInitialRev(&loc, &currentStateId))
 
@@ -1212,13 +1214,6 @@ type RegexMatcher<'t when 't: struct>
     override this.MatchPositions(input) = (this.llmatch_all input).AsArray()
     override this.EnumerateMatches(input) = (this.llmatch_all input).AsSpan()
 
-#if DEBUG
-    member this.ProcessedPattern =
-        AppContext.SetData("RegexNode.MaxPrintWidth", 100000)
-        let a = _cache.PrettyPrintNode(R_canonical)
-        AppContext.SetData("RegexNode.MaxPrintWidth", null)
-        a
-#endif
 
     // accessors
     member this.TrueStarredPattern = trueStarredNode
@@ -1357,6 +1352,9 @@ type Regex(pattern: string, [<Optional; DefaultParameterValue(false)>] _experime
 
 
 #if DEBUG
+
+    member this.CreateGraph() = Msagl.mkGraph(this.TSetMatcher.RawPattern)
+
     // member this.UInt16Matcher: RegexMatcher<uint16> = matcher :?> RegexMatcher<uint16>
     // member this.ByteMatcher: RegexMatcher<byte> = matcher :?> RegexMatcher<byte>
 #endif

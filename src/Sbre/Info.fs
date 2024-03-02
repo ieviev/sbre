@@ -140,7 +140,7 @@ module rec Flags =
                 | _ -> Flag.None
             pref ||| suf
 
-        andFlags ||| orFlags ||| dependsOnFlags ||| lookaroundFlags
+        andFlags ||| orFlags ||| dependsOnFlags ||| lookaroundFlags ||| (h1 &&& Flag.HasZerowidthHeadFlag)
 
     let inferLookaround (inner: RegexNode<'t>) (lookBack: bool) =
         let innerFlags = inner.GetFlags()
@@ -163,7 +163,11 @@ module rec Flags =
             ancFlag
         // lookback
         | _, true ->
-            ancFlag ||| nullFlags ||| RegexNodeFlags.ContainsLookaroundFlag ||| RegexNodeFlags.HasPrefixLookbehindFlag
+            ancFlag |||
+            nullFlags |||
+            RegexNodeFlags.ContainsLookaroundFlag |||
+            RegexNodeFlags.HasPrefixLookbehindFlag |||
+            RegexNodeFlags.HasZerowidthHeadFlag
 
     let inferNodeOptimized(node: RegexNode<'t>) : RegexNodeFlags =
         match node with

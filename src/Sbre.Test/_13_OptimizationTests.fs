@@ -221,6 +221,13 @@ let ``initialOptimizations 20``() =
         @"φ;φ;φ;φ;φ;φ;φ;φ;φ;φ;φ;φ;φ;φ;φ;φ;φ;φ;φ;φ" // ? maybe vector256 to see if all equal
 
 
+[<Fact>]
+let ``initialOptimizations 21``() =
+    assertStringPrefix
+        @"(?<=Context1~(\T*\n\n\T*))(get, set)"
+        @"get, set"
+
+
 
 [<Fact>]
 let ``activeOptimizations 1``() =
@@ -259,6 +266,9 @@ let ``apply prefix 1``() =
         @"(⊤*niawT|ε)"
         @"(⊤*niawT)?"
     ]
+
+
+
 
 
 // [<Fact>]

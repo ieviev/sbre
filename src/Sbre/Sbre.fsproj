@@ -52,18 +52,19 @@
     <Compile Include="CountingSet.fs" />
     <Compile Include="Algorithm.fs" />
     <Compile Include="Optimizations.fs" />
+    <Compile Include="Msagl.fs" />
     <Compile Include="Regex.fs" />
   </ItemGroup>
   <PropertyGroup>
     <PackageOutputPath>./nupkg</PackageOutputPath>
     <Authors>ieviev</Authors>
     <Title>$(ProjectName)</Title>
-    <Version>0.1.13</Version>
+    <Version>0.1.16</Version>
   </PropertyGroup>
   <ItemGroup>
     <!-- nuget pack -->
-<!--    <ProjectReference Include="..\RuntimeRegexCopy\RuntimeRegexCopy.csproj" PrivateAssets="all" />-->
-        <ProjectReference Include="..\RuntimeRegexCopy\RuntimeRegexCopy.csproj"  />
+    <!--    <ProjectReference Include="..\RuntimeRegexCopy\RuntimeRegexCopy.csproj" PrivateAssets="all" />-->
+    <ProjectReference Include="..\RuntimeRegexCopy\RuntimeRegexCopy.csproj" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="$(MSBuildThisFileDirectory)../RuntimeRegexCopy/bin/Release/net8.0/RuntimeRegexCopy.dll">

@@ -16,6 +16,37 @@ let regexlibSamples = RegexLibProvider.GetSamples()
 
 
 
+
+
+let text =
+    """type Context1 =
+    get, set
+    get, set
+
+type Context2 =
+    get, set
+    get, set
+    get, set
+"""
+
+
+
+[<Fact>]
+let ``replace 1`` () =
+    let r = Sbre.Regex("get")
+    let expectedOutput = """type Context1 =
+    hello, set
+    hello, set
+
+type Context2 =
+    hello, set
+    hello, set
+    hello, set
+"""
+    let result = r.Replace(text, "hello")
+    Assert.Equal(expectedOutput, result)
+
+
 let escapeNegConj (str:string) = str.Replace("&",@"\&").Replace("~",@"\~")
 let testCapture0InRange fromRange toRange =
     let mutable counter = fromRange
