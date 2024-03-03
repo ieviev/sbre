@@ -21,6 +21,10 @@ module Extensions =
             not (this.IsEmpty(this.And(locationMinterm, predicate)))
 
         [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+        member this.elemOfSet(predicate: 't) (locationMinterm: 't) =
+            not (this.IsEmpty(this.And(locationMinterm, predicate)))
+
+        [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
         member this.notElemOfSet(predicate: 't, locationMinterm: 't) =
             this.IsEmpty(this.And(locationMinterm, predicate))
 
@@ -50,7 +54,7 @@ module Solver =
 
 
     let inline not' predicate = ~~~predicate
-    let inline isEmpty (predicate:TSet) = predicate = LanguagePrimitives.GenericZero
+    // let inline isEmpty (predicate:TSet) = predicate = LanguagePrimitives.GenericZero
     let inline mapOr (s:ISolver<^t>) ([<InlineIfLambda>]f: 'a -> ^t) xs: ^t =
         let mutable startset = s.Empty
         for x in xs do
@@ -198,14 +202,6 @@ let (|BoundedLoop|_|) (node: RegexNode<_>) =
     | Concat(head=Loop(node=Singleton pred;low=low;up=up); tail=tail) when up <> Int32.MaxValue -> ValueSome()
     | _ -> ValueNone
 
-
-// [<return: Struct>]
-// let (|TrueStarredConcat|_|) (solver: ISolver<_>) (node: RegexNode<_>) =
-//     match node with
-//     | Concat(head=TrueStar solver; tail=tail; info=info) when not info.NodeFlags.HasCounter -> ValueSome(tail)
-//     | _ -> ValueNone
-
-
 [<return: Struct>]
 let (|CounterNode|_|) (node: RegexNode<_>) =
     match node with
@@ -238,112 +234,6 @@ let (|AllSameHead|_|) (nodes: seq<RegexNode<_>>) =
     if allsame then
         ValueSome(headRef)
     else ValueNone
-
-
-
-let rec isSubSequence (bigger: RegexNode<TSet>) (smaller: RegexNode<TSet>): RegexNode<TSet> voption  =
-    match bigger, smaller with
-    | Concat(head = SingletonStarLoop(head1); tail = tail1), Or(nodes = xs) ->
-        xs
-        |> Seq.tryPick (fun v ->
-            match isSubSequence tail1 v with
-            | ValueSome v -> Some v
-            | _ -> None
-        )
-        |> function
-        | Some v -> ValueSome v
-        | _ -> ValueNone
-    | Concat(head = head1; tail = tail1), Concat(head = head2; tail = tail2) ->
-        if obj.ReferenceEquals(head1, head2) then isSubSequence tail1 smaller else
-        match head1, head2 with
-        | _, Singleton head2 -> ValueNone
-        | SingletonStarLoop(head1), SingletonStarLoop(head2) ->
-            if obj.ReferenceEquals(tail1, tail2) then
-                ValueSome smaller
-            else
-                isSubSequence tail1 smaller
-        | Singleton spred, SingletonStarLoop(lpred) ->
-            if Solver.elemOfSet lpred spred then
-                if obj.ReferenceEquals(tail1, smaller) then
-                    ValueSome smaller
-                else
-                    isSubSequence tail1 smaller
-            else
-                ValueNone
-        | Or(nodes= headNodes), SingletonStarLoop(lpred) ->
-            if setIsSubsumedSingle headNodes smaller then
-                ValueSome smaller
-            else
-                ValueNone
-        | _ ->
-            ValueNone
-    | Or(nodes = nodes), Concat(head = head2; tail = tail2) ->
-        if setIsSubsumedSingle nodes smaller then
-            ValueSome smaller
-        else
-            ValueNone
-
-    | _, n when n.IsAlwaysNullable -> ValueSome smaller
-    | Loop _, _
-    | Or _, Concat _
-    | Or _, Or _
-    | Not _, _
-    | _, Not  _
-    | Singleton _, _
-     -> ValueNone
-    | _ ->
-        // let dbg = 1
-        // failwith $"todo!:\n{bigger.ToStringHelper()}\n{smaller.ToStringHelper()}"
-        ValueNone
-
-
-let rec setIsSubsumed  (bigger: RegexNode<TSet> seq) (smaller: RegexNode<TSet> seq) : bool  =
-    use mutable eSmaller = smaller.GetEnumerator()
-    use mutable eBigger = bigger.GetEnumerator()
-    let mutable found = false
-    while eSmaller.MoveNext() do
-        while not found && eBigger.MoveNext() do
-            match isSubSequence eBigger.Current eSmaller.Current   with
-            | ValueSome v ->
-                found <- true
-            | _ -> ()
-    found
-
-
-let rec setIsSubsumedSingle (bigger: RegexNode<TSet> seq) (smaller: RegexNode<TSet>) : bool  =
-    use mutable eBigger = bigger.GetEnumerator()
-    let mutable found = false
-    while not found && eBigger.MoveNext() do
-        match isSubSequence eBigger.Current smaller with
-        | ValueSome v ->
-            found <- true
-        | _ -> ()
-    found
-
-
-[<return: Struct>]
-let (|TrySubsumeSameTail|_|) (nodes: HashSet<RegexNode<TSet>>) =
-    let arr =
-        nodes
-        |> Seq.toArray
-    match arr with
-    | [| e1; e2 |] ->
-        match isSubSequence e1 e2 with
-        | ValueSome s -> ValueSome(s)
-        | _ ->
-            match isSubSequence e2 e1 with
-            | ValueSome s -> ValueSome s
-            | _ -> ValueNone
-    | _ ->
-        // TODO:
-        // failwith "todo optimize"
-        ValueNone
-
-
-
-
-
-
 
 
 module Location =

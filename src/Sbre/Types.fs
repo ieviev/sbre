@@ -549,9 +549,11 @@ module Memory =
         forall
 
 
+// type TSet = BitVector
+// type TSolver = BitVectorSolver
+
 type TSet = uint64
 type TSolver = UInt64Solver
-
 
 // type TSet = uint32
 // type TSolver = UInt32Solver
@@ -587,6 +589,12 @@ type SharedResizeArray<'t>(initialSize:int) =
         let mutable e = pool.AsSpan(0, size).GetEnumerator()
         e
     member this.Length = size
+    member this.Exists(lambda) =
+        let mutable e = pool.AsSpan(0, size).GetEnumerator()
+        let mutable found = false
+        while not found && e.MoveNext() do
+            found <- lambda e.Current
+        found
     member this.AsSpan() = pool.AsSpan(0, size)
     member this.AsArray() = pool.AsSpan(0, size).ToArray()
 

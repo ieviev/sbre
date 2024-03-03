@@ -904,10 +904,6 @@ type RegexMatcher<'t when 't: struct>
                 // no matches remaining
                 loc.Position <- Location.final loc
                 false
-            // let svals = _cache.MintermSearchValues(prefix.Span[0]).Value
-            // let isInverted = _cache.MintermIsInverted(prefix.Span[0])
-            // _cache.TryNextStartsetLocationRightToLeft( &loc, svals, isInverted)
-            // false
         | InitialOptimizations.NoOptimizations -> false
 
 
@@ -1233,7 +1229,6 @@ type RegexMatcher<'t when 't: struct>
     override this.MatchPositions(input) = (this.llmatch_all input).AsArray()
     override this.EnumerateMatches(input) = (this.llmatch_all input).AsSpan()
 
-
     // accessors
     member this.TrueStarredPattern = trueStarredNode
     member this.ReverseTrueStarredPattern = reverseTrueStarredNode
@@ -1246,14 +1241,14 @@ type RegexMatcher<'t when 't: struct>
 
 
 module Helpers =
-    let createMatcher
+    let rec createMatcher
         (
             bddBuilder: RegexBuilder<BDD>,
             bddMinterms: BDD array,
             charsetSolver,
             converter,
             symbolicBddnode,
-            regexTree: RegexTree
+            symbolicBuilder
         )
         : GenericRegexMatcher
         =
@@ -1286,6 +1281,7 @@ module Helpers =
             let rawNode = (Minterms.transform bddBuilder uintbuilder charsetSolver solver) symbolicBddnode
 
 
+
             let cache =
                 Sbre.RegexCache(
                     solver,
@@ -1295,7 +1291,24 @@ module Helpers =
                     _builder = uintbuilder
                 )
 
-            RegexMatcher<TSet>(rawNode, cache)
+            let m = RegexMatcher<TSet>(rawNode, cache)
+
+            if not (refEq m.RawPattern rawNode) then
+                let backToBdd = Minterms.transformBack uintbuilder bddBuilder solver charsetSolver m.RawPattern
+                let recomputedMinterms = backToBdd |> Minterms.compute symbolicBuilder
+                // TODO: analyze this
+                // if recomputedMinterms.Length <> bddMinterms.Length then
+                //     failwith $"reduced minterms from {bddMinterms.Length} to {recomputedMinterms.Length}"
+                createMatcher(
+                    bddBuilder,
+                    recomputedMinterms,
+                    charsetSolver,
+                    converter,
+                    backToBdd,
+                    symbolicBuilder)
+            else
+
+            m
         | n -> failwith $"bitvector too large, size: {n}"
 
 
@@ -1331,7 +1344,7 @@ type Regex(pattern: string, [<Optional; DefaultParameterValue(false)>] _experime
             charsetSolver,
             converter,
             symbolicBddnode,
-            regexTree
+            runtimeBddBuilder
         )
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]

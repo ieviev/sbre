@@ -88,9 +88,10 @@ namespace System.Text.RuntimeRegexCopy.Symbolic
             return minterms;
         }
 #if DEBUG
+#endif
         /// <summary>Pretty print the bitvector bv as the character set it represents.</summary>
         public string PrettyPrint(ulong bv, CharSetSolver solver) => solver.PrettyPrint(ConvertToBDD(bv, solver));
-#endif
+
         public BDD ConvertToBDD(ulong set, CharSetSolver solver)
         {
             BDD[] partition = _minterms;

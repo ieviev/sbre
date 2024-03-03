@@ -150,69 +150,69 @@ type RegexCache<'t
         couldBe
 
 
-    member this.SkipIndexOfAnyPrefix
-        (
-            loc: byref<Location>,
-            setChars: SearchValues<char>,
-            setPrefix: ReadOnlySpan<TSet>,
-            termPrefix: ReadOnlySpan<TSet>
-        ) : unit =
-
-        let mutable skipping = true
-
-        while skipping do
-            let slice = loc.Input.Slice(loc.Position)
-            let sharedIndex = slice.IndexOfAny(setChars)
-
-            if sharedIndex = -1 then
-                loc.Position <- Location.final loc
-            else
-                loc.Position <- loc.Position + sharedIndex
-                let currpos = loc.Position
-
-                if currpos + setPrefix.Length > (loc.Input.Length - 1) then
-                    skipping <- false
-                else
-
-                let nextLocMinterm = this.Classify(loc.Input[loc.Position])
-
-                let mutable canTerminateLoop, looping =
-                    if termPrefix.Length = 0 then
-                        -1, true
-                    else
-                        let termMatch = Solver.elemOfSet termPrefix[0] nextLocMinterm
-                        (if termMatch then 0 else -1), termPrefix.Length <> 1
-
-                let mutable i = 1
-                let mutable stopSearch = true
-
-                while looping && i < setPrefix.Length do
-                    let nextLocMinterm =
-                        if loc.Reversed then
-                            this.Classify(loc.Input[loc.Position - i - 1])
-                        else
-                            this.Classify(loc.Input[loc.Position + i])
-
-                    match (Solver.elemOfSet setPrefix[i] nextLocMinterm) with
-                    | false ->
-                        stopSearch <- false
-                        looping <- false
-                        loc.Position <- loc.Position + 1
-                    | true -> i <- i + 1
-
-                    if canTerminateLoop >= 0 && i < termPrefix.Length then
-                        match (Solver.elemOfSet termPrefix[i] nextLocMinterm) with
-                        | true ->
-                            canTerminateLoop <- i
-
-                            if i = termPrefix.Length - 1 then
-                                looping <- false
-                                stopSearch <- true
-                        | false -> canTerminateLoop <- -1
-
-                if stopSearch then
-                    skipping <- false
-                    loc.Position <- currpos
+    // member this.SkipIndexOfAnyPrefix
+    //     (
+    //         loc: byref<Location>,
+    //         setChars: SearchValues<char>,
+    //         setPrefix: ReadOnlySpan<TSet>,
+    //         termPrefix: ReadOnlySpan<TSet>
+    //     ) : unit =
+    //
+    //     let mutable skipping = true
+    //
+    //     while skipping do
+    //         let slice = loc.Input.Slice(loc.Position)
+    //         let sharedIndex = slice.IndexOfAny(setChars)
+    //
+    //         if sharedIndex = -1 then
+    //             loc.Position <- Location.final loc
+    //         else
+    //             loc.Position <- loc.Position + sharedIndex
+    //             let currpos = loc.Position
+    //
+    //             if currpos + setPrefix.Length > (loc.Input.Length - 1) then
+    //                 skipping <- false
+    //             else
+    //
+    //             let nextLocMinterm = this.Classify(loc.Input[loc.Position])
+    //
+    //             let mutable canTerminateLoop, looping =
+    //                 if termPrefix.Length = 0 then
+    //                     -1, true
+    //                 else
+    //                     let termMatch = Solver.elemOfSet termPrefix[0] nextLocMinterm
+    //                     (if termMatch then 0 else -1), termPrefix.Length <> 1
+    //
+    //             let mutable i = 1
+    //             let mutable stopSearch = true
+    //
+    //             while looping && i < setPrefix.Length do
+    //                 let nextLocMinterm =
+    //                     if loc.Reversed then
+    //                         this.Classify(loc.Input[loc.Position - i - 1])
+    //                     else
+    //                         this.Classify(loc.Input[loc.Position + i])
+    //
+    //                 match (Solver.elemOfSet setPrefix[i] nextLocMinterm) with
+    //                 | false ->
+    //                     stopSearch <- false
+    //                     looping <- false
+    //                     loc.Position <- loc.Position + 1
+    //                 | true -> i <- i + 1
+    //
+    //                 if canTerminateLoop >= 0 && i < termPrefix.Length then
+    //                     match (Solver.elemOfSet termPrefix[i] nextLocMinterm) with
+    //                     | true ->
+    //                         canTerminateLoop <- i
+    //
+    //                         if i = termPrefix.Length - 1 then
+    //                             looping <- false
+    //                             stopSearch <- true
+    //                     | false -> canTerminateLoop <- -1
+    //
+    //             if stopSearch then
+    //                 skipping <- false
+    //                 loc.Position <- currpos
 
 
     member this.TryNextStartsetLocationRightToLeft
@@ -236,119 +236,119 @@ type RegexCache<'t
         | _ -> loc.Position <- sharedIndex + 1
 
 
-    member this.TryNextStartsetLocation(loc: byref<Location>, set: TSet) : unit =
-        assert (not (Solver.isEmpty set))
-        let searchValues = this.MintermSearchValues(set)
-        match searchValues.Mode with
-        | MintermSearchMode.TSet -> ()
-        | _ ->
-        let setChars = searchValues.SearchValues
-        let isInverted =
-            match searchValues.Mode with
-            | MintermSearchMode.InvertedSearchValues -> true
-            | _ -> false
-        let currpos = loc.Position
-
-        match loc.Reversed with
-        | false ->
-            let slice = loc.Input.Slice(currpos)
-
-            let sharedIndex =
-                if isInverted then
-                    slice.IndexOfAnyExcept(setChars)
-                else
-                    slice.IndexOfAny(setChars)
-
-            if sharedIndex = -1 then
-                loc.Position <- Location.final loc
-            else
-                loc.Position <- currpos + sharedIndex
-        | true ->
-            let slice = loc.Input.Slice(0, currpos)
-
-            let sharedIndex =
-                if isInverted then
-                    slice.LastIndexOfAnyExcept(setChars)
-                else
-                    slice.LastIndexOfAny(setChars)
-
-            if sharedIndex = -1 then
-                loc.Position <- Location.final loc
-            else
-                loc.Position <- sharedIndex + 1
-
-
-
-    /// skip till a prefix of minterms matches
-    member this.TryNextStartsetLocationArray
-        (
-            loc: byref<Location>,
-            setSpan: ReadOnlySpan<TSet>,
-            searchValues: SearchValues<char>
-        ) =
-        // assert not loc.Reversed
-        let inputSpan = loc.Input
-        let mutable skipping = true
-
-        /// vectorize the search for the first character
-        let firstSetChars = searchValues
-        let isInverted = Solver.elemOfSet setSpan[0] minterms[0]
-        let tailPrefixSpan = setSpan.Slice(1)
-
-        let _limitLength = inputSpan.Length - setSpan.Length
-        let _tailLength = tailPrefixSpan.Length
-
-        if setSpan.Length = 1 then
-            let sharedIndex =
-                let slice = inputSpan.Slice(loc.Position)
-
-                if not isInverted then
-                    slice.IndexOfAny(firstSetChars)
-                else
-                    slice.IndexOfAnyExcept(firstSetChars)
-
-            if sharedIndex = -1 then
-                skipping <- false
-            else
-                loc.Position <- loc.Position + sharedIndex
-        else
+    // member this.TryNextStartsetLocation(loc: byref<Location>, set: TSet) : unit =
+    //     assert (not (_solver.IsEmpty(set)))
+    //     let searchValues = this.MintermSearchValues(set)
+    //     match searchValues.Mode with
+    //     | MintermSearchMode.TSet -> ()
+    //     | _ ->
+    //     let setChars = searchValues.SearchValues
+    //     let isInverted =
+    //         match searchValues.Mode with
+    //         | MintermSearchMode.InvertedSearchValues -> true
+    //         | _ -> false
+    //     let currpos = loc.Position
+    //
+    //     match loc.Reversed with
+    //     | false ->
+    //         let slice = loc.Input.Slice(currpos)
+    //
+    //         let sharedIndex =
+    //             if isInverted then
+    //                 slice.IndexOfAnyExcept(setChars)
+    //             else
+    //                 slice.IndexOfAny(setChars)
+    //
+    //         if sharedIndex = -1 then
+    //             loc.Position <- Location.final loc
+    //         else
+    //             loc.Position <- currpos + sharedIndex
+    //     | true ->
+    //         let slice = loc.Input.Slice(0, currpos)
+    //
+    //         let sharedIndex =
+    //             if isInverted then
+    //                 slice.LastIndexOfAnyExcept(setChars)
+    //             else
+    //                 slice.LastIndexOfAny(setChars)
+    //
+    //         if sharedIndex = -1 then
+    //             loc.Position <- Location.final loc
+    //         else
+    //             loc.Position <- sharedIndex + 1
 
 
-        while skipping do
-            let sharedIndex =
-                let slice = inputSpan.Slice(loc.Position)
 
-                if not isInverted then
-                    slice.IndexOfAny(firstSetChars)
-                else
-                    slice.IndexOfAnyExcept(firstSetChars)
-
-            if sharedIndex = -1 then
-                skipping <- false
-            else
-                let potential = loc.Position + sharedIndex
-                let mutable couldBe = true
-                // exit if too far
-                if potential > _limitLength then
-                    skipping <- false
-                    loc.Position <- potential
-                    couldBe <- false
-
-                let mutable i = 0
-
-                while couldBe && i < _tailLength do
-                    let inputMinterm = this.Classify(inputSpan[potential + 1 + i])
-
-                    if Solver.notElemOfSet inputMinterm tailPrefixSpan[i] then
-                        couldBe <- false
-
-                    i <- i + 1
-
-                if couldBe then
-                    skipping <- false
-                    loc.Position <- potential
-                else
-                    loc.Position <- potential + 1
+    // /// skip till a prefix of minterms matches
+    // member this.TryNextStartsetLocationArray
+    //     (
+    //         loc: byref<Location>,
+    //         setSpan: ReadOnlySpan<TSet>,
+    //         searchValues: SearchValues<char>
+    //     ) =
+    //     // assert not loc.Reversed
+    //     let inputSpan = loc.Input
+    //     let mutable skipping = true
+    //
+    //     /// vectorize the search for the first character
+    //     let firstSetChars = searchValues
+    //     let isInverted = Solver.elemOfSet setSpan[0] minterms[0]
+    //     let tailPrefixSpan = setSpan.Slice(1)
+    //
+    //     let _limitLength = inputSpan.Length - setSpan.Length
+    //     let _tailLength = tailPrefixSpan.Length
+    //
+    //     if setSpan.Length = 1 then
+    //         let sharedIndex =
+    //             let slice = inputSpan.Slice(loc.Position)
+    //
+    //             if not isInverted then
+    //                 slice.IndexOfAny(firstSetChars)
+    //             else
+    //                 slice.IndexOfAnyExcept(firstSetChars)
+    //
+    //         if sharedIndex = -1 then
+    //             skipping <- false
+    //         else
+    //             loc.Position <- loc.Position + sharedIndex
+    //     else
+    //
+    //
+    //     while skipping do
+    //         let sharedIndex =
+    //             let slice = inputSpan.Slice(loc.Position)
+    //
+    //             if not isInverted then
+    //                 slice.IndexOfAny(firstSetChars)
+    //             else
+    //                 slice.IndexOfAnyExcept(firstSetChars)
+    //
+    //         if sharedIndex = -1 then
+    //             skipping <- false
+    //         else
+    //             let potential = loc.Position + sharedIndex
+    //             let mutable couldBe = true
+    //             // exit if too far
+    //             if potential > _limitLength then
+    //                 skipping <- false
+    //                 loc.Position <- potential
+    //                 couldBe <- false
+    //
+    //             let mutable i = 0
+    //
+    //             while couldBe && i < _tailLength do
+    //                 let inputMinterm = this.Classify(inputSpan[potential + 1 + i])
+    //
+    //                 if Solver.notElemOfSet inputMinterm tailPrefixSpan[i] then
+    //                     couldBe <- false
+    //
+    //                 i <- i + 1
+    //
+    //             if couldBe then
+    //                 skipping <- false
+    //                 loc.Position <- potential
+    //             else
+    //                 loc.Position <- potential + 1
 
 
 
@@ -402,38 +402,38 @@ type RegexCache<'t
 
         resultEnd
 
-    member this.TryNextSetReversed(loc: inref<Location>, setSpan: TSet) =
-        assert loc.Reversed
-        let inputSpan = loc.Input
-        let mutable currpos = loc.Position
-        let mutable skipping = true
-        let mutable slice: ReadOnlySpan<char> = inputSpan.Slice(0, currpos)
-
-        let searchValues = this.MintermSearchValues(setSpan)
-        match searchValues.Mode with
-        | MintermSearchMode.TSet -> ValueSome(currpos)
-        | _ ->
-        let chars = searchValues.SearchValues
-        let isInverted =
-            match searchValues.Mode with
-            | MintermSearchMode.InvertedSearchValues -> true
-            | _ -> false
-
-        let isInverted = Solver.elemOfSet setSpan minterms[0]
-
-        skipping <- false
-
-        let sharedIndex =
-            slice <- inputSpan.Slice(0, currpos)
-
-            if not isInverted then
-                slice.LastIndexOfAny(chars)
-            else
-                slice.LastIndexOfAnyExcept(chars)
-
-        match sharedIndex with
-        | -1 -> ValueNone
-        | _ -> ValueSome(sharedIndex + 1)
+    // member this.TryNextSetReversed(loc: inref<Location>, setSpan: TSet) =
+    //     assert loc.Reversed
+    //     let inputSpan = loc.Input
+    //     let mutable currpos = loc.Position
+    //     let mutable skipping = true
+    //     let mutable slice: ReadOnlySpan<char> = inputSpan.Slice(0, currpos)
+    //
+    //     let searchValues = this.MintermSearchValues(setSpan)
+    //     match searchValues.Mode with
+    //     | MintermSearchMode.TSet -> ValueSome(currpos)
+    //     | _ ->
+    //     let chars = searchValues.SearchValues
+    //     let isInverted =
+    //         match searchValues.Mode with
+    //         | MintermSearchMode.InvertedSearchValues -> true
+    //         | _ -> false
+    //
+    //     let isInverted = Solver.elemOfSet setSpan minterms[0]
+    //
+    //     skipping <- false
+    //
+    //     let sharedIndex =
+    //         slice <- inputSpan.Slice(0, currpos)
+    //
+    //         if not isInverted then
+    //             slice.LastIndexOfAny(chars)
+    //         else
+    //             slice.LastIndexOfAnyExcept(chars)
+    //
+    //     match sharedIndex with
+    //     | -1 -> ValueNone
+    //     | _ -> ValueSome(sharedIndex + 1)
 
     member this.TryNextStartsetLocationArrayReversed
         (
@@ -528,117 +528,117 @@ type RegexCache<'t
 
         resultEnd
 
-    /// skip till a prefix of minterms matches
-    member this.TryNextStartsetLocationArrayWithLoopTerminator
-        (
-            loc: inref<Location>,
-            setSpan: ReadOnlySpan<TSet>,
-            termSpan: ReadOnlySpan<TSet>
-        ) =
-        assert (termSpan.Length > 0)
-        let inputSpan = loc.Input
-        let mutable currpos = loc.Position
-        let mutable skipping = true
-        let mutable result = ValueNone
-        let mutable sharedIndex = -1
-
-        let mergedPrefix = setSpan[0] ||| termSpan[0]
-
-        let searchValues = this.MintermSearchValues(mergedPrefix)
-        match searchValues.Mode with
-        | MintermSearchMode.TSet -> ValueSome(currpos)
-        | _ ->
-        let firstSetChars = searchValues.SearchValues
-        let isInverted =
-            match searchValues.Mode with
-            | MintermSearchMode.InvertedSearchValues -> true
-            | _ -> false
-
-        while skipping do
-            if loc.Reversed then
-                let slice = inputSpan.Slice(0, currpos)
-
-                if not isInverted then
-                    sharedIndex <- slice.LastIndexOfAny(firstSetChars)
-                else
-                    sharedIndex <- slice.LastIndexOfAnyExcept(firstSetChars)
-            else
-                let slice = inputSpan.Slice(currpos)
-
-                if not isInverted then
-                    sharedIndex <- slice.IndexOfAny(firstSetChars)
-                else
-                    sharedIndex <- slice.IndexOfAnyExcept(firstSetChars)
-
-
-            if sharedIndex = -1 then
-                skipping <- false
-                result <- ValueNone
-            else
-                let potential = if loc.Reversed then sharedIndex + 1 else currpos + sharedIndex
-
-                let shouldExit =
-                    match loc.Reversed with
-                    | true -> potential < setSpan.Length
-                    | _ -> potential + setSpan.Length > (loc.Input.Length - 1)
-
-                if shouldExit then
-                    skipping <- false
-                    result <- ValueSome(potential)
-                else
-
-                let nextLocMinterm =
-                    if loc.Reversed then
-                        this.Classify(inputSpan[potential - 1])
-                    else
-                        this.Classify(inputSpan[potential])
-
-                let mutable canTerminateLoop, looping =
-                    if termSpan.Length = 0 then
-                        -1, true
-                    else
-                        let termMatch =
-                            // _solver.isElemOfSet(termSpan[0],nextLocMinterm)
-                            (Solver.elemOfSet termSpan[0] nextLocMinterm)
-
-                        (if termMatch then 0 else -1), termSpan.Length <> 1
-
-                let mutable i = 1
-                let mutable stopSearch = true
-
-                while looping && i < setSpan.Length do
-                    let nextLocMinterm =
-                        if loc.Reversed then
-                            this.Classify(inputSpan[potential - i - 1])
-                        else
-                            this.Classify(inputSpan[potential + i])
-
-                    match (Solver.elemOfSet setSpan[i] nextLocMinterm) with
-                    | false ->
-                        stopSearch <- false
-                        looping <- false
-
-                        if loc.Reversed then
-                            currpos <- potential - 1
-                        else
-                            currpos <- potential + 1
-                    | true -> i <- i + 1
-
-                    if canTerminateLoop >= 0 && i < termSpan.Length then
-                        match (Solver.elemOfSet termSpan[i] nextLocMinterm) with
-                        | true ->
-                            canTerminateLoop <- i
-
-                            if i = termSpan.Length - 1 then
-                                looping <- false
-                                stopSearch <- true
-                        | false -> canTerminateLoop <- -1
-
-                if stopSearch then
-                    skipping <- false
-                    result <- ValueSome(potential)
-
-        result
+    // /// skip till a prefix of minterms matches
+    // member this.TryNextStartsetLocationArrayWithLoopTerminator
+    //     (
+    //         loc: inref<Location>,
+    //         setSpan: ReadOnlySpan<TSet>,
+    //         termSpan: ReadOnlySpan<TSet>
+    //     ) =
+    //     assert (termSpan.Length > 0)
+    //     let inputSpan = loc.Input
+    //     let mutable currpos = loc.Position
+    //     let mutable skipping = true
+    //     let mutable result = ValueNone
+    //     let mutable sharedIndex = -1
+    //
+    //     let mergedPrefix = setSpan[0] ||| termSpan[0]
+    //
+    //     let searchValues = this.MintermSearchValues(mergedPrefix)
+    //     match searchValues.Mode with
+    //     | MintermSearchMode.TSet -> ValueSome(currpos)
+    //     | _ ->
+    //     let firstSetChars = searchValues.SearchValues
+    //     let isInverted =
+    //         match searchValues.Mode with
+    //         | MintermSearchMode.InvertedSearchValues -> true
+    //         | _ -> false
+    //
+    //     while skipping do
+    //         if loc.Reversed then
+    //             let slice = inputSpan.Slice(0, currpos)
+    //
+    //             if not isInverted then
+    //                 sharedIndex <- slice.LastIndexOfAny(firstSetChars)
+    //             else
+    //                 sharedIndex <- slice.LastIndexOfAnyExcept(firstSetChars)
+    //         else
+    //             let slice = inputSpan.Slice(currpos)
+    //
+    //             if not isInverted then
+    //                 sharedIndex <- slice.IndexOfAny(firstSetChars)
+    //             else
+    //                 sharedIndex <- slice.IndexOfAnyExcept(firstSetChars)
+    //
+    //
+    //         if sharedIndex = -1 then
+    //             skipping <- false
+    //             result <- ValueNone
+    //         else
+    //             let potential = if loc.Reversed then sharedIndex + 1 else currpos + sharedIndex
+    //
+    //             let shouldExit =
+    //                 match loc.Reversed with
+    //                 | true -> potential < setSpan.Length
+    //                 | _ -> potential + setSpan.Length > (loc.Input.Length - 1)
+    //
+    //             if shouldExit then
+    //                 skipping <- false
+    //                 result <- ValueSome(potential)
+    //             else
+    //
+    //             let nextLocMinterm =
+    //                 if loc.Reversed then
+    //                     this.Classify(inputSpan[potential - 1])
+    //                 else
+    //                     this.Classify(inputSpan[potential])
+    //
+    //             let mutable canTerminateLoop, looping =
+    //                 if termSpan.Length = 0 then
+    //                     -1, true
+    //                 else
+    //                     let termMatch =
+    //                         // _solver.isElemOfSet(termSpan[0],nextLocMinterm)
+    //                         (Solver.elemOfSet termSpan[0] nextLocMinterm)
+    //
+    //                     (if termMatch then 0 else -1), termSpan.Length <> 1
+    //
+    //             let mutable i = 1
+    //             let mutable stopSearch = true
+    //
+    //             while looping && i < setSpan.Length do
+    //                 let nextLocMinterm =
+    //                     if loc.Reversed then
+    //                         this.Classify(inputSpan[potential - i - 1])
+    //                     else
+    //                         this.Classify(inputSpan[potential + i])
+    //
+    //                 match (Solver.elemOfSet setSpan[i] nextLocMinterm) with
+    //                 | false ->
+    //                     stopSearch <- false
+    //                     looping <- false
+    //
+    //                     if loc.Reversed then
+    //                         currpos <- potential - 1
+    //                     else
+    //                         currpos <- potential + 1
+    //                 | true -> i <- i + 1
+    //
+    //                 if canTerminateLoop >= 0 && i < termSpan.Length then
+    //                     match (Solver.elemOfSet termSpan[i] nextLocMinterm) with
+    //                     | true ->
+    //                         canTerminateLoop <- i
+    //
+    //                         if i = termSpan.Length - 1 then
+    //                             looping <- false
+    //                             stopSearch <- true
+    //                     | false -> canTerminateLoop <- -1
+    //
+    //             if stopSearch then
+    //                 skipping <- false
+    //                 result <- ValueSome(potential)
+    //
+    //     result
 
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
