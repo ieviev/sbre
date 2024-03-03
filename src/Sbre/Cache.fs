@@ -462,7 +462,7 @@ type RegexCache<'t
         let tailPrefixSpan = setSpan.Slice(1)
         let _tailPrefixLength = tailPrefixSpan.Length
 
-        if tailPrefixSpan.Length = 1 then
+        if tailPrefixSpan.Length = 0 then
             skipping <- false
 
             let sharedIndex =

@@ -235,4 +235,17 @@ let ``nested not 1``() =
     assertFirstMatchText pattern input "12345.123"
 
 
+
+
+[<Fact>]
+let ``ranges 1``() = assertAllLLmatches "(?<=\d)a" "1a__a__a" [  1,1; ] // "|b|ba_|ba"
+
+
+
+
+
+
+
+
+
 #endif
