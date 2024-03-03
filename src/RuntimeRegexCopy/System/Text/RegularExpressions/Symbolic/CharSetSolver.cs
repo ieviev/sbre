@@ -80,15 +80,13 @@ namespace System.Text.RuntimeRegexCopy.Symbolic
             return bdd;
         }
         
-#if DEBUG
-        
+
 
         /// <summary>Creates a BDD that contains all of the characters in each range.</summary>
-        
-
+#if DEBUG
         /// <summary>Formats the contents of the specified set for human consumption.</summary>
         string ISolver<BDD>.PrettyPrint(BDD characterClass, CharSetSolver solver) => PrettyPrint(characterClass);
-
+#endif
         /// <summary>Formats the contents of the specified set for human consumption.</summary>
         public string PrettyPrint(BDD set)
         {
@@ -141,6 +139,8 @@ namespace System.Text.RuntimeRegexCopy.Symbolic
             }
             return RegexCharClass.DescribeSet(rcc.ToStringClass());
         }
+#if DEBUG
+
 #endif
         /// <summary>Unions two <see cref = "BDD"/>s to produce a new <see cref = "BDD"/>.</summary>
         public BDD Or(BDD set1, BDD set2) => ApplyBinaryOp(BooleanOperation.Or, set1, set2);

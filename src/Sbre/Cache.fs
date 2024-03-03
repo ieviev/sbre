@@ -724,12 +724,13 @@ type RegexCache<'t
     member val TrueStar: RegexNode<_> = _builder.uniques._trueStar
 
 
-
-
-#if DEBUG
-    member cache.PrettyPrintMinterm(xs: _) : string = cache.Solver.PrettyPrint(xs, _charsetSolver)
+    member cache.PrettyPrintMinterm(xs: _) : string = (cache.Solver :?> TSolver).PrettyPrint(xs, _charsetSolver)
 
     member this.PrettyPrintNode(node: RegexNode<TSet>) : string =
         Debug.debuggerSolver <- Some this.Solver
         node.ToString()
+
+
+#if DEBUG
+
 #endif
