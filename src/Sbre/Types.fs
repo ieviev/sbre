@@ -263,26 +263,11 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
         | Singleton v -> tostr v
         | Or(items, _) ->
             let itlen = items.Count
-            let isCaret =
-                match itlen = 2 with
-                | false -> None
-                | true ->
-                    let items2str = items |> Seq.map (_.ToString()) |> ResizeArray
-                    let v1 = items2str.Contains(@"\A")
-                    let v2 = items2str.Contains(@"(?<=\n)")
-                    if v1 && v2 then Some "^" else None
-            let isDollar =
-                match itlen = 2 with
-                | false -> None
-                | true ->
-                    let items2str = items |> Seq.map (_.ToString()) |> ResizeArray
-                    let v1 = items2str.Contains(@"\z")
-                    let v2 = items2str.Contains(@"(?=\n)")
-                    if v1 && v2 then Some "$" else None
-            match isCaret, isDollar with
-            | Some v,_ -> v
-            | _,Some v -> v
-            | _ ->
+
+            // match isCaret, isDollar with
+            // | Some v,_ -> v
+            // | _,Some v -> v
+            // | _ ->
 
             let setItems: string list =
                 items |> Seq.map (_.ToString() ) |> Seq.toList
@@ -318,6 +303,39 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
             | false -> inner + loopCount
 
         | LookAround(body, lookBack, relativeTo, pending, _) ->
+            match body with
+            | Or(nodes=nodes) ->
+                let isCaret =
+                    match nodes.Count = 2 with
+                    | true when lookBack ->
+                        let items2str = nodes |> Seq.map (_.ToString()) |> ResizeArray
+                        let v1 = items2str.Contains(@"\A")
+                        let v2 = items2str.Contains(@"\n")
+                        if v1 && v2 then Some "^" else None
+                    | _ -> None
+                let isDollar =
+                    match nodes.Count = 2 with
+                    | true when not lookBack ->
+                        let items2str = nodes |> Seq.map (_.ToString()) |> ResizeArray
+                        let v1 = items2str.Contains(@"\z")
+                        let v2 = items2str.Contains(@"\n")
+                        if v1 && v2 then Some "$" else None
+                    | _ -> None
+                match isCaret, isDollar with
+                | Some s, _ | _, Some s -> s
+                | _ ->
+
+
+                let inner = body.ToString()
+                let pending =
+                    if pending.IsEmpty then ""
+                    else $"%A{Seq.toList pending}"
+                match lookBack with
+                | false-> $"(?={inner})"
+                | true -> $"(?<={inner})"
+                + pending
+            | _ ->
+
             let inner = body.ToString()
             let pending =
                 if pending.IsEmpty then ""

@@ -93,6 +93,18 @@ let ``_ solver 1``() = assertSolverContains12 "[a-z]a"
 let ``_ solver 2``() = assertNotSolverContains12 "a[a-z]"
 
 
+[<Fact>]
+let ``a feature 1.1``() = assertConverted """\b\d{5}(?:-\d{4})?\b""" [
+    @"((?<=φ)|\A)φ{5,5}(-φ{4,4})?((?=φ)|\z)"
+    @"(\A|(?<=φ))φ{5,5}(-φ{4,4})?(\z|(?=φ))"
+    @"(\A|(?<=φ))φ{5,5}(-φ{4,4})?((?=φ)|\z)"
+
+    @"(?<=(φ|\A))φ{5,5}(-φ{4,4})?(?=(φ|\z))"
+    @"(?<=(\A|φ))φ{5,5}(-φ{4,4})?(?=(φ|\z))"
+    @"(?<=(φ|\A))φ{5,5}(-φ{4,4})?(?=(\z|φ))"
+]
+
+
 
 
 [<Fact>]
@@ -220,6 +232,7 @@ let ``conversion lookaround 2 ``() = assertConverted ".(?=A.*)" [@".(?=A.*)"]
 let ``conversion label``() = assertConverted "(?<Time>^\d)" [
     @"^\d"
     @"^φ"
+    @"(?<=(\n|\A))φ"
 ]
 
 

@@ -317,28 +317,22 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
     let _anchors =
         let nonWordLeft =
             lazy
-                b.mkOrSeq([|
-                    RegexNode<'t>.Begin;
-                    b.mkLookaround( _uniques._nonWordChar.Value ,true, 0, Set.empty)
-                |])
+                let body = b.mkOr2(RegexNode<'t>.Begin, _uniques._nonWordChar.Value)
+                b.mkLookaround(body ,true, 0, Set.empty)
+
         let wordLeft =
             lazy
-                b.mkOrSeq([|
-                    RegexNode<'t>.Begin
-                    b.mkLookaround( _uniques._wordChar.Value ,true, 0, Set.empty)
-                |])
+                let body = b.mkOr2(RegexNode<'t>.Begin, _uniques._wordChar.Value)
+                b.mkLookaround( body,true, 0, Set.empty)
         let nonWordRight =
             lazy
-                b.mkOrSeq(
-                    [|RegexNode<'t>.End
-                      b.mkLookaround( _uniques._nonWordChar.Value,false, 0, Set.empty) |]
-                )
+                let body = b.mkOr2(RegexNode<'t>.End, _uniques._nonWordChar.Value)
+                b.mkLookaround( body,false, 0, Set.empty)
+
         let wordRight =
             lazy
-                b.mkOrSeq(
-                    [|RegexNode<'t>.End
-                      b.mkLookaround( _uniques._wordChar.Value,false, 0, Set.empty) |]
-                )
+                let body = b.mkOr2(RegexNode<'t>.End, _uniques._wordChar.Value)
+                b.mkLookaround( body,false, 0, Set.empty)
 
         {|
             _endZAnchor = lazy (failwith "todo: \Z anchor is not defined" : RegexNode<'t>)
@@ -379,9 +373,10 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                     // ]
                     // b.mkOr(ofSeq [ b.mkConcat c1; b.mkConcat c2 ])
 
-
             _wordBorder =
+
                     lazy
+                        failwith "w"
                         b.mkOrSeq(
                         [|
                             b.mkConcat2(nonWordLeft.Value, wordRight.Value)
@@ -391,59 +386,44 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             // (?<=\W)
             // _nonWordLeft = lazy b.mkLookaround(_uniques._nonWordChar.Value,true,false)
             // proper definition (?<=\a|\W)
-            _nonWordLeft =
-                lazy
-                    b.mkOrSeq([|
-                        RegexNode<'t>.Begin
-                        b.mkLookaround( _uniques._nonWordChar.Value ,true, 0, Set.empty)
-                    |])
+            _nonWordLeft = nonWordLeft
+
+
             // (?<=\W)
-            _wordLeft =
-                lazy
-                    b.mkOrSeq([|
-                        RegexNode<'t>.Begin
-                        b.mkLookaround( _uniques._wordChar.Value ,true, 0, Set.empty)
-                    |])
+            _wordLeft = wordLeft
+
             // (?=\W)
             // _nonWordRight = lazy b.mkLookaround(_uniques._nonWordChar.Value)
             // proper definition (?=\z|\W)
-            _nonWordRight =
-                lazy
-                    b.mkOrSeq(
-                        [|RegexNode<'t>.End
-                          b.mkLookaround( _uniques._nonWordChar.Value,false, 0, Set.empty) |]
-                    )
+            _nonWordRight = nonWordRight
 
-                    // b.mkLookaround(
-                    //     b.mkOr([ RegexNode<'t>.Anchor End; _uniques._nonWordChar.Value ])
-                    //     ,true,false)
-            _wordRight =
-                lazy
-                    b.mkOrSeq(
-                        [|RegexNode<'t>.End
-                          b.mkLookaround( _uniques._wordChar.Value,false, 0, Set.empty) |]
-                    )
+            _wordRight = wordRight
 
             // ^ ≡ \A|(?<=\n)
             _caretAnchor =
                 // RegexNode<'t>.Anchor Bol
                 lazy
-                    b.mkOrSeq(
-                        [|
-                            _uniques._aAnchor
-                            b.mkLookaround(b.one '\n',true, 0, Set.empty)
-                        |]
-                    )
+                    let body = b.mkOr2(_uniques._aAnchor, b.one '\n')
+                    b.mkLookaround(body,true, 0, Set.empty)
+
+                    // b.mkOrSeq(
+                    //     [|
+                    //         _uniques._aAnchor
+                    //         b.mkLookaround(b.one '\n',true, 0, Set.empty)
+                    //     |]
+                    // )
             // ^ ≡ \z|(?=\n)
             _dollarAnchor =
                 // RegexNode<'t>.Anchor Eol
                 lazy
-                    b.mkOrSeq(
-                        [|
-                            _uniques._zAnchor
-                            b.mkLookaround(b.one '\n',false, 0, Set.empty)
-                        |]
-                    )
+                    let body = b.mkOr2(_uniques._zAnchor, b.one '\n')
+                    b.mkLookaround(body,false, 0, Set.empty)
+                    // b.mkOrSeq(
+                    //     [|
+                    //         _uniques._zAnchor
+                    //         b.mkLookaround(b.one '\n',false, 0, Set.empty)
+                    //     |]
+                    // )
 
         |}
 
@@ -608,6 +588,12 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 let newtail = this.mkOr2(ctail1,ctail2)
                 let v = this.mkConcat2(chead1, newtail)
                 addToCache v
+            // put anchor inside lookaround body
+            | (Begin|End) as anc, (LookAround(node=lookBody;lookBack=lb;relativeTo=rel2;pendingNullables=pen;info=info) as look)
+            | (LookAround(node=lookBody;lookBack=lb;relativeTo=rel2;pendingNullables=pen;info=info) as look, ((Begin|End) as anc)) ->
+                b.mkLookaround(
+                    b.mkOr2(anc,lookBody), lb,rel2 , pen
+                )
             | _ ->
                 createCached(key)
 
@@ -1090,12 +1076,21 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 // a(?<=[a-z]) to (a&(⊤*[a-z])
                 // [a-f]{3}((?<=bc)ijk)|(?<=cd)def))
                 // [a-f]{3}((?<=bc)ijk)|(?<=cd)def))
-                // [a-f](bcijk|cddef)
-                // aaa&...(?<=[a-z]{3})
                 // aaa&(?=[a-z]{3})...
                 | head, LookAround(node=node;lookBack=true) when not (refEq head b.trueStar) ->
+                    // match Node.getFixedLength (head) with
+                    // | Some 0 ->
+                    //     // just merge them if zero-width
+                    //     let combined = this.mkAnd([
+                    //         this.mkConcat2(this.trueStar,head)
+                    //         this.mkConcat2(this.trueStar,tail)
+                    //     ])
+                    //     let v = this.mkLookaround(combined, true, 0, Set.empty)
+                    //     _concatCache.Add(key, v)
+                    //     v
+                    // | _ ->
+
                     // only rewrite trivial examples!
-                    let dbg = 1
                     let rewrite =
                         match node with
                         | Singleton _ ->

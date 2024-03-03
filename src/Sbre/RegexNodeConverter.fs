@@ -34,12 +34,22 @@ let rec determineWordBorderNodeKind (b:RegexBuilder<BDD>) (css:CharSetSolver) (l
     let inferSet (setStr:string) =
         match setStr with
         | RegexCharClass.NotSpaceClass
+        | RegexCharClass.NumberClass
+        | RegexCharClass.AsciiLetterClass
+        | RegexCharClass.DigitClass -> Some true
         | RegexCharClass.WordClass -> Some true
         | RegexCharClass.SpaceClass -> Some false
+
+        | RegexCharClass.NotDigitClass
         | RegexCharClass.AnyClass -> None
         | _ ->
+            use arr = new SharedResizeArray<char>(1024)
             let ranges = RegexCharClass.ComputeRanges(setStr)
+            if isNull ranges then
+                None
+            else
             let bdd = css.CreateBDDFromRanges(ranges)
+
             let sbdd = b.bddFromClass(RegexCharClass.SpaceClass)
             // no whitespace
             if css.IsEmpty(css.And(bdd,sbdd)) then Some true else
@@ -89,8 +99,13 @@ let toLeft (b:RegexBuilder<BDD>) (css:CharSetSolver) (outer:RegexNode array) idx
     | 0 -> None
     | n ->
         let temp = outer[n-1]
-        let kind = determineWordBorderNodeKind b css true temp
-        kind
+        match temp.Kind with
+        | RegexNodeKind.Loop when temp.M = 0 ->
+            // TODO: semantics
+            toLeft b css outer (idx - 1)
+        | _ ->
+            let kind = determineWordBorderNodeKind b css true temp
+            kind
 
 let toRight (b:RegexBuilder<BDD>) (css:CharSetSolver) (outer:RegexNode array) idx =
     match idx with
@@ -245,7 +260,6 @@ let convertToSymbolicRegexNode
             failwith "TODO: rewrite to lookaround"
         | RegexNodeKind.NonBoundary ->
             failwith "TODO: reimplement word border"
-            b.anchors._nonWordBorder.Value :: acc
         | RegexNodeKind.Setlazy
         | RegexNodeKind.Setloop ->
             let set = node.Str
