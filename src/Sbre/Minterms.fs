@@ -36,11 +36,11 @@ let rec transform
     | End -> End
 
 let rec transformBack
-    (oldBuilder: RegexBuilder<TSet>)
+    (oldBuilder: RegexBuilder<'t>)
     (builder: RegexBuilder<BDD>)
-    (newSolver: ISolver<TSet>)
+    (newSolver: ISolver<'t>)
     (charsetSolver: CharSetSolver)
-    (node: RegexNode<TSet>)
+    (node: RegexNode<'t>)
     : RegexNode<BDD> =
 
     let inline transformInner v = transformBack oldBuilder builder newSolver charsetSolver v

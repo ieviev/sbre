@@ -24,7 +24,7 @@ let testFullDerivative(pattern: string, input: string, expectedDerivative: strin
 
     let result =
         matcher.CreateDerivative (  &location, cache.MintermForLocation(location), node)
-        |> (fun v -> cache.PrettyPrintNode v)
+        |> matcher.PrettyPrintNode
 
     Assert.Equal(expectedDerivative, result)
 
@@ -46,7 +46,7 @@ let test2ndDerivative(pattern: string, input: string, expectedDerivative: string
 
     let der2 = matcher.CreateDerivative  (  &location1, cache.MintermForLocation(location1), der1)
 
-    let result = der2 |> (fun v -> cache.PrettyPrintNode v)
+    let result = der2 |> (fun v -> matcher.PrettyPrintNode v)
 
 
     Assert.Equal(expectedDerivative, result)
@@ -63,7 +63,7 @@ let test2ndDerivatives(pattern: string, input: string, expectedDerivatives: stri
         let node = matcher.TrueStarredPattern
         let der1 = matcher.CreateDerivative  (  &location, cache.MintermForLocation(location), node)
         let der2 = matcher.CreateDerivative (  &location1, cache.MintermForLocation(location1), der1)
-        cache.PrettyPrintNode der2
+        matcher.PrettyPrintNode der2
 
 
     Assert.Contains(result, expectedDerivatives)
@@ -81,7 +81,7 @@ let testRawDerivative(pattern: string, input: string, expectedDerivative: string
 let testRevDerivative(pattern: string, input: string, expectedDerivatives: string list) =
     let matcher = Regex(pattern)
     let result = der1Rev matcher input
-    Assert.Contains(matcher.TSetMatcher.Cache.PrettyPrintNode(result),expectedDerivatives)
+    Assert.Contains(matcher.TSetMatcher.PrettyPrintNode(result),expectedDerivatives)
 
 
 
@@ -149,7 +149,9 @@ let ``raw derivative of ab``() = testRawDerivative ("ab", "ab", "b")
 
 [<Fact>]
 let ``derivative of ab``() =
-    testFullDerivativeMultiple ("ab", "ab", [ "(b|⊤*ab)"; @"(⊤*ab|b)" ])
+    testFullDerivativeMultiple ("ab", "ab", [
+        "(b|⊤*ab)"; @"(⊤*ab|b)"; @"(ε|⊤*a)b"; @"(⊤*a|ε)b"
+    ])
 
 
 [<Fact>]

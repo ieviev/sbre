@@ -25,24 +25,33 @@ module Extensions =
             not (this.IsEmpty(this.And(locationMinterm, predicate)))
 
         [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-        member this.notElemOfSet(predicate: 't, locationMinterm: 't) =
+        member this.notElemOfSet(predicate: 't) (locationMinterm: 't) =
             this.IsEmpty(this.And(locationMinterm, predicate))
 
+        [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+        member this.contains(larger: 't) (smaller: 't) =
+            let overlapped = this.And(smaller,larger)
+            // smaller = overlapped
+            match box overlapped, box smaller with
+            | (:? uint64 as ov), (:? uint64 as sm) -> ov = sm
+            | (:? BDD as ov), (:? BDD as sm) -> ov = sm
+            | (:? BitVector as ov), (:? BitVector as sm) -> ov = sm
+            | _ -> failwith "invalid set"
 
 
 #nowarn "42"
 
 module Solver =
-    let inline elemOfSet predicate locationMinterm =
-        predicate &&& locationMinterm <> LanguagePrimitives.GenericZero
-    let inline il_and (x:'t) (y:'t) =
-        (# "and" x y : 't #)
-    let inline notElemOfSet predicate locationMinterm =
-        (predicate &&& locationMinterm) = LanguagePrimitives.GenericZero
-    let inline contains
-        (larger: ^d when ^d : struct)
-        (smaller: ^d): bool =
-            (larger &&& smaller) = smaller
+    // let inline elemOfSet predicate locationMinterm =
+    //     predicate &&& locationMinterm <> LanguagePrimitives.GenericZero
+    // let inline il_and (x:'t) (y:'t) =
+    //     (# "and" x y : 't #)
+    // let inline notElemOfSet predicate locationMinterm =
+    //     (predicate &&& locationMinterm) = LanguagePrimitives.GenericZero
+    // let inline contains
+    //     (larger: ^d when ^d : struct)
+    //     (smaller: ^d): bool =
+    //         (larger &&& smaller) = smaller
 
     let containsS
         (solver:ISolver<'d>)
@@ -53,13 +62,13 @@ module Solver =
 
 
 
-    let inline not' predicate = ~~~predicate
-    // let inline isEmpty (predicate:TSet) = predicate = LanguagePrimitives.GenericZero
-    let inline mapOr (s:ISolver<^t>) ([<InlineIfLambda>]f: 'a -> ^t) xs: ^t =
-        let mutable startset = s.Empty
-        for x in xs do
-            startset <- s.Or(startset,f x)
-        startset
+    // let inline not' predicate = ~~~predicate
+    // // let inline isEmpty (predicate:TSet) = predicate = LanguagePrimitives.GenericZero
+    // let inline mapOr (s:ISolver<^t>) ([<InlineIfLambda>]f: 'a -> ^t) xs: ^t =
+    //     let mutable startset = s.Empty
+    //     for x in xs do
+    //         startset <- s.Or(startset,f x)
+    //     startset
 
     let inline mergeOrWithEnumerator
         (s:ISolver<^t>)
@@ -189,6 +198,16 @@ let (|StarLoop|_|) (node: RegexNode<_>) =
     match node with
     | Loop(node=starNode;low=0;up=Int32.MaxValue) -> ValueSome(starNode)
     | _ -> ValueNone
+
+let (|SplitTail|) (node: RegexNode<_>) =
+    let tmp = ResizeArray()
+    let rec loop node =
+        match node with
+        | Concat(head=h;tail=tail) ->
+            tmp.Add(h)
+            loop(tail)
+        | _ -> tmp, node
+    loop node
 
 [<return: Struct>]
 let (|TrueStar|_|) (solver: ISolver<_>) (node: RegexNode<_>) =

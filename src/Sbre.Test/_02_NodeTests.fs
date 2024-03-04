@@ -2,6 +2,7 @@
 module Sbre.Test._02_NodeTests
 
 open System.Globalization
+open System.IO
 open System.Text.RuntimeRegexCopy
 open System.Text.RuntimeRegexCopy.Symbolic
 open Sbre
@@ -27,7 +28,7 @@ let printNode(reg: RegexMatcher<_>, node: RegexNode<_>) =
     try
         let matcher = reg
         let nodes = node
-        matcher.Cache.PrettyPrintNode nodes
+        matcher.PrettyPrintNode nodes
     with e ->
         failwith "failed to print node"
 
@@ -456,6 +457,11 @@ let assertNodeWithoutPrefix (patt:string) (expected:string list) =
     let n2 = Optimizations.mkNodeWithoutLookbackPrefix m.Cache.Builder n
     assertContains expected (n2.ToString())
 
+let assertCanBuild (patt:string) (expected:string list) =
+    let m = Sbre.Regex(patt)
+    // let n = m.RawPattern
+    ()
+
 [<Fact>]
 let ``withoutprefix 01``() =
     assertNodeWithoutPrefix "(?<=author).*&.*and.*" [ "(.*and.*&.*)" ;".*and.*"; "(.*&.*and.*)"]
@@ -471,14 +477,19 @@ let ``withoutprefix 02``() =
 let ``withoutprefix 03``() =
     assertNodeWithoutPrefix """(?<=aaa).*""" [".*"]
 
+// let reg2 =
+//     @"(?<=6|8\(.*).*&(?<=6|8\(|4|8|0\().*&~(.*\)\:.*)&\w.*&.*\w&.*(?=.*\)\:)&.*(?=\)\:|\)\:)"
 
 
+// [<Fact>]
+// let ``withoutprefix 04``() =
+//     assertNodeWithoutPrefix reg2 [".*"]
 
 
-
-
-
-
+[<Fact>]
+let ``very large pat 01``() =
+    assertCanBuild
+        (File.ReadAllText "/home/ian/f/ieviev/sbre/src/Sbre.Test/data/pattern-date.txt") [".*"]
 
 
 

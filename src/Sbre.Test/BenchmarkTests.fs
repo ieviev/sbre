@@ -34,7 +34,11 @@ let twain_input =
 let twain_20k = twain_input[..19999] // 10k chars limit
 
 
-#if DEBUG
+
+
+
+
+#if DEBUG2
 
 [<Fact>]
 let twain_counts_0() =
@@ -283,3 +287,13 @@ let rebar_counts_1() =
 
 
 #endif
+
+[<Fact>]
+let ``learning sample 1``() =
+    let m = Regex(@"(?<=( |`|\-|\n|3).*).*&\w.*&.*\w")
+    let input = __SOURCE_DIRECTORY__ + "/data/sample-congress.txt"
+    let r = m.Matches(input) |> Seq.toArray
+    Assert.Equal(15, r.Length)
+
+
+

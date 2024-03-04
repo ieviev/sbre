@@ -11,12 +11,15 @@ open System.Diagnostics
 // module Constants =
 //     let [<Literal>] COUNTING_SET_THRESHOLD = 2
 
+[<AutoOpen>]
+module Static =
+    let staticCharSetSolver = System.Text.RuntimeRegexCopy.Symbolic.CharSetSolver()
+
 
 #if DEBUG
 [<AutoOpen>]
 module Debug =
-    let debugcharSetSolver = System.Text.RuntimeRegexCopy.Symbolic.CharSetSolver()
-    let bddBuilder = SymbolicRegexBuilder<BDD>(debugcharSetSolver, debugcharSetSolver)
+    let bddBuilder = SymbolicRegexBuilder<BDD>(staticCharSetSolver, staticCharSetSolver)
 
 
 #endif
@@ -230,20 +233,21 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
 #if DEBUG
 
     override this.ToString() =
+
         let maxwidth : int = Debug.printSizeLimit
         let print node =
             if typeof<'tset> = typeof<BDD> then
-                Debug.debugcharSetSolver.PrettyPrint(unbox (box node))
+                Static.staticCharSetSolver.PrettyPrint(unbox (box node))
             else
-                Debug.debuggerSolver.Value.PrettyPrint(unbox (box node),debugcharSetSolver)
+                Debug.debuggerSolver.Value.PrettyPrint(unbox (box node),Static.staticCharSetSolver)
 
         let isFull (tset:'tset) =
             if typeof<'tset> = typeof<BDD> then
-                Debug.debugcharSetSolver.IsFull(unbox (box tset))
+                Static.staticCharSetSolver.IsFull(unbox (box tset))
             else Debug.debuggerSolver.Value.IsFull(unbox (box tset))
         let isEmpty (tset:'tset) =
             if typeof<'tset> = typeof<BDD> then
-                Debug.debugcharSetSolver.IsEmpty(unbox (box tset))
+                Static.staticCharSetSolver.IsEmpty(unbox (box tset))
             else Debug.debuggerSolver.Value.IsEmpty(unbox (box tset))
 
         let paren str = $"({str})"
@@ -464,7 +468,7 @@ module Common =
         }
 
     let tsetComparer =
-        { new IEqualityComparer<RegexNode<TSet>> with
+        { new IEqualityComparer<RegexNode<'t>> with
             [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
             member this.Equals(x, y) = obj.ReferenceEquals(x, y)
 
@@ -549,6 +553,13 @@ module Memory =
         forall
 
 
+//
+// type TSet = BitVector
+// type TSolver = ISolver<TSet>
+
+// type TSolver = BitVectorSolver
+
+//
 // type TSet = BitVector
 // type TSolver = BitVectorSolver
 

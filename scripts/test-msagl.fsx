@@ -19,7 +19,8 @@ type MsaglGraphEdge = {
     color: string
 }
 
-type MsaglGraph = { nodes: MsaglGraphNode[]; edges: MsaglGraphEdge[] }
+type MsaglGraph = { 
+    nodes: MsaglGraphNode[]; edges: MsaglGraphEdge[] }
 
 let mkGraph(pattern: string) =
     let node = Regex(pattern).TSetMatcher.RawPattern
@@ -64,6 +65,26 @@ let mkGraph(pattern: string) =
     let _nodes, _edges = loop Set.empty Set.empty node
 
     {
+        nodes =
+            (_nodes
+             |> Seq.map (fun v -> {
+                 id = v
+                 label = v
+                 shape = "box"
+             })
+             |> Seq.toArray)
+        edges =
+            (_edges
+             |> Seq.map (fun (v1, v2) -> {
+                 source = v1
+                 target = v2
+                 color = null
+             }))
+            |> Seq.toArray
+    }
+
+
+let simpleGraph _nodes _edges = {
     nodes =
         (_nodes
          |> Seq.map (fun v -> {
@@ -80,18 +101,57 @@ let mkGraph(pattern: string) =
              color = null
          }))
         |> Seq.toArray
-    }
-
-
-Debug.debuggerSolver
-
-let mk = 
-    // @"abc"
-    @"~(.*and.*)&[A-Z][\w-{}\\' ,]+&(?<=or=\{.*).*&(?<=\W).*&.*(?=.*\},)&.*(?=\W)"
-    |> mkGraph 
-    |> Json.serialize (ignoreNulls=true)
-    |> File.writeTo "/home/ian/f/ieviev/sbre-wasm/src/Sbre.Visualization/assets/g.json"
-
+}
 // @"abc"
 
 // |> File.writeTo "/mnt/g/repos/msagljs/examples/minimal_webgl_renderer/src/g.json"
+
+
+
+let outfile = 
+    "/home/ian/f/ieviev/sbre-wasm/src/Sbre.Visualization/assets/g.json"
+
+let show nodes edges =
+    simpleGraph nodes edges
+    |> Json.serialize (ignoreNulls = true)
+    |> File.writeTo outfile
+
+
+let rng = System.Random.Shared
+
+
+type Props = {
+    // m vertices
+    vertices: int
+    prob: float
+    // mean degree
+    // c = (2x edges) / verts
+}
+
+let a = { vertices = 100; prob = 3.5 }
+
+let nodes = List.init a.vertices (fun v -> $"node {v}")
+let edges = int (float a.vertices * a.prob)
+
+let edgesrng = [
+    for i = 1 to edges do
+        let src = nodes[rng.Next(nodes.Length)]
+        let dest = nodes[rng.Next(nodes.Length)]
+        src, dest
+]
+
+let numOfTriangles = 
+    edges
+
+let sample = show nodes edgesrng
+
+
+// let edgesrng = [
+//     for node in nodes do
+//         let id1 = rng.Next(nodes.Length)
+//         node, nodes[id1]
+
+//         if rng.NextDouble() < a.prob then
+//             let targetId = rng.Next(nodes.Length)
+//             node, nodes[targetId]
+// ]

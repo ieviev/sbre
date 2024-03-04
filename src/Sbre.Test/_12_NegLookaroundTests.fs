@@ -20,12 +20,14 @@ let ``der neg anchor 1``() = _04_DerivativeTests.testRevDerivative (@"(?!b)","b"
     @"(?<=~((ε|⊤*b)))" // TODO: unsure
     @"(?<=~((⊤*b|ε)))"
     @"(?<=~((⊤*b)?))"
+    @"(?<=~((⊤*a)?))b"
 ])
 
 [<Fact>]
 let ``der neg anchor 2``() = _04_DerivativeTests.testRevDerivative (@"(?!b)","a",[
     // @"ε"
     @"(?<=~(⊤*b))"
+    @"((?<=~(⊤*a))b)?"
 ])
 
 [<Fact>]
@@ -48,7 +50,7 @@ let ``der neg anchor lb 1``() = _04_DerivativeTests.testPartDerivative (@"(?<!a)
 let ``der neg anchor lb 2``() = _04_DerivativeTests.testPartDerivatives (@"(?<!a)b", "bb", [
     "ε" // subsumed
     "(?=ε)" // subsumed
-    // @"(ε&(⊤*\A~(⊤*a)|~(⊤*a)))" // not subsumed
+    // "((?<=~(⊤*a))b)?"
 ])
 
 

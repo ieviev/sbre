@@ -31,7 +31,7 @@ type StringPrefix(pattern:string) =
     )
 
     let charToTSet (chr:char) = matcher.Cache.CharToMinterm(chr)
-    let isElemOfSet (tset1:TSet) (tset2:TSet) = Solver.elemOfSet tset1 tset2
+    // let isElemOfSet (tset1:TSet) (tset2:TSet) = Solver.elemOfSet tset1 tset2
 
     let svals = [|'n'|].AsMemory()
 
@@ -124,9 +124,9 @@ type SetsPrefix(pattern:string) =
             getder
             (fun node -> matcher.GetOrCreateState(node).Id)
             (fun node -> matcher.GetOrCreateState(node).Flags)
-            matcher.Cache
-            matcher.ReversePattern
-            matcher.ReverseTrueStarredPattern
+            (unbox matcher.Cache)
+            (unbox matcher.ReversePattern)
+            (unbox matcher.ReverseTrueStarredPattern)
     let prefixSets =
         match optimizations with
         | InitialOptimizations.SetsPotentialStart(prefix) ->
@@ -140,30 +140,30 @@ type SetsPrefix(pattern:string) =
         | _ -> failwith "could not get prefix"
 
     let charToTSet (chr:char) = matcher.Cache.Classify(chr)
-    let isElemOfSet (tset1:TSet) (tset2:TSet) = Solver.elemOfSet tset1 tset2
+    // let isElemOfSet (tset1:TSet) (tset2:TSet) = Solver.elemOfSet tset1 tset2
 
-    [<Benchmark>]
-    member x.FirstSetIndexOfTSet() =
-        let inputSpan = fullInput.AsSpan()
-        let mutable currpos = 0
-        let mutable searching = true
-        while searching do
-            let currSet = charToTSet inputSpan[currpos]
-            if isElemOfSet currSet prefixSets[0] then
-                searching <- false
-            else
-                currpos <- currpos + 1
+    // [<Benchmark>]
+    // member x.FirstSetIndexOfTSet() =
+    //     let inputSpan = fullInput.AsSpan()
+    //     let mutable currpos = 0
+    //     let mutable searching = true
+    //     while searching do
+    //         let currSet = charToTSet inputSpan[currpos]
+    //         if isElemOfSet currSet prefixSets[0] then
+    //             searching <- false
+    //         else
+    //             currpos <- currpos + 1
 
-    [<Benchmark>]
-    member x.FirstSetIndexOfChars() =
-        let firstSetChars = matcher.Cache.MintermChars(prefixSets[0]).Value.Span
-        let inputSpan = fullInput.AsSpan()
-        let mutable searching = true
-        while searching do
-            match inputSpan.IndexOfAny(firstSetChars) with
-            | -1 -> failwith "failed search"
-            | n ->
-                searching <- false
+    // [<Benchmark>]
+    // member x.FirstSetIndexOfChars() =
+    //     let firstSetChars = matcher.Cache.MintermChars(prefixSets[0]).Value.Span
+    //     let inputSpan = fullInput.AsSpan()
+    //     let mutable searching = true
+    //     while searching do
+    //         match inputSpan.IndexOfAny(firstSetChars) with
+    //         | -1 -> failwith "failed search"
+    //         | n ->
+    //             searching <- false
 
 
 

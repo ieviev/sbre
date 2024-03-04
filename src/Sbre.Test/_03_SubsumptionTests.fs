@@ -82,6 +82,8 @@ let ``derivative neg lookaround 2``() =
         @"(~((.*|.*A.*))&.*)"
         @"(.*&~((.*|.*A.*)))"
         @"(.*&~((.*A.*|.*)))"
+        // --
+        @"(.*&~((.*A)?.*))"
     ]
 
 
@@ -112,7 +114,9 @@ let ``subsumption or loop ``() =
 
 
 [<Fact>]
-let ``a conversion 2.5``() = assertConverted """Huck[a-zA-Z]+|Saw[a-zA-Z]+""" [
+let ``a conversion 2.5``() =
+    assertConverted
+        """Huck[a-zA-Z]+|Saw[a-zA-Z]+""" [
     @"(Saw([A-Za-z])+|Huck([A-Za-z])+)"
     @"(Huck([A-Za-z])+|Saw([A-Za-z])+)"
     // this optimization is probably detrimental
@@ -162,7 +166,12 @@ let ``rewrite suffix 1``() = assertConverted """.*(?=.*def)&.*def""" [ ".*def(?=
 let ``rewrite prefix 1``() = assertConverted """(?<=abc).*&.*def""" [ "(?<=abc).*def" ]
 
 
+[<Fact>]
+let ``merge 1``() = assertConverted """a|s""" [ "[as]" ]
 
+
+[<Fact>]
+let ``merge 2``() = assertConverted """at|st""" [ "[as]t" ]
 
 
 

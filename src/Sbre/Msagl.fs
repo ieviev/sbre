@@ -16,7 +16,7 @@ type MsaglGraphEdge = {
 
 type MsaglGraph = { nodes: MsaglGraphNode[]; edges: MsaglGraphEdge[] }
 
-let mkGraph(node: RegexNode<TSet>) =
+let mkGraph(node: RegexNode<'t>) =
     let rec loop (nodeIds: Set<string>) (edges: Set<string * string>) (node: Types.RegexNode<_>) =
         let current = node.ToString()
         let nodeIds' = nodeIds |> Set.add (current)
@@ -77,10 +77,10 @@ let mkGraph(node: RegexNode<TSet>) =
 
 // Debug.debuggerSolver
 
-// let mk = 
+// let mk =
 //     // @"abc"
 //     @"~(.*and.*)&[A-Z][\w-{}\\' ,]+&(?<=or=\{.*).*&(?<=\W).*&.*(?=.*\},)&.*(?=\W)"
-//     |> mkGraph 
+//     |> mkGraph
 //     |> Json.serialize (ignoreNulls=true)
 //     |> File.writeTo "/home/ian/f/ieviev/sbre-wasm/src/Sbre.Visualization/assets/g.json"
 

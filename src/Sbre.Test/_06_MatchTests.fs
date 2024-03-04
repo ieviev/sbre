@@ -4,6 +4,7 @@ module Sbre.Test._06_MatchTests
 
 #if DEBUG
 
+open System.IO
 open Sbre
 open Sbre.Algorithm
 open Xunit
@@ -92,6 +93,18 @@ let ``regexlib sample 2 - prefix test``() =
 
 
 [<Fact>]
+let ``regexlib sample 3``() =
+    // let matcher = Regex(@"(^0[1-9]\d{1}\s\d{4}\s?\d{4}$)|(^0[1-9]\d{2}\s\d{3}\s?\d{4}$)|(^0[1-9]\d{2}\s\d{4}\s?\d{3}$)|(^0[1-9]\d{3}\s\d{3}\s?\d{2}$)|(^0[1-9]\d{3}\s\d{3}\s?\d{3}$)|(^0[1-9]\d{4}\s\d{3}\s?\d{2}$)|(^0[1-9]\d{4}\s\d{2}\s?\d{3}$)|(^0[1-9]\d{4}\s\d{2}\s?\d{2}$)")
+    let matcher = Regex(@"(^1300\d{6}$)|(^1800|1900|1902\d{6}$)|(^0[2|3|7|8]{1}[0-9]{8}$)|(^13\d{4}$)|(^04\d{2,3}\d{6}$)")
+    // let matcher = Regex(@"^(((((0?[1-9])|(1\d)|(2[0-8]))\.((0?[1-9])|(1[0-2])))|((31\.((0[13578])|(1[02])))|((29|30)\.((0?[1,3-9])|(1[0-2])))))\.((20[0-9][0-9]))|(29\.0?2\.20(([02468][048])|([13579][26]))))$")
+    // let ism = matcher.Match("01323 293 374")
+    let ism = matcher.Match("0732105432")
+    assertEqual ism.Value "0732105432"
+    // let ism = matcher.Match("29.02.2004")
+    // assertEqual ism.Value "01323 293 374"
+
+
+[<Fact>]
 let ``optimizations sanity check 1``() =
     let pat = @"a( |)b( |)c( |)d"
     let matcher = Regex(pat)
@@ -105,7 +118,7 @@ let sampleText1 = """asd asd down asdasd asd asd """
 [<Fact>]
 let ``empty loop test 1``() =
     let pat = @"~(⊤*(d⊤*){2})&.*down.*"
-    assertNullablePositions pat sampleText1 [8; 7]
+    assertNullablePositions pat sampleText1 [ 8; 7 ]
 
 
 
@@ -165,9 +178,7 @@ let ``lookarounds test 9``() =
 
 [<Fact>]
 let ``caching lookarounds test 2 ``() =
-    assertNoMatch
-        """(^\d{3,5}\,\d{2}$)|(^\d{3,5}$)"""
-        "1300333444"
+    assertNoMatch """(^\d{3,5}\,\d{2}$)|(^\d{3,5}$)""" "1300333444"
 
 
 
@@ -258,8 +269,7 @@ let ``exit range test 1``() =
 
 
 [<Fact>]
-let ``exit range test 2``() =
-    assertFirstMatchText @"a+" " aaa " "aaa"
+let ``exit range test 2``() = assertFirstMatchText @"a+" " aaa " "aaa"
 
 
 
@@ -298,37 +308,25 @@ let ``reverse pattern 1``() =
 
 [<Fact>]
 let ``negation range test 1``() =
-    assertFirstMatchText
-        @"~(⊤*\d\d⊤*)"
-        "Aa11aBaAA"
-        "Aa1"
+    assertFirstMatchText @"~(⊤*\d\d⊤*)" "Aa11aBaAA" "Aa1"
 
 [<Fact>]
 let ``negation range test 2``() =
-    assertFirstMatchText
-        @"~(.*\d\d.*)"
-        "Aa11aBaAA"
-        "Aa1"
+    assertFirstMatchText @"~(.*\d\d.*)" "Aa11aBaAA" "Aa1"
 
 [<Fact>]
 let ``negation startset inference test 1``() =
-    assertFirstMatchText
-        @"a.*&~(.*b.*)b"
-        "---a------bbb"
-        "a------b"
+    assertFirstMatchText @"a.*&~(.*b.*)b" "---a------bbb" "a------b"
 
 [<Fact>]
 let ``negation startset inference test 2``() =
     assertMatchEnd @"a.*&~(.*b.*)b" "---a------bbb" 3 11
-        // "a------b"
+// "a------b"
 
 
 [<Fact>]
 let ``end with truestar test``() =
-    assertFirstMatchText
-        "class=\"⊤*"
-        @"class=""dasdasdsdasd"""
-        @"class=""dasdasdsdasd"""
+    assertFirstMatchText "class=\"⊤*" @"class=""dasdasdsdasd""" @"class=""dasdasdsdasd"""
 
 
 [<Fact>]
@@ -421,7 +419,8 @@ let webAppSample2 =
 //         matchTexts
 //     )
 
-let sample3  = """
+let sample3 =
+    """
 lethargy, and and the air tainted with
 chloroform!  I saw two men in the room, and one was saying to the other,
 in a hoarse whisper, 'I told her I would, if she made a noise, and as
@@ -432,7 +431,8 @@ balmy airs go wandering about, whispering the secret of the coming
 change; when the abused brown grass, newly relieved of snow, seems
 """
 
-let sample3s  = """
+let sample3s =
+    """
 lethargy, and and the air tainted with
 c
 """
@@ -441,20 +441,14 @@ c
 [<Fact>]
 let ``startset 2 test small``() =
     let matcher = Regex(@"lethargy.*air")
-    let result =
-        matcher.Matches(sample3s)
-        |> Seq.map (fun v -> v.Value)
-        |> Seq.toArray
+    let result = matcher.Matches(sample3s) |> Seq.map (fun v -> v.Value) |> Seq.toArray
 
-    Assert.Equal<string>( [| "lethargy, and and the air" |], result )
+    Assert.Equal<string>([| "lethargy, and and the air" |], result)
 
 [<Fact>]
 let ``startset 2 test``() =
     let matcher = Regex(@"lethargy.*air")
-    let result =
-        matcher.Matches(sample3)
-        |> Seq.map (fun v -> v.Value)
-        |> Seq.toArray
+    let result = matcher.Matches(sample3) |> Seq.map (fun v -> v.Value) |> Seq.toArray
 
     Assert.Equal<string>(
         [|
@@ -469,6 +463,7 @@ let ``startset 2 test``() =
 [<Fact>]
 let ``startset 3 test``() =
     let matcher = Regex(@"⊤*have⊤*&⊤*there⊤*&.*")
+
     let result =
         matcher.Matches("to have sdfgfs there fdsgf \n asddf have\n dfgsdf there have \n fsdgf")
         |> Seq.map (fun v -> v.Value)
@@ -479,10 +474,9 @@ let ``startset 3 test``() =
 [<Fact>]
 let ``out of range test``() =
     let matcher = Regex(@"<!--[\s\S]*--[ \t\n\r]*>")
+
     let result =
-        matcher.Matches("<!-- anything -- >")
-        |> Seq.map (fun v -> v.Value)
-        |> Seq.toArray
+        matcher.Matches("<!-- anything -- >") |> Seq.map (fun v -> v.Value) |> Seq.toArray
 
     ()
 
@@ -517,46 +511,43 @@ how to name the two conspirators-in-chief--"
 [<Fact>]
 let ``index out of bounds test``() =
     let llmatches = getAllLLmatches @"~(⊤*\n\n⊤*)" abc
-    Assert.Equal( 3, llmatches.Count )
+    Assert.Equal(3, llmatches.Count)
 
 
 
 [<Fact>]
 let ``negated end``() =
-    assertFirstMatchText
-        "F.*&~(.*Finn)"
-        "Finn', published in 1885."
-        "Finn', published in 1885."
+    assertFirstMatchText "F.*&~(.*Finn)" "Finn', published in 1885." "Finn', published in 1885."
 
 
 [<Fact>]
 let ``just loop``() =
     let result = getAllLLmatches "a*" "bbbbaaabbbbb"
     //  11 matches -> aaa has 2 matches
-    Assert.Equal( 11, result.Count )
+    Assert.Equal(11, result.Count)
 
 
 [<Fact>]
 let ``simple 1``() =
     let result = getAllLLmatches "..g" "dfdff dfggg gfgdfg gddfdf"
-    Assert.Equal( 3, result.Count )
+    Assert.Equal(3, result.Count)
 
 
 [<Fact>]
 let ``set star loop test 1``() =
     let result = getAllLLmatches "a*" "bbbb"
-    Assert.Equal( 5, result.Count )
+    Assert.Equal(5, result.Count)
 
 
 [<Fact>]
-let ``dfa match 2``() =
-    assertFirstMatch ".*a{3}" "aa aaa" (0,6)
+let ``dfa match 2``() = assertFirstMatch ".*a{3}" "aa aaa" (0, 6)
 
 
 
 
 
-let webappsample6 = """
+let webappsample6 =
+    """
 The fists of all the generals came down this time, and again the
 King's eye sparkled with pleasure. The Chancellor sprang to his
 feet and appealed to his Majesty:
@@ -569,10 +560,13 @@ But the King waved him to his seat again, saying:
 [<Fact>]
 let ``web app test 6``() =
     // todo: check performance of this
-    let result = getAllLLmatches """~(⊤*(\n⊤*){2})&⊤*g⊤*&~(⊤*")&[A-Za-z]{5}⊤*""" webappsample6
-    Assert.Equal([(5, 124); (212, 37)], result |> Seq.map (fun v -> v.Index,v.Length) )
+    let result =
+        getAllLLmatches """~(⊤*(\n⊤*){2})&⊤*g⊤*&~(⊤*")&[A-Za-z]{5}⊤*""" webappsample6
 
-let webappsample7 = """
+    Assert.Equal([ (5, 124); (212, 37) ], result |> Seq.map (fun v -> v.Index, v.Length))
+
+let webappsample7 =
+    """
 remarked to Joan:
 
 "Out of charity I will consider that you did not know who devised
@@ -618,12 +612,79 @@ this measure which you condemn in so candid language."
 //         |> Seq.toArray
 //     Assert.Equal([4; 7; 12], result |> Seq.map (fun v -> v.Index) )
 
-let input = """[assembly: InternalsVisibleTo("Microsoft.Automata.Z3, PublicKey=" +
+let input =
+    """[assembly: InternalsVisibleTo("Microsoft.Automata.Z3, PublicKey=" +
 
 [assembly: InternalsVisibleTo("Experimentation, PublicKey=" +"""
 
 [<Fact>]
-let ``match order test``() = assertAllLLmatches "Pu" input [54,2; 117,2]
+let ``match order test``() =
+    assertAllLLmatches "Pu" input [ 54, 2; 117, 2 ]
+
+
+
+
+let input_dns =
+    """
+Jan 12 06:26:19: ACCEPT service http from 119.63.193.196 to firewall(pub-nic), prefix: "none" (in: eth0 119.63.193.196(5c:0a:5b:63:4a:82):4399 -> 140.105.63.164(50:06:04:92:53:44):80 TCP flags: ****S* len:60 ttl:32)
+Jan 12 06:26:20: ACCEPT service dns from 140.105.48.16 to firewall(pub-nic-dns), prefix: "none" (in: eth0 140.105.48.16(00:21:dd:bc:95:44):4263 -> 140.105.63.158(00:14:31:83:c6:8d):53 UDP len:76 ttl:62)
+Jan 12 06:27:09: DROP service 68->67(udp) from 216.34.211.83 to 216.34.253.94, prefix: "spoof iana-0/8" (in: eth0 213.92.153.78(00:1f:d6:19:0a:80):68 -> 69.43.177.110(00:30:fe:fd:d6:51):67 UDP len:576 ttl:64)"""
+
+
+let reg1 =
+    @"(?<=6|8\(|4|8|0\().*&~(.*\)\:.*)&\w.*&.*\w&.*(?=.*\)\:)&.*(?=\)\:|\)\:)"
+
+[<Fact>]
+let ``lookback 1``() =
+    assertAllLLmatches reg1 input_dns [
+        (48, 89)
+        (140, 39)
+        (260, 94)
+        (357, 39)
+        (451, 114)
+        (568, 36)
+    ]
+
+let reg2 =
+    @"(?<=6|8\(.*).*&(?<=6|8\(|4|8|0\().*&~(.*\)\:.*)&\w.*&.*\w&.*(?=.*\)\:)&.*(?=\)\:|\)\:)"
+
+
+[<Fact>]
+let ``lookback 2``() =
+    assertAllLLmatches reg2 input_dns [
+        // (48, 89)
+        // (140, 39)
+        // // (260, 94)
+        // (357, 39)
+        // (451, 114)
+        // (568, 36)
+        (48, 89);(156, 23);(359, 37);(451, 114);(568, 36)
+    ]
+
+// 49
+
+// [<Fact>]
+// let ``lookback 3``() = assertMatchEnd reg2 input_dns 49 0
+
+// -2
+[<Fact>]
+let ``lookback 3``() = assertMatchEnd reg1 input_dns 48 137
+// [<Fact>] let ``lookback 3``() = assertMatchEnd reg1 input_dns 48 0
+
+
+
+[<Fact>]
+let ``learning sample 1``() =
+    assertAllLLmatches """<h.{1,60}>.*<\/h(5|3|2|1|4)>""" """<li><a href="/wiki/Lattes_Editori" title="Lattes Editori">Lattes Editori</a></li>""" [
+
+    ]
+
+[<Fact>]
+let ``learning sample 2``() =
+    assertAllLLmatches """<h.{1,60}>.*<\/h(5|3|2|1|4)>""" (File.ReadAllText(__SOURCE_DIRECTORY__ + "/data/sample-html.html")) [
+        (0, 41);(1983, 41);(2175, 41);(13072, 41);(18595, 41)
+    ]
+    // Assert.Equal([ (5, 124); (212, 37) ], result |> Seq.map (fun v -> v.Index, v.Length))
 
 
 

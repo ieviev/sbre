@@ -14,18 +14,19 @@ type MintermSearchMode =
     | SearchValues = 1
     | InvertedSearchValues = 2
 
-type MintermSearchValues
+type MintermSearchValues<'t>
     (
-        tset: TSet,
+        tset: 't,
         mode: MintermSearchMode,
         searchValues: SearchValues<char>,
         characters: Memory<char> option,
-        minterms: TSet[],
-        classifier: MintermClassifier
+        minterms: 't[],
+        classifier: MintermClassifier,
+        solver: ISolver<'t>
     ) =
     member val Classifier: MintermClassifier = classifier with get, set
     member val Mode: MintermSearchMode = mode with get, set
-    member val Minterm: TSet = tset with get, set
+    member val Minterm: 't = tset with get, set
     member val SearchValues: SearchValues<char> = searchValues with get, set
     member val CharactersInMinterm: Memory<char> option = characters with get, set
     member this.Contains(chr: char) =
@@ -33,7 +34,7 @@ type MintermSearchValues
         | MintermSearchMode.TSet ->
             let mtid = classifier.GetMintermID(int chr)
             let charminterm = minterms[mtid]
-            Solver.elemOfSet this.Minterm charminterm
+            solver.elemOfSet this.Minterm charminterm
         | MintermSearchMode.SearchValues -> this.SearchValues.Contains(chr)
         | MintermSearchMode.InvertedSearchValues -> not(this.SearchValues.Contains(chr))
         | _ -> ArgumentOutOfRangeException() |> raise
@@ -47,17 +48,18 @@ type MintermSearchValues
             | _ -> ArgumentOutOfRangeException() |> raise
         $"{this.Mode.ToString()}: {desc}"
 
-    new(tset: TSet, minterms: TSet[], classifier:MintermClassifier) =
+    new(tset: 't, minterms: 't[], classifier:MintermClassifier, solver) =
         MintermSearchValues(
             tset,
             MintermSearchMode.TSet,
             Unchecked.defaultof<_>,
             None,
             minterms,
-            classifier
+            classifier,
+            solver
         )
 
-    new(tset: TSet, characters: Memory<char>, invert: bool) =
+    new(tset: 't, characters: Memory<char>, invert: bool, solver) =
         let mode =
             if invert then
                 MintermSearchMode.InvertedSearchValues
@@ -70,32 +72,42 @@ type MintermSearchValues
             SearchValues.Create(characters.Span),
             Some characters,
             Unchecked.defaultof<_>,
-            Unchecked.defaultof<_>
+            Unchecked.defaultof<_>,
+            solver
         )
 
 
 [<Sealed>]
-type RegexCache<'t
-// TSet when
-//     TSet: struct
-//     and TSet :> IEquatable< TSet >
+type RegexCache<
+    't when
+        't: struct
+        and 't :> IEquatable< 't >
+        and 't : equality
 >
     (
-        _solver: ISolver<TSet>,
+        _solver: ISolver<'t>,
         _charsetSolver: CharSetSolver,
         _bddMinterms: BDD[],
-        _rawPattern: RegexNode<TSet>,
-        _builder: RegexBuilder<TSet>
+        _rawPattern: RegexNode<'t>,
+        _builder: RegexBuilder<'t>,
+        _bddbuilder: RegexBuilder<BDD>
     ) =
-    let classifier = (_solver :?> TSolver)._classifier
+    // let classifier = (box _solver :?> TSolver<'t>)._classifier
+    // let classifier = (box _solver :?> BitVectorSolver)._classifier
+    let classifier =
+        if typeof<'t> = typeof<BitVector> then
+            (box _solver :?> BitVectorSolver)._classifier
+        elif typeof<'t> = typeof<uint64> then
+            (box _solver :?> UInt64Solver)._classifier
+        else failwith "invalid solver"
     let _ascii = classifier.Ascii
     let _nonAscii = classifier.NonAscii
-    let minterms: TSet[] = _solver.GetMinterms()
+    let minterms: 't[] = _solver.GetMinterms()
     let mintermBdds = _bddMinterms
     let predStartsets = StartsetHelpers.startsetsFromMintermArray mintermBdds
-    let mutable _cachedStartsets: Dictionary<TSet, MintermSearchValues> = Dictionary()
+    let mutable _cachedStartsets: Dictionary<'t, MintermSearchValues<'t>> = Dictionary()
 
-    let _getMintermStartsetChars(tset: TSet) =
+    let _getMintermStartsetChars(tset: 't) =
         match _cachedStartsets.TryGetValue(tset) with
         | true, v -> v
         | _ ->
@@ -104,10 +116,10 @@ type RegexCache<'t
             let searchValues =
                 match mintermCharsOpt with
                 // set too big
-                | None -> MintermSearchValues(tset, minterms, classifier)
+                | None -> MintermSearchValues<'t>(tset, minterms, classifier, _solver)
                 | Some chars ->
                     let isInverted = _solver.isElemOfSet (tset, minterms[0])
-                    MintermSearchValues(tset, chars, isInverted)
+                    MintermSearchValues(tset, chars, isInverted, _solver)
             _cachedStartsets.Add(tset, searchValues)
             searchValues
 
@@ -115,7 +127,7 @@ type RegexCache<'t
 
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    member this.Minterms() = minterms
+    member this.Minterms() : 't array = minterms
 
     member this.NumOfMinterms() = minterms.Length
 
@@ -127,14 +139,14 @@ type RegexCache<'t
     member this.MintermStartsets() = predStartsets
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    member this.MintermSearchValues(startset: TSet) = _getMintermStartsetChars startset
+    member this.MintermSearchValues(startset: 't) = _getMintermStartsetChars startset
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    member this.MintermChars(startset: TSet) : Memory<char> option =
+    member this.MintermChars(startset: 't) : Memory<char> option =
         StartsetHelpers.tryGetMintermChars (_solver, predStartsets, minterms, startset)
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    member this.HasMintermPrefix(loc: byref<Location>, setPrefix: ReadOnlySpan<TSet>) : bool =
+    member this.HasMintermPrefix(loc: byref<Location>, setPrefix: ReadOnlySpan<'t>) : bool =
         let mutable couldBe = true
         let mutable i = 0
         let inputSpan = loc.Input.Slice(loc.Position)
@@ -142,7 +154,7 @@ type RegexCache<'t
         while couldBe && i < setPrefix.Length do
             let inputMinterm = this.Classify(inputSpan[i])
 
-            if Solver.notElemOfSet inputMinterm setPrefix[i] then
+            if _solver.notElemOfSet inputMinterm (setPrefix[i]) then
                 couldBe <- false
 
             i <- i + 1
@@ -223,7 +235,10 @@ type RegexCache<'t
         ) : unit =
 
         let currpos = loc.Position
+
+        // try
         let slice = loc.Input.Slice(0, currpos)
+
 
         let sharedIndex =
             if isInverted then
@@ -234,121 +249,9 @@ type RegexCache<'t
         match sharedIndex with
         | -1 -> loc.Position <- Location.final loc
         | _ -> loc.Position <- sharedIndex + 1
+        // with e ->
+        //     failwith $"pos:{loc.Position}\n{loc.Input.ToString()}"
 
-
-    // member this.TryNextStartsetLocation(loc: byref<Location>, set: TSet) : unit =
-    //     assert (not (_solver.IsEmpty(set)))
-    //     let searchValues = this.MintermSearchValues(set)
-    //     match searchValues.Mode with
-    //     | MintermSearchMode.TSet -> ()
-    //     | _ ->
-    //     let setChars = searchValues.SearchValues
-    //     let isInverted =
-    //         match searchValues.Mode with
-    //         | MintermSearchMode.InvertedSearchValues -> true
-    //         | _ -> false
-    //     let currpos = loc.Position
-    //
-    //     match loc.Reversed with
-    //     | false ->
-    //         let slice = loc.Input.Slice(currpos)
-    //
-    //         let sharedIndex =
-    //             if isInverted then
-    //                 slice.IndexOfAnyExcept(setChars)
-    //             else
-    //                 slice.IndexOfAny(setChars)
-    //
-    //         if sharedIndex = -1 then
-    //             loc.Position <- Location.final loc
-    //         else
-    //             loc.Position <- currpos + sharedIndex
-    //     | true ->
-    //         let slice = loc.Input.Slice(0, currpos)
-    //
-    //         let sharedIndex =
-    //             if isInverted then
-    //                 slice.LastIndexOfAnyExcept(setChars)
-    //             else
-    //                 slice.LastIndexOfAny(setChars)
-    //
-    //         if sharedIndex = -1 then
-    //             loc.Position <- Location.final loc
-    //         else
-    //             loc.Position <- sharedIndex + 1
-
-
-
-    // /// skip till a prefix of minterms matches
-    // member this.TryNextStartsetLocationArray
-    //     (
-    //         loc: byref<Location>,
-    //         setSpan: ReadOnlySpan<TSet>,
-    //         searchValues: SearchValues<char>
-    //     ) =
-    //     // assert not loc.Reversed
-    //     let inputSpan = loc.Input
-    //     let mutable skipping = true
-    //
-    //     /// vectorize the search for the first character
-    //     let firstSetChars = searchValues
-    //     let isInverted = Solver.elemOfSet setSpan[0] minterms[0]
-    //     let tailPrefixSpan = setSpan.Slice(1)
-    //
-    //     let _limitLength = inputSpan.Length - setSpan.Length
-    //     let _tailLength = tailPrefixSpan.Length
-    //
-    //     if setSpan.Length = 1 then
-    //         let sharedIndex =
-    //             let slice = inputSpan.Slice(loc.Position)
-    //
-    //             if not isInverted then
-    //                 slice.IndexOfAny(firstSetChars)
-    //             else
-    //                 slice.IndexOfAnyExcept(firstSetChars)
-    //
-    //         if sharedIndex = -1 then
-    //             skipping <- false
-    //         else
-    //             loc.Position <- loc.Position + sharedIndex
-    //     else
-    //
-    //
-    //     while skipping do
-    //         let sharedIndex =
-    //             let slice = inputSpan.Slice(loc.Position)
-    //
-    //             if not isInverted then
-    //                 slice.IndexOfAny(firstSetChars)
-    //             else
-    //                 slice.IndexOfAnyExcept(firstSetChars)
-    //
-    //         if sharedIndex = -1 then
-    //             skipping <- false
-    //         else
-    //             let potential = loc.Position + sharedIndex
-    //             let mutable couldBe = true
-    //             // exit if too far
-    //             if potential > _limitLength then
-    //                 skipping <- false
-    //                 loc.Position <- potential
-    //                 couldBe <- false
-    //
-    //             let mutable i = 0
-    //
-    //             while couldBe && i < _tailLength do
-    //                 let inputMinterm = this.Classify(inputSpan[potential + 1 + i])
-    //
-    //                 if Solver.notElemOfSet inputMinterm tailPrefixSpan[i] then
-    //                     couldBe <- false
-    //
-    //                 i <- i + 1
-    //
-    //             if couldBe then
-    //                 skipping <- false
-    //                 loc.Position <- potential
-    //             else
-    //                 loc.Position <- potential + 1
 
 
 
@@ -382,7 +285,7 @@ type RegexCache<'t
                 // exit if too far
                 if potential < setSpan.Length then
                     skipping <- false
-                    resultEnd <- ValueSome(potential)
+                    resultEnd <- ValueNone
                     couldBe <- false
 
                 // l to r
@@ -402,43 +305,10 @@ type RegexCache<'t
 
         resultEnd
 
-    // member this.TryNextSetReversed(loc: inref<Location>, setSpan: TSet) =
-    //     assert loc.Reversed
-    //     let inputSpan = loc.Input
-    //     let mutable currpos = loc.Position
-    //     let mutable skipping = true
-    //     let mutable slice: ReadOnlySpan<char> = inputSpan.Slice(0, currpos)
-    //
-    //     let searchValues = this.MintermSearchValues(setSpan)
-    //     match searchValues.Mode with
-    //     | MintermSearchMode.TSet -> ValueSome(currpos)
-    //     | _ ->
-    //     let chars = searchValues.SearchValues
-    //     let isInverted =
-    //         match searchValues.Mode with
-    //         | MintermSearchMode.InvertedSearchValues -> true
-    //         | _ -> false
-    //
-    //     let isInverted = Solver.elemOfSet setSpan minterms[0]
-    //
-    //     skipping <- false
-    //
-    //     let sharedIndex =
-    //         slice <- inputSpan.Slice(0, currpos)
-    //
-    //         if not isInverted then
-    //             slice.LastIndexOfAny(chars)
-    //         else
-    //             slice.LastIndexOfAnyExcept(chars)
-    //
-    //     match sharedIndex with
-    //     | -1 -> ValueNone
-    //     | _ -> ValueSome(sharedIndex + 1)
-
     member this.TryNextStartsetLocationArrayReversed
         (
             loc: inref<Location>,
-            setSpan: ReadOnlySpan<TSet>
+            setSpan: ReadOnlySpan<'t>
         ) =
         assert loc.Reversed
 
@@ -507,7 +377,7 @@ type RegexCache<'t
                     let inputMinterm = this.Classify(inputSpan[potential - i - 2])
                     // let loc1 = this.PrettyPrintMinterm(inputMinterm)
                     // let loc2 = this.PrettyPrintMinterm(tailPrefixSpan[i])
-                    if Solver.notElemOfSet inputMinterm tailPrefixSpan[i] then
+                    if _solver.notElemOfSet inputMinterm tailPrefixSpan[i] then
                         couldBe <- false
 
                     i <- i + 1
@@ -688,7 +558,7 @@ type RegexCache<'t
         | false -> _nonAscii.Find(i)
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    member this.MintermIsInverted(mt: TSet) : _ = _solver.isElemOfSet (mt, minterms[0])
+    member this.MintermIsInverted(mt: 't) : _ = _solver.isElemOfSet (mt, minterms[0])
 
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
@@ -713,9 +583,10 @@ type RegexCache<'t
 
 
     member val InitialPatternWithoutDotstar = _rawPattern
-    member val Solver: ISolver<TSet> = _solver
+    member val Solver: ISolver<'t> = _solver
     member val CharsetSolver: CharSetSolver = _charsetSolver
     member val Builder = _builder
+    member val BddBuilder = _bddbuilder
 
     // cached instantiation members
     member val True: RegexNode<_> = _builder.uniques._true
@@ -724,11 +595,13 @@ type RegexCache<'t
     member val TrueStar: RegexNode<_> = _builder.uniques._trueStar
 
 
-    member cache.PrettyPrintMinterm(xs: _) : string = (cache.Solver :?> TSolver).PrettyPrint(xs, _charsetSolver)
+    member cache.PrettyPrintMinterm(xs: _) : string = (box cache.Solver :?> UInt64Solver).PrettyPrint(xs, _charsetSolver)
 
-    member this.PrettyPrintNode(node: RegexNode<TSet>) : string =
-        Debug.debuggerSolver <- Some this.Solver
-        node.ToString()
+    // member this.PrettyPrintNode(node: RegexNode<'t>) : string =
+
+    //     Debug.debuggerSolver <- Some (box this.Solver :?> UInt64Solver :> ISolver<uint64>)
+    //     node.ToString()
+
 
 
 #if DEBUG
