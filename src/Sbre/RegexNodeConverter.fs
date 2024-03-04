@@ -22,7 +22,7 @@ let rewriteNegativeLookaround (b:RegexBuilder<BDD>) (lookBack:bool) (node:RegexN
         // (?<=\A·~(⊤*R)) ≡ (?<!R)
         let negpart = b.mkNot(b.mkConcat2(b.uniques._trueStar,node))
         let conc = b.mkConcat2(b.anchors._bigAAnchor,negpart)
-        b.mkLookaround( conc, false, 0, Set.empty)
+        b.mkLookaround( conc, true, 0, Set.empty)
 
 
 let rec determineWordBorderNodeKind (b:RegexBuilder<BDD>) (css:CharSetSolver) (left:bool) (node:RegexNode) =

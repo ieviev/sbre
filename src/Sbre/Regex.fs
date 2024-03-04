@@ -253,8 +253,17 @@ type RegexMatcher<'t when 't: struct>
                 let der_R = _createDerivative (&loc, loc_pred, R)
                 match der_R with
                 // start a new pending match
-                | _ when pendingNulls.IsEmpty && _isNullable(&loc, der_R) ->
-                    _cache.Builder.mkLookaround(der_R, false, rel+1, zeroList)
+                | _ when pendingNulls.IsEmpty  ->
+                    match _isNullable(&loc, der_R) with
+                    | true -> _cache.Builder.mkLookaround(der_R, false, rel+1, zeroList)
+                    // ⊤*\A special case
+                    | false  ->
+                        match der_R with
+                        | Concat(head=TrueStar _cache.Solver;tail=Begin) ->
+                            _cache.Builder.mkLookaround(der_R, false, rel+1, zeroList)
+                        | _ ->
+                            _cache.Builder.mkLookaround(der_R, false, rel+1, pendingNulls)
+
                 | _ -> _cache.Builder.mkLookaround(der_R, false, rel+1, pendingNulls)
             // Lookback
             | LookAround(node=R; lookBack=true; relativeTo= _; pendingNullables= _; info = _) ->

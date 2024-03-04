@@ -1179,6 +1179,9 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                     createCached(_uniques._eps, lookBack, rel, pendingNull)
 
                 | _ when refEq _uniques._false body -> _uniques._false
+                // ⊤*\A special case
+                | Concat(head=TrueStar solver; tail=Begin), false ->
+                    createCached(_uniques._eps, lookBack, rel, pendingNullable)
                 | _ ->
                     let pendingNull =
                         if body.CanBeNullable then

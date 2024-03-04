@@ -238,7 +238,14 @@ let ``nested not 1``() =
 
 
 [<Fact>]
-let ``ranges 1``() = assertAllLLmatches "(?<=\d)a" "1a__a__a" [  1,1; ] // "|b|ba_|ba"
+let ``ranges 1``() = assertAllLLmatches "(?<=\d)a" "1a__a__a" [  1,1; ]
+
+[<Fact>]
+let ``ranges 2.1``() = assertAllLLmatches "(?<!\d)a" "1a__a__a" [  3,1;  6,1 ]
+
+
+[<Fact>] // known bug
+let ``ranges 2.2``() = assertAllLLmatches "(?<!\d)a" " a" [  1,1; ]
 
 
 
