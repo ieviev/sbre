@@ -15,7 +15,6 @@ open System.Text.Json.Nodes
 open System.Buffers
 // let fullInput = __SOURCE_DIRECTORY__ + "/data/input-text.txt" |> System.IO.File.ReadAllText
 let fullInput = __SOURCE_DIRECTORY__ + "/data/sherlock.txt" |> System.IO.File.ReadAllText
-                |> String.replicate 100
 
 let frequenciesJsonText = __SOURCE_DIRECTORY__ + "/data/charFreqWithControl.json"  |> System.IO.File.ReadAllText
 
@@ -25,7 +24,7 @@ let testInput =
                 // "wa as dfeas dann dasdw q wasd"
                 fullInput
                 // |> String.replicate 10
-                // |> String.replicate 100
+                |> String.replicate 100
 // let testInput = "yabcabca"
 
 
@@ -411,7 +410,8 @@ type PrefixCharsetSearch () =
     // let regex = Sbre.Regex("[a-zA-Z]+ckle|[a-zA-Z]+awy")
     // let regex = Sbre.Regex(".*have.*&.*there.*")
     
-    let regex = Sbre.Regex(@"\w+(nn[ \n.!?]|xxx)")
+    let regex = Sbre.Regex(@"\w+nn[ \n.,!?']")
+    // let regex = Sbre.Regex(@"\w+(nn[ \n.,!?']|xxx)")
     // let regex = Sbre.Regex(@"\w+(nn\W|xxx)")
     // let regex = Sbre.Regex(@"\w+(nn\W|xx\w)")
     
@@ -504,7 +504,7 @@ type PrefixCharsetSearch () =
 
     [<Benchmark>]
     member this.NoSkip() =
-        let textSpan = fullInput.AsSpan()
+        let textSpan = testInput.AsSpan()
         let mutable loc = Location.createReversedSpan textSpan // end position, location reversed
         collectNullablePositionsNoSkip (matcher, &loc)
 
