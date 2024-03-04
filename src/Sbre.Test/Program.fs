@@ -10,12 +10,6 @@ open Sbre.Test
 open System
 
 
-let a = 1
-
-let b = 2
-
-let c = 3
-
 
 // let regex = Regex(@"(abc)+")
 // let a = Regex(@"abc(abc)*")
@@ -61,13 +55,14 @@ let dbg1 =1
 
 let pref = Optimizations.PrefixCharsetSearch()
 
-let switch = false
+let switch = true
 
 if switch then
      let r = pref.Original()
-     let ra = pref.Weighted()
-     let raa = pref.Weighted2()
-     let raaa = pref.Weighted3()
+     // let ra = pref.Weighted()
+     // let raa = pref.Weighted2()
+     // let raaa = pref.Weighted3()
+     let raaaa = pref.Weighted4()
      ()
 else
      for i = 1 to 2000000 do

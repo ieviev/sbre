@@ -18,6 +18,77 @@ open Sbre.Pat
 open Sbre.Optimizations
 
 
+
+
+
+let regex = Regex(@"\w+nn\W")
+let cache = regex.TSetMatcher.Cache
+let prefix = regex.InitialReversePrefix
+let prefixSets = // [6UL; 4UL; 4UL; 1UL]
+    match prefix with
+    | InitialOptimizations.PotentialStartPrefix(prefixMem) -> 
+        Array.toList (prefixMem.ToArray()) |> List.rev
+    | InitialOptimizations.SetsPrefix(prefixMem, _) ->
+        Array.toList (prefixMem.ToArray()) |> List.rev
+    | _ -> failwith "?"
+
+cache.PrettyPrintMinterm 6UL                  // [0-9A-Z_a-z\u00AA...] -> '\w'
+cache.MintermSearchValues(6UL).Contains('n')  // true
+cache.MintermSearchValues(6UL).Contains('a')  // false ??
+(cache.MintermChars 6UL).ToString()           // 'n'   ??
+
+cache.PrettyPrintMinterm 4UL                  // 'n'
+(cache.MintermChars 4UL).ToString()           // 'n'
+
+cache.PrettyPrintMinterm 1UL                  // \W
+cache.MintermSearchValues(1UL).Contains('a')  // false
+cache.MintermSearchValues(1UL).Contains(' ')  // false ??
+cache.MintermSearchValues(1UL).Contains('n')  // true  ??
+(cache.MintermChars 1UL).ToString()           // 'n'   ??
+
+
+
+cache.PrettyPrintMinterm 1UL // '\W'
+cache.PrettyPrintMinterm 2UL // '\w' - 'n'
+cache.PrettyPrintMinterm 4UL // 'n'
+cache.IsInverted 1UL // true
+cache.IsInverted 2UL // false
+cache.IsInverted 4UL // false
+
+cache.Solver.isElemOfSet (cache.Classify(' '), 1UL)
+cache.Solver.isElemOfSet (cache.Classify('n'), 2UL)
+
+cache.IsInverted 6UL // false
+
+
+cache.PrettyPrintMinterm 72UL
+(cache.MintermChars 18UL).ToString()
+(cache.MintermChars 36UL).ToString()
+(cache.MintermChars 72UL).ToString()
+
+cache.Classify('n')
+
+
+let allChars = 6UL
+let onlyN = 4UL
+let allNonChars = 1UL
+cache.PrettyPrintMinterm qwe
+cache.IsInverted qwe
+(cache.MintermChars qwe).ToString()
+cache.CharToMinterm ' '
+
+
+
+
+
+
+
+
+
+
+
+
+
 let fullInput = __SOURCE_DIRECTORY__ + "/input-text.txt" |> System.IO.File.ReadAllText
 let smallText = "ABCabcabcd"
 
@@ -110,12 +181,25 @@ loadJsonCharFrequencies frequenciesJsonText
 
 
 
+
+
+
+
+
+
+
 /// Print binary value of the class and all characters in n character classes
 let printAllCharClasses (cache: RegexCache<TSet>) n =
     for i in [0..n] do
         let bin = (String.replicate i "0") + "1" + (String.replicate (n - i) "0")
         printf $"Binary: %s{bin} "
         printfn $"Chars: %A{cache.MintermChars(Convert.ToUInt64(bin, 2)).ToArray()}"
+    
+    
+    
+
+    
+    
     
 /// Uint64 to binary
 let rec ToBin (value: uint64) (len: int) =
@@ -303,12 +387,12 @@ let matchComparer
     (text: String) =
     let mutable potEnumerator = potentialMatches.GetEnumerator()
     let mutable actEnumerator = actualMatches.GetEnumerator()
-    let mutable hasPotMore = potEnumerator.MoveNext()
-    let mutable hasActMore = actEnumerator.MoveNext()
-    let mutable potMatchStart = potEnumerator.Current.Index
-    let mutable actMatchStart = actEnumerator.Current.Index
-    let mutable potMatchEnd = potMatchStart + potEnumerator.Current.Length
-    let mutable actMatchEnd = actMatchStart + actEnumerator.Current.Length
+    let mutable hasPotMore = try potEnumerator.MoveNext() with | _ -> false
+    let mutable hasActMore = try actEnumerator.MoveNext() with | _ -> false
+    let mutable potMatchStart = try potEnumerator.Current.Index with | _ -> 0
+    let mutable actMatchStart = try actEnumerator.Current.Index with | _ -> 0
+    let mutable potMatchEnd = try potMatchStart + potEnumerator.Current.Length with | _ -> 0
+    let mutable actMatchEnd = try actMatchStart + actEnumerator.Current.Length with | _ -> 0
     let mutable newLineCount = 1
     // let mutable newLineCount = count '\n' fullInput[0 .. 4000000] + 1
     let mutable newLineIndex = 0
@@ -361,21 +445,34 @@ let matchComparer
             res)
         
         // Print match line and highlight string
+        let matchText = text[ (matchStartPos - startPad) .. (matchEndPos + endPad) ]
         printfn ""  // Without this FSI freezes for some reason
         if includesAct && not includesPot then printfn "Missed match!!!"
         Console.Write("Line " + newLineCount.ToString() + ": ")
-        Console.WriteLine(text[ (matchStartPos - startPad) .. (matchEndPos + endPad) ])
+        Console.WriteLine(matchText)
         printfn "%s%s" (String.replicate (7 + newLineCount.ToString().Length) " ") (String.concat "" highlights)
         
         // Move to next match(es)
         newLineIndex <- matchStartPos
-        if includesPot then hasPotMore <- potEnumerator.MoveNext()
-        if includesAct then hasActMore <- actEnumerator.MoveNext()
-        potMatchStart <- potEnumerator.Current.Index
-        actMatchStart <- actEnumerator.Current.Index
-        potMatchEnd <- potMatchStart + potEnumerator.Current.Length
-        actMatchEnd <- actMatchStart + actEnumerator.Current.Length
+        if includesPot then hasPotMore <- try potEnumerator.MoveNext() with | _ -> false
+        if includesAct then hasActMore <- try actEnumerator.MoveNext() with | _ -> false
+        potMatchStart <- try potEnumerator.Current.Index with | _ -> 0
+        actMatchStart <- try actEnumerator.Current.Index with | _ -> 0
+        potMatchEnd <- try potMatchStart + potEnumerator.Current.Length with | _ -> 0
+        actMatchEnd <- try actMatchStart + actEnumerator.Current.Length with | _ -> 0
     ()
+
+
+let shlock = __SOURCE_DIRECTORY__ + "/sherlock.txt" |> System.IO.File.ReadAllText
+
+let regex = Regex(@"(?i)\w+nn\W")
+regex.Matcher.Count(shlock.AsSpan())
+regex.Matcher.Matches(shlock.AsSpan())
+
+
+let shlockMatches = regex.Matcher.MatchPositions(shlock.AsSpan())
+
+matchComparer Seq.empty shlockMatches shlock
 
 
 
