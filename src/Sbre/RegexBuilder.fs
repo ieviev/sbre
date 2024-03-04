@@ -1177,11 +1177,13 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                         if body.CanBeNullable then pendingNullable |> Set.map (fun v -> v + rel)
                         else Set.empty
                     createCached(_uniques._eps, lookBack, rel, pendingNull)
-
                 | _ when refEq _uniques._false body -> _uniques._false
                 // ⊤*\A special case
-                | Concat(head=TrueStar solver; tail=Begin), false ->
-                    createCached(_uniques._eps, lookBack, rel, pendingNullable)
+                // | _, false when body.CanBeNullable && body.DependsOnAnchor ->
+                //     createCached(body, lookBack, rel, pendingNullable)
+                // | Concat(head=TrueStar solver; tail=Begin), false ->
+                //     createCached(_uniques._eps, lookBack, rel, pendingNullable)
+                    // createCached(body, lookBack, rel, pendingNullable)
                 | _ ->
                     let pendingNull =
                         if body.CanBeNullable then

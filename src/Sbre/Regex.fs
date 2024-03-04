@@ -256,12 +256,13 @@ type RegexMatcher<'t when 't: struct>
                 | _ when pendingNulls.IsEmpty  ->
                     match _isNullable(&loc, der_R) with
                     | true -> _cache.Builder.mkLookaround(der_R, false, rel+1, zeroList)
-                    // ⊤*\A special case
                     | false  ->
                         match der_R with
+                        // ⊤*\A special case - always known to be a match
                         | Concat(head=TrueStar _cache.Solver;tail=Begin) ->
-                            _cache.Builder.mkLookaround(der_R, false, rel+1, zeroList)
+                            _cache.Builder.mkLookaround(_cache.Eps, false, rel+1, zeroList)
                         | _ ->
+                            // if der_R.DependsOnAnchor then failwith "anchor der"
                             _cache.Builder.mkLookaround(der_R, false, rel+1, pendingNulls)
 
                 | _ -> _cache.Builder.mkLookaround(der_R, false, rel+1, pendingNulls)
