@@ -410,12 +410,12 @@ type PrefixCharsetSearch () =
     // let regex = Sbre.Regex("[a-zA-Z]+ckle|[a-zA-Z]+awy")
     // let regex = Sbre.Regex(".*have.*&.*there.*")
     
-    let regex = Sbre.Regex(@"\w+nn[ \n.,!?']")
+    // let regex = Sbre.Regex(@"\w+nn[ \n.,!?']")
     // let regex = Sbre.Regex(@"\w+(nn[ \n.,!?']|xxx)")
     // let regex = Sbre.Regex(@"\w+(nn\W|xxx)")
     // let regex = Sbre.Regex(@"\w+(nn\W|xx\w)")
     
-    // let regex = Sbre.Regex(@"\w+nn\W")
+    let regex = Sbre.Regex(@"\w+nn\W")
 
     // let regex = Sbre.Regex("Sherlock Holmes|John Watson|Irene Adler|Inspector Lestrade|Professor Moriarty")
     // Sets:          [IJlo];[or];[ ceh.0];[LMkn];[ eo];[ HWrs];[Aaiot];[adlrt];[almrs];[deot];[enrsy]
@@ -431,7 +431,8 @@ type PrefixCharsetSearch () =
 
     let cache = regex.TSetMatcher.Cache
     let matcher = regex.TSetMatcher
-    let optimizations = matcher.InitialOptimizations
+    // let optimizations = matcher.InitialOptimizations
+    let optimizations = regex.InitialReversePrefix
 
     let prefixSets =
         match optimizations with
