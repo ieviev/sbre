@@ -19,6 +19,8 @@ open Sbre.Optimizations
 
 
 
+let li = [1; 2; 3]
+li[0..1]
 
 
 let regex = Regex(@"\w+nn\W")
