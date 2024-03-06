@@ -83,7 +83,7 @@ type RegexMatcher<'t when 't: struct>
         _cache: RegexCache<TSet>
     ) =
     inherit GenericRegexMatcher()
-    let InitialDfaStateCapacity = 1024
+    let InitialDfaStateCapacity = 4096
     let _stateCache = Dictionary<RegexNode<TSet>, MatchingState>()
     let mutable _stateArray = Array.zeroCreate<MatchingState> InitialDfaStateCapacity
     let mutable _flagsArray = Array.zeroCreate<RegexStateFlags> InitialDfaStateCapacity
@@ -544,7 +544,9 @@ type RegexMatcher<'t when 't: struct>
             | _ -> false
         if cannotUsePrefix then InitialOptimizations.NoOptimizations else opts
     let _lengthLookup =
-        Optimizations.inferLengthLookup (fun node -> _getOrCreateState(reverseTrueStarredNode,node,false).Id ) getNonInitialDerivative _cache _noprefix
+        // expensive for very large regexes
+        LengthLookup.MatchEnd
+        // Optimizations.inferLengthLookup (fun node -> _getOrCreateState(reverseTrueStarredNode,node,false).Id ) getNonInitialDerivative _cache _noprefix
 #else
     let _initialOptimizations =
         InitialOptimizations.NoOptimizations
