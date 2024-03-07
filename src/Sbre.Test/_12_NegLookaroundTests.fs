@@ -38,6 +38,7 @@ let ``der neg anchor 3``() = _04_DerivativeTests.testRevDerivative (@"bb(?!b)","
     @"((?<=~((ε|⊤*b)))bb|b)"
     @"(b|(?<=~((⊤*b)?))bb)"
     @"((?<=~((⊤*b)?))bb|b)"
+    @"((?<=~((⊤*b)?))b)?b"
 ])
 
 // [<Fact>]

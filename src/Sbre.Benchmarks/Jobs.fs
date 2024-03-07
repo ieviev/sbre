@@ -1085,7 +1085,7 @@ type TestAllEngines(pattern: string, input: string) =
     member val Compiled_Regex: System.Text.RegularExpressions.Regex =
         System.Text.RegularExpressions.Regex(pattern, opts_Compiled, matchTimeout = TimeSpan.FromMilliseconds(2_000.)) with get, set
 
-    member val Sbre_Regex: Regex = Regex(pattern, false) with get, set
+    member val Sbre_Regex: Regex = Regex(pattern) with get, set
 
 
     [<GlobalSetup>]
@@ -1641,8 +1641,8 @@ type TestAllEnginesSeparate(defaultRegex: string, sbreRegex: string, input: stri
     member val Compiled_Regex: System.Text.RegularExpressions.Regex =
         System.Text.RegularExpressions.Regex(defaultRegex, opts_Compiled, TimeSpan.FromSeconds(30)) with get, set
 
-    member val SbreAlt_Regex: Regex = Regex(defaultRegex, false) with get, set
-    member val Sbre_Regex: Regex = Regex(sbreRegex, false) with get, set
+    member val SbreAlt_Regex: Regex = Regex(defaultRegex) with get, set
+    member val Sbre_Regex: Regex = Regex(sbreRegex) with get, set
 
 
     [<GlobalSetup>]
@@ -1701,8 +1701,8 @@ type TestAllEnginesCount(defaultRegex: string, sbreRegex: string, input: string)
     member val Compiled_Regex: System.Text.RegularExpressions.Regex =
         System.Text.RegularExpressions.Regex(alt_pattern, opts_Compiled) with get, set
 
-    member val SbreAlt_Regex: Regex = Regex(alt_pattern, false) with get, set
-    member val Sbre_Regex: Regex = Regex(conj_pattern, false) with get, set
+    member val SbreAlt_Regex: Regex = Regex(alt_pattern) with get, set
+    member val Sbre_Regex: Regex = Regex(conj_pattern) with get, set
 
 
     [<GlobalSetup>]

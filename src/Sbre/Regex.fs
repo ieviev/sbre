@@ -76,6 +76,15 @@ type RegexSearchMode =
     | FirstNullable
     | MatchEnd
 
+
+
+[<AllowNullLiteral>]
+type SbreOptions() =
+    member val InitialDfaCapacity = 1024 with get, set
+    member val MaxDfaCapacity = 1000000 with get, set
+    member val CanonicalizeStates = false with get, set
+
+
 [<Sealed>]
 type RegexMatcher<
     't when
@@ -85,10 +94,11 @@ type RegexMatcher<
 >
     (
         uncanonicalizedNode: RegexNode<'t>,
-        _cache: RegexCache<'t>
+        _cache: RegexCache<'t>,
+        options: SbreOptions
     ) =
     inherit GenericRegexMatcher()
-    let InitialDfaStateCapacity = 1024
+    let InitialDfaStateCapacity = options.InitialDfaCapacity
     let _stateCache = Dictionary<RegexNode<'t>, MatchState<'t>>()
     let mutable _stateArray = Array.zeroCreate<MatchState<'t>> InitialDfaStateCapacity
     let mutable _flagsArray = Array.zeroCreate<RegexStateFlags> InitialDfaStateCapacity
@@ -303,14 +313,6 @@ type RegexMatcher<
         result
 
 
-    and _tryCanonicalize(node: RegexNode<'t>) =
-        match node.TryGetInfo with
-        | ValueSome info when info.IsCanonical -> node
-        | ValueSome info when info.HasCanonicalForm.IsSome -> info.HasCanonicalForm.Value
-        | ValueSome info when not info.PendingNullables.IsEmpty -> node
-        | _ -> node
-
-
     and getNonInitialDerivative (mt,node) =
         let loc = Location.getNonInitial()
         _createDerivative(&loc,mt, node)
@@ -438,14 +440,10 @@ type RegexMatcher<
 
 
     let rec _getOrCreateState(revTruestar, origNode, isInitial) =
-#if CANONICAL
-        let node = _canonicalize origNode
-#else
-        let node = origNode
-#endif
-        // if not (refEq origNode node) then
-        //     failwith $"canon: {origNode} ==> {node}"
-        // let node = origNode
+        let node =
+            if options.CanonicalizeStates then
+                _canonicalize origNode
+            else origNode
 
         match _stateCache.TryGetValue(node) with
         | true, v -> v // a dfa state already exists for this regex
@@ -457,9 +455,10 @@ type RegexMatcher<
 
             if _stateArray.Length = state.Id then
                 // if _stateArray.Length > 50000 then
-                if _stateArray.Length > 100000 then
+                // if _stateArray.Length > 100000 then
                 // if _stateArray.Length > 1000000 then
-                    failwith $"state space blowup!"
+                if _stateArray.Length > options.MaxDfaCapacity then
+                    failwith "Maximum allowed state space reached! increase SbreOptions.MaxDfaSize if this is intended"
 
                 let newsize = _stateArray.Length * 2
                 Array.Resize(&_stateArray, newsize)
@@ -1291,7 +1290,8 @@ module Helpers =
             charsetSolver,
             converter,
             symbolicBddnode,
-            symbolicBuilder
+            symbolicBuilder,
+            options
         )
         : GenericRegexMatcher
         =
@@ -1335,7 +1335,7 @@ module Helpers =
                     _bddbuilder= bddBuilder
                 )
 
-            let m = RegexMatcher(rawNode, cache)
+            let m = RegexMatcher(rawNode, cache, options)
 
             if not (refEq (m.RawPattern) (rawNode)) then
                 let backToBdd = Minterms.transformBack uintbuilder bddBuilder solver charsetSolver (m.RawPattern)
@@ -1351,7 +1351,8 @@ module Helpers =
                     charsetSolver,
                     converter,
                     backToBdd,
-                    symbolicBuilder)
+                    symbolicBuilder,
+                    options)
             else
             m
 
@@ -1371,7 +1372,7 @@ module Helpers =
                     _bddbuilder= bddBuilder
                 )
 
-            let m = RegexMatcher(rawNode, cache)
+            let m = RegexMatcher(rawNode, cache, options)
 
             // if not (refEq (m.RawPatternObj) (rawNode)) then
             //     let backToBdd = Minterms.transformBack uintbuilder bddBuilder solver charsetSolver (m.RawPatternObj)
@@ -1395,11 +1396,11 @@ module Helpers =
 
 
 
-
 [<Sealed>]
-type Regex(pattern: string, [<Optional; DefaultParameterValue(false)>] _experimental: bool) =
+type Regex(pattern: string, [<Optional; DefaultParameterValue(null:SbreOptions)>] options: SbreOptions) =
     inherit GenericRegexMatcher()
     let pattern = pattern.Replace("⊤", @"[\s\S]")
+    let options = if obj.ReferenceEquals(options,null) then SbreOptions() else options
     // experimental parser!
     let regexTree =
         ExtendedRegexParser.Parse(
@@ -1426,7 +1427,8 @@ type Regex(pattern: string, [<Optional; DefaultParameterValue(false)>] _experime
             charsetSolver,
             converter,
             symbolicBddnode,
-            runtimeBddBuilder
+            runtimeBddBuilder,
+            options
         )
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
@@ -1454,16 +1456,15 @@ type Regex(pattern: string, [<Optional; DefaultParameterValue(false)>] _experime
 
     member this.TSetMatcher = matcher :?> RegexMatcher<uint64>
     member this.InitialReversePrefix =
-        InitialOptimizations.NoOptimizations
-        // Sbre.Optimizations.findInitialOptimizations
-        //     (fun (mt,node) ->
-        //         let mutable loc = Location.getNonInitial()
-        //         this.TSetMatcher.CreateDerivative(&loc,mt,node) )
-        //     (fun node -> this.TSetMatcher.GetOrCreateState(node).Id)
-        //     (fun node -> this.TSetMatcher.GetOrCreateState(node).Flags)
-        //     this.TSetMatcher.Cache
-        //     this.TSetMatcher.ReversePattern
-        //     this.TSetMatcher.ReverseTrueStarredPattern
+        Sbre.Optimizations.findInitialOptimizations
+            (fun (mt,node) ->
+                let mutable loc = Location.getNonInitial()
+                this.TSetMatcher.CreateDerivative(&loc,mt,node) )
+            (fun node -> this.TSetMatcher.GetOrCreateState(node).Id)
+            (fun node -> this.TSetMatcher.GetOrCreateState(node).Flags)
+            this.TSetMatcher.Cache
+            this.TSetMatcher.ReversePattern
+            this.TSetMatcher.ReverseTrueStarredPattern
 
 
 #if DEBUG
