@@ -26,6 +26,9 @@ type InitialOptimizations<'t> =
     /// just a single set like [ae]
     | SinglePotentialStart of prefix: SearchValues<char> * inverted: bool
 
+
+
+
 type ActiveBranchOptimizations =
     | LimitedSkip of
         distance: int *

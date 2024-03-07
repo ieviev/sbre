@@ -20,7 +20,7 @@ module Helpers =
     let bddBuilder = SymbolicRegexBuilder<BDD>(charSetSolver, charSetSolver)
 
     let converter = RegexNodeConverter(bddBuilder, null)
-    let bddBuilder2 = RegexBuilder(converter, charSetSolver, charSetSolver)
+    let bddBuilder2 = RegexBuilder(converter, charSetSolver, charSetSolver, Sbre.SbreOptions())
 
 
 
@@ -458,7 +458,7 @@ let assertNodeWithoutPrefix (patt:string) (expected:string list) =
     assertContains expected (n2.ToString())
 
 let assertCanBuild (patt:string) (expected:string list) =
-    let m = Sbre.Regex(patt)
+    let m = Sbre.Regex(patt, SbreOptions(CanonicalizeStates=true, MinimizeOr=true))
     // let n = m.RawPattern
     ()
 

@@ -2,6 +2,7 @@
 module Sbre.Test._13_OptimizationTests
 
 open System.Buffers
+open System.Runtime.Intrinsics.X86
 open Sbre
 open Sbre.Benchmarks.Jobs
 open Sbre.CountingSet
@@ -34,7 +35,6 @@ let ``fixed length 3``() =
     let matcher = regex.TSetMatcher
     let prefixLen = Node.getFixedLength matcher.ReversePattern
     Assert.Equal(Some 1, prefixLen)
-
 
 
 [<Fact>]
@@ -137,6 +137,9 @@ let ``initialOptimizations 06``() =
 [<Fact>]
 let ``initialOptimizations 07``() =
     assertPotentialStart "Tom|Sawyer|Huckleberry|Finn" "[mnry];[enor];[Tiry]"
+
+// Twain
+// (?i)Twain
 
 [<Fact>]
 let ``initialOptimizations 08``() =
@@ -255,6 +258,12 @@ let ``activeOptimizations 1``() =
     | _ -> failwith "invalid optimization result"
 
 
+
+// a.*b.*c
+
+// a(b|[^\n])(c|[^\n])
+
+// a_____________________________________________________b______________________________________________c
 
 
 [<Fact>]

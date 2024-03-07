@@ -172,7 +172,7 @@ module private BuilderHelpers =
 /// reuses nodes and ensures reference equality
 [<Sealed>]
 type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
-    (converter: RegexNodeConverter, solver: ISolver< 't >, bcss: CharSetSolver) as b =
+    (converter: RegexNodeConverter, solver: ISolver< 't >, bcss: CharSetSolver, options:SbreOptions) as b =
     let _createInfo flags containsMinterms pendingNullables =
         RegexNodeInfo<'t>(NodeFlags = flags, Minterms = containsMinterms, PendingNullables=pendingNullables)
 
@@ -554,8 +554,11 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             | n, trueStarNode | trueStarNode, n when refEq _uniques._trueStar trueStarNode -> trueStarNode
             | n1, n2 when refEq n1 n2 -> n1
             | Singleton p1, Singleton p2 -> this.one(solver.Or(p1,p2))
-            | Epsilon, n | n, Epsilon -> this.mkLoop(n, 0, 1)
+            | Epsilon, n | n, Epsilon ->
+                // createCached(key)
+                this.mkLoop(n, 0, 1)
             | Loop(node=node;low=2;up=2), other | other, Loop(node=node;low=2;up=2) when refEq node other ->
+                // this.mkConcat2(node,this.mkOr2(Epsilon,node))
                 this.mkLoop(node, 1, 2)
             | Or(nodes=nodes) as orNode, other | other, (Or(nodes=nodes) as orNode) ->
                 if nodes.Contains(other) then orNode else
@@ -610,7 +613,9 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             )
             |> Seq.where (fun v -> not (refEq _uniques._trueStar v))
             |> Seq.toArray
-        assert (not(prefixes.Count = 0 && suffixes.Count = 0))
+        // assert (not(prefixes.Count = 0 && suffixes.Count = 0))
+        if (prefixes.Count = 0 && suffixes.Count = 0) then
+            failwith "this pattern is unsupported because of lookarounds"
         let prefs = b.mkConcatResizeArray(prefixes)
         let sufs = b.mkConcatResizeArray(suffixes)
         let node = b.mkAnd(remaining)
@@ -840,8 +845,6 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
         | MkOrFlags.IsTrueStar -> _uniques._trueStar
         | _ ->
 
-
-
         if zeroloops > 1 then
             // remove loop duplicates
             // C{0,9}D  | C{0,8}D = C{0,9}D
@@ -894,98 +897,101 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             derivatives.Add(merged2) |> ignore
 
 
-        let mutable num_lookaheads = 0
-        let mutable min_rel = Int32.MaxValue
-        let merge_lookaheads =
-            derivatives
-            |> Seq.toArray
-            |> Seq.choose
-                   (function
-                | LookAround(node=node;lookBack = false; relativeTo = rel; pendingNullables = pending) as look ->
-                    num_lookaheads <- num_lookaheads + 1
-                    derivatives.Remove(look) |> ignore
-                    min_rel <- min min_rel rel
-                    let nulls = pending |> RefSet.map (fun v -> rel + v)
-                    Some (node,look, nulls)
-                | _ -> None )
-            |> Seq.groupBy (fun (n,_,_) -> n)
-            |> Seq.toArray
+        // if options.MinimizeOr then
+        if true then
+            let mutable num_lookaheads = 0
+            let mutable min_rel = Int32.MaxValue
+            let merge_lookaheads =
+                derivatives
+                |> Seq.toArray
+                |> Seq.choose
+                       (function
+                    | LookAround(node=node;lookBack = false; relativeTo = rel; pendingNullables = pending) as look ->
+                        num_lookaheads <- num_lookaheads + 1
+                        derivatives.Remove(look) |> ignore
+                        min_rel <- min min_rel rel
+                        let nulls = pending |> RefSet.map (fun v -> rel + v)
+                        Some (node,look, nulls)
+                    | _ -> None )
+                |> Seq.groupBy (fun (n,_,_) -> n)
+                |> Seq.toArray
 
-        if num_lookaheads > 0 then
-            for head,entries in merge_lookaheads do
-                let allnulls =
-                    entries
-                    |> Seq.collect (fun (_,_,nulls) -> nulls.inner )
-                    |> Seq.map (fun v -> v - min_rel)
-                    |> RefSet.Create
-                let merged =
-                    this.mkLookaround(head,false,min_rel, allnulls)
-                derivatives.Add(merged) |> ignore
-                // failwith "todo"
+            if num_lookaheads > 0 then
+                for head,entries in merge_lookaheads do
+                    let allnulls =
+                        entries
+                        |> Seq.collect (fun (_,_,nulls) -> nulls.inner )
+                        |> Seq.map (fun v -> v - min_rel)
+                        |> RefSet.Create
+                    let merged =
+                        this.mkLookaround(head,false,min_rel, allnulls)
+                    derivatives.Add(merged) |> ignore
+                    // failwith "todo"
 
-        // let grouped_heads =
-        //     derivatives
-        //     |> Seq.groupBy (fun v ->
-        //         match v with
-        //         | Concat(head = head; tail = tail) ->
-        //             Some head
-        //         | _ -> None
-        //     )
-        //     |> Seq.toArray
-        //
-        // derivatives.Clear()
-        // grouped_heads
-        // |> Seq.iter (fun (g,tail) ->
-        //     match g with
-        //     | None ->
-        //         for n in tail do
-        //             derivatives.Add(n) |> ignore
-        //     | Some g ->
-        //     let tailArray = tail |> Seq.toArray
-        //     match tailArray with
-        //     | [| single |] ->
-        //         derivatives.Add(single) |> ignore
-        //     | mult ->
-        //         let tmp = ResizeArray()
-        //         let mutable headNode = Unchecked.defaultof<_>
-        //         for node in mult do
-        //             match node with
-        //             | Concat(head = head; tail = tail) ->
-        //                 headNode <- head
-        //                 tmp.Add(tail)
-        //             | _ -> failwith "?"
-        //         let newNode = this.mkOrSeq(tmp)
-        //         let newNode2 = this.mkConcat2(headNode,newNode)
-        //         derivatives.Add(newNode2) |> ignore
-        // )
-        //
-        // let grouped_tails =
-        //     derivatives
-        //     |> Seq.map (function Pat.SplitTail (h,d) -> h,d )
-        //     |> Seq.groupBy snd
-        //     |> Seq.toArray
-        // // SplitTail
-        // if grouped_tails.Length > 0 then
-        //     derivatives.Clear()
-        //     for (tail_key,group) in grouped_tails do
-        //         let group_arr = group |> Seq.toArray
-        //         if group_arr.Length = 1 then
-        //             let hd = fst group_arr[0]
-        //             let t = snd group_arr[0]
-        //             let newNode =
-        //                 if hd.Count = 0 then t
-        //                 else this.mkConcat2(this.mkConcatResizeArray(hd),tail_key)
-        //             derivatives.Add(newNode) |> ignore
-        //         else
-        //         let new_heads =
-        //             group_arr |> Seq.map (fun (fst,_) ->
-        //                 if fst.Count = 0 then _uniques._eps
-        //                 elif fst.Count = 1 then fst[0] else
-        //                 this.mkConcatResizeArray(fst)
-        //             )
-        //         let merged_heads = this.mkOrSeq(new_heads)
-        //         let new_concat = this.mkConcat2(merged_heads,tail_key)
-        //         derivatives.Add(new_concat) |> ignore
+
+            let grouped_heads =
+                derivatives
+                |> Seq.groupBy (fun v ->
+                    match v with
+                    | Concat(head = head; tail = tail) ->
+                        Some head
+                    | _ -> None
+                )
+                |> Seq.toArray
+
+            derivatives.Clear()
+            grouped_heads
+            |> Seq.iter (fun (g,tail) ->
+                match g with
+                | None ->
+                    for n in tail do
+                        derivatives.Add(n) |> ignore
+                | Some g ->
+                let tailArray = tail |> Seq.toArray
+                match tailArray with
+                | [| single |] ->
+                    derivatives.Add(single) |> ignore
+                | mult ->
+                    let tmp = ResizeArray()
+                    let mutable headNode = Unchecked.defaultof<_>
+                    for node in mult do
+                        match node with
+                        | Concat(head = head; tail = tail) ->
+                            headNode <- head
+                            tmp.Add(tail)
+                        | _ -> failwith "?"
+                    let newNode = this.mkOrSeq(tmp)
+                    let newNode2 = this.mkConcat2(headNode,newNode)
+                    derivatives.Add(newNode2) |> ignore
+            )
+
+            let grouped_tails =
+                derivatives
+                |> Seq.map (function Pat.SplitTail (h,d) -> h,d )
+                |> Seq.groupBy snd
+                |> Seq.toArray
+            // SplitTail
+            if grouped_tails.Length > 0 then
+                derivatives.Clear()
+                for (tail_key,group) in grouped_tails do
+                    let group_arr = group |> Seq.toArray
+                    if group_arr.Length = 1 then
+                        let hd = fst group_arr[0]
+                        let t = snd group_arr[0]
+                        let newNode =
+                            if hd.Count = 0 then t
+                            else this.mkConcat2(this.mkConcatResizeArray(hd),tail_key)
+                        derivatives.Add(newNode) |> ignore
+                    else
+                    let new_heads =
+                        group_arr |> Seq.map (fun (fst,_) ->
+                            if fst.Count = 0 then _uniques._eps
+                            elif fst.Count = 1 then fst[0] else
+                            this.mkConcatResizeArray(fst)
+                        )
+                    let merged_heads = this.mkOrSeq(new_heads)
+                    let new_concat = this.mkConcat2(merged_heads,tail_key)
+                    derivatives.Add(new_concat) |> ignore
 
         if derivatives.Count = 0 then
             _uniques._false
@@ -1188,18 +1194,6 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 // [a-f]{3}((?<=bc)ijk)|(?<=cd)def))
                 // aaa&(?=[a-z]{3})...
                 | head, LookAround(node=node;lookBack=true) when not (refEq head b.trueStar) ->
-                    // match Node.getFixedLength (head) with
-                    // | Some 0 ->
-                    //     // just merge them if zero-width
-                    //     let combined = this.mkAnd([
-                    //         this.mkConcat2(this.trueStar,head)
-                    //         this.mkConcat2(this.trueStar,tail)
-                    //     ])
-                    //     let v = this.mkLookaround(combined, true, 0, Set.empty)
-                    //     _concatCache.Add(key, v)
-                    //     v
-                    // | _ ->
-
                     // only rewrite trivial examples!
                     let rewrite =
                         match node with
@@ -1208,79 +1202,44 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                         | Loop(node=Singleton _; low=0; up=1) ->
                             b.mkAnd([ head; b.mkConcat2(b.trueStar,node) ])
                         | _ ->
-                            // .*(?<=aaa) = .*aaa
-
-                            // a(?<=...)
-
-                            // orig: ..(?<=a.*)
-                            // case 1: ⊤*a.*&..     (same range)
-                            // case 2: (?<=a.*)..   (before start range)
-                            // rewrite: ⊤*a.*&..|(?<=a.*)..   (? is this correct)
-
                             failwith $"nontrivial inner lookarounds are not yet supported! pattern: {head.ToString()}{tail.ToString()}"
                     _concatCache.Add(key, rewrite)
                     rewrite
                 // (?=[a-z])a to (a&([a-z]⊤*)
                 // (?=ab)a to (a&(?=ab)
                 | LookAround(node=lookbody;lookBack=false),tail  ->
-                    match tail with
-                    | SingletonStarLoop(_) ->
-                        let v =
-                            let flags = Flags.inferConcat head tail
-                            let mergedMinterms = solver.Or(head.SubsumedByMinterm(solver),tail.SubsumedByMinterm(solver))
-                            let info = this.CreateInfo(flags, mergedMinterms, RefSet.union head.PendingNullables tail.PendingNullables)
-                            Concat(head, tail, info)
-                        _concatCache.Add(key, v)
-                        v
-                    | _ ->
+                    // match tail with
+                    // | SingletonStarLoop(_) ->
+                    //     let v =
+                    //         let flags = Flags.inferConcat head tail
+                    //         let mergedMinterms = solver.Or(head.SubsumedByMinterm(solver),tail.SubsumedByMinterm(solver))
+                    //         let info = this.CreateInfo(flags, mergedMinterms, RefSet.union head.PendingNullables tail.PendingNullables)
+                    //         Concat(head, tail, info)
+                    //     _concatCache.Add(key, v)
+                    //     v
+                    // | _ ->
 
                     // only rewrite trivial examples!
-                    // failwith "todo: rewrite2"
                     let rewrite =
                         match lookbody with
-                        | Singleton _ ->
-                            let v = b.mkAnd([
-                                tail
-                                b.mkConcat2(lookbody,b.trueStar)
-                                //
-                                // head
-                                // (?=1)11 ==> (11&1⊤*)
-                            ])
-                            v
+                        // (?=1)11 ==> (11&1⊤*)
+                        | Singleton _ -> b.mkAnd([ tail; b.mkConcat2(lookbody,b.trueStar) ])
                         | _ ->
+                            // (?=[a-z])a
 
-                            // (?=⊤*)
-                            let unboundedLook =
-                                b.mkLookaround(b.trueStar,false,0,RefSet.empty)
+                            // (?=⊤*), this just carries the nullability info
+                            let unboundedLook = b.mkLookaround(b.trueStar,false,0,RefSet.empty)
 
-                            // ...(?<=a.*)
-                            // case 1 : (?<=a.*)...
-                            // case 2 : ⊤*a.*&...
-
-                            // (?=.*a)...
-                            // a..
-                            // .a.
-                            // ..a
-                            // ...(?=.*a)
-
-                            // (?=.*b.*a)...
-                            // case 1: .*b.*a⊤*&...
-                            // case 2: ...&.*b.*(?=.*a)
-
-                            let case1 =
-                                // ...(?=⊤*)
-                                b.mkConcat2(tail, unboundedLook)
-
-                            let case2 =
-                                // .*a⊤*
-                                b.mkConcat2(lookbody,b.trueStar)
+                            // a(?=⊤*)
+                            let case1 = b.mkConcat2(tail, unboundedLook)
+                            // [a-z]⊤*
+                            let case2 = b.mkConcat2(lookbody,b.trueStar)
 
                             let v = b.mkAnd([
                                 case1
                                 case2
                             ])
                             v
-                            // failwith "nontrivial inner lookaheads are not yet supported"
                     _concatCache.Add(key, rewrite)
                     rewrite
 #else

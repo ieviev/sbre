@@ -1,5 +1,5 @@
 namespace rec Sbre.Types
-
+open Sbre
 open System
 open System.Buffers
 open System.Collections.Generic

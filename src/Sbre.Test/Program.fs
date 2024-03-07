@@ -88,7 +88,7 @@ for pat in suite.Patterns do
 
 // let pref = _06_MatchTests.``lookback 2``()
 // let pref = _02_NodeTests.``very large pat 01``()
-let pref = BenchmarkTests.``learning sample 1``()
+// let pref = BenchmarkTests.``learning sample 1``()
 // let pref = _06_MatchTests.``lookback 3``()
 // let pref = _06_MatchTests.``lookback 1``()
 let ab = 1

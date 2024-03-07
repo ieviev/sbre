@@ -198,16 +198,15 @@ let ``line test 2``() =
     Assert.Equal(r[1].Length, 71)
 
 
-let rebar_input_5k =
-    "/mnt/g/repos/rebar/benchmarks/haystacks/opensubtitles/en-sampled.txt"
-    |> File.ReadLines
-    |> Seq.take 5000
-    |> String.concat "\n"
+// let rebar_input_5k =
+//     "/mnt/g/repos/rebar/benchmarks/haystacks/opensubtitles/en-sampled.txt"
+//     |> File.ReadLines
+//     |> Seq.take 5000
+//     |> String.concat "\n"
 
-
-[<Fact>]
-let rebar_counts_1() =
-    assertEqual 1833 (Sbre.Regex("[A-Za-z]{8,13}").Count(rebar_input_5k))
+// [<Fact>]
+// let rebar_counts_1() =
+//     assertEqual 1833 (Sbre.Regex("[A-Za-z]{8,13}").Count(rebar_input_5k))
 
 
 
@@ -215,23 +214,23 @@ let rebar_counts_1() =
 #endif
 
 
-let [<Literal>] SampleFile = "/home/ian/f/ttu/iti0303-regexp-text-extraction/ExtractText/data/training-samples/CongressBills-Date.json"
-type CongressProvider = FSharp.Data.JsonProvider<SampleFile>
-let ctx_congress = CongressProvider.GetSample()
+// let [<Literal>] SampleFile = "/home/ian/f/ttu/iti0303-regexp-text-extraction/ExtractText/data/training-samples/CongressBills-Date.json"
+// type CongressProvider = FSharp.Data.JsonProvider<SampleFile>
+// let ctx_congress = CongressProvider.GetSample()
 
 
-[<Fact>]
-let ``learning sample 1``() =
-    if true then () else
-    let r = Regex(@"(?<=( |`|\-|\n|3)⊤*).*&\w.*&.*\w")
-    // let r = Regex(@"(?<=( |`|\-|\n|3).*).*&\w.*\w")
-    // let r = Regex(@"(?<=( |`|\-|\n|3).*).*&\w.*\w")
+// [<Fact>]
+// let ``learning sample 1``() =
+//     if true then () else
+//     let r = Regex(@"(?<=( |`|\-|\n|3)⊤*).*&\w.*&.*\w")
+//     // let r = Regex(@"(?<=( |`|\-|\n|3).*).*&\w.*\w")
+//     // let r = Regex(@"(?<=( |`|\-|\n|3).*).*&\w.*\w")
 
-    for sample in ctx_congress.Examples do
-        let ms = r.Matches(sample.String)
-        ()
-    ()
-    // Assert.Equal(15, r.Length)
+//     for sample in ctx_congress.Examples do
+//         let ms = r.Matches(sample.String)
+//         ()
+//     ()
+//     // Assert.Equal(15, r.Length)
 
 
 

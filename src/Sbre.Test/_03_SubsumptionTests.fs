@@ -153,7 +153,11 @@ let ``a conversion 1.8``() = assertConverted "(\d){2,2}⊤*&\d⊤*" [ "(\d){2,2}
 
 [<Fact>]
 let ``a canonical 1.1``() =
-    assertConverted "a(|b)|[abc]b?" ["[a-c]b?"]
+    assertConverted "a(|b)|[abc]b?" [
+        "[a-c]b?"
+        @"[a-c](b|ε)"
+        @"[a-c](ε|b)"
+    ]
 
 [<Fact>]
 let ``a conversion 2.3``() = assertConverted "(.*|(.*11.*|1.*))" [ ".*" ]

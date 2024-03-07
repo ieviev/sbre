@@ -78,11 +78,7 @@ type RegexSearchMode =
 
 
 
-[<AllowNullLiteral>]
-type SbreOptions() =
-    member val InitialDfaCapacity = 1024 with get, set
-    member val MaxDfaCapacity = 1000000 with get, set
-    member val CanonicalizeStates = false with get, set
+
 
 
 [<Sealed>]
@@ -829,6 +825,57 @@ type RegexMatcher<
                 looping <- false
         currentMax
 
+
+    member this.TrySkipInitialRev2(loc:byref<Location>, currentStateId:byref<int>, weightedSets: inref<struct(int * MintermSearchValues<'t>) array>) : bool =
+        let textSpan = loc.Input
+        let currentPosition = loc.Position
+        let charSetsCount = weightedSets.Length
+        let struct(rarestCharSetIndex, rarestCharSet) = weightedSets[0]
+        let mutable searching = true
+        let mutable prevMatch = currentPosition
+        while searching do
+            let nextMatch =
+                match rarestCharSet.Mode with
+                | MintermSearchMode.InvertedSearchValues -> textSpan.Slice(0, prevMatch).LastIndexOfAnyExcept(rarestCharSet.SearchValues)
+                | MintermSearchMode.SearchValues -> textSpan.Slice(0, prevMatch).LastIndexOfAny(rarestCharSet.SearchValues)
+                | MintermSearchMode.TSet ->
+                    let mutable fnd = false
+                    let slice = textSpan.Slice(0, prevMatch)
+                    let mutable i = slice.Length - 1
+                    while not fnd && i >= 0 do
+                        if rarestCharSet.Contains(slice[i]) then
+                            fnd <- true
+                        i <- i - 1
+                    if fnd then i + 1 else -1
+                | _ -> failwith "invalid enum"
+
+
+            match nextMatch with
+            // | curMatch when (curMatch - rarestCharSetIndex >= 0 && curMatch - rarestCharSetIndex + weightedSets.Length < textSpan.Length) ->
+            | curMatch when (curMatch - rarestCharSetIndex >= 0 && curMatch - rarestCharSetIndex + charSetsCount <= currentPosition) ->
+                let absMatchStart = curMatch - rarestCharSetIndex
+                let mutable fullMatch = true
+                let mutable i = 1
+                while fullMatch && i < charSetsCount do
+                    let struct (weightedSetIndex,weightedSet) = weightedSets[i]
+                    if not (weightedSet.Contains(textSpan[absMatchStart + weightedSetIndex])) then
+                        fullMatch <- false
+                    else
+                        i <- i + 1
+                // ?
+                // prevMatch <-
+                //     if rarestCharSetIndex = 0 then absMatchStart - 1 else
+                //     absMatchStart + rarestCharSetIndex
+                prevMatch <- absMatchStart + rarestCharSetIndex
+                if fullMatch && i = charSetsCount then
+                    searching <- false
+                    loc.Position <- absMatchStart + charSetsCount
+            | -1 ->
+                searching <- false
+                loc.Position <- 0
+            | outOfBounds -> prevMatch <- outOfBounds
+        currentPosition <> loc.Position
+
     member this.TrySkipInitialRev(loc:byref<Location>, currentStateId:byref<int>) : bool =
         match _initialOptimizations with
         | InitialOptimizations.StringPrefix(prefix, transitionNodeId) ->
@@ -1287,7 +1334,7 @@ module Helpers =
 #if DEBUG
             Debug.debuggerSolver <- Some solver
 #endif
-            let uintbuilder = RegexBuilder(converter, solver, charsetSolver)
+            let uintbuilder = RegexBuilder(converter, solver, charsetSolver, options)
 
             let rawNode = (Minterms.transform bddBuilder uintbuilder charsetSolver solver) symbolicBddnode
 
@@ -1327,7 +1374,7 @@ module Helpers =
         | n ->
             // ideally subsume the minterms to 64 or below
             let solver = BitVectorSolver(bddMinterms, charsetSolver)
-            let uintbuilder = RegexBuilder(converter, solver, charsetSolver)
+            let uintbuilder = RegexBuilder(converter, solver, charsetSolver, options)
             let rawNode = (Minterms.transform bddBuilder uintbuilder charsetSolver solver) symbolicBddnode
 
             let cache =
@@ -1342,6 +1389,9 @@ module Helpers =
 
             let m = RegexMatcher(rawNode, cache, options)
 
+            let backToBdd = Minterms.transformBack uintbuilder bddBuilder solver charsetSolver (m.RawPatternObj)
+            let recomputedMinterms = backToBdd |> Minterms.compute symbolicBuilder
+            let dbg = 1
             // if not (refEq (m.RawPatternObj) (rawNode)) then
             //     let backToBdd = Minterms.transformBack uintbuilder bddBuilder solver charsetSolver (m.RawPatternObj)
             //     let recomputedMinterms = backToBdd |> Minterms.compute symbolicBuilder
@@ -1379,7 +1429,7 @@ type Regex(pattern: string, [<Optional; DefaultParameterValue(null:SbreOptions)>
     let charsetSolver = CharSetSolver()
     let runtimeBddBuilder = SymbolicRegexBuilder<BDD>(charsetSolver, charsetSolver)
     let converter = RegexNodeConverter(runtimeBddBuilder, null)
-    let regexBuilder = RegexBuilder(converter, charsetSolver, charsetSolver)
+    let regexBuilder = RegexBuilder(converter, charsetSolver, charsetSolver, options)
     let symbolicBddnode: RegexNode<BDD> =
         RegexNodeConverter.convertToSymbolicRegexNode (
             charsetSolver,
