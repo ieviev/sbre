@@ -1282,7 +1282,12 @@ module Helpers =
                 )
 
             RegexMatcher<TSet>(rawNode, cache)
-        | n -> failwith $"bitvector too large, size: {n}"
+        | n -> 
+            // let solver = BitVectorSolver(bddMinterms, charsetSolver)
+            // let bitvectorbuilder = RegexBuilder(converter, solver, charsetSolver)
+            // let rawNode = (Minterms.transform bddBuilder bitvectorbuilder charsetSolver solver) symbolicBddnode
+            
+            failwith $"bitvector too large, size: {n}"
 
 
 
