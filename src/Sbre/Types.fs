@@ -711,7 +711,6 @@ type RefSet<'t when 't : comparison> =
     static member zeroList : RefSet<int> = RefSet.Create(Set.singleton 0)
     static member empty : RefSet<'t> = RefSet.Create(Set.empty)
 
-
     private new(src_set:Set<'t>) = {inner=src_set}
 
 

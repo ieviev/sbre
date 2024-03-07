@@ -272,7 +272,8 @@ type RegexMatcher<
                             // this is very expensive but so be it
                             _cache.Builder.mkLookaround(der_R, false, rel + 1, RefSet<int>.zeroList)
 
-                | _ -> _cache.Builder.mkLookaround(der_R, false, rel+1, pendingNulls)
+                | _ ->
+                    _cache.Builder.mkLookaround(der_R, false, rel+1, pendingNulls)
             // Lookback
             | LookAround(node=R; lookBack=true; relativeTo= _; pendingNullables= _; info = _) ->
                 let der_R = _createDerivative (&loc, loc_pred, R)
@@ -457,9 +458,9 @@ type RegexMatcher<
             if _stateArray.Length = state.Id then
                 // if _stateArray.Length > 50000 then
                 if _stateArray.Length > 100000 then
+                // if _stateArray.Length > 1000000 then
                     failwith $"state space blowup!"
-                    // failwith $"state space blowup!: {node.ToString()}"
-                // failwith "TODO: resize DFA"
+
                 let newsize = _stateArray.Length * 2
                 Array.Resize(&_stateArray, newsize)
                 Array.Resize(&_flagsArray, newsize)
@@ -552,14 +553,15 @@ type RegexMatcher<
                 (fun node -> _getOrCreateState(reverseTrueStarredNode,node,false).Id )
                 (fun node -> _getOrCreateState(reverseTrueStarredNode,node,false).Flags )
                 _cache reverseNode reverseTrueStarredNode
-        let cannotUsePrefix =
-            match opts with
-            | InitialOptimizations.SetsPrefix(prefix=prefix)
-            | InitialOptimizations.SetsPotentialStart prefix ->
-                let chrs = _cache.MintermChars(prefix.Span[0])
-                chrs.IsNone
-            | _ -> false
-        if cannotUsePrefix then InitialOptimizations.NoOptimizations else opts
+        // let cannotUsePrefix =
+        //     match opts with
+        //     | InitialOptimizations.SetsPrefix(prefix=prefix)
+        //     | InitialOptimizations.SetsPotentialStart prefix ->
+        //         let chrs = _cache.MintermChars(prefix.Span[0])
+        //         chrs.IsNone
+        //     | _ -> false
+        // if cannotUsePrefix then InitialOptimizations.NoOptimizations else opts
+        opts
     let _lengthLookup =
         Optimizations.inferLengthLookup (fun node -> _getOrCreateState(reverseTrueStarredNode,node,false).Id ) getNonInitialDerivative _cache _noprefix
 #else
@@ -704,16 +706,16 @@ type RegexMatcher<
             loc: inref<Location>
         ) =
         let minterm = _cache.MintermById(mintermId)
-        try
-            let targetState = this.GetOrCreateState(
-                this.CreateDerivative( &loc, minterm, _stateArray[currentState].Node))
-            targetState.Id
-        with
-            e ->
-                // System.IO.File.WriteAllText("/home/ian/f/ieviev/sbre/src/Sbre.Test/data/sample-congress.txt", loc.Input.ToString())
-                failwith $"err:\n{this.PrettyPrintNode(this.RawPattern)}"
-                // failwith $"err:\n{_cache.PrettyPrintNode(this.RawPattern)}"
-                // failwith $"err:\n{_cache.PrettyPrintNode(this.RawPattern)}"
+        // try
+        let targetState = this.GetOrCreateState(
+            this.CreateDerivative( &loc, minterm, _stateArray[currentState].Node))
+        targetState.Id
+        // with
+        //     e ->
+        //         // System.IO.File.WriteAllText("/home/ian/f/ieviev/sbre/src/Sbre.Test/data/sample-congress.txt", loc.Input.ToString())
+        //         failwith $"err:\n{this.PrettyPrintNode(this.RawPattern)}"
+        //         // failwith $"err:\n{_cache.PrettyPrintNode(this.RawPattern)}"
+        //         // failwith $"err:\n{_cache.PrettyPrintNode(this.RawPattern)}"
 
 #if DEBUG
     member this.GetStateAndFlagsById(stateId: int) = _stateArray[stateId]

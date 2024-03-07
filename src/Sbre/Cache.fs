@@ -317,18 +317,8 @@ type RegexCache<
         let mutable skipping = true
         let mutable resultEnd = ValueNone
         let mutable slice: ReadOnlySpan<char> = inputSpan.Slice(0, currpos)
-
-
         let searchValues = this.MintermSearchValues(setSpan[0])
-        match searchValues.Mode with
-        | MintermSearchMode.TSet -> ValueSome(currpos)
-        | _ ->
         let firstSetChars = searchValues.SearchValues
-        let isInverted =
-            match searchValues.Mode with
-            | MintermSearchMode.InvertedSearchValues -> true
-            | _ -> false
-
         let tailPrefixSpan = setSpan.Slice(1)
         let _tailPrefixLength = tailPrefixSpan.Length
 
@@ -337,11 +327,22 @@ type RegexCache<
 
             let sharedIndex =
                 slice <- inputSpan.Slice(0, currpos)
-
-                if not isInverted then
+                match searchValues.Mode with
+                | MintermSearchMode.SearchValues ->
                     slice.LastIndexOfAny(firstSetChars)
-                else
+                | MintermSearchMode.InvertedSearchValues ->
                     slice.LastIndexOfAnyExcept(firstSetChars)
+                | MintermSearchMode.TSet ->
+                    let mutable fnd = false
+                    let mutable i = slice.Length - 1
+                    while not fnd && i >= 0 do
+                        if searchValues.Contains(slice[i]) then
+                            fnd <- true
+                        i <- i - 1
+                    if fnd then
+                        i + 1
+                    else -1
+                | _ -> failwith "impossible"
 
             if not (sharedIndex = -1) then
                 let potential = sharedIndex + 1
@@ -350,11 +351,22 @@ type RegexCache<
         while skipping do
             let sharedIndex =
                 slice <- inputSpan.Slice(0, currpos)
-
-                if not isInverted then
+                match searchValues.Mode with
+                | MintermSearchMode.SearchValues ->
                     slice.LastIndexOfAny(firstSetChars)
-                else
+                | MintermSearchMode.InvertedSearchValues ->
                     slice.LastIndexOfAnyExcept(firstSetChars)
+                | MintermSearchMode.TSet ->
+                    let mutable fnd = false
+                    let mutable i = slice.Length - 1
+                    while not fnd && i >= 0 do
+                        if searchValues.Contains(slice[i]) then
+                            fnd <- true
+                        i <- i - 1
+                    if fnd then
+                        i + 1
+                    else -1
+                | _ -> failwith "impossible"
 
             if sharedIndex = -1 then
                 skipping <- false

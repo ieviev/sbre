@@ -219,7 +219,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 && refEq x1 x2
 
             member this.GetHashCode(struct (x, _, r, k)) =
-                LanguagePrimitives.PhysicalHash x ^^^ r ^^^ (Seq.sum k.inner)
+                LanguagePrimitives.PhysicalHash x ^^^ r ^^^ LanguagePrimitives.PhysicalHash k
         }
 
     let _refComparer =
@@ -1320,6 +1320,9 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 match body, lookBack with
                 | Epsilon, true -> _uniques._eps
                 | _, true when refEq _uniques._trueStar body -> _uniques._eps
+                // IMPORTANT: finish pending lookahead
+                | _, false when body.IsAlwaysNullable ->
+                    createCached(_uniques._eps, lookBack, rel, pendingNullable)
                 | _ when refEq _uniques._false body -> _uniques._false
                 | _ -> createCached(body, lookBack, rel, pendingNullable)
 

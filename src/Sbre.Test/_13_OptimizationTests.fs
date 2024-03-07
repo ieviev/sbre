@@ -228,6 +228,20 @@ let ``initialOptimizations 21``() =
         @"get, set"
 
 
+[<Fact>]
+let ``initialOptimizations 22``() =
+    assertPotentialStart
+        @"(?<=( |`|\-|\n|3).*).*&\w.*&.*\w"
+        @"φ;." // important to avoid state space blowup
+
+[<Fact>]
+let ``initialOptimizations 23``() =
+    assertSetsPrefix
+        @"(?<=( |`|\-|\n|3).*).*&\w.*&.*\w&\w{4,}"
+        @"φ;φ;φ;φ" // important to avoid state space blowup
+
+
+
 
 [<Fact>]
 let ``activeOptimizations 1``() =
