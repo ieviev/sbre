@@ -13,9 +13,9 @@ open Sbre.Pat
 open Sbre.Types
 open System.Text.Json.Nodes
 open System.Buffers
-// let fullInput = __SOURCE_DIRECTORY__ + "/data/input-text.txt" |> System.IO.File.ReadAllText
+let fullInput = __SOURCE_DIRECTORY__ + "/data/input-text.txt" |> System.IO.File.ReadAllText
 // let fullInput = __SOURCE_DIRECTORY__ + "/data/sherlock.txt" |> System.IO.File.ReadAllText
-let fullInput = __SOURCE_DIRECTORY__ + "/data/rust-src-tools-3b0d4813.txt" |> System.IO.File.ReadAllText
+// let fullInput = __SOURCE_DIRECTORY__ + "/data/rust-src-tools-3b0d4813.txt" |> System.IO.File.ReadAllText
 
 let frequenciesJsonText = __SOURCE_DIRECTORY__ + "/data/charFreqWithControl.json"  |> System.IO.File.ReadAllText
 
@@ -134,8 +134,7 @@ let collectNullablePositionsOriginal ( matcher: RegexMatcher<TSet>, loc: byref<L
     while looping do
         dfaState <- _stateArray[currentStateId]
         let flags = dfaState.Flags
-        if flags.IsInitial then
-            matcher.TrySkipInitialRev(&loc, &currentStateId) |> ignore
+        if flags.IsInitial && matcher.TrySkipInitialRev(&loc, &currentStateId) then () else
 
         if matcher.StateIsNullable(flags, &loc, currentStateId) then
             nullableCount <- nullableCount + 1
@@ -467,7 +466,8 @@ type PrefixCharsetSearch () =
     // [<Params("[a-zA-Z]+ckle|[a-zA-Z]+awy", "Huck[a-zA-Z]+|Saw[a-zA-Z]+", ".*have.*&.*there.*")>]
     // member val rs: string = "" with get, set
 
-    let regex = Sbre.Regex(Patterns.URL)
+    // let regex = Sbre.Regex(Patterns.URL)
+    let regex = Sbre.Regex(Patterns.AQ_X)
     
 
     let cache = regex.TSetMatcher.Cache
