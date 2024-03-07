@@ -1220,7 +1220,6 @@ type RegexMatcher<
                     | -2 -> failwith "found bug in match"
                     | _ ->
                         let pos = { MatchPosition.Index = currStart; Length = (matchEnd - currStart) }
-                        let debug = pos.GetText(loc.Input)
                         matches.Add(pos)
                         nextValidStart <- matchEnd
         matches.size

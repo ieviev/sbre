@@ -336,11 +336,12 @@ type RegexCache<
                 let mutable i = 0
 
                 while couldBe && i < tailPrefixSpan.Length do
-                    let inputMinterm = this.Classify(inputSpan[potential - i - 2])
+                    // let inputMinterm = this.Classify(inputSpan[potential - i - 2])
                     // let loc1 = this.PrettyPrintMinterm(inputMinterm)
                     // let loc2 = this.PrettyPrintMinterm(tailPrefixSpan[i])
-                    if _solver.notElemOfSet inputMinterm tailPrefixSpan[i].Minterm then
-                    // if tailPrefixSpan[i].Contains(inputSpan[potential - i - 2]) then
+                    // let c1 = tailPrefixSpan[i].Contains(inputSpan[potential - i - 2])
+                    // if _solver.notElemOfSet inputMinterm tailPrefixSpan[i].Minterm then
+                    if not(tailPrefixSpan[i].Contains(inputSpan[potential - i - 2])) then
                         couldBe <- false
 
                     i <- i + 1

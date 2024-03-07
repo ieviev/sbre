@@ -342,7 +342,6 @@ type TwainRegexesMatchOnly() =
     inherit
         Jobs.TestAllEnginesAllPatternsMatchOnly(
             [
-               """(?<=\W)\w+nn(?=\W)"""
                """\b\w+nn\b"""
                "Twain"
                "(?i)Twain"
