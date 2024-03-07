@@ -524,14 +524,8 @@ type RegexMatcher<
             _flagsArray[state.Id] <- state.Flags
             state
 
-// #if CANONICAL
+
     // do _cache.Builder.CanonicalizeCallback <- Some _canonicalize
-    // do _cache.Builder.InitCanonical(_minterms)
-//     let R_canonical = _canonicalize uncanonicalizedNode
-// #else
-//     let R_canonical = uncanonicalizedNode
-// #endif
-//
     do _cache.Builder.InitCanonical(_minterms)
     let R_canonical = _canonicalize uncanonicalizedNode
     let reverseNode = RegexNode.rev _cache.Builder R_canonical
@@ -565,9 +559,9 @@ type RegexMatcher<
         Optimizations.inferLengthLookup (fun node -> _getOrCreateState(reverseTrueStarredNode,node,false).Id ) getNonInitialDerivative _cache _noprefix
 #else
     let _initialOptimizations =
-        InitialOptimizations.NoOptimizations
+        InitialOptimizations<'t>.NoOptimizations
     let _lengthLookup =
-        LengthLookup.MatchEnd
+        LengthLookup<'t>.MatchEnd
 #endif
 
     let _regexOverride =
@@ -996,22 +990,24 @@ type RegexMatcher<
                     true
                 else
                     false
-            | LimitedSkip(distance, termPred, termTransitionId, nonTermTransitionId) ->
-                if distance > loc.Position then // no more matches
-                    loc.Position <- Location.final loc
-                    false
-                else
-                let limitedSlice = loc.Input.Slice(loc.Position - distance, distance)
-                match limitedSlice.LastIndexOfAny(termPred) with
-                | -1 ->
-                    loc.Position <- loc.Position - distance
-                    currentStateId <- nonTermTransitionId
-                    true
-                | idx ->
-                    let newPos = loc.Position - distance + idx
-                    loc.Position <- newPos
-                    currentStateId <- termTransitionId
-                    true // mark nullable
+            // this is buggy
+            | LimitedSkip _ -> false
+            // | LimitedSkip(distance, termPred, termTransitionId, nonTermTransitionId) ->
+            //     if distance > loc.Position then // no more matches
+            //         loc.Position <- Location.final loc
+            //         false
+            //     else
+            //     let limitedSlice = loc.Input.Slice(loc.Position - distance, distance)
+            //     match limitedSlice.LastIndexOfAny(termPred) with
+            //     | -1 ->
+            //         loc.Position <- loc.Position - distance
+            //         currentStateId <- nonTermTransitionId
+            //         true
+            //     | idx ->
+            //         let newPos = loc.Position - distance + idx
+            //         loc.Position <- newPos
+            //         currentStateId <- termTransitionId
+            //         true // mark nullable
             | NoOptimizations -> false
         else
             let tmp_loc = loc.Position
@@ -1209,17 +1205,13 @@ type RegexMatcher<
             loc.Reversed <- false
             let mutable nextValidStart = 0
             let startSpans = allPotentialStarts.AsSpan()
-            // todo: slow but ensures correct
-            startSpans.Sort()
-            startSpans.Reverse()
             for i = (startSpans.Length - 1) downto 0 do
                 let currStart = startSpans[i]
                 if currStart >= nextValidStart then
                     loc.Position <- currStart
                     let matchEnd = this.getMatchEnd(&loc)
                     match matchEnd with
-                    | -2 ->
-                        () // did not match in reverse
+                    | -2 -> failwith "found bug in match"
                     | _ ->
                         matches.Add({ MatchPosition.Index = currStart; Length = (matchEnd - currStart) })
                         nextValidStart <- matchEnd
@@ -1248,11 +1240,11 @@ type RegexMatcher<
                     loc.Position <- currStart
                     let matchEnd = this.getMatchEnd(&loc)
                     match matchEnd with
-                    | -2 ->
-                        failwith "invalid match"
-                        ()
+                    | -2 -> failwith "found bug in match"
                     | _ ->
-                        matches.Add({ MatchPosition.Index = currStart; Length = (matchEnd - currStart) })
+                        let pos = { MatchPosition.Index = currStart; Length = (matchEnd - currStart) }
+                        let debug = pos.GetText(loc.Input)
+                        matches.Add(pos)
                         nextValidStart <- matchEnd
         matches.size
 

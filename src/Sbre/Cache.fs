@@ -320,7 +320,6 @@ type RegexCache<
         let searchValues = this.MintermSearchValues(setSpan[0])
         let firstSetChars = searchValues.SearchValues
         let tailPrefixSpan = setSpan.Slice(1)
-        let _tailPrefixLength = tailPrefixSpan.Length
 
         if tailPrefixSpan.Length = 0 then
             skipping <- false
