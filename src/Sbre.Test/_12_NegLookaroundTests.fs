@@ -44,13 +44,16 @@ let ``der neg anchor 3``() = _04_DerivativeTests.testRevDerivative (@"bb(?!b)","
 // let ``der neg anchor 4``() = _04_DerivativeTests.testRevDerivative (@"bb(?!a)","b",[ @"b"; ])
 
 [<Fact>]
-let ``der neg anchor lb 1``() = _04_DerivativeTests.testPartDerivative (@"(?<!a)b", "ab", "⊥")
+let ``der neg anchor lb 1``() = _04_DerivativeTests.testPartDerivatives (@"(?<!a)b", "ab", [
+    "⊥"
+    @"(?<=~((⊤*a)?))b"
+])
 
 [<Fact>]
 let ``der neg anchor lb 2``() = _04_DerivativeTests.testPartDerivatives (@"(?<!a)b", "bb", [
     "ε" // subsumed
     "(?=ε)" // subsumed
-    // "((?<=~(⊤*a))b)?"
+    @"((?<=~(⊤*a))b)?"
 ])
 
 

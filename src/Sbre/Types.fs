@@ -230,16 +230,19 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
     | End
 
 
-#if DEBUG
 
     override this.ToString() =
 
-        let maxwidth : int = Debug.printSizeLimit
+        let maxwidth : int = 50
         let print node =
             if typeof<'tset> = typeof<BDD> then
                 Static.staticCharSetSolver.PrettyPrint(unbox (box node))
             else
+#if RELEASE
+                "φ"
+#else
                 Debug.debuggerSolver.Value.PrettyPrint(unbox (box node),Static.staticCharSetSolver)
+#endif
 
         let isFull (tset:'tset) =
             if typeof<'tset> = typeof<BDD> then
@@ -267,11 +270,6 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
         | Singleton v -> tostr v
         | Or(items, _) ->
             let itlen = items.Count
-
-            // match isCaret, isDollar with
-            // | Some v,_ -> v
-            // | _,Some v -> v
-            // | _ ->
 
             let setItems: string list =
                 items |> Seq.map (_.ToString() ) |> Seq.toList
@@ -348,15 +346,11 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
             | false-> $"(?={inner})"
             | true -> $"(?<={inner})"
             + pending
-
-        | Concat(h, t, info) ->
-            let body = h.ToString() + t.ToString()
-            body
+        | Concat(h, t, info) -> $"{h.ToString()}{t.ToString()}"
         | Epsilon -> "ε"
         | End -> @"\z"
         | Begin -> @"\A"
 
-#endif
     member inline this.TryGetInfo =
         match this with
         | Or(info = info) | Loop(info = info) | And(info = info) | Not(info = info) | Concat(info = info) | LookAround( info=info ) ->

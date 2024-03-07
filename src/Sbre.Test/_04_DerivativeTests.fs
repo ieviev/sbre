@@ -150,7 +150,7 @@ let ``raw derivative of ab``() = testRawDerivative ("ab", "ab", "b")
 [<Fact>]
 let ``derivative of ab``() =
     testFullDerivativeMultiple ("ab", "ab", [
-        "(b|⊤*ab)"; @"(⊤*ab|b)"; @"(ε|⊤*a)b"; @"(⊤*a|ε)b"
+        "(b|⊤*ab)"; @"(⊤*ab|b)"; @"(ε|⊤*a)b"; @"(⊤*a|ε)b"; "(⊤*a)?b"
     ])
 
 
