@@ -176,7 +176,7 @@ type RegexNodeInfo<'tset when 'tset :> IEquatable<'tset> and 'tset: equality >()
     member val EndTransitions: Dictionary<'tset,RegexNode<'tset>> = Dictionary() with get, set
     member val StartTransitions: Dictionary<'tset,RegexNode<'tset>> = Dictionary() with get, set
     member val Subsumes: Dictionary<RegexNode<'tset>,bool> = Dictionary() with get, set
-    member val PendingNullables: Set<int> = Set.empty with get, set
+    member val PendingNullables: RefSet<int> = RefSet.Create(Set.empty) with get, set
 
     // filled in later
     member val IsCanonical: bool = false with get, set
@@ -224,7 +224,7 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
         node: RegexNode<'tset> *  // anchors
         lookBack: bool *
         relativeTo : int *
-        pendingNullables : Set<int> *
+        pendingNullables : RefSet<int> *
         info: RegexNodeInfo<'tset>
     | Begin
     | End
@@ -330,8 +330,8 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
 
                 let inner = body.ToString()
                 let pending =
-                    if pending.IsEmpty then ""
-                    else $"%A{Seq.toList pending}"
+                    if pending.inner.IsEmpty then ""
+                    else $"%A{Seq.toList pending.inner}"
                 match lookBack with
                 | false-> $"(?={inner})"
                 | true -> $"(?<={inner})"
@@ -340,8 +340,8 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
 
             let inner = body.ToString()
             let pending =
-                if pending.IsEmpty then ""
-                else $"%A{Seq.toList pending}"
+                if pending.inner.IsEmpty then ""
+                else $"%A{Seq.toList pending.inner}"
             match lookBack with
             | false-> $"(?={inner})"
             | true -> $"(?<={inner})"
@@ -392,9 +392,16 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
     member this.DependsOnAnchor = this.GetFlags().DependsOnAnchor
 
     member this.PendingNullables =
-        this.TryGetInfo
-        |> ValueOption.map (_.PendingNullables)
-        |> ValueOption.defaultWith (fun _ -> Set.empty )
+        match this with
+        | LookAround(regexNode, lookBack, relativeTo, pendingNullables, regexNodeInfo) ->
+            if regexNode.CanNotBeNullable then RefSet.empty else
+            pendingNullables.inner
+            |> Set.map (fun v -> v + relativeTo)
+            |> RefSet.Create
+        | _ ->
+            this.TryGetInfo
+            |> ValueOption.map (_.PendingNullables)
+            |> ValueOption.defaultWith (fun _ -> RefSet.empty )
 
 
     member this.IsAlwaysNullable =
@@ -503,7 +510,7 @@ module Common =
         }
 
     // let zeroList = [0]
-    let zeroList = Set.singleton 0
+    // let zeroList = Set.singleton 0
 
 
     let physComparison =
@@ -657,3 +664,59 @@ type SharedResizeArrayStruct<'t> =
             limit = initialSize
             pool = ArrayPool.Shared.Rent(initialSize)
         }
+
+//
+// type RefSet<'t when 't : comparison > =
+//     static let cache = Dictionary<Set<'t>, RefSet<'t>>()
+//     static member Create(source:Set<'t>) =
+//         // ..
+//         match cache.TryGetValue(source) with
+//         | true, v -> v
+//         | _ ->
+//             let rs = RefSet(source)
+//             rs
+//
+//
+//     member val Set = Set.empty
+//
+//     new(source:Set<'t>) = RefSet(Set=Set.empty)
+//
+
+/// set with canonical reference comparisons
+type RefSet<'t when 't : comparison> =
+    static let cache = Dictionary<Set<'t>, RefSet<'t>>()
+
+    val mutable inner : Set<'t>
+    static member Create(src:seq<'t>) : RefSet<'t> =
+         let src_set = Set.ofSeq src
+         match cache.TryGetValue(src_set) with
+         | true, v -> v
+         | _ ->
+             let newset = RefSet(src_set)
+             cache.Add(src_set,newset)
+             newset
+
+    member this.IsEmpty : bool = this.inner.IsEmpty
+    static member unionMany (sets:RefSet<'t> seq) : RefSet<'t> =
+        sets
+        |> Seq.map (fun v -> v.inner)
+        |> Set.unionMany
+        |> RefSet.Create
+    static member map (fn) (arg:RefSet<'t>) : RefSet<'t> =
+        arg.inner
+        |> Set.map fn
+        |> RefSet.Create
+    static member union (arg1:RefSet<'t>) (arg2:RefSet<'t>) : RefSet<'t> =
+        Set.union arg1.inner arg2.inner |> RefSet.Create
+    static member zeroList : RefSet<int> = RefSet.Create(Set.singleton 0)
+    static member empty : RefSet<'t> = RefSet.Create(Set.empty)
+
+
+    private new(src_set:Set<'t>) = {inner=src_set}
+
+
+
+
+
+// source:Set<'t>
+

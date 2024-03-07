@@ -30,6 +30,8 @@ let der1Node (reg: Regex) (input: string) (raw:bool) =
     let der1 = matcher.CreateDerivative  (&location, cache.MintermForLocation(location), node)
     der1
 
+
+
 let der1Rev (reg: Regex) (input: string) =
     let location = (Location.createReversedSpan (input.AsSpan()))
     let matcher = reg.TSetMatcher

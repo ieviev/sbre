@@ -296,7 +296,7 @@ let ctx_congress = CongressProvider.GetSample()
 
 [<Fact>]
 let ``learning sample 1``() =
-    if true then () else
+    // if true then () else
     let r = Regex(@"(?<=( |`|\-|\n|3).*).*&\w.*&.*\w")
     for sample in ctx_congress.Examples do
         let ms = r.Matches(sample.String)

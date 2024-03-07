@@ -260,21 +260,23 @@ type RegexMatcher<
                 // start a new pending match
                 | _ when pendingNulls.IsEmpty  ->
                     match _isNullable(&loc, der_R) with
-                    | true -> _cache.Builder.mkLookaround(der_R, false, rel+1, zeroList)
+                    | true -> _cache.Builder.mkLookaround(der_R, false, rel+1, RefSet<int>.zeroList)
                     | false  ->
                         match der_R with
                         // ⊤*\A special case - always known to be a match
                         | Concat(head=TrueStar _cache.Solver;tail=Begin) ->
-                            _cache.Builder.mkLookaround(_cache.Eps, false, rel+1, zeroList)
+                            _cache.Builder.mkLookaround(_cache.Eps, false, rel+1, RefSet<int>.zeroList)
                         | _ ->
                             // if der_R.DependsOnAnchor then failwith "anchor der"
-                            _cache.Builder.mkLookaround(der_R, false, rel+1, pendingNulls)
+                            // _cache.Builder.mkLookaround(der_R, false, rel, pendingNulls)
+                            // this is very expensive but so be it
+                            _cache.Builder.mkLookaround(der_R, false, rel + 1, RefSet<int>.zeroList)
 
                 | _ -> _cache.Builder.mkLookaround(der_R, false, rel+1, pendingNulls)
             // Lookback
             | LookAround(node=R; lookBack=true; relativeTo= _; pendingNullables= _; info = _) ->
                 let der_R = _createDerivative (&loc, loc_pred, R)
-                _cache.Builder.mkLookaround(der_R, true, 0, Set.empty)
+                _cache.Builder.mkLookaround(der_R, true, 0, RefSet.empty)
             | Begin | End -> _cache.False
 
 
@@ -513,7 +515,7 @@ type RegexMatcher<
                     ()
 
             if node.ContainsLookaround && node.CanBeNullable && not isInitial then
-                state.PendingNullablePositions <- node.PendingNullables |> Seq.toArray |> Memory
+                state.PendingNullablePositions <- node.PendingNullables.inner |> Seq.toArray |> Memory
                 if state.PendingNullablePositions.Length > 0 then
                     state.Flags <- state.Flags ||| RegexStateFlags.IsPendingNullableFlag
             if node.DependsOnAnchor then
