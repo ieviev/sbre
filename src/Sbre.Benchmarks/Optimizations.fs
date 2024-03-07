@@ -13,8 +13,9 @@ open Sbre.Pat
 open Sbre.Types
 open System.Text.Json.Nodes
 open System.Buffers
-let fullInput = __SOURCE_DIRECTORY__ + "/data/input-text.txt" |> System.IO.File.ReadAllText
+// let fullInput = __SOURCE_DIRECTORY__ + "/data/input-text.txt" |> System.IO.File.ReadAllText
 // let fullInput = __SOURCE_DIRECTORY__ + "/data/sherlock.txt" |> System.IO.File.ReadAllText
+let fullInput = __SOURCE_DIRECTORY__ + "/data/rust-src-tools-3b0d4813.txt" |> System.IO.File.ReadAllText
 
 let frequenciesJsonText = __SOURCE_DIRECTORY__ + "/data/charFreqWithControl.json"  |> System.IO.File.ReadAllText
 
@@ -475,15 +476,15 @@ type PrefixCharsetSearch () =
     let prefixSets =
         match optimizations with
         | InitialOptimizations.SetsPotentialStart(prefixMem) ->
-            Array.toList (prefixMem.ToArray()) |> List.rev
-        | InitialOptimizations.SearchValuesPotentialStart(_,prefixMem) ->
+            // Array.toList (prefixMem.ToArray()) |> List.rev
+        // | InitialOptimizations.SearchValuesPotentialStart(_,prefixMem) ->
             Array.toList (prefixMem.ToArray()) |> List.rev
         | InitialOptimizations.SetsPrefix(prefixMem, transitionNodeId) ->
             Array.toList (prefixMem.ToArray()) |> List.rev
-        | InitialOptimizations.SearchValuesPrefix(charSvMem, _) ->
-            let a = charSvMem.ToString()
-            let b = (charSvMem.ToArray()[0])
-            failwith "need to get SV with tsets not chars"
+        // | InitialOptimizations.SearchValuesPrefix(charSvMem, _) ->
+        //     let a = charSvMem.ToString()
+        //     let b = (charSvMem.ToArray()[0])
+        //     failwith "need to get SV with tsets not chars"
             // Array.toList (charSvMem.ToArray()) |> List.rev
         | _ -> failwith "incorrect optimizations"
 

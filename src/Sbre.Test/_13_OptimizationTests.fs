@@ -109,8 +109,8 @@ let ``initialOptimizations 01``() =
 let ``initialOptimizations 02``() =
     let optimizations = getInitOptimizations "Tom|Sawyer|Huckleberry|Finn"
     match optimizations with
-    | Optimizations.InitialOptimizations.SearchValuesPotentialStart(prefix=prefix) ->
-        Assert.True(prefix.Length = 3)
+    // | Optimizations.InitialOptimizations.SearchValuesPotentialStart(prefix=prefix) ->
+        // Assert.True(prefix.Length = 3)
     | Optimizations.InitialOptimizations.SetsPotentialStart(prefix) ->
         Assert.True(prefix.Length = 3)
     | _ -> failwith "invalid optimization result"

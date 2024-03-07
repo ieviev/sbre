@@ -803,17 +803,17 @@ type RegexMatcher<'t when 't: struct>
                 currentStateId <- transitionNodeId
                 loc.Position <- resultStart
                 true
-        | InitialOptimizations.SinglePotentialStart (prefix,inverted) ->
-            let slice = loc.Input.Slice(0, loc.Position)
-            let resultStart =
-                if not inverted then slice.LastIndexOfAny(prefix)
-                else (slice.LastIndexOfAnyExcept(prefix))
-            if resultStart = -1 then
-                loc.Position <- Location.final loc
-                false
-            else
-                loc.Position <- resultStart + 1
-                false
+        // | InitialOptimizations.SinglePotentialStart (prefix,inverted) ->
+        //     let slice = loc.Input.Slice(0, loc.Position)
+        //     let resultStart =
+        //         if not inverted then slice.LastIndexOfAny(prefix)
+        //         else (slice.LastIndexOfAnyExcept(prefix))
+        //     if resultStart = -1 then
+        //         loc.Position <- Location.final loc
+        //         false
+        //     else
+        //         loc.Position <- resultStart + 1
+        //         false
         | InitialOptimizations.StringPrefixCaseIgnore(headSet,tailSet, prefix, ascii, transitionNodeId) ->
             // case insensitive Span.LastIndexOf is SLOW AND NOT VECTORIZED
             let mutable resultStart = loc.Position
@@ -838,19 +838,19 @@ type RegexMatcher<'t when 't: struct>
                 currentStateId <- transitionNodeId
                 loc.Position <- resultStart
                 true
-        | InitialOptimizations.SearchValuesPrefix(prefix, transitionNodeId) ->
-            let pspan = prefix.Span
-            let skipResult = _cache.TryNextStartsetLocationSearchValuesReversed( &loc, pspan )
-            match skipResult with
-            | ValueSome resultEnd ->
-                let suffixStart = resultEnd - prefix.Length
-                currentStateId <- transitionNodeId
-                loc.Position <- suffixStart
-                true
-            | ValueNone ->
-                // no matches remaining
-                loc.Position <- Location.final loc
-                false
+        // | InitialOptimizations.SearchValuesPrefix(prefix, transitionNodeId) ->
+        //     let pspan = prefix.Span
+        //     let skipResult = _cache.TryNextStartsetLocationSearchValuesReversed( &loc, pspan )
+        //     match skipResult with
+        //     | ValueSome resultEnd ->
+        //         let suffixStart = resultEnd - prefix.Length
+        //         currentStateId <- transitionNodeId
+        //         loc.Position <- suffixStart
+        //         true
+        //     | ValueNone ->
+        //         // no matches remaining
+        //         loc.Position <- Location.final loc
+        //         false
         | InitialOptimizations.SetsPrefix(prefix, transitionNodeId) ->
             let skipResult = _cache.TryNextStartsetLocationArrayReversed( &loc, prefix.Span )
             match skipResult with
@@ -863,17 +863,17 @@ type RegexMatcher<'t when 't: struct>
                 // no matches remaining
                 loc.Position <- Location.final loc
                 false
-        | InitialOptimizations.SearchValuesPotentialStart (prefix,_) ->
-            let skipResult = _cache.TryNextStartsetLocationSearchValuesReversed( &loc, prefix.Span )
-            match skipResult with
-            | ValueSome resultEnd ->
-                let n = resultEnd <> loc.Position
-                loc.Position <- resultEnd
-                n
-            | ValueNone ->
-                // no matches remaining
-                loc.Position <- Location.final loc
-                false
+        // | InitialOptimizations.SearchValuesPotentialStart (prefix,_) ->
+        //     let skipResult = _cache.TryNextStartsetLocationSearchValuesReversed( &loc, prefix.Span )
+        //     match skipResult with
+        //     | ValueSome resultEnd ->
+        //         let n = resultEnd <> loc.Position
+        //         loc.Position <- resultEnd
+        //         n
+        //     | ValueNone ->
+        //         // no matches remaining
+        //         loc.Position <- Location.final loc
+        //         false
         | InitialOptimizations.SetsPotentialStart prefix ->
             let skipResult = _cache.TryNextStartsetLocationArrayReversed( &loc, prefix.Span )
             match skipResult with
