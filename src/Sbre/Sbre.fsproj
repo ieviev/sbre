@@ -58,7 +58,7 @@
     <PackageOutputPath>./nupkg</PackageOutputPath>
     <Authors>ieviev</Authors>
     <Title>$(ProjectName)</Title>
-    <Version>0.1.28</Version>
+    <Version>0.1.29</Version>
   </PropertyGroup>
   <ItemGroup>
     <!-- nuget pack -->

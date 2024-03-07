@@ -107,25 +107,13 @@ let ``initialOptimizations 01``() =
 
 [<Fact>]
 let ``initialOptimizations 02``() =
-    let optimizations = getInitOptimizations "Tom|Sawyer|Huckleberry|Finn"
-    match optimizations with
-    | Optimizations.InitialOptimizations.SearchValuesPotentialStart(prefix=prefix) ->
-        Assert.True(prefix.Length = 3)
-    | Optimizations.InitialOptimizations.SetsPotentialStart(prefix) ->
-        Assert.True(prefix.Length = 3)
-    | _ -> failwith "invalid optimization result"
+    assertPrefixLength "Tom|Sawyer|Huckleberry|Finn" 3
+
 
 
 [<Fact>]
 let ``initialOptimizations 03``() =
-
-    let optimizations = getInitOptimizations "..g"
-    match optimizations with
-    // | Optimizations.InitialOptimizations.ReverseStringPrefix(prefix,_) ->
-    //     Assert.Equal(1,prefix.Length)
-    | Optimizations.InitialOptimizations.SetsPrefix(prefix,_) ->
-        Assert.Equal(3,prefix.Length)
-    | _ -> failwith "invalid optimization result"
+    assertPrefixLength "..g" 3
 
 
 [<Fact>]
@@ -139,11 +127,7 @@ let ``initialOptimizations 04``() =
 
 [<Fact>]
 let ``initialOptimizations 05``() =
-    let optimizations = getInitOptimizations ".*t.*hat.*&.*a.*nd.*&.*t.*he.*&.*w.*as.*"
-    match optimizations with
-    | Optimizations.InitialOptimizations.SetsPotentialStart(prefix) ->
-        Assert.Equal(3,prefix.Length)
-    | _ -> failwith "invalid optimization result"
+    assertPrefixLength ".*t.*hat.*&.*a.*nd.*&.*t.*he.*&.*w.*as.*" 3
 
 
 [<Fact>]

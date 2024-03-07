@@ -73,7 +73,6 @@ let main argv =
 
     match Environment.GetCommandLineArgs() |> Seq.last with
     | "prefix1" -> BenchmarkRunner.Run(typeof<Optimizations.Prefix1>,config) |> ignore
-    | "prefix2" -> BenchmarkRunner.Run(typeof<Optimizations.Prefix2>,config) |> ignore
     // ---
     | "learning1" -> BenchmarkRunner.Run(typeof<Learning.Learning1>,config) |> ignore
     | "learning2" -> BenchmarkRunner.Run(typeof<Learning.Learning2>,config) |> ignore

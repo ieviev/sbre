@@ -108,63 +108,6 @@ type StringPrefix(pattern:string) =
 
 
 
-[<BenchmarkDotNet.Attributes.MemoryDiagnoser>]
-[<ShortRunJob>]
-[<AbstractClass>]
-type SetsPrefix(pattern:string) =
-    let regex = Sbre.Regex(pattern)
-    let matcher = regex.TSetMatcher
-    let getder = (fun (mt,node) ->
-        let loc = Pat.Location.getNonInitial()
-        matcher.CreateDerivative(&loc, mt,node)
-    )
-    // find optimized prefix for regex
-    let optimizations =
-        Sbre.Optimizations.findInitialOptimizations
-            getder
-            (fun node -> matcher.GetOrCreateState(node).Id)
-            (fun node -> matcher.GetOrCreateState(node).Flags)
-            (unbox matcher.Cache)
-            (unbox matcher.ReversePattern)
-            (unbox matcher.ReverseTrueStarredPattern)
-    let prefixSets =
-        match optimizations with
-        | InitialOptimizations.SetsPotentialStart(prefix) ->
-            let reverseSpan = prefix.Span
-            reverseSpan.Reverse()
-            reverseSpan.ToArray()
-        | InitialOptimizations.SetsPrefix(prefix, transitionid) ->
-            let reverseSpan = prefix.Span
-            reverseSpan.Reverse()
-            reverseSpan.ToArray()
-        | _ -> failwith "could not get prefix"
-
-    let charToTSet (chr:char) = matcher.Cache.Classify(chr)
-    // let isElemOfSet (tset1:TSet) (tset2:TSet) = Solver.elemOfSet tset1 tset2
-
-    // [<Benchmark>]
-    // member x.FirstSetIndexOfTSet() =
-    //     let inputSpan = fullInput.AsSpan()
-    //     let mutable currpos = 0
-    //     let mutable searching = true
-    //     while searching do
-    //         let currSet = charToTSet inputSpan[currpos]
-    //         if isElemOfSet currSet prefixSets[0] then
-    //             searching <- false
-    //         else
-    //             currpos <- currpos + 1
-
-    // [<Benchmark>]
-    // member x.FirstSetIndexOfChars() =
-    //     let firstSetChars = matcher.Cache.MintermChars(prefixSets[0]).Value.Span
-    //     let inputSpan = fullInput.AsSpan()
-    //     let mutable searching = true
-    //     while searching do
-    //         match inputSpan.IndexOfAny(firstSetChars) with
-    //         | -1 -> failwith "failed search"
-    //         | n ->
-    //             searching <- false
-
 
 
 
@@ -175,8 +118,3 @@ type Prefix1() =
     // inherit StringPrefix("Twain")
     inherit StringPrefix("there")
 
-[<BenchmarkDotNet.Attributes.MemoryDiagnoser>]
-[<ShortRunJob>]
-type Prefix2() =
-    // [HF][ui][cn][kn]
-    inherit SetsPrefix("Huck|Finn")

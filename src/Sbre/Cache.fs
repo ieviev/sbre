@@ -49,7 +49,7 @@ type MintermSearchValues<'t>
         $"{this.Mode.ToString()}: {desc}"
 
     new(tset: 't, minterms: 't[], classifier:MintermClassifier, solver) =
-        MintermSearchValues(
+        MintermSearchValues<'t>(
             tset,
             MintermSearchMode.TSet,
             Unchecked.defaultof<_>,
@@ -66,7 +66,7 @@ type MintermSearchValues<'t>
             else
                 MintermSearchMode.SearchValues
 
-        MintermSearchValues(
+        MintermSearchValues<'t>(
             tset,
             mode,
             SearchValues.Create(characters.Span),
@@ -256,59 +256,10 @@ type RegexCache<
 
 
 
-    member this.TryNextStartsetLocationSearchValuesReversed
-        (
-            loc: inref<Location>,
-            setSpan: ReadOnlySpan<SearchValues<char>>
-        ) =
-        assert loc.Reversed
-        assert (not (setSpan.Length < 2))
-
-        let inputSpan = loc.Input
-        let mutable currpos = loc.Position
-        let mutable skipping = true
-        let mutable resultEnd = ValueNone
-        let mutable slice: ReadOnlySpan<char> = inputSpan.Slice(0, currpos)
-        let tailPrefixSpan = setSpan.Slice(1)
-
-        while skipping do
-            slice <- slice.Slice(0, currpos)
-            let sharedIndex = slice.LastIndexOfAny(setSpan[0])
-
-
-            if sharedIndex = -1 then
-                skipping <- false
-            else
-                let potential = sharedIndex + 1
-                let mutable couldBe = true
-
-                // exit if too far
-                if potential < setSpan.Length then
-                    skipping <- false
-                    resultEnd <- ValueNone
-                    couldBe <- false
-
-                // l to r
-                let mutable i = tailPrefixSpan.Length - 1
-
-                while couldBe && i <> -1 do
-                    if not (tailPrefixSpan[i].Contains(inputSpan[potential - i - 2])) then
-                        couldBe <- false
-
-                    i <- i - 1
-
-                if couldBe then
-                    skipping <- false
-                    resultEnd <- ValueSome(potential)
-                else
-                    currpos <- potential - 1
-
-        resultEnd
-
     member this.TryNextStartsetLocationArrayReversed
         (
             loc: inref<Location>,
-            setSpan: ReadOnlySpan<'t>
+            setSpan: ReadOnlySpan<MintermSearchValues<'t>>
         ) =
         assert loc.Reversed
 
@@ -317,7 +268,7 @@ type RegexCache<
         let mutable skipping = true
         let mutable resultEnd = ValueNone
         let mutable slice: ReadOnlySpan<char> = inputSpan.Slice(0, currpos)
-        let searchValues = this.MintermSearchValues(setSpan[0])
+        let searchValues = setSpan[0] //this.MintermSearchValues()
         let firstSetChars = searchValues.SearchValues
         let tailPrefixSpan = setSpan.Slice(1)
 
@@ -388,7 +339,8 @@ type RegexCache<
                     let inputMinterm = this.Classify(inputSpan[potential - i - 2])
                     // let loc1 = this.PrettyPrintMinterm(inputMinterm)
                     // let loc2 = this.PrettyPrintMinterm(tailPrefixSpan[i])
-                    if _solver.notElemOfSet inputMinterm tailPrefixSpan[i] then
+                    if _solver.notElemOfSet inputMinterm tailPrefixSpan[i].Minterm then
+                    // if tailPrefixSpan[i].Contains(inputSpan[potential - i - 2]) then
                         couldBe <- false
 
                     i <- i + 1

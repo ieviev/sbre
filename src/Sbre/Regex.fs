@@ -878,19 +878,7 @@ type RegexMatcher<
                 true
         | InitialOptimizations.SearchValuesPrefix(prefix, transitionNodeId) ->
             let pspan = prefix.Span
-            let skipResult = _cache.TryNextStartsetLocationSearchValuesReversed( &loc, pspan )
-            match skipResult with
-            | ValueSome resultEnd ->
-                let suffixStart = resultEnd - prefix.Length
-                currentStateId <- transitionNodeId
-                loc.Position <- suffixStart
-                true
-            | ValueNone ->
-                // no matches remaining
-                loc.Position <- Location.final loc
-                false
-        | InitialOptimizations.SetsPrefix(prefix, transitionNodeId) ->
-            let skipResult = _cache.TryNextStartsetLocationArrayReversed( &loc, prefix.Span )
+            let skipResult = _cache.TryNextStartsetLocationArrayReversed( &loc, pspan )
             match skipResult with
             | ValueSome resultEnd ->
                 let suffixStart = resultEnd - prefix.Length
@@ -902,17 +890,6 @@ type RegexMatcher<
                 loc.Position <- Location.final loc
                 false
         | InitialOptimizations.SearchValuesPotentialStart (prefix,_) ->
-            let skipResult = _cache.TryNextStartsetLocationSearchValuesReversed( &loc, prefix.Span )
-            match skipResult with
-            | ValueSome resultEnd ->
-                let n = resultEnd <> loc.Position
-                loc.Position <- resultEnd
-                n
-            | ValueNone ->
-                // no matches remaining
-                loc.Position <- Location.final loc
-                false
-        | InitialOptimizations.SetsPotentialStart prefix ->
             let skipResult = _cache.TryNextStartsetLocationArrayReversed( &loc, prefix.Span )
             match skipResult with
             | ValueSome resultEnd ->
@@ -1448,20 +1425,21 @@ type Regex(pattern: string, [<Optional; DefaultParameterValue(null:SbreOptions)>
 
     member this.TSetMatcher = matcher :?> RegexMatcher<uint64>
     member this.InitialReversePrefix =
-        Sbre.Optimizations.findInitialOptimizations
-            (fun (mt,node) ->
-                let mutable loc = Location.getNonInitial()
-                this.TSetMatcher.CreateDerivative(&loc,mt,node) )
-            (fun node -> this.TSetMatcher.GetOrCreateState(node).Id)
-            (fun node -> this.TSetMatcher.GetOrCreateState(node).Flags)
-            this.TSetMatcher.Cache
-            this.TSetMatcher.ReversePattern
-            this.TSetMatcher.ReverseTrueStarredPattern
+        InitialOptimizations.NoOptimizations
+        // Sbre.Optimizations.findInitialOptimizations
+        //     (fun (mt,node) ->
+        //         let mutable loc = Location.getNonInitial()
+        //         this.TSetMatcher.CreateDerivative(&loc,mt,node) )
+        //     (fun node -> this.TSetMatcher.GetOrCreateState(node).Id)
+        //     (fun node -> this.TSetMatcher.GetOrCreateState(node).Flags)
+        //     this.TSetMatcher.Cache
+        //     this.TSetMatcher.ReversePattern
+        //     this.TSetMatcher.ReverseTrueStarredPattern
 
 
 #if DEBUG
 
-    member this.CreateGraph() = Msagl.mkGraph(this.TSetMatcher.RawPattern)
+    // member this.CreateGraph() = Msagl.mkGraph(this.TSetMatcher.RawPattern)
 
     // member this.UInt16Matcher: RegexMatcher<uint16> = matcher :?> RegexMatcher<uint16>
     // member this.ByteMatcher: RegexMatcher<byte> = matcher :?> RegexMatcher<byte>

@@ -20,13 +20,9 @@ type InitialOptimizations<'t> =
         isAscii: bool *
         transitionNodeId: int
     /// | StringPrefixCaseIgnore of engine:System.Text.RegularExpressions.Regex * transitionNodeId:int
-    | SearchValuesPrefix of prefix: Memory<SearchValues<char>> * transitionNodeId: int
-    /// ex. [Tt][Ww][Aa][Ii][Nn] ==> (ε|(?i)Twain)
-    | SetsPrefix of prefix: Memory<'t> * transitionNodeId: int
+    | SearchValuesPrefix of prefix: Memory<MintermSearchValues<'t>> * transitionNodeId: int
     /// potential start prefix from searchvalues
-    | SearchValuesPotentialStart of prefix: Memory<SearchValues<char>> * tsetprefix: Memory<'t>
-    /// ex. (Twain|Huck) ==> potential start:[TH][wu][ac][ik]
-    | SetsPotentialStart of prefix: Memory<'t>
+    | SearchValuesPotentialStart of prefix: Memory<MintermSearchValues<'t>> * tsetprefix: Memory<'t>
     /// just a single set like [ae]
     | SinglePotentialStart of prefix: SearchValues<char> * inverted: bool
 
@@ -196,9 +192,9 @@ let rec getPrefixNodeAndComplement
 
 let rec calcPrefixSets
     getNonInitialDerivative
-    (getStateFlags: RegexNode<_> -> RegexStateFlags)
-    (cache: RegexCache<_>)
-    (startNode: RegexNode<_>)
+    (getStateFlags: RegexNode<'t> -> RegexStateFlags)
+    (cache: RegexCache<'t>)
+    (startNode: RegexNode<'t>) : 't list
     =
     let redundant =
         System.Collections.Generic.HashSet<RegexNode<'t>>([ cache.False; startNode ])
@@ -459,32 +455,12 @@ let findInitialOptimizations
                     nodeToId applied
                 )
             else
-
                 let applied =
                     Optimizations.applyPrefixSets getNonInitialDerivative c trueStarredNode prefix
 
-                let containsSmallSets =
-                    prefix |> Seq.forall (fun v -> not (c.MintermIsInverted(v)))
-                    && prefix
-                       |> Seq.forall (fun v ->
-                           let chrs = c.MintermChars(v)
-                           chrs.IsSome && chrs.Value.Length <= 5
-                       )
+                let searchPrefix = prefix |> Seq.map c.MintermSearchValues |> Seq.toArray
+                InitialOptimizations.SearchValuesPrefix(Memory(searchPrefix), nodeToId applied)
 
-                if containsSmallSets then
-                    let searchPrefix = prefix |> Seq.map c.MintermSearchValues |> Seq.toArray
-
-                    if searchPrefix |> Seq.exists (fun v -> v.Mode = MintermSearchMode.TSet) then
-                        let mem = Memory(Seq.toArray prefix)
-                        InitialOptimizations.SetsPrefix(mem, nodeToId applied)
-                    else
-                        let searchPrefix =
-                            searchPrefix |> Array.map (fun v -> v.SearchValues) |> Memory
-
-                        InitialOptimizations.SearchValuesPrefix(searchPrefix, nodeToId applied)
-                else
-                    let mem = Memory(Seq.toArray prefix)
-                    InitialOptimizations.SetsPrefix(mem, nodeToId applied)
         | _ ->
             match
                 Optimizations.calcPotentialMatchStart
@@ -494,53 +470,43 @@ let findInitialOptimizations
                     node
             with
             | potentialStart when potentialStart.Length > 0 ->
-                // let chr1 = c.MintermSearchValues(potentialStart[0])
-                // chr1
-                // |> Option.map (fun v ->
-                //     let inverted = c.MintermIsInverted(potentialStart[0])
-                //     InitialOptimizations.PotentialStartSingle(v,inverted)
-                // )
-                // // None
-                // |> Option.defaultWith (fun v ->
-                //     let mem = Memory(Seq.truncate 4 potentialStart |> Seq.toArray)
-                //     InitialOptimizations.PotentialStartPrefix(mem)
-                // )
-                // let mem = Memory(Seq.truncate 5 potentialStart |> Seq.toArray)
 
                 // small sets
-                let containsSmallSets =
-                    potentialStart |> Seq.forall (fun v -> not (c.MintermIsInverted(v)))
-                    && potentialStart
-                       |> Seq.forall (fun v ->
-                           let chrs = c.MintermChars(v)
-                           chrs.IsSome && chrs.Value.Length <= 5
-                       )
+                // let containsSmallSets =
+                //     potentialStart |> Seq.forall (fun v -> not (c.MintermIsInverted(v)))
+                //     && potentialStart
+                //        |> Seq.forall (fun v ->
+                //            let chrs = c.MintermChars(v)
+                //            chrs.IsSome && chrs.Value.Length <= 5
+                //        )
+                let searchPrefix = potentialStart |> Seq.map c.MintermSearchValues |> Seq.toArray |> Memory
+                InitialOptimizations.SearchValuesPotentialStart(searchPrefix, Memory(Seq.toArray potentialStart))
+                // if containsSmallSets then
+                //     let searchPrefix =
+                //         potentialStart |> Seq.map c.MintermSearchValues |> Seq.toArray
+                //     InitialOptimizations.SearchValuesPotentialStart(searchPrefix, mem)
 
-                if containsSmallSets then
-                    let searchPrefix =
-                        potentialStart |> Seq.map c.MintermSearchValues |> Seq.toArray
-
-                    if
-                        searchPrefix |> Seq.exists (fun v -> v.Mode = MintermSearchMode.TSet)
-                        || searchPrefix.Length < 3
-                    then
-                        // default
-                        let mem = Memory(potentialStart |> Seq.toArray)
-                        InitialOptimizations.SetsPotentialStart(mem)
-                    else
-                        // only small sets, allocate searchvalues
-                        let searchPrefix =
-                            searchPrefix
-                            |> Seq.map (fun v -> v.SearchValues)
-                            |> Seq.toArray
-                            |> Memory
-
-                        let mem = Memory(potentialStart |> Seq.toArray)
-                        InitialOptimizations.SearchValuesPotentialStart(searchPrefix, mem)
-                else
-                    // default
-                    let mem = Memory(potentialStart |> Seq.toArray)
-                    InitialOptimizations.SetsPotentialStart(mem)
+                    // if
+                    //     searchPrefix |> Seq.exists (fun v -> v.Mode = MintermSearchMode.TSet)
+                    //     || searchPrefix.Length < 3
+                    // then
+                    //     // default
+                    //     let mem = Memory(potentialStart |> Seq.toArray)
+                    //     InitialOptimizations.SetsPotentialStart(mem)
+                    // else
+                    //     // only small sets, allocate searchvalues
+                    //     let searchPrefix =
+                    //         searchPrefix
+                    //         |> Seq.map (fun v -> v.SearchValues)
+                    //         |> Seq.toArray
+                    //         |> Memory
+                    //
+                    //     let mem = Memory(potentialStart |> Seq.toArray)
+                    //     InitialOptimizations.SearchValuesPotentialStart(searchPrefix, mem)
+                // else
+                //     // default
+                //     let mem = Memory(potentialStart |> Seq.toArray)
+                //     InitialOptimizations.SetsPotentialStart(mem)
             | _ -> InitialOptimizations.NoOptimizations
 
 
