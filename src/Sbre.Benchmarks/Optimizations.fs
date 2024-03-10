@@ -467,7 +467,7 @@ type PrefixCharsetSearch () =
     // member val rs: string = "" with get, set
 
     // let regex = Sbre.Regex(Patterns.URL)
-    let regex = Sbre.Regex(Patterns.AQ_X)
+    let regex = Sbre.Regex(Patterns.HUCK_SAW)
     
 
     let cache = regex.TSetMatcher.Cache
@@ -556,13 +556,13 @@ type PrefixCharsetSearch () =
         |> Seq.toArray
 
 
-    [<Benchmark>]
+    // [<Benchmark>]
     member this.NoSkip() =
         let textSpan = testInput.AsSpan()
         let mutable loc = Location.createReversedSpan textSpan // end position, location reversed
         collectNullablePositionsNoSkip (matcher, &loc)
 
-    [<Benchmark>]
+    // [<Benchmark>]
     member this.Original() =
         let textSpan = testInput.AsSpan()
         let mutable loc = Location.createReversedSpan textSpan // end position, location reversed
@@ -590,11 +590,21 @@ type PrefixCharsetSearch () =
         let mutable loc = Location.createReversedSpan textSpan // end position, location reversed
         collectNullablePositionsWeightedSkip3 (matcher, &loc, &weightedCharsetsArray3)
 
-    [<Benchmark>]
+    // [<Benchmark>]
     member this.Weighted4() =
         let textSpan = testInput.AsSpan()
         let mutable loc = Location.createReversedSpan textSpan // end position, location reversed
         collectNullablePositionsWeightedSkip4 (matcher, &loc, &weightedSets4, prefixLength)
+
+    [<Benchmark>]
+    member this.IntegratedOriginal() =
+        regex.TSetMatcher.DoUseWeightedSkip <- false
+        regex.Count(testInput)
+
+    [<Benchmark>]
+    member this.IntegratedWeighted() =
+        regex.TSetMatcher.DoUseWeightedSkip <- true
+        regex.Count(testInput)
 
 
 
