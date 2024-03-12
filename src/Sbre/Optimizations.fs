@@ -115,82 +115,27 @@ let getNonRedundantDerivatives
     |> Seq.where (fun (mt, deriv) -> not (redundantNodes.Contains(deriv)))
 
 /// strip parts irrelevant for prefix
-let rec getPrefixNodeAndComplement
-    (cache: RegexCache<_>)
-    (node: RegexNode<_>)
-    : RegexNode<_> * RegexNode<_> option
+let rec getPrefixNode
+    (cache: RegexCache<'t>)
+    (node: RegexNode<'t>)
+    : RegexNode<'t>
     =
     match node with
-    | Concat(Loop(low = 0; up = Int32.MaxValue), tail, _) -> getPrefixNodeAndComplement cache tail
+    | Concat(Loop(low = 0; up = Int32.MaxValue), tail, _) -> getPrefixNode cache tail
     | Concat(Loop(node = body; low = n; up = Int32.MaxValue), tail, _) ->
-        cache.Builder.mkConcat2 (cache.Builder.mkLoop (body, n, n), tail), None
+        cache.Builder.mkConcat2 (cache.Builder.mkLoop (body, n, n), tail)
     | And(nodes, info) ->
-        let existsComplement =
-            nodes
-            |> Seq.exists (
-                function
-                | Not _ -> true
-                | _ -> false
-            )
-
-        if not existsComplement then
-            node, None
-            // let prefixes =
-            //     nodes
-            //     |> Seq.choose (fun v ->
-            //         match v with
-            //         | Concat(head = Singleton p) -> Some v
-            //         | _ -> None
-            //     )
-            //     |> Seq.toArray
-            //
-            // if prefixes.Length > 0 then
-            //     cache.Builder.mkOrSeq (prefixes), None
-            // else
-            //
-            // let trimmed = nodes |> Seq.map (getPrefixNodeAndComplement cache) |> Seq.toArray
-            // let noComplements = trimmed |> Seq.forall (fun v -> (snd v).IsNone)
-            //
-            // if noComplements then
-            //     cache.Builder.mkOrSeq (trimmed |> Seq.map fst), None
-            // else
-            //     node, None
-
-        else
-
-        let nonComplementNodes =
-            nodes
-            |> Seq.where (
-                function
-                | Not _ -> false
-                | _ -> true
-            )
-            |> Seq.toArray
-
-        if nonComplementNodes.Length = 0 || nonComplementNodes.Length = nodes.Count then
-            node, None
-        else
-            let complement =
-                nodes
-                |> Seq.choose (
-                    function
-                    | Not(inner, info) -> Some inner
-                    | _ -> None
-                )
-                |> Seq.toArray
-                |> cache.Builder.mkOrSeq
-                |> Some
-
-            let trimmed =
-                nonComplementNodes |> Seq.map (getPrefixNodeAndComplement cache) |> Seq.toArray
-
-            let noComplements = trimmed |> Seq.forall (fun v -> (snd v).IsNone)
-
-            if noComplements then
-                cache.Builder.mkOrSeq (trimmed |> Seq.map fst |> Seq.toArray), complement
-            else
-                cache.Builder.mkAnd (nonComplementNodes), complement
-    | _ -> node, None
+        node
+        // let updated =
+        //     nodes
+        //     |> Seq.map (fun v ->
+        //         match v with
+        //         | Not _ -> v
+        //         | _ -> getPrefixNodeAndComplement cache v
+        //     )
+        //     |> cache.Builder.mkAnd
+        // updated
+    | _ -> node
 
 
 let rec calcPrefixSets
@@ -203,7 +148,7 @@ let rec calcPrefixSets
         System.Collections.Generic.HashSet<RegexNode<'t>>([ cache.False; startNode ])
 
     // nothing to complement if a match has not started
-    let prefixStartNode, complementStartset = getPrefixNodeAndComplement cache startNode
+    let prefixStartNode = getPrefixNode cache startNode
 
     let rec loop (acc: 't list) node =
         let prefix_derivs =
@@ -230,28 +175,29 @@ let rec calcPrefixSets
                     // stop with pending nullable
                     let acc' = mt :: acc
                     loop acc' deriv
-            | _ -> acc |> List.rev
+            | _ ->
+                acc |> List.rev
 
     let prefix = loop [] prefixStartNode
-
-    match complementStartset with
-    | _ when prefix.IsEmpty -> prefix
-    | None -> prefix
-    | Some compl ->
-        let complementStartset = calcPrefixSets getNonInitialDerivative getStateFlags cache compl
-
-        let trimmedPrefix =
-            if complementStartset.Length = 0 then
-                []
-            else
-                prefix
-                |> Seq.takeWhile (fun v ->
-
-                    not (cache.Solver.isElemOfSet (v, complementStartset[0]))
-                )
-                |> Seq.toList
-
-        if trimmedPrefix.IsEmpty then [ prefix[0] ] else trimmedPrefix
+    prefix
+    // match complementStartset with
+    // | _ when prefix.IsEmpty -> prefix
+    // | None -> prefix
+    // | Some compl ->
+    //     let complementStartset = calcPrefixSets getNonInitialDerivative getStateFlags cache compl
+    //
+    //     let trimmedPrefix =
+    //         if complementStartset.Length = 0 then
+    //             []
+    //         else
+    //             prefix
+    //             |> Seq.takeWhile (fun v ->
+    //
+    //                 not (cache.Solver.isElemOfSet (v, complementStartset[0]))
+    //             )
+    //             |> Seq.toList
+    //
+    //     if trimmedPrefix.IsEmpty then [ prefix[0] ] else trimmedPrefix
 
 
 
@@ -306,13 +252,11 @@ let rec calcPotentialMatchStart
                     // if acc.Length > 100 then [] // this is an arbitrary limit
                     loop (merged_pred :: acc)
 
-        let prefixStartNode, complementStartset = getPrefixNodeAndComplement cache startNode
+        let prefixStartNode = getPrefixNode cache startNode
         nodes.Add(prefixStartNode) |> ignore
         redundant.Add(prefixStartNode) |> ignore
+        loop []
 
-        match complementStartset with
-        | Some c -> [] // todo
-        | None -> loop []
 
 
 

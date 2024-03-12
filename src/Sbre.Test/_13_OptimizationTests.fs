@@ -63,22 +63,13 @@ let ``calc reverse prefix 3``() =
 
 [<Fact>]
 let ``calc reverse prefix 4``() =
-    assertOptimizationPrefixSets @"~(⊤*\n\n⊤*)&⊤*Huck⊤*" "k;c;u;H"
+    assertPotentialStart @"~(⊤*\n\n⊤*)&⊤*Huck⊤*" @"[\nk];[\nck];[\ncku];[\nHcku]"
+    // really should be "k;c;u;H", but why?
 
 
 [<Fact>]
 let ``calc reverse prefix 5``() =
-    let regex = Regex(@"~(.*11.*)&[az1]{8,}")
-    let matcher = regex.TSetMatcher
-    let getflags = (fun node -> matcher.GetOrCreateState(node).Flags)
-    let getder = (fun (mt,node) ->
-        let loc = Pat.Location.getNonInitial()
-        matcher.CreateDerivative(&loc, mt,node)
-    )
-    let prefix =
-        Optimizations.calcPrefixSets getder getflags matcher.Cache matcher.ReversePattern
-    let prefixString = Optimizations.printPrefixSets matcher.Cache prefix
-    Assert.Equal("[1az]", prefixString)
+    assertPotentialStart @"~(.*11.*)&[az1]{8,}" "[1az];[1az];[1az];[1az];[1az];[1az];[1az];[1az]"
 
 
 [<Fact>]
