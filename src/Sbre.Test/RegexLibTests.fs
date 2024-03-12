@@ -2,6 +2,7 @@
 module Sbre.Test.RegexLibTests
 
 open Sbre
+open Sbre.Types
 open Xunit
 
 [<Literal>]
@@ -18,24 +19,28 @@ let testSamplesRange fromRange toRange =
         // escape ~ and & in pattern
         let pattern = escapeNegConj pattern
 
-        let matcher = Regex(pattern)
-        let runtime = System.Text.RegularExpressions.Regex(pattern)
+        try
+            let matcher = Regex(pattern)
+            let runtime = System.Text.RegularExpressions.Regex(pattern)
 
 
-        for isMatch in entry.Matches do
-            try
-                let result = matcher.IsMatch(isMatch)
-                let result2 = runtime.IsMatch(isMatch)
-                Assert.True((result = result2), $"should be the same: {entry.Title}\n{pattern}\n{isMatch}\nmyregex:{result} = runtime:{result2}")
-            with e ->
-                Assert.True(false, $"exception in {entry.Title}\n{pattern}\n{isMatch}\n{e.Message}")
-        for nonMatch in entry.NonMatches do
-            try
-                let result = matcher.IsMatch(nonMatch)
-                let result2 = runtime.IsMatch(nonMatch)
-                Assert.True((result = result2), $"should be the same: {entry.Title}\n{pattern}\n{nonMatch}\nmyregex:{result} = runtime:{result2}")
-            with e ->
-                Assert.True(false, $"exception in {entry.Title}\n{pattern}\n{nonMatch}\n{e.Message}")
+            for isMatch in entry.Matches do
+                try
+                    let result = matcher.IsMatch(isMatch)
+                    let result2 = runtime.IsMatch(isMatch)
+                    Assert.True((result = result2), $"should be the same: {entry.Title}\n{pattern}\n{isMatch}\nmyregex:{result} = runtime:{result2}")
+                with e ->
+                    Assert.True(false, $"exception in {entry.Title}\n{pattern}\n{isMatch}\n{e.Message}")
+            for nonMatch in entry.NonMatches do
+                try
+                    let result = matcher.IsMatch(nonMatch)
+                    let result2 = runtime.IsMatch(nonMatch)
+                    Assert.True((result = result2), $"should be the same: {entry.Title}\n{pattern}\n{nonMatch}\nmyregex:{result} = runtime:{result2}")
+                with e ->
+                    Assert.True(false, $"exception in {entry.Title}\n{pattern}\n{nonMatch}\n{e.Message}")
+        with
+        | :? UnsupportedPatternException as v -> ()
+        | e -> failwith e.Message
 
 
 

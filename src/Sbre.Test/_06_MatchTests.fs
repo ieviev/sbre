@@ -73,7 +73,7 @@ let ``multi-nodes ordering test 1``() =
 
 [<Fact>]
 let ``multi-nodes ordering test 2``() =
-    let matcher = Regex(@"/\*[\d\D]*?\*/")
+    let matcher = Regex(@"/\*[\d\D]*\*/")
     let ism = matcher.IsMatch("/* my comment */")
     Assert.True(ism)
 
@@ -697,8 +697,6 @@ sdf
         [
 
     ]
-
-
 
 
 

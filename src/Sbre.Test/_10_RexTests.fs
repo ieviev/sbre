@@ -15,6 +15,7 @@ let regexlibSamples = Provider.GetSamples()
 
 let escapeNegConj (str:string) = str.Replace("&",@"\&").Replace("~",@"\~")
 let testSamplesRange (samples:Provider.Root seq) =
+    let failedSamples = ResizeArray()
     for entry in samples do
         let pattern = entry.Pattern
         // escape ~ and & in pattern
@@ -22,6 +23,7 @@ let testSamplesRange (samples:Provider.Root seq) =
         let matcher =
             try Some (Regex(pattern))
             with e -> None
+
         let runtime = System.Text.RegularExpressions.Regex(pattern)
         match matcher with
         | None ->
@@ -31,17 +33,30 @@ let testSamplesRange (samples:Provider.Root seq) =
                 try
                     let result = matcher.IsMatch(isMatch)
                     let result2 = runtime.IsMatch(isMatch)
-                    Assert.True((result = result2), $"should be the same: {pattern}\n{isMatch}\nmyregex:{result} = runtime:{result2}")
+                    if result <> result2 then
+                        failedSamples.Add($"{pattern}; {isMatch}; sbre {result}, dotnet {result2}")
+                    // Assert.True((result = result2), $"should be the same: {pattern}\n{isMatch}\nmyregex:{result} = runtime:{result2}")
                 with e ->
                     Assert.True(false, $"exception in \n{pattern}\n{isMatch}\n{e.Message}")
+        if failedSamples.Count > 0 then
+            failwith
+                (failedSamples |> String.concat "\n")
 
+//
 // [<Fact>]
 // let ``rex 01`` () =
 //     __SOURCE_DIRECTORY__ + "/data/rex-realworld-1.json"
 //     |> System.IO.File.ReadAllText
 //     |> Provider.ParseList
 //     |> testSamplesRange
-
+//
+//
+// [<Fact>]
+// let ``rex 02`` () =
+//     __SOURCE_DIRECTORY__ + "/data/rex-realworld-2.json"
+//     |> System.IO.File.ReadAllText
+//     |> Provider.ParseList
+//     |> testSamplesRange
 
 
 #endif

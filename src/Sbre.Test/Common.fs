@@ -368,6 +368,20 @@ let assertNoMatch (pattern:string) (input:string)  =
     let result = matcher.CollectReverseNullablePositions(&acc,&loc)
     Assert.Equal(0, result.Length)
 
+
+let assertUnsupported (pattern:string) (input:string)  =
+    try
+        let regex = Regex(pattern)
+        let matcher = regex.TSetMatcher
+        let mutable loc = Location.createReversedSpan (input.AsSpan())
+        use mutable acc = new SharedResizeArrayStruct<int>(100)
+        let result = matcher.CollectReverseNullablePositions(&acc,&loc)
+        failwith "pattern is supported"
+    with
+        | :? UnsupportedPatternException as v -> ()
+        | e -> failwith e.Message
+
+
 let assertNoMatchRaw (pattern:string) (input:string)  =
     let regex = Regex(pattern)
     let matcher = regex.TSetMatcher

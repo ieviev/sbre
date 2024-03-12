@@ -877,6 +877,7 @@ type RegexMatcher<
         currentPosition <> loc.Position
 
     member this.TrySkipInitialRev(loc:byref<Location>, currentStateId:byref<int>) : bool =
+        if loc.Position = loc.Input.Length then false else
         match _initialOptimizations with
         | InitialOptimizations.StringPrefix(prefix, transitionNodeId) ->
             let slice = loc.Input.Slice(0, loc.Position)

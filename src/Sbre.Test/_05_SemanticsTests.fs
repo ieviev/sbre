@@ -97,28 +97,14 @@ let ``non-space char`` () =
 
 [<Fact>]
 let ``unsupported test 1``() =
-    let success =
-        try
-            assertFirstMatchText @"..(?<=a.*)" "aa" "aa"
-            true
-        with e ->
-            false
-    assertFalse success
+    assertUnsupported @"..(?<=a.*)" "aa"
 
 [<Fact>]
 let ``unsupported test 2``() =
-    let success =
-        try
-            assertNoMatch """.*(?<=aaa)""" "aa"
-            true
-        with e ->
-            false
-    success
+    assertUnsupported """.*(?<=aaa)""" "aa"
 
-
-
-[<Fact>] 
-let ``unsupported test 3.1``() = assertAllLLmatches @"(?<!\d)a" " a" [  1,1; ]
+[<Fact>]
+let ``unsupported test 3``() = assertAllLLmatches @"(?<!\d)a" " a" [  1,1; ]
 
 
 

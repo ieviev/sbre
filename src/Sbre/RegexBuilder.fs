@@ -1104,8 +1104,8 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
         | Epsilon, _ -> tail // ()R -> R
         | _, Epsilon -> head
         // redundant anchor branches
-        | End, tail when tail.CanNotBeNullable -> _uniques._false
-        | Begin, tail when tail.CanNotBeNullable -> _uniques._false
+        // | End, tail when tail.CanNotBeNullable -> _uniques._false
+        // | Begin, tail when tail.CanNotBeNullable -> _uniques._false
         | n,_ | _,n when refEq n _uniques._false -> _uniques._false // ⊥R -> ⊥
         | _ ->
             let key = struct (head, tail)
@@ -1202,7 +1202,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                         | Loop(node=Singleton _; low=0; up=1) ->
                             b.mkAnd([ head; b.mkConcat2(b.trueStar,node) ])
                         | _ ->
-                            failwith $"nontrivial inner lookarounds are not yet supported! pattern: {head.ToString()}{tail.ToString()}"
+                            raise (UnsupportedPatternException("inner lookarounds are not yet supported!"))
                     _concatCache.Add(key, rewrite)
                     rewrite
                 // (?=[a-z])a to (a&([a-z]⊤*)

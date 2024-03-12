@@ -8,8 +8,8 @@ open System.Runtime.CompilerServices
 open System.Text.RuntimeRegexCopy.Symbolic
 open System.Diagnostics
 
-// module Constants =
-//     let [<Literal>] COUNTING_SET_THRESHOLD = 2
+exception UnsupportedPatternException of string
+
 
 [<AutoOpen>]
 module Static =

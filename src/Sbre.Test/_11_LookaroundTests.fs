@@ -599,4 +599,25 @@ let ``app test 2``() =
     assertFirstMatchText """[0-9]{2}[/.-][0-9]{2}[/.-]([0-9]{4}|[0-9]{2})&.*$""" "01.01.2023\n" "01.01.2023"
 
 
+
+
+[<Fact>]
+let ``rex anchors 1.1``() =
+    assertNullablePositions """\A[0-2](\.[0-9]+)+\z""" "2.0" [ 0 ]
+
+
+[<Fact>]
+let ``rex anchors 1.2``() =
+    assertFirstMatchText """\A[0-2](\.[0-9]+)+\z""" "2.0" "2.0"
+
+// [<Fact>]
+// let ``rex anchors 1.3``() =
+//     assertFirstMatchText """(?in)^[a-z0-9-]+(\.[a-z0-9-]+)*""" "İ" "İ"
+//
+
+
+
+
+
+
 #endif

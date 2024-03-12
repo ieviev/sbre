@@ -260,7 +260,8 @@ let convertToSymbolicRegexNode
             failwith "TODO: rewrite to lookaround"
         | RegexNodeKind.NonBoundary ->
             failwith "TODO: reimplement word border"
-        | RegexNodeKind.Setlazy
+        | RegexNodeKind.Setlazy ->
+            raise (UnsupportedPatternException("Sbre does not yet support lazy loops"))
         | RegexNodeKind.Setloop ->
             let set = node.Str
             let bdd = b.bddFromSetString set
