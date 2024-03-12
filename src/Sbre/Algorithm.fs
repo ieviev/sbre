@@ -27,11 +27,11 @@ module RegexNode =
         // (?=R)r = (?<=Rr)
         | LookAround(node = node'; lookBack = false) ->
             let revBody = rev builder node'
-            builder.mkLookaround(revBody, true, 0, Set.empty)
+            builder.mkLookaround(revBody, true, 0, RefSet.empty)
         // (?<=R)r = (?=Rr)
         | LookAround(node = node'; lookBack = true) ->
             let revBody = rev builder node'
-            builder.mkLookaround(revBody, false, 0, Set.empty)
+            builder.mkLookaround(revBody, false, 0, RefSet.empty)
         | Concat _ ->
             let rec revConcatNode acc curr =
                 match curr with

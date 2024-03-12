@@ -82,6 +82,9 @@ let ``derivative neg lookaround 2``() =
         @"(~((.*|.*A.*))&.*)"
         @"(.*&~((.*|.*A.*)))"
         @"(.*&~((.*A.*|.*)))"
+        // --
+        @"(.*&~((.*A)?.*))"
+        @"(~((.*A)?.*)&.*)"
     ]
 
 
@@ -112,7 +115,9 @@ let ``subsumption or loop ``() =
 
 
 [<Fact>]
-let ``a conversion 2.5``() = assertConverted """Huck[a-zA-Z]+|Saw[a-zA-Z]+""" [
+let ``a conversion 2.5``() =
+    assertConverted
+        """Huck[a-zA-Z]+|Saw[a-zA-Z]+""" [
     @"(Saw([A-Za-z])+|Huck([A-Za-z])+)"
     @"(Huck([A-Za-z])+|Saw([A-Za-z])+)"
     // this optimization is probably detrimental
@@ -137,6 +142,9 @@ let ``b conversion 2.1 ``() =
         @"(⊤*^)?a*b"
         @"(a*b|⊤*^a*b)"
         @"(⊤*^a*b|a*b)"
+
+        @"a*b|⊤*(?<=(\n|\A))a*b)"
+        @"(a*b|⊤*(?<=(\A|\n))a*b)"
     ]
 
 
@@ -145,7 +153,11 @@ let ``a conversion 1.8``() = assertConverted "(\d){2,2}⊤*&\d⊤*" [ "(\d){2,2}
 
 [<Fact>]
 let ``a canonical 1.1``() =
-    assertConverted "a(|b)|[abc]b?" ["[a-c]b?"]
+    assertConverted "a(|b)|[abc]b?" [
+        "[a-c]b?"
+        @"[a-c](b|ε)"
+        @"[a-c](ε|b)"
+    ]
 
 [<Fact>]
 let ``a conversion 2.3``() = assertConverted "(.*|(.*11.*|1.*))" [ ".*" ]
@@ -159,7 +171,12 @@ let ``rewrite suffix 1``() = assertConverted """.*(?=.*def)&.*def""" [ ".*def(?=
 let ``rewrite prefix 1``() = assertConverted """(?<=abc).*&.*def""" [ "(?<=abc).*def" ]
 
 
+[<Fact>]
+let ``merge 1``() = assertConverted """a|s""" [ "[as]" ]
 
+
+[<Fact>]
+let ``merge 2``() = assertConverted """at|st""" [ "[as]t" ]
 
 
 

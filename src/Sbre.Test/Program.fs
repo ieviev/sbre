@@ -26,12 +26,12 @@ open System
 // suite.Setup()
 
 
-// let suite = Paper.SampleRegexes()
-// for pat in suite.Patterns do
-//     suite.Pattern <- pat
-//     suite.Setup()
-//     for i = 1 to 1000 do
-//         suite.Sbre() |> ignore
+let suite = Paper.SampleRegexes()
+for pat in suite.Patterns do
+    suite.Pattern <- pat
+    suite.Setup()
+    for i = 1 to 1000 do
+        suite.Sbre() |> ignore
 
 
 // let data =
@@ -88,3 +88,13 @@ else
 
 let dbg = 1
 
+// let pref = _06_MatchTests.``lookback 2``()
+// let pref = _02_NodeTests.``very large pat 01``()
+// let pref = BenchmarkTests.``learning sample 1``()
+// let pref = _06_MatchTests.``lookback 3``()
+// let pref = _06_MatchTests.``lookback 1``()
+let ab = 1
+// "(?=(.*):⊤*&):⊤*))"
+// "((⊤*(6|8(.*))?&(⊤*(0(|6|[48]|8())?)"
+// "(.*φ&.*&~(.*):.*)&φ.*)(?=():⊤*&.*):⊤*))"
+// "(.*φ&.*&~(.*):.*)&φ.*)(?=():⊤*&.*):⊤*))"

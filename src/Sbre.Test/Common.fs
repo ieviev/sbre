@@ -19,7 +19,7 @@ let der1 (reg: Regex) (input: string) (raw:bool) =
     let node = if raw then matcher.RawPattern else matcher.TrueStarredPattern
     let minterm = cache.MintermForLocation(location)
     let der1 = matcher.CreateDerivative ( &location, cache.MintermForLocation(location), node)
-    cache.PrettyPrintNode der1
+    matcher.PrettyPrintNode der1
 
 let der1Node (reg: Regex) (input: string) (raw:bool) =
     let location = (Location.create input 0)
@@ -29,6 +29,8 @@ let der1Node (reg: Regex) (input: string) (raw:bool) =
     let minterm = cache.MintermForLocation(location)
     let der1 = matcher.CreateDerivative  (&location, cache.MintermForLocation(location), node)
     der1
+
+
 
 let der1Rev (reg: Regex) (input: string) =
     let location = (Location.createReversedSpan (input.AsSpan()))
@@ -43,7 +45,7 @@ let der1rawlocs (reg: Regex) (location: Location) =
     let cache = matcher.Cache
     let node = matcher.RawPattern
     let der1 = matcher.CreateDerivative (&location, cache.MintermForLocation(location), node)
-    cache.PrettyPrintNode der1
+    matcher.PrettyPrintNode der1
 
 
 let inline assertEqual (x1:'t) (x2:'t) = Assert.Equal<'t>(x1, x2)
@@ -112,8 +114,7 @@ let assertPotentialStart pattern expected =
             (fun node -> matcher.GetOrCreateState(node).Flags)
             matcher.Cache matcher.ReversePattern matcher.ReverseTrueStarredPattern
     match optimizations with
-    // | Optimizations.InitialOptimizations.SearchValuesPotentialStart(_,prefix)
-    | Optimizations.InitialOptimizations.SetsPotentialStart(prefix) ->
+    | Optimizations.InitialOptimizations.SearchValuesPotentialStart(_,prefix) ->
         let prefixString = Optimizations.printPrefixSets matcher.Cache (prefix.ToArray() |> Seq.toList)
         Assert.Equal(expected, prefixString)
     | _ -> failwith $"invalid optimization result: {optimizations}"
@@ -133,14 +134,10 @@ let assertPrefixLength pattern expected =
             (fun node -> matcher.GetOrCreateState(node).Flags)
             matcher.Cache matcher.ReversePattern matcher.ReverseTrueStarredPattern
     match optimizations with
-    | Optimizations.InitialOptimizations.SetsPotentialStart(prefix) ->
+    | Optimizations.InitialOptimizations.SearchValuesPotentialStart(prefix,_) ->
         Assert.Equal(expected, prefix.Length)
-    // | Optimizations.InitialOptimizations.SearchValuesPotentialStart(prefix,_) ->
-        // Assert.Equal(expected, prefix.Length)
-    | Optimizations.InitialOptimizations.SetsPrefix(prefix,_) ->
+    | Optimizations.InitialOptimizations.SearchValuesPrefix(prefix, _,_) ->
         Assert.Equal(expected, prefix.Length)
-    // | Optimizations.InitialOptimizations.SearchValuesPrefix(prefix,_) ->
-        // Assert.Equal(expected, prefix.Length)
     | _ -> failwith $"invalid optimization result: {optimizations}"
 
 
@@ -158,8 +155,8 @@ let assertSetsPrefix pattern expected =
             (fun node -> matcher.GetOrCreateState(node).Flags)
             matcher.Cache matcher.ReversePattern matcher.ReverseTrueStarredPattern
     match optimizations with
-    | Optimizations.InitialOptimizations.SetsPrefix(prefix, transId) ->
-        let prefixString = Optimizations.printPrefixSets matcher.Cache (prefix.ToArray() |> Seq.toList)
+    | Optimizations.InitialOptimizations.SearchValuesPrefix(prefix, _, transId) ->
+        let prefixString = Optimizations.printPrefixSets matcher.Cache (prefix.ToArray() |> Seq.map (fun v -> v.Minterm) |>  Seq.toList)
         Assert.Equal(expected, prefixString)
     | _ -> failwith $"invalid optimization result: {optimizations}"
 
@@ -322,11 +319,12 @@ let getDfaMatchEnd (pattern:string) (input:string) (startPos:int)  =
     let regex = Regex(pattern)
     let matcher = regex.TSetMatcher
     let mutable loc = Location.createReversedSpan (input.AsSpan())
-    let R_id = matcher.GetOrCreateState(matcher.RawPattern).Id
+    // let R_id = matcher.GetOrCreateState(matcher.RawPattern).Id
     let matchStart = startPos
     loc.Position <- matchStart
     loc.Reversed <- false
-    let endPos = matcher.DfaEndPosition(&loc,R_id)
+    let endPos = matcher.getMatchEnd(&loc)
+    // let endPos = matcher.DfaEndPosition(&loc,R_id)
     endPos
 
 let getFirstLLmatch (pattern:string) (input:string) =
@@ -334,7 +332,7 @@ let getFirstLLmatch (pattern:string) (input:string) =
     let matcher = regex.TSetMatcher
     let llmatches = matcher.llmatch_all(input).AsArray()
     let firstmatch =
-        if Array.isEmpty llmatches then failwith "did not match!"
+        if Array.isEmpty llmatches then failwith $"did not match!: {pattern}"
         llmatches[0]
     (firstmatch.Index,firstmatch.Index+firstmatch.Length)
 
@@ -441,7 +439,7 @@ let assertTSDerivative (pattern: string) (input: string) (expectedDerivatives: s
 
 let assertConverted (pattern: string) (expected: string list) =
     let reg = Regex(pattern)
-    let asstr = reg.TSetMatcher.Cache.PrettyPrintNode reg.TSetMatcher.RawPattern
+    let asstr = reg.TSetMatcher.PrettyPrintNode reg.TSetMatcher.RawPattern
     Assert.Contains<string>(asstr,expected)
 
 

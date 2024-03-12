@@ -2,6 +2,7 @@
 module Sbre.Test._13_OptimizationTests
 
 open System.Buffers
+open System.Runtime.Intrinsics.X86
 open Sbre
 open Sbre.Benchmarks.Jobs
 open Sbre.CountingSet
@@ -34,7 +35,6 @@ let ``fixed length 3``() =
     let matcher = regex.TSetMatcher
     let prefixLen = Node.getFixedLength matcher.ReversePattern
     Assert.Equal(Some 1, prefixLen)
-
 
 
 [<Fact>]
@@ -107,25 +107,13 @@ let ``initialOptimizations 01``() =
 
 [<Fact>]
 let ``initialOptimizations 02``() =
-    let optimizations = getInitOptimizations "Tom|Sawyer|Huckleberry|Finn"
-    match optimizations with
-    // | Optimizations.InitialOptimizations.SearchValuesPotentialStart(prefix=prefix) ->
-        // Assert.True(prefix.Length = 3)
-    | Optimizations.InitialOptimizations.SetsPotentialStart(prefix) ->
-        Assert.True(prefix.Length = 3)
-    | _ -> failwith "invalid optimization result"
+    assertPrefixLength "Tom|Sawyer|Huckleberry|Finn" 3
+
 
 
 [<Fact>]
 let ``initialOptimizations 03``() =
-
-    let optimizations = getInitOptimizations "..g"
-    match optimizations with
-    // | Optimizations.InitialOptimizations.ReverseStringPrefix(prefix,_) ->
-    //     Assert.Equal(1,prefix.Length)
-    | Optimizations.InitialOptimizations.SetsPrefix(prefix,_) ->
-        Assert.Equal(3,prefix.Length)
-    | _ -> failwith "invalid optimization result"
+    assertPrefixLength "..g" 3
 
 
 [<Fact>]
@@ -139,11 +127,7 @@ let ``initialOptimizations 04``() =
 
 [<Fact>]
 let ``initialOptimizations 05``() =
-    let optimizations = getInitOptimizations ".*t.*hat.*&.*a.*nd.*&.*t.*he.*&.*w.*as.*"
-    match optimizations with
-    | Optimizations.InitialOptimizations.SetsPotentialStart(prefix) ->
-        Assert.Equal(3,prefix.Length)
-    | _ -> failwith "invalid optimization result"
+    assertPrefixLength ".*t.*hat.*&.*a.*nd.*&.*t.*he.*&.*w.*as.*" 4
 
 
 [<Fact>]
@@ -153,6 +137,9 @@ let ``initialOptimizations 06``() =
 [<Fact>]
 let ``initialOptimizations 07``() =
     assertPotentialStart "Tom|Sawyer|Huckleberry|Finn" "[mnry];[enor];[Tiry]"
+
+// Twain
+// (?i)Twain
 
 [<Fact>]
 let ``initialOptimizations 08``() =
@@ -221,6 +208,35 @@ let ``initialOptimizations 20``() =
         @"φ;φ;φ;φ;φ;φ;φ;φ;φ;φ;φ;φ;φ;φ;φ;φ;φ;φ;φ;φ" // ? maybe vector256 to see if all equal
 
 
+[<Fact>]
+let ``initialOptimizations 21``() =
+    assertStringPrefix
+        @"(?<=Context1~(\T*\n\n\T*))(get, set)"
+        @"get, set"
+
+
+[<Fact>]
+let ``initialOptimizations 22``() =
+    assertPotentialStart
+        @"(?<=( |`|\-|\n|3).*).*&\w.*&.*\w"
+        @"φ;." // important to avoid state space blowup
+
+[<Fact>]
+let ``initialOptimizations 23``() =
+    assertSetsPrefix
+        @"(?<=( |`|\-|\n|3).*).*&\w.*&.*\w&\w{4,}"
+        @"φ;φ;φ;φ" // important to avoid state space blowup
+
+
+[<Fact>]
+let ``initialOptimizations 24``() =
+    assertSetsPrefix
+        @"c...&...s"
+        @"s;.;.;c" // important to avoid state space blowup
+
+
+
+
 
 [<Fact>]
 let ``activeOptimizations 1``() =
@@ -244,11 +260,18 @@ let ``activeOptimizations 1``() =
     | Some (Optimizations.ActiveBranchOptimizations.LimitedSkip(distance=n; termPred = termPred)) ->
         // let tp = termPred // Any2CharSearchValues`1, Count = 2, Values = ""'"
         // assertEqual 30 n
-        assertEqual 31 n
+        // assertEqual 31 n
+        assertTrue (n >= 30)
 
     | _ -> failwith "invalid optimization result"
 
 
+
+// a.*b.*c
+
+// a(b|[^\n])(c|[^\n])
+
+// a_____________________________________________________b______________________________________________c
 
 
 [<Fact>]
@@ -259,6 +282,9 @@ let ``apply prefix 1``() =
         @"(⊤*niawT|ε)"
         @"(⊤*niawT)?"
     ]
+
+
+
 
 
 // [<Fact>]

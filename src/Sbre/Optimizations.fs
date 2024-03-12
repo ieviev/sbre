@@ -9,7 +9,7 @@ open Sbre.Pat
 open System
 
 [<RequireQualifiedAccess>]
-type InitialOptimizations =
+type InitialOptimizations<'t> =
     | NoOptimizations
     /// ex. Twain ==> (ε|Twain)
     | StringPrefix of prefix: Memory<char> * transitionNodeId: int
@@ -20,15 +20,14 @@ type InitialOptimizations =
         isAscii: bool *
         transitionNodeId: int
     /// | StringPrefixCaseIgnore of engine:System.Text.RegularExpressions.Regex * transitionNodeId:int
-    // | SearchValuesPrefix of prefix: Memory<SearchValues<char>> * transitionNodeId: int
-    /// ex. [Tt][Ww][Aa][Ii][Nn] ==> (ε|(?i)Twain)
-    | SetsPrefix of prefix: Memory<TSet> * transitionNodeId: int
+    | SearchValuesPrefix of prefix: Memory<MintermSearchValues<'t>> * tsetprefix: Memory<'t> * transitionNodeId: int
     /// potential start prefix from searchvalues
-    // | SearchValuesPotentialStart of prefix: Memory<SearchValues<char>> * tsetprefix: Memory<TSet>
-    /// ex. (Twain|Huck) ==> potential start:[TH][wu][ac][ik]
-    | SetsPotentialStart of prefix: Memory<TSet>
+    | SearchValuesPotentialStart of prefix: Memory<MintermSearchValues<'t>> * tsetprefix: Memory<'t>
     /// just a single set like [ae]
     // | SinglePotentialStart of prefix: SearchValues<char> * inverted: bool
+
+
+
 
 type ActiveBranchOptimizations =
     | LimitedSkip of
@@ -40,11 +39,11 @@ type ActiveBranchOptimizations =
     | NoOptimizations
 
 
-type LengthLookup =
+type LengthLookup<'t> =
     /// skip match end lookup entirely
     | FixedLength of length: int
     /// work in progress - maybe useless
-    | FixedLengthSetLookup of lookup: (struct (Memory<TSet> * int))[]
+    | FixedLengthSetLookup of lookup: (struct (Memory<'t> * int))[]
     /// skip some transitions as we already know where match starts
     | FixedLengthPrefixMatchEnd of prefixLength: int * transitionId: int
     /// default match end lookup
@@ -60,7 +59,7 @@ type OverrideRegex =
         isAscii: bool
 
 #if DEBUG
-let printPrefixSets (cache: RegexCache<_>) (sets: TSet list) =
+let printPrefixSets (cache: RegexCache<_>) (sets: 't list) =
     sets
     |> Seq.map cache.PrettyPrintMinterm
     |> Seq.map (fun v ->
@@ -82,7 +81,7 @@ let printPrettyDerivs (cache: RegexCache<_>) (derivs) =
 let getImmediateDerivatives
     createNonInitialDerivative
     (cache: RegexCache<_>)
-    (node: RegexNode<TSet>)
+    (node: RegexNode<'t>)
     =
     cache.Minterms()
     |> Seq.map (fun minterm ->
@@ -93,7 +92,7 @@ let getImmediateDerivatives
 let getImmediateDerivativesMerged
     (createNonInitialDerivative)
     (cache: RegexCache<_>)
-    (node: RegexNode<TSet>)
+    (node: RegexNode<'t>)
     =
     cache.Minterms()
     |> Seq.map (fun minterm ->
@@ -102,14 +101,15 @@ let getImmediateDerivativesMerged
     )
     |> Seq.groupBy snd
     |> Seq.map (fun (_, group) ->
-        group |> Seq.map fst |> Seq.fold (|||) cache.Solver.Empty, group |> Seq.head |> snd
+
+        group |> Seq.map fst |> Seq.fold (fun acc v -> cache.Solver.Or(acc,v) ) cache.Solver.Empty, group |> Seq.head |> snd
     )
 
 let getNonRedundantDerivatives
     getNonInitialDerivative
-    (cache: RegexCache<TSet>)
-    (redundantNodes: System.Collections.Generic.HashSet<RegexNode<TSet>>)
-    (node: RegexNode<TSet>)
+    (cache: RegexCache<'t>)
+    (redundantNodes: System.Collections.Generic.HashSet<RegexNode<'t>>)
+    (node: RegexNode<'t>)
     =
     getImmediateDerivativesMerged getNonInitialDerivative cache node
     |> Seq.where (fun (mt, deriv) -> not (redundantNodes.Contains(deriv)))
@@ -134,27 +134,27 @@ let rec getPrefixNodeAndComplement
             )
 
         if not existsComplement then
-
-            let prefixes =
-                nodes
-                |> Seq.choose (fun v ->
-                    match v with
-                    | Concat(head = Singleton p) -> Some v
-                    | _ -> None
-                )
-                |> Seq.toArray
-
-            if prefixes.Length > 0 then
-                cache.Builder.mkOrSeq (prefixes), None
-            else
-
-            let trimmed = nodes |> Seq.map (getPrefixNodeAndComplement cache) |> Seq.toArray
-            let noComplements = trimmed |> Seq.forall (fun v -> (snd v).IsNone)
-
-            if noComplements then
-                cache.Builder.mkOrSeq (trimmed |> Seq.map fst), None
-            else
-                node, None
+            node, None
+            // let prefixes =
+            //     nodes
+            //     |> Seq.choose (fun v ->
+            //         match v with
+            //         | Concat(head = Singleton p) -> Some v
+            //         | _ -> None
+            //     )
+            //     |> Seq.toArray
+            //
+            // if prefixes.Length > 0 then
+            //     cache.Builder.mkOrSeq (prefixes), None
+            // else
+            //
+            // let trimmed = nodes |> Seq.map (getPrefixNodeAndComplement cache) |> Seq.toArray
+            // let noComplements = trimmed |> Seq.forall (fun v -> (snd v).IsNone)
+            //
+            // if noComplements then
+            //     cache.Builder.mkOrSeq (trimmed |> Seq.map fst), None
+            // else
+            //     node, None
 
         else
 
@@ -195,17 +195,17 @@ let rec getPrefixNodeAndComplement
 
 let rec calcPrefixSets
     getNonInitialDerivative
-    (getStateFlags: RegexNode<_> -> RegexStateFlags)
-    (cache: RegexCache<_>)
-    (startNode: RegexNode<_>)
+    (getStateFlags: RegexNode<'t> -> RegexStateFlags)
+    (cache: RegexCache<'t>)
+    (startNode: RegexNode<'t>) : 't list
     =
     let redundant =
-        System.Collections.Generic.HashSet<RegexNode<TSet>>([ cache.False; startNode ])
+        System.Collections.Generic.HashSet<RegexNode<'t>>([ cache.False; startNode ])
 
     // nothing to complement if a match has not started
     let prefixStartNode, complementStartset = getPrefixNodeAndComplement cache startNode
 
-    let rec loop (acc: TSet list) node =
+    let rec loop (acc: 't list) node =
         let prefix_derivs =
             getNonRedundantDerivatives getNonInitialDerivative cache redundant node
             |> Seq.toArray
@@ -264,15 +264,15 @@ let rec calcPotentialMatchStart
     if startNode.DependsOnAnchor then
         []
     else // this should never really happen
-        let redundant = System.Collections.Generic.HashSet<RegexNode<TSet>>(tsetComparer)
+        let redundant = System.Collections.Generic.HashSet<RegexNode<'t>>(tsetComparer)
         redundant.Add(cache.False) |> ignore
         let nodes = HashSet(tsetComparer)
         let tempList = ResizeArray()
 
-        let rec loop(acc: TSet list) =
+        let rec loop(acc: 't list) =
             tempList.Clear()
 
-            if nodes.Count > 20 || acc.Length > 50 || nodes.Count = 0 then
+            if nodes.Count > 30 || acc.Length > 50 || nodes.Count = 0 then
                 acc |> List.rev
             else
                 let shouldExit = nodes |> Seq.exists (_.CanBeNullable)
@@ -289,7 +289,8 @@ let rec calcPotentialMatchStart
                         tempList
                         |> Seq.collect id
                         |> Seq.map fst
-                        |> Seq.fold (|||) cache.Solver.Empty
+                        |> Solver.mergeSets cache.Solver
+                        // |> Seq.fold (|||) cache.Solver.Empty
 
                     // let pretty =
                     //     prefixDerivsList
@@ -319,8 +320,8 @@ let rec calcPotentialMatchStart
 let rec applyPrefixSets
     getNonInitialDerivative
     (cache: RegexCache<_>)
-    (node: RegexNode<TSet>)
-    (sets: TSet list)
+    (node: RegexNode<'t>)
+    (sets: 't list)
     =
     // assert (not node.ContainsLookaround)
     match sets with
@@ -332,8 +333,8 @@ let rec applyPrefixSets
 let rec applyPrefixSetsWhileNotNullable
     getNonInitialDerivative
     (cache: RegexCache<_>)
-    (node: RegexNode<TSet>)
-    (sets: TSet list)
+    (node: RegexNode<'t>)
+    (sets: 't list)
     =
     if node.CanBeNullable then
         node, sets.Length
@@ -347,12 +348,12 @@ let rec applyPrefixSetsWhileNotNullable
 
 let findInitialOptimizations
     getNonInitialDerivative
-    (nodeToId: RegexNode<TSet> -> int)
-    (nodeToStateFlags: RegexNode<TSet> -> RegexStateFlags)
-    (c: RegexCache<TSet>)
-    (node: RegexNode<TSet>)
-    (trueStarredNode: RegexNode<TSet>)
-    =
+    (nodeToId: RegexNode<'t> -> int)
+    (nodeToStateFlags: RegexNode<'t> -> RegexStateFlags)
+    (c: RegexCache<'t>)
+    (node: RegexNode<'t>)
+    (trueStarredNode: RegexNode<'t>)
+        =
 #if NO_SKIP_LOOKAROUNDS
     if node.ContainsLookaround then
         InitialOptimizations.NoOptimizations
@@ -362,69 +363,17 @@ let findInitialOptimizations
         | prefix when prefix.Length > 1 ->
             let mts = c.Minterms()
 
-            // let singleCharPrefixes =
-            //     prefix
-            //     |> Seq.map (fun v ->
-            //         // negated set
-            //         if Solver.elemOfSet v mts[0] then
-            //             None
-            //         else
-            //             let chrs = c.MintermChars(v)
-
-            //             chrs
-            //             |> Option.bind (fun chrs ->
-            //                 if chrs.Length = 1 then Some(chrs.Span[0]) else None
-            //             )
-            //     )
-            //     |> Seq.takeWhile Option.isSome
-            //     |> Seq.choose id
-            //     |> Seq.rev
-            //     |> Seq.toArray
-            //     |> Memory
-
-            // if singleCharPrefixes.Length > 1 then
-            //     let applied =
-            //         Optimizations.applyPrefixSets
-            //             getNonInitialDerivative
-            //             c
-            //             trueStarredNode
-            //             (List.take singleCharPrefixes.Length prefix)
-
-            //     InitialOptimizations.StringPrefix(singleCharPrefixes, nodeToId applied)
-            // else
-
-            let caseInsensitivePrefixes =
+            let singleCharPrefixes =
                 prefix
                 |> Seq.map (fun v ->
                     // negated set
-                    if Solver.elemOfSet v mts[0] then
+                    if c.Solver.elemOfSet v mts[0] then
                         None
                     else
                         let chrs = c.MintermChars(v)
-
                         chrs
                         |> Option.bind (fun chrs ->
-                            if chrs.Length = 1 then
-                                Some(chrs.Span[0])
-                            else
-
-                                let up c = Char.IsUpper c || Char.IsWhiteSpace c
-                                let low c = Char.IsLower c || Char.IsWhiteSpace c
-
-                                if
-                                    (chrs.Length = 2)
-                                    && ((up chrs.Span[0] && low chrs.Span[1])
-                                        || (low chrs.Span[0] && up chrs.Span[1]))
-                                then
-                                    Some(chrs.Span[0])
-                                else
-                                    match chrs.Length with
-                                    | 3 ->
-                                        // TODO: unsure if there are any more caseinsensitive cases like this
-                                        match chrs.ToArray() with
-                                        | [| 'K'; 'k'; 'K' |] -> Some chrs.Span[0]
-                                        | _ -> None
-                                    | _ -> None
+                            if chrs.Length = 1 then Some(chrs.Span[0]) else None
                         )
                 )
                 |> Seq.takeWhile Option.isSome
@@ -432,6 +381,57 @@ let findInitialOptimizations
                 |> Seq.rev
                 |> Seq.toArray
                 |> Memory
+
+            if singleCharPrefixes.Length > 1 then
+                let applied =
+                    Optimizations.applyPrefixSets
+                        getNonInitialDerivative
+                        c
+                        trueStarredNode
+                        (List.take singleCharPrefixes.Length prefix)
+
+                InitialOptimizations.StringPrefix(singleCharPrefixes, nodeToId applied)
+            else
+
+            // let caseInsensitivePrefixes =
+            //     prefix
+            //     |> Seq.map (fun v ->
+            //         // negated set
+            //         if c.Solver.elemOfSet v mts[0] then
+            //             None
+            //         else
+            //             let chrs = c.MintermChars(v)
+
+            //             chrs
+            //             |> Option.bind (fun chrs ->
+            //                 if chrs.Length = 1 then
+            //                     Some(chrs.Span[0])
+            //                 else
+
+            //                     let up c = Char.IsUpper c || Char.IsWhiteSpace c
+            //                     let low c = Char.IsLower c || Char.IsWhiteSpace c
+
+            //                     if
+            //                         (chrs.Length = 2)
+            //                         && ((up chrs.Span[0] && low chrs.Span[1])
+            //                             || (low chrs.Span[0] && up chrs.Span[1]))
+            //                     then
+            //                         Some(chrs.Span[0])
+            //                     else
+            //                         match chrs.Length with
+            //                         | 3 ->
+            //                             // TODO: unsure if there are any more caseinsensitive cases like this
+            //                             match chrs.ToArray() with
+            //                             | [| 'K'; 'k'; 'K' |] -> Some chrs.Span[0]
+            //                             | _ -> None
+            //                         | _ -> None
+            //             )
+            //     )
+            //     |> Seq.takeWhile Option.isSome
+            //     |> Seq.choose id
+            //     |> Seq.rev
+            //     |> Seq.toArray
+            //     |> Memory
 
             // if caseInsensitivePrefixes.Length > 1 then
             //     let applied =
@@ -459,33 +459,12 @@ let findInitialOptimizations
             // else
             if false then failwith "debug"
             else
-
                 let applied =
                     Optimizations.applyPrefixSets getNonInitialDerivative c trueStarredNode prefix
 
-                // let containsSmallSets =
-                //     prefix |> Seq.forall (fun v -> not (c.MintermIsInverted(v)))
-                //     && prefix
-                //        |> Seq.forall (fun v ->
-                //            let chrs = c.MintermChars(v)
-                //            chrs.IsSome && chrs.Value.Length <= 5
-                //        )
+                let searchPrefix = prefix |> Seq.map c.MintermSearchValues |> Seq.toArray
+                InitialOptimizations<'t>.SearchValuesPrefix(Memory(searchPrefix), Memory(Array.ofSeq prefix), nodeToId applied)
 
-                // if containsSmallSets then
-                //     let searchPrefix = prefix |> Seq.map c.MintermSearchValues |> Seq.toArray
-
-                //     if searchPrefix |> Seq.exists (fun v -> v.Mode = MintermSearchMode.TSet) then
-                //         let mem = Memory(Seq.toArray prefix)
-                //         InitialOptimizations.SetsPrefix(mem, nodeToId applied)
-                //     else
-                //         let searchPrefix =
-                //             searchPrefix |> Array.map (fun v -> v.SearchValues) |> Memory
-
-                //         InitialOptimizations.SearchValuesPrefix(searchPrefix, nodeToId applied)
-                // else
-                // let searchPrefix = prefix |> Seq.map c.MintermSearchValues |> Seq.toArray
-                let mem = Memory(Seq.toArray prefix)
-                InitialOptimizations.SetsPrefix(mem, nodeToId applied)
         | _ ->
             match
                 Optimizations.calcPotentialMatchStart
@@ -495,32 +474,22 @@ let findInitialOptimizations
                     node
             with
             | potentialStart when potentialStart.Length > 0 ->
-                // let chr1 = c.MintermSearchValues(potentialStart[0])
-                // chr1
-                // |> Option.map (fun v ->
-                //     let inverted = c.MintermIsInverted(potentialStart[0])
-                //     InitialOptimizations.PotentialStartSingle(v,inverted)
-                // )
-                // // None
-                // |> Option.defaultWith (fun v ->
-                //     let mem = Memory(Seq.truncate 4 potentialStart |> Seq.toArray)
-                //     InitialOptimizations.PotentialStartPrefix(mem)
-                // )
-                // let mem = Memory(Seq.truncate 5 potentialStart |> Seq.toArray)
 
                 // small sets
-                let containsSmallSets =
-                    potentialStart |> Seq.forall (fun v -> not (c.MintermIsInverted(v)))
-                    && potentialStart
-                       |> Seq.forall (fun v ->
-                           let chrs = c.MintermChars(v)
-                           chrs.IsSome && chrs.Value.Length <= 5
-                       )
+                // let containsSmallSets =
+                //     potentialStart |> Seq.forall (fun v -> not (c.MintermIsInverted(v)))
+                //     && potentialStart
+                //        |> Seq.forall (fun v ->
+                //            let chrs = c.MintermChars(v)
+                //            chrs.IsSome && chrs.Value.Length <= 5
+                //        )
+                let searchPrefix = potentialStart |> Seq.map c.MintermSearchValues |> Seq.toArray |> Memory
+                InitialOptimizations.SearchValuesPotentialStart(searchPrefix, Memory(Seq.toArray potentialStart))
+                // if containsSmallSets then
+                //     let searchPrefix =
+                //         potentialStart |> Seq.map c.MintermSearchValues |> Seq.toArray
+                //     InitialOptimizations.SearchValuesPotentialStart(searchPrefix, mem)
 
-                if containsSmallSets then
-                    // let searchPrefix = potentialStart |> Seq.map c.MintermSearchValues |> Seq.toArray
-                    let mem = Memory(potentialStart |> Seq.toArray)
-                    InitialOptimizations.SetsPotentialStart(mem)
                     // if
                     //     searchPrefix |> Seq.exists (fun v -> v.Mode = MintermSearchMode.TSet)
                     //     || searchPrefix.Length < 3
@@ -535,21 +504,21 @@ let findInitialOptimizations
                     //         |> Seq.map (fun v -> v.SearchValues)
                     //         |> Seq.toArray
                     //         |> Memory
-
+                    //
                     //     let mem = Memory(potentialStart |> Seq.toArray)
                     //     InitialOptimizations.SearchValuesPotentialStart(searchPrefix, mem)
-                else
-                    // default
-                    let mem = Memory(potentialStart |> Seq.toArray)
-                    InitialOptimizations.SetsPotentialStart(mem)
+                // else
+                //     // default
+                //     let mem = Memory(potentialStart |> Seq.toArray)
+                //     InitialOptimizations.SetsPotentialStart(mem)
             | _ -> InitialOptimizations.NoOptimizations
 
 
 let tryGetLimitedSkip
     getNonInitialDerivative
     (getStateFlags: RegexNode<_> -> RegexStateFlags)
-    (nodeToId: RegexNode<TSet> -> int)
-    (getStartset: RegexNode<_> -> TSet)
+    (nodeToId: RegexNode<'t> -> int)
+    (getStartset: RegexNode<_> -> 't)
     (c: RegexCache<_>)
     (revTrueStarNode: RegexNode<_>)
     (node: RegexNode<_>)
@@ -570,7 +539,7 @@ let tryGetLimitedSkip
                 |> Seq.toArray
                 |> c.Builder.mkOrSeq
 
-            let nonTermDerivatives(node: RegexNode<TSet>) =
+            let nonTermDerivatives(node: RegexNode<'t>) =
                 let ders1 =
                     Optimizations.getNonRedundantDerivatives
                         getNonInitialDerivative
@@ -578,7 +547,7 @@ let tryGetLimitedSkip
                         redundant
                         node
 
-                ders1 |> Seq.where (fun (mt, _) -> not (Solver.contains skipTerm mt)) |> Seq.toArray
+                ders1 |> Seq.where (fun (mt, _) -> not (c.Solver.contains skipTerm mt)) |> Seq.toArray
 
             let nonInitialNonTerm = nonTermDerivatives nonInitial
 
@@ -685,7 +654,7 @@ let tryGetLimitedSkip
 
             | _ -> None
         | Concat(_) ->
-            let nonTermDerivatives(node: RegexNode<TSet>) =
+            let nonTermDerivatives(node: RegexNode<'t>) =
                 let ders1 =
                     Optimizations.getNonRedundantDerivatives
                         getNonInitialDerivative
@@ -693,7 +662,7 @@ let tryGetLimitedSkip
                         redundant
                         node
 
-                ders1 |> Seq.where (fun (mt, _) -> not (Solver.contains skipTerm mt)) |> Seq.toArray
+                ders1 |> Seq.where (fun (mt, _) -> not (c.Solver.contains skipTerm mt)) |> Seq.toArray
 
             let nonInitialNonTerm = nonTermDerivatives node
 
@@ -770,10 +739,10 @@ let rec mkNodeWithoutLookbackPrefix (b: RegexBuilder<_>) (node: RegexNode<_>) =
 
 
 let attemptMergeIntersectLang
-    (_cache: RegexCache<TSet>)
-    (mkLang: RegexNode<TSet> -> RegexNode<TSet>[])
-    (oldNode: RegexNode<TSet>)
-    (languages: RegexNode<TSet> array seq)
+    (_cache: RegexCache<'t>)
+    (mkLang: RegexNode<'t> -> RegexNode<'t>[])
+    (oldNode: RegexNode<'t>)
+    (languages: RegexNode<'t> array seq)
     =
     languages
     |> Seq.reduce (fun (lang1) (lang2) ->
@@ -798,7 +767,7 @@ let attemptMergeIntersectLang
 
                 if sub then other else _cache.Builder.mkAnd2 (l1, l2)
             | _ ->
-                let mapCanonical(node: RegexNode<TSet>) =
+                let mapCanonical(node: RegexNode<'t>) =
                     node.TryGetInfo
                     |> ValueOption.map (fun info ->
                         if info.IsCanonical then
@@ -831,10 +800,10 @@ let attemptMergeIntersectLang
 
 
 let attemptMergeUnionLang
-    (_cache: RegexCache<TSet>)
-    (mkLang: RegexNode<TSet> -> RegexNode<TSet>[])
-    (oldNode: RegexNode<TSet>)
-    (languages: RegexNode<TSet> array seq)
+    (_cache: RegexCache<'t>)
+    (mkLang: RegexNode<'t> -> RegexNode<'t>[])
+    (oldNode: RegexNode<'t>)
+    (languages: RegexNode<'t> array seq)
     =
     languages
     |> Seq.reduce (fun (lang1) (lang2) ->
@@ -859,7 +828,7 @@ let attemptMergeUnionLang
 
                 if sub then p1 else _cache.Builder.mkOr2 (l1, l2)
             | _ ->
-                let mapCanonical(node: RegexNode<TSet>) =
+                let mapCanonical(node: RegexNode<'t>) =
                     node.TryGetInfo
                     |> ValueOption.map (fun info ->
                         if info.IsCanonical then
@@ -888,7 +857,7 @@ let attemptMergeUnionLang
     )
 
 
-let rec getFixedPrefixLength (c: RegexCache<TSet>) (node: RegexNode<_>) =
+let rec getFixedPrefixLength (c: RegexCache<'t>) (node: RegexNode<_>) =
     let rec loop (acc: int) node : int option * RegexNode<_> option =
         match node with
         | Concat(head, tail, _) ->
@@ -920,15 +889,15 @@ let rec getFixedPrefixLength (c: RegexCache<TSet>) (node: RegexNode<_>) =
 let rec getLengthMapping
     getNodeId
     createNonInitialDerivative
-    (c: RegexCache<TSet>)
-    (node: RegexNode<TSet>)
-    : LengthLookup
+    (c: RegexCache<'t>)
+    (node: RegexNode<'t>)
+    : LengthLookup<'t>
     =
     let redundant = HashSet([ c.False ])
 
     let rec loop
-        (acc: (TSet array * int) list)
-        (remainingTransitions: (TSet list * TSet * RegexNode<TSet>)[])
+        (acc: ('t array * int) list)
+        (remainingTransitions: ('t list * 't * RegexNode<'t>)[])
         =
         let transitions =
             remainingTransitions
@@ -957,7 +926,7 @@ let rec getLengthMapping
         try
             transitions
             |> Seq.fold
-                (fun (acc: (TSet array * int) list) res ->
+                (fun (acc: ('t array * int) list) res ->
                     match res with
                     | Error(prec, der) ->
                         let newTransitions =
@@ -980,7 +949,7 @@ let rec getLengthMapping
         |> Optimizations.getNonRedundantDerivatives createNonInitialDerivative c redundant
         |> Seq.toArray
 
-    let initial: (TSet list * TSet * RegexNode<TSet>) array =
+    let initial: ('t list * 't * RegexNode<'t>) array =
         nonRedundant |> Seq.map (fun (v1, v2) -> [], v1, v2) |> Seq.toArray
 
     let result = loop [] initial
@@ -1004,21 +973,24 @@ let rec getLengthMapping
 let inferLengthLookup
     getNodeId
     createNonInitialDerivative
-    (c: RegexCache<TSet>)
-    (node: RegexNode<TSet>)
+    (c: RegexCache<'t>)
+    (node: RegexNode<'t>)
     =
     Info.Node.getFixedLength node
     |> Option.map LengthLookup.FixedLength
-    |> Option.defaultWith (fun _ -> getLengthMapping getNodeId createNonInitialDerivative c node)
+    |> Option.defaultWith (fun _ ->
+        LengthLookup.MatchEnd
+        // getLengthMapping getNodeId createNonInitialDerivative c node
+    )
 
 let inferOverrideRegex
-    (initialOptimizations: InitialOptimizations)
-    (lengthLookup: LengthLookup)
-    (c: RegexCache<TSet>)
-    (node: RegexNode<TSet>)
+    (initialOptimizations: InitialOptimizations<'t>)
+    (lengthLookup: LengthLookup<'t>)
+    (c: RegexCache<'t>)
+    (node: RegexNode<'t>)
     : OverrideRegex option
     =
-    if node.DependsOnAnchor then
+    if node.DependsOnAnchor || node.HasZerowidthHead then
         None
     else
         match lengthLookup, initialOptimizations with

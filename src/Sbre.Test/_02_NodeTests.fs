@@ -2,6 +2,7 @@
 module Sbre.Test._02_NodeTests
 
 open System.Globalization
+open System.IO
 open System.Text.RuntimeRegexCopy
 open System.Text.RuntimeRegexCopy.Symbolic
 open Sbre
@@ -19,7 +20,7 @@ module Helpers =
     let bddBuilder = SymbolicRegexBuilder<BDD>(charSetSolver, charSetSolver)
 
     let converter = RegexNodeConverter(bddBuilder, null)
-    let bddBuilder2 = RegexBuilder(converter, charSetSolver, charSetSolver)
+    let bddBuilder2 = RegexBuilder(converter, charSetSolver, charSetSolver, Sbre.SbreOptions())
 
 
 
@@ -27,7 +28,7 @@ let printNode(reg: RegexMatcher<_>, node: RegexNode<_>) =
     try
         let matcher = reg
         let nodes = node
-        matcher.Cache.PrettyPrintNode nodes
+        matcher.PrettyPrintNode nodes
     with e ->
         failwith "failed to print node"
 
@@ -91,6 +92,19 @@ let ``_ solver 1``() = assertSolverContains12 "[a-z]a"
 
 [<Fact>]
 let ``_ solver 2``() = assertNotSolverContains12 "a[a-z]"
+
+
+[<Fact>]
+let ``a feature 1.1``() = assertConverted """\b\d{5}(?:-\d{4})?\b""" [
+    @"((?<=φ)|\A)φ{5,5}(-φ{4,4})?((?=φ)|\z)"
+    @"(\A|(?<=φ))φ{5,5}(-φ{4,4})?(\z|(?=φ))"
+    @"(\A|(?<=φ))φ{5,5}(-φ{4,4})?((?=φ)|\z)"
+
+    @"(?<=(φ|\A))φ{5,5}(-φ{4,4})?(?=(φ|\z))"
+    @"(?<=(\A|φ))φ{5,5}(-φ{4,4})?(?=(φ|\z))"
+    @"(?<=(φ|\A))φ{5,5}(-φ{4,4})?(?=(\z|φ))"
+    @"(?<=(\A|φ))φ{5,5}(-φ{4,4})?(?=(\z|φ))"
+]
 
 
 
@@ -220,6 +234,7 @@ let ``conversion lookaround 2 ``() = assertConverted ".(?=A.*)" [@".(?=A.*)"]
 let ``conversion label``() = assertConverted "(?<Time>^\d)" [
     @"^\d"
     @"^φ"
+    @"(?<=(\n|\A))φ"
 ]
 
 
@@ -442,6 +457,11 @@ let assertNodeWithoutPrefix (patt:string) (expected:string list) =
     let n2 = Optimizations.mkNodeWithoutLookbackPrefix m.Cache.Builder n
     assertContains expected (n2.ToString())
 
+let assertCanBuild (patt:string) (expected:string list) =
+    let m = Sbre.Regex(patt, SbreOptions(CanonicalizeStates=true, MinimizeOr=true))
+    // let n = m.RawPattern
+    ()
+
 [<Fact>]
 let ``withoutprefix 01``() =
     assertNodeWithoutPrefix "(?<=author).*&.*and.*" [ "(.*and.*&.*)" ;".*and.*"; "(.*&.*and.*)"]
@@ -457,14 +477,19 @@ let ``withoutprefix 02``() =
 let ``withoutprefix 03``() =
     assertNodeWithoutPrefix """(?<=aaa).*""" [".*"]
 
+// let reg2 =
+//     @"(?<=6|8\(.*).*&(?<=6|8\(|4|8|0\().*&~(.*\)\:.*)&\w.*&.*\w&.*(?=.*\)\:)&.*(?=\)\:|\)\:)"
 
 
+// [<Fact>]
+// let ``withoutprefix 04``() =
+//     assertNodeWithoutPrefix reg2 [".*"]
 
 
-
-
-
-
+[<Fact>]
+let ``very large pat 01``() =
+    assertCanBuild
+        (File.ReadAllText "/home/ian/f/ieviev/sbre/src/Sbre.Test/data/pattern-date.txt") [".*"]
 
 
 

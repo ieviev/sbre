@@ -21,7 +21,7 @@
         <Compile Include="_07_ComparisonTests.fs" />
         <Compile Include="_08_ConjunctionTests.fs" />
         <Compile Include="_09_DfaNodeTests.fs"/>
-        <Compile Include="_10_DfaMatchTests.fs"/>
+        <Compile Include="_10_RexTests.fs" />
         <Compile Include="_11_LookaroundTests.fs" />
         <Compile Include="_12_NegLookaroundTests.fs" />
         <Compile Include="_13_OptimizationTests.fs" />

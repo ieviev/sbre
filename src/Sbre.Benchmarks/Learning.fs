@@ -74,7 +74,8 @@ type Learning3() =
 [<BenchmarkDotNet.Attributes.MemoryDiagnoser>]
 [<ShortRunJob>]
 type Learning4() =
-    inherit Jobs.TestSbreAllPatternsMatchOnly(
+    // inherit Jobs.TestSbreAllPatternsMatchOnly(
+    inherit Jobs.TestSbreAllPatternsWithCompileTime(
         [
             // @"(?<=(\s\s|e\s|n\s).*).*(?=.*(\n\n|\.\n|,\s|\s\())&(?<=(\s\s|e\s|n\s)|[a-z,\)]?\s(\s\n|\s\s)?).*&.*(?=(\n\n|\.\n|,\s|\s\()|.{2})&\b.*\b"
             // @"(?<=or=(\{|.*\W))(~(.*and.*)&\S[\w-{}\\' ,]+\w)(?=(\W.*|)\},)"

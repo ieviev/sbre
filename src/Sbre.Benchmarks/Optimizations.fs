@@ -168,7 +168,7 @@ let commonalityScore3 (charSet: char array) =
     |> Array.sum
 
 let prefixSearchWeightedReversed (loc: byref<Location>) (cache: RegexCache<TSet>)
-    (weightedSets: inref<(int * MintermSearchValues) list>) =
+    (weightedSets: inref<(int * MintermSearchValues<_>) list>) =
     let textSpan = loc.Input
     let rarestCharSet = snd weightedSets[0]
     let rarestCharSetIndex = fst weightedSets[0]
@@ -200,7 +200,7 @@ let prefixSearchWeightedReversed (loc: byref<Location>) (cache: RegexCache<TSet>
 
 let prefixSearchWeightedReversed2
     (loc: byref<Location>)
-    (weightedSets: inref<struct(int * MintermSearchValues) array>) =
+    (weightedSets: inref<struct(int * MintermSearchValues<_>) array>) =
     // (a * b) is a reference tuple, struct(a * b) is a struct tuple
     let textSpan = loc.Input
     let struct(rarestCharSetIndex, rarestCharSet) = weightedSets[0]
@@ -235,7 +235,7 @@ let prefixSearchWeightedReversed2
 
 let prefixSearchWeightedReversed3
     (loc: byref<Location>)
-    (weightedSets: inref<struct(int * MintermSearchValues) array>) =
+    (weightedSets: inref<struct(int * MintermSearchValues<_>) array>) =
     let textSpan = loc.Input
     let currentPosition = loc.Position
     let charSetsCount = weightedSets.Length
@@ -272,7 +272,7 @@ let prefixSearchWeightedReversed3
 let prefixSearchWeightedReversed4
     (cache: RegexCache<_>)
     (loc: byref<Location>)
-    (weightedSets: inref<struct(int * MintermSearchValues) array>)
+    (weightedSets: inref<struct(int * MintermSearchValues<_>) array>)
     (prefixLength: int) =
     let textSpan = loc.Input
     let currentPosition = loc.Position
@@ -293,7 +293,7 @@ let prefixSearchWeightedReversed4
                 let mutable i = prevMatch
                 while i > 0 do
                     i <- i - 1
-                    if Solver.elemOfSet (cache.Classify(textSpan[i])) rarestSetMinterm then
+                    if cache.Solver.elemOfSet (cache.Classify(textSpan[i])) rarestSetMinterm then
                         newMatch <- i
                         i <- 0
                 newMatch
@@ -320,7 +320,7 @@ let prefixSearchWeightedReversed4
     ()
 
 
-let collectNullablePositionsWeightedSkip ( matcher: RegexMatcher<TSet>, loc: byref<Location>, weightedSets: inref<(int * MintermSearchValues) list> ) =
+let collectNullablePositionsWeightedSkip ( matcher: RegexMatcher<TSet>, loc: byref<Location>, weightedSets: inref<(int * MintermSearchValues<_>) list> ) =
     assert (loc.Position > -1)
     assert (loc.Reversed = true)
     let mutable looping = true
@@ -348,7 +348,7 @@ let collectNullablePositionsWeightedSkip ( matcher: RegexMatcher<TSet>, loc: byr
 
 // ---------- slightly modified
 
-let collectNullablePositionsWeightedSkip2 ( matcher: RegexMatcher<TSet>, loc: byref<Location>, weightedSets: inref<struct (int * MintermSearchValues) array> ) =
+let collectNullablePositionsWeightedSkip2 ( matcher: RegexMatcher<TSet>, loc: byref<Location>, weightedSets: inref<struct (int * MintermSearchValues<_>) array> ) =
     assert (loc.Position > -1)
     assert (loc.Reversed = true)
     let mutable looping = true
@@ -374,7 +374,7 @@ let collectNullablePositionsWeightedSkip2 ( matcher: RegexMatcher<TSet>, loc: by
 
     nullableCount
 
-let collectNullablePositionsWeightedSkip3 ( matcher: RegexMatcher<TSet>, loc: byref<Location>, weightedSets: inref<struct (int * MintermSearchValues) array> ) =
+let collectNullablePositionsWeightedSkip3 ( matcher: RegexMatcher<TSet>, loc: byref<Location>, weightedSets: inref<struct (int * MintermSearchValues<_>) array> ) =
     assert (loc.Position > -1)
     assert (loc.Reversed = true)
     let mutable looping = true
@@ -400,7 +400,7 @@ let collectNullablePositionsWeightedSkip3 ( matcher: RegexMatcher<TSet>, loc: by
 
     nullableCount
 
-let collectNullablePositionsWeightedSkip4 ( matcher: RegexMatcher<TSet>, loc: byref<Location>, weightedSets: inref<struct (int * MintermSearchValues) array>, prefixLength: int) =
+let collectNullablePositionsWeightedSkip4 ( matcher: RegexMatcher<TSet>, loc: byref<Location>, weightedSets: inref<struct (int * MintermSearchValues<_>) array>, prefixLength: int) =
     assert (loc.Position > -1)
     assert (loc.Reversed = true)
     let mutable looping = true
@@ -477,11 +477,11 @@ type PrefixCharsetSearch () =
 
     let prefixSets =
         match optimizations with
-        | InitialOptimizations.SetsPotentialStart(prefixMem) ->
+        | InitialOptimizations.SearchValuesPotentialStart(_,prefixMem) ->
             // Array.toList (prefixMem.ToArray()) |> List.rev
         // | InitialOptimizations.SearchValuesPotentialStart(_,prefixMem) ->
             Array.toList (prefixMem.ToArray()) |> List.rev
-        | InitialOptimizations.SetsPrefix(prefixMem, transitionNodeId) ->
+        | InitialOptimizations.SearchValuesPrefix(_,prefixMem, transitionNodeId) ->
             Array.toList (prefixMem.ToArray()) |> List.rev
         // | InitialOptimizations.SearchValuesPrefix(charSvMem, _) ->
         //     let a = charSvMem.ToString()
@@ -510,7 +510,7 @@ type PrefixCharsetSearch () =
             | _ -> failwith "impossible!")
                        |> List.sortBy (fun (_, _, score) -> score )
                        |> List.map (fun (i, set, _) -> (i, set))
-                       |> fun (sets: (int * MintermSearchValues) list) ->
+                       |> fun (sets: (int * MintermSearchValues<_>) list) ->
                            let _, bestSetType = sets[0]
                            if bestSetType.Mode = MintermSearchMode.TSet then
                                sets[0..0]
@@ -713,7 +713,7 @@ type StringPrefix(pattern:string) =
     )
 
     let charToTSet (chr:char) = matcher.Cache.CharToMinterm(chr)
-    let isElemOfSet (tset1:TSet) (tset2:TSet) = Solver.elemOfSet tset1 tset2
+    // let isElemOfSet (tset1:TSet) (tset2:TSet) = Solver.elemOfSet tset1 tset2
 
     let svals = [|'n'|].AsMemory()
 
@@ -790,63 +790,6 @@ type StringPrefix(pattern:string) =
 
 
 
-[<BenchmarkDotNet.Attributes.MemoryDiagnoser>]
-[<ShortRunJob>]
-[<AbstractClass>]
-type SetsPrefix(pattern:string) =
-    let regex = Sbre.Regex(pattern)
-    let matcher = regex.TSetMatcher
-    let getder = (fun (mt,node) ->
-        let loc = Pat.Location.getNonInitial()
-        matcher.CreateDerivative(&loc, mt,node)
-    )
-    // find optimized prefix for regex
-    let optimizations =
-        Sbre.Optimizations.findInitialOptimizations
-            getder
-            (fun node -> matcher.GetOrCreateState(node).Id)
-            (fun node -> matcher.GetOrCreateState(node).Flags)
-            matcher.Cache
-            matcher.ReversePattern
-            matcher.ReverseTrueStarredPattern
-    let prefixSets =
-        match optimizations with
-        | InitialOptimizations.SetsPotentialStart(prefix) ->
-            let reverseSpan = prefix.Span
-            reverseSpan.Reverse()
-            reverseSpan.ToArray()
-        | InitialOptimizations.SetsPrefix(prefix, transitionid) ->
-            let reverseSpan = prefix.Span
-            reverseSpan.Reverse()
-            reverseSpan.ToArray()
-        | _ -> failwith "could not get prefix"
-
-    let charToTSet (chr:char) = matcher.Cache.Classify(chr)
-    let isElemOfSet (tset1:TSet) (tset2:TSet) = Solver.elemOfSet tset1 tset2
-
-    [<Benchmark>]
-    member x.FirstSetIndexOfTSet() =
-        let inputSpan = fullInput.AsSpan()
-        let mutable currpos = 0
-        let mutable searching = true
-        while searching do
-            let currSet = charToTSet inputSpan[currpos]
-            if isElemOfSet currSet prefixSets[0] then
-                searching <- false
-            else
-                currpos <- currpos + 1
-
-    [<Benchmark>]
-    member x.FirstSetIndexOfChars() =
-        let firstSetChars = matcher.Cache.MintermChars(prefixSets[0]).Value.Span
-        let inputSpan = fullInput.AsSpan()
-        let mutable searching = true
-        while searching do
-            match inputSpan.IndexOfAny(firstSetChars) with
-            | -1 -> failwith "failed search"
-            | n ->
-                searching <- false
-
 
 
 
@@ -857,8 +800,3 @@ type Prefix1() =
     // inherit StringPrefix("Twain")
     inherit StringPrefix("there")
 
-[<BenchmarkDotNet.Attributes.MemoryDiagnoser>]
-[<ShortRunJob>]
-type Prefix2() =
-    // [HF][ui][cn][kn]
-    inherit SetsPrefix("Huck|Finn")

@@ -337,32 +337,32 @@ type TwainRegexes() =
             fullInput
         )
 
+let sherlock = "/mnt/g/repos/rebar/benchmarks/haystacks/sherlock.txt" |> System.IO.File.ReadAllText
 
 type TwainRegexesMatchOnly() =
     inherit
         Jobs.TestAllEnginesAllPatternsMatchOnly(
             [
-               // """(?<=\W)\w+nn(?=\W)"""
-               """\b\w+nn\b"""
+               // """\b\w+nn\b"""
                "Twain"
-               "(?i)Twain"
-               "[a-z]shing"
-               @"Huck[a-zA-Z]+|Saw[a-zA-Z]+" // ++
-               "[a-q][^u-z]{13}x"
-               "Tom|Sawyer|Huckleberry|Finn" // ++
-               "(?i)Tom|Sawyer|Huckleberry|Finn" // ++compiled
-               ".{0,2}(Tom|Sawyer|Huckleberry|Finn)"
-               ".{2,4}(Tom|Sawyer|Huckleberry|Finn)"
-               "Tom.{10,25}river|river.{10,25}Tom" // ++
-               "[a-zA-Z]+ing"
-               "\s[a-zA-Z]{0,12}ing\s"
-               "\s([A-Za-z]awyer|[A-Za-z]inn)\s" // ++
-               """["'][^"']{0,30}[?!\.]["']""" // ++
+               // "(?i)Twain"
+               // "[a-z]shing"
+               // @"Huck[a-zA-Z]+|Saw[a-zA-Z]+" // ++
+               // "[a-q][^u-z]{13}x"
+               // "Tom|Sawyer|Huckleberry|Finn" // ++
+               // "(?i)Tom|Sawyer|Huckleberry|Finn" // ++compiled
+               // ".{0,2}(Tom|Sawyer|Huckleberry|Finn)"
+               // ".{2,4}(Tom|Sawyer|Huckleberry|Finn)"
+               // "Tom.{10,25}river|river.{10,25}Tom" // ++
+               // "[a-zA-Z]+ing"
+               // "\s([A-Za-z]awyer|[A-Za-z]inn)\s" // ++
+               // """["'][^"']{0,30}[?!\.]["']""" // ++
+               // "\s[a-zA-Z]{0,12}ing\s"
             ],
-            fullInput
+            sherlock
         )
 
-let sherlock = "/mnt/g/repos/rebar/benchmarks/haystacks/sherlock.txt" |> System.IO.File.ReadAllText
+
 
 type Rebar1() =
     inherit
@@ -483,21 +483,21 @@ type CounterMatchTimeRegexes() =
 
 type SampleRegexes() =
     inherit
-        // Jobs.TestSbreAllPatternsMatchOnly(
-        Jobs.TestSbreAllPatternsCountSpans(
+        Jobs.TestSbreAllPatternsMatchOnly(
+        // Jobs.TestSbreAllPatternsCountSpans(
             [
                // "Twain"
                // "(?i)Twain"
                // "[a-z]shing"
                // @"Huck[a-zA-Z]+|Saw[a-zA-Z]+"
                // "[a-q][^u-z]{13}x"
-               "Tom|Sawyer|Huckleberry|Finn"
-               "(?i)Tom|Sawyer|Huckleberry|Finn"
-               ".{0,2}(Tom|Sawyer|Huckleberry|Finn)"
-               ".{2,4}(Tom|Sawyer|Huckleberry|Finn)"
+               // "Tom|Sawyer|Huckleberry|Finn"
+               // "(?i)Tom|Sawyer|Huckleberry|Finn"
+               // ".{0,2}(Tom|Sawyer|Huckleberry|Finn)"
+               // ".{2,4}(Tom|Sawyer|Huckleberry|Finn)"
                // "Tom.{10,25}river|river.{10,25}Tom"
                // "[a-zA-Z]+ing"
-               // "\s[a-zA-Z]{0,12}ing\s"
+               "\s[a-zA-Z]{0,12}ing\s"
                // "\s([A-Za-z]awyer|[A-Za-z]inn)\s"
                // """["'][^"']{0,30}[?!\.]["']"""
                // """\b\w+nn\b"""

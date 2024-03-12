@@ -33,7 +33,6 @@
     <DefineConstants>$(DefineConstants);SUBSUME</DefineConstants>
     <DefineConstants>$(DefineConstants);SKIP</DefineConstants>
     <DefineConstants>$(DefineConstants);SKIP_ACTIVE</DefineConstants>
-    <DefineConstants>$(DefineConstants);DFA</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Sbre.Test" />
@@ -52,18 +51,19 @@
     <Compile Include="CountingSet.fs" />
     <Compile Include="Algorithm.fs" />
     <Compile Include="Optimizations.fs" />
+    <Compile Include="Msagl.fs" />
     <Compile Include="Regex.fs" />
   </ItemGroup>
   <PropertyGroup>
     <PackageOutputPath>./nupkg</PackageOutputPath>
     <Authors>ieviev</Authors>
     <Title>$(ProjectName)</Title>
-    <Version>0.1.12</Version>
+    <Version>0.1.30</Version>
   </PropertyGroup>
   <ItemGroup>
     <!-- nuget pack -->
 <!--    <ProjectReference Include="..\RuntimeRegexCopy\RuntimeRegexCopy.csproj" PrivateAssets="all" />-->
-        <ProjectReference Include="..\RuntimeRegexCopy\RuntimeRegexCopy.csproj"  />
+          <ProjectReference Include="..\RuntimeRegexCopy\RuntimeRegexCopy.csproj" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="$(MSBuildThisFileDirectory)../RuntimeRegexCopy/bin/Release/net8.0/RuntimeRegexCopy.dll">
@@ -71,8 +71,5 @@
       <PackageCopyToOutput>true</PackageCopyToOutput>
       <PackagePath>lib/$(TargetFramework)/</PackagePath>
     </Content>
-  </ItemGroup>
-  <ItemGroup>
-    <!--    <PackageReference Update="FSharp.Core" Version="8.0.*" />-->
   </ItemGroup>
 </Project>

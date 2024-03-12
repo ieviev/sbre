@@ -30,4 +30,9 @@ let ``matchends 1``() = assertAllLLmatches "b" "bba_ba" [  0,1; 1,1 ;4,1; ] // "
 let ``fullmatch 1``() = assertNullablePositions "b(?=a)" "bba_ba" [ 4; 1 ] // "b|ba_|ba"
 
 
+
+
+
+
+
 #endif

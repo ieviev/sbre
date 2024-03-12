@@ -1,5 +1,5 @@
 namespace rec Sbre.Types
-
+open Sbre
 open System
 open System.Buffers
 open System.Collections.Generic
@@ -11,12 +11,15 @@ open System.Diagnostics
 // module Constants =
 //     let [<Literal>] COUNTING_SET_THRESHOLD = 2
 
+[<AutoOpen>]
+module Static =
+    let staticCharSetSolver = System.Text.RuntimeRegexCopy.Symbolic.CharSetSolver()
+
 
 #if DEBUG
 [<AutoOpen>]
 module Debug =
-    let debugcharSetSolver = System.Text.RuntimeRegexCopy.Symbolic.CharSetSolver()
-    let bddBuilder = SymbolicRegexBuilder<BDD>(debugcharSetSolver, debugcharSetSolver)
+    let bddBuilder = SymbolicRegexBuilder<BDD>(staticCharSetSolver, staticCharSetSolver)
 
 
 #endif
@@ -177,7 +180,7 @@ type RegexNodeInfo<'tset when 'tset :> IEquatable<'tset> and 'tset: equality >()
     member val EndTransitions: Dictionary<'tset,RegexNode<'tset>> = Dictionary() with get, set
     member val StartTransitions: Dictionary<'tset,RegexNode<'tset>> = Dictionary() with get, set
     member val Subsumes: Dictionary<RegexNode<'tset>,bool> = Dictionary() with get, set
-    member val PendingNullables: Set<int> = Set.empty with get, set
+    member val PendingNullables: RefSet<int> = RefSet.Create(Set.empty) with get, set
 
     // filled in later
     member val IsCanonical: bool = false with get, set
@@ -225,33 +228,33 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
         node: RegexNode<'tset> *  // anchors
         lookBack: bool *
         relativeTo : int *
-        pendingNullables : Set<int> *
+        pendingNullables : RefSet<int> *
         info: RegexNodeInfo<'tset>
     | Begin
     | End
 
 
-#if DEBUG
 
     override this.ToString() =
-        let maxwidth : int =
-            AppContext.GetData("RegexNode.MaxPrintWidth")
-            |> Option.ofObj
-            |> Option.map (fun v -> v :?> int)
-            |> Option.defaultValue 12
+
+        let maxwidth : int = 50
         let print node =
             if typeof<'tset> = typeof<BDD> then
-                Debug.debugcharSetSolver.PrettyPrint(unbox (box node))
+                Static.staticCharSetSolver.PrettyPrint(unbox (box node))
             else
-                Debug.debuggerSolver.Value.PrettyPrint(unbox (box node),debugcharSetSolver)
+#if RELEASE
+                "φ"
+#else
+                Debug.debuggerSolver.Value.PrettyPrint(unbox (box node),Static.staticCharSetSolver)
+#endif
 
         let isFull (tset:'tset) =
             if typeof<'tset> = typeof<BDD> then
-                Debug.debugcharSetSolver.IsFull(unbox (box tset))
+                Static.staticCharSetSolver.IsFull(unbox (box tset))
             else Debug.debuggerSolver.Value.IsFull(unbox (box tset))
         let isEmpty (tset:'tset) =
             if typeof<'tset> = typeof<BDD> then
-                Debug.debugcharSetSolver.IsEmpty(unbox (box tset))
+                Static.staticCharSetSolver.IsEmpty(unbox (box tset))
             else Debug.debuggerSolver.Value.IsEmpty(unbox (box tset))
 
         let paren str = $"({str})"
@@ -271,26 +274,6 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
         | Singleton v -> tostr v
         | Or(items, _) ->
             let itlen = items.Count
-            let isCaret =
-                match itlen = 2 with
-                | false -> None
-                | true ->
-                    let items2str = items |> Seq.map (_.ToString()) |> ResizeArray
-                    let v1 = items2str.Contains(@"\A")
-                    let v2 = items2str.Contains(@"(?<=\n)")
-                    if v1 && v2 then Some "^" else None
-            let isDollar =
-                match itlen = 2 with
-                | false -> None
-                | true ->
-                    let items2str = items |> Seq.map (_.ToString()) |> ResizeArray
-                    let v1 = items2str.Contains(@"\z")
-                    let v2 = items2str.Contains(@"(?=\n)")
-                    if v1 && v2 then Some "$" else None
-            match isCaret, isDollar with
-            | Some v,_ -> v
-            | _,Some v -> v
-            | _ ->
 
             let setItems: string list =
                 items |> Seq.map (_.ToString() ) |> Seq.toList
@@ -326,23 +309,52 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
             | false -> inner + loopCount
 
         | LookAround(body, lookBack, relativeTo, pending, _) ->
+            match body with
+            | Or(nodes=nodes) ->
+                let isCaret =
+                    match nodes.Count = 2 with
+                    | true when lookBack ->
+                        let items2str = nodes |> Seq.map (_.ToString()) |> ResizeArray
+                        let v1 = items2str.Contains(@"\A")
+                        let v2 = items2str.Contains(@"\n")
+                        if v1 && v2 then Some "^" else None
+                    | _ -> None
+                let isDollar =
+                    match nodes.Count = 2 with
+                    | true when not lookBack ->
+                        let items2str = nodes |> Seq.map (_.ToString()) |> ResizeArray
+                        let v1 = items2str.Contains(@"\z")
+                        let v2 = items2str.Contains(@"\n")
+                        if v1 && v2 then Some "$" else None
+                    | _ -> None
+                match isCaret, isDollar with
+                | Some s, _ | _, Some s -> s
+                | _ ->
+
+
+                let inner = body.ToString()
+                let pending =
+                    if pending.inner.IsEmpty then ""
+                    else $"%A{Seq.toList pending.inner}"
+                match lookBack with
+                | false-> $"(?={inner})"
+                | true -> $"(?<={inner})"
+                + pending
+            | _ ->
+
             let inner = body.ToString()
             let pending =
-                if pending.IsEmpty then ""
-                else $"%A{Seq.toList pending}"
+                if pending.inner.IsEmpty then ""
+                else $"%A{Seq.toList pending.inner}"
             match lookBack with
             | false-> $"(?={inner})"
             | true -> $"(?<={inner})"
             + pending
-
-        | Concat(h, t, info) ->
-            let body = h.ToString() + t.ToString()
-            body
+        | Concat(h, t, info) -> $"{h.ToString()}{t.ToString()}"
         | Epsilon -> "ε"
         | End -> @"\z"
         | Begin -> @"\A"
 
-#endif
     member inline this.TryGetInfo =
         match this with
         | Or(info = info) | Loop(info = info) | And(info = info) | Not(info = info) | Concat(info = info) | LookAround( info=info ) ->
@@ -384,9 +396,16 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
     member this.DependsOnAnchor = this.GetFlags().DependsOnAnchor
 
     member this.PendingNullables =
-        this.TryGetInfo
-        |> ValueOption.map (_.PendingNullables)
-        |> ValueOption.defaultWith (fun _ -> Set.empty )
+        match this with
+        | LookAround(regexNode, lookBack, relativeTo, pendingNullables, regexNodeInfo) ->
+            if regexNode.CanNotBeNullable then RefSet.empty else
+            pendingNullables.inner
+            |> Set.map (fun v -> v + relativeTo)
+            |> RefSet.Create
+        | _ ->
+            this.TryGetInfo
+            |> ValueOption.map (_.PendingNullables)
+            |> ValueOption.defaultWith (fun _ -> RefSet.empty )
 
 
     member this.IsAlwaysNullable =
@@ -407,7 +426,7 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
         |> ValueOption.defaultWith (fun _ ->
             match this with
             | Singleton _ -> false
-            | LookAround _ -> false
+            | LookAround _ -> true
             | Epsilon -> true
             | Begin | End -> false
             | _ -> failwith "impossible case"
@@ -454,7 +473,7 @@ module Common =
         }
 
     let tsetComparer =
-        { new IEqualityComparer<RegexNode<TSet>> with
+        { new IEqualityComparer<RegexNode<'t>> with
             [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
             member this.Equals(x, y) = obj.ReferenceEquals(x, y)
 
@@ -495,7 +514,7 @@ module Common =
         }
 
     // let zeroList = [0]
-    let zeroList = Set.singleton 0
+    // let zeroList = Set.singleton 0
 
 
     let physComparison =
@@ -539,9 +558,18 @@ module Memory =
         forall
 
 
+//
+// type TSet = BitVector
+// type TSolver = ISolver<TSet>
+
+// type TSolver = BitVectorSolver
+
+//
+// type TSet = BitVector
+// type TSolver = BitVectorSolver
+
 type TSet = uint64
 type TSolver = UInt64Solver
-
 
 // type TSet = uint32
 // type TSolver = UInt32Solver
@@ -577,6 +605,12 @@ type SharedResizeArray<'t>(initialSize:int) =
         let mutable e = pool.AsSpan(0, size).GetEnumerator()
         e
     member this.Length = size
+    member this.Exists(lambda) =
+        let mutable e = pool.AsSpan(0, size).GetEnumerator()
+        let mutable found = false
+        while not found && e.MoveNext() do
+            found <- lambda e.Current
+        found
     member this.AsSpan() = pool.AsSpan(0, size)
     member this.AsArray() = pool.AsSpan(0, size).ToArray()
 
@@ -634,3 +668,58 @@ type SharedResizeArrayStruct<'t> =
             limit = initialSize
             pool = ArrayPool.Shared.Rent(initialSize)
         }
+
+//
+// type RefSet<'t when 't : comparison > =
+//     static let cache = Dictionary<Set<'t>, RefSet<'t>>()
+//     static member Create(source:Set<'t>) =
+//         // ..
+//         match cache.TryGetValue(source) with
+//         | true, v -> v
+//         | _ ->
+//             let rs = RefSet(source)
+//             rs
+//
+//
+//     member val Set = Set.empty
+//
+//     new(source:Set<'t>) = RefSet(Set=Set.empty)
+//
+
+/// set with canonical reference comparisons
+type RefSet<'t when 't : comparison> =
+    static let cache = Dictionary<Set<'t>, RefSet<'t>>()
+
+    val mutable inner : Set<'t>
+    static member Create(src:seq<'t>) : RefSet<'t> =
+         let src_set = Set.ofSeq src
+         match cache.TryGetValue(src_set) with
+         | true, v -> v
+         | _ ->
+             let newset = RefSet(src_set)
+             cache.Add(src_set,newset)
+             newset
+
+    member this.IsEmpty : bool = this.inner.IsEmpty
+    static member unionMany (sets:RefSet<'t> seq) : RefSet<'t> =
+        sets
+        |> Seq.map (fun v -> v.inner)
+        |> Set.unionMany
+        |> RefSet.Create
+    static member map (fn) (arg:RefSet<'t>) : RefSet<'t> =
+        arg.inner
+        |> Set.map fn
+        |> RefSet.Create
+    static member union (arg1:RefSet<'t>) (arg2:RefSet<'t>) : RefSet<'t> =
+        Set.union arg1.inner arg2.inner |> RefSet.Create
+    static member zeroList : RefSet<int> = RefSet.Create(Set.singleton 0)
+    static member empty : RefSet<'t> = RefSet.Create(Set.empty)
+
+    private new(src_set:Set<'t>) = {inner=src_set}
+
+
+
+
+
+// source:Set<'t>
+

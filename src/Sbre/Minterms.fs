@@ -12,10 +12,6 @@ let rec transform
     (node: RegexNode<BDD>)
     : RegexNode<'tnewset> =
 
-    match builder.UniquesDict.TryGetValue(node) with
-    | true, v -> v
-    | _ ->
-
     let inline transformInner v = transform oldBuilder builder charsetSolver newSolver v
     match node with
     | Singleton tset -> builder.one(newSolver.ConvertFromBDD(tset, charsetSolver))
@@ -39,6 +35,36 @@ let rec transform
     | Begin -> Begin
     | End -> End
 
+let rec transformBack
+    (oldBuilder: RegexBuilder<'t>)
+    (builder: RegexBuilder<BDD>)
+    (newSolver: ISolver<'t>)
+    (charsetSolver: CharSetSolver)
+    (node: RegexNode<'t>)
+    : RegexNode<BDD> =
+
+    let inline transformInner v = transformBack oldBuilder builder newSolver charsetSolver v
+    match node with
+    | Singleton tset -> builder.one(newSolver.ConvertToBDD(tset, charsetSolver))
+    | Not(xs,info) -> builder.mkNot(transformInner xs)
+    | And (xs,info) ->
+        let xs' = xs |> map transformInner
+        builder.mkAnd(xs' |> Seq.toArray)
+    | Or (xs,info) ->
+        let xs' = xs |> map transformInner
+        builder.mkOrSeq(xs')
+    | Loop (xs, lower, upper,info) ->
+        let xs' = transformInner xs
+        builder.mkLoop(xs',lower,upper)
+    | LookAround (body, back, rel, pendingNullable,info) ->
+        builder.mkLookaround(transformInner body,back,rel,pendingNullable)
+    | Concat(head,tail, info) ->
+        let head' = transformInner head
+        let tail' = transformInner tail
+        builder.mkConcat2(head',tail')
+    | Epsilon -> Epsilon
+    | Begin -> Begin
+    | End -> End
 
 let collectSets (node: RegexNode<'tset>) =
     let hs = HashSet()

@@ -20,12 +20,14 @@ let ``der neg anchor 1``() = _04_DerivativeTests.testRevDerivative (@"(?!b)","b"
     @"(?<=~((ε|⊤*b)))" // TODO: unsure
     @"(?<=~((⊤*b|ε)))"
     @"(?<=~((⊤*b)?))"
+    @"(?<=~((⊤*a)?))b"
 ])
 
 [<Fact>]
 let ``der neg anchor 2``() = _04_DerivativeTests.testRevDerivative (@"(?!b)","a",[
     // @"ε"
     @"(?<=~(⊤*b))"
+    @"((?<=~(⊤*a))b)?"
 ])
 
 [<Fact>]
@@ -36,19 +38,23 @@ let ``der neg anchor 3``() = _04_DerivativeTests.testRevDerivative (@"bb(?!b)","
     @"((?<=~((ε|⊤*b)))bb|b)"
     @"(b|(?<=~((⊤*b)?))bb)"
     @"((?<=~((⊤*b)?))bb|b)"
+    @"((?<=~((⊤*b)?))b)?b"
 ])
 
 // [<Fact>]
 // let ``der neg anchor 4``() = _04_DerivativeTests.testRevDerivative (@"bb(?!a)","b",[ @"b"; ])
 
 [<Fact>]
-let ``der neg anchor lb 1``() = _04_DerivativeTests.testPartDerivative (@"(?<!a)b", "ab", "⊥")
+let ``der neg anchor lb 1``() = _04_DerivativeTests.testPartDerivatives (@"(?<!a)b", "ab", [
+    "⊥"
+    @"(?<=~((⊤*a)?))b"
+])
 
 [<Fact>]
 let ``der neg anchor lb 2``() = _04_DerivativeTests.testPartDerivatives (@"(?<!a)b", "bb", [
     "ε" // subsumed
     "(?=ε)" // subsumed
-    // @"(ε&(⊤*\A~(⊤*a)|~(⊤*a)))" // not subsumed
+    @"((?<=~(⊤*a))b)?"
 ])
 
 
@@ -129,7 +135,7 @@ let ``d rewritten test 1.2``() =
 
 [<Fact>]
 let ``d rewritten test 2.1``() =
-    assertFirstMatchText  "1(?=[012])\d" "11" "11"
+    assertFirstMatchText  @"1(?=[012])\d" "11" "11"
 
 
 
@@ -233,6 +239,28 @@ let ``nested not 1``() =
     let pattern = """~(^0*$)&~(^0*\.0*$)&^\d{1,5}(\.\d{1,3})?$"""
     let input = "12345.123"
     assertFirstMatchText pattern input "12345.123"
+
+
+
+
+[<Fact>]
+let ``ranges 1``() = assertAllLLmatches @"(?<=\d)a" "1a__a__a" [  1,1; ]
+
+[<Fact>]
+let ``ranges 2.1``() = assertAllLLmatches @"(?<!\d)a" "1a__a__a" [  4,1;  7,1 ]
+
+
+[<Fact>] 
+let ``ranges 2.2``() = assertAllLLmatches @"(?<!\d)a" " a" [  1,1; ]
+
+
+
+
+
+
+
+
+
 
 
 #endif
