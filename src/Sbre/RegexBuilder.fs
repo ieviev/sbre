@@ -1390,6 +1390,29 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                     Epsilon
             combined
 
+
+    /// TODO:
+    /// additional checks if the pattern is supported
+    member this.mkConcatChecked(nodesCorrectOrder: RegexNode< 't > list) : RegexNode< 't > =
+        raise (NotImplementedException())
+        // match nodesCorrectOrder with
+        // | [] -> Epsilon
+        // | [ x ] -> x
+        // | [ head; tail ] -> this.mkConcat2 (head, tail)
+        // | rest ->
+        //     let combined =
+        //         rest
+        //         |> Seq.rev
+        //         |> Seq.fold
+        //             (fun acc v ->
+        //                 match acc with
+        //                 | Epsilon -> v
+        //                 | _ -> this.mkConcat2 (v, acc)
+        //             )
+        //             Epsilon
+        //     combined
+
+
     member this.mkConcatResizeArray(nodesCorrectOrder: RegexNode< 't >ResizeArray) : RegexNode< 't > =
         match nodesCorrectOrder.Count with
         | 0 -> Epsilon

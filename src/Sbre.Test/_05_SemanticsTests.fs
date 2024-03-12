@@ -117,6 +117,8 @@ let ``unsupported test 2``() =
 
 
 
+[<Fact>] 
+let ``unsupported test 3.1``() = assertAllLLmatches @"(?<!\d)a" " a" [  1,1; ]
 
 
 

@@ -135,7 +135,7 @@ let ``d rewritten test 1.2``() =
 
 [<Fact>]
 let ``d rewritten test 2.1``() =
-    assertFirstMatchText  "1(?=[012])\d" "11" "11"
+    assertFirstMatchText  @"1(?=[012])\d" "11" "11"
 
 
 
@@ -244,14 +244,16 @@ let ``nested not 1``() =
 
 
 [<Fact>]
-let ``ranges 1``() = assertAllLLmatches "(?<=\d)a" "1a__a__a" [  1,1; ]
+let ``ranges 1``() = assertAllLLmatches @"(?<=\d)a" "1a__a__a" [  1,1; ]
 
 [<Fact>]
-let ``ranges 2.1``() = assertAllLLmatches "(?<!\d)a" "1a__a__a" [  4,1;  7,1 ]
+let ``ranges 2.1``() = assertAllLLmatches @"(?<!\d)a" "1a__a__a" [  4,1;  7,1 ]
 
 
-[<Fact>] // known bug
-let ``ranges 2.2``() = assertAllLLmatches "(?<!\d)a" " a" [  1,1; ]
+[<Fact>] 
+let ``ranges 2.2``() = assertAllLLmatches @"(?<!\d)a" " a" [  1,1; ]
+
+
 
 
 
