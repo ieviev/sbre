@@ -134,27 +134,27 @@ let rec getPrefixNodeAndComplement
             )
 
         if not existsComplement then
-
-            let prefixes =
-                nodes
-                |> Seq.choose (fun v ->
-                    match v with
-                    | Concat(head = Singleton p) -> Some v
-                    | _ -> None
-                )
-                |> Seq.toArray
-
-            if prefixes.Length > 0 then
-                cache.Builder.mkOrSeq (prefixes), None
-            else
-
-            let trimmed = nodes |> Seq.map (getPrefixNodeAndComplement cache) |> Seq.toArray
-            let noComplements = trimmed |> Seq.forall (fun v -> (snd v).IsNone)
-
-            if noComplements then
-                cache.Builder.mkOrSeq (trimmed |> Seq.map fst), None
-            else
-                node, None
+            node, None
+            // let prefixes =
+            //     nodes
+            //     |> Seq.choose (fun v ->
+            //         match v with
+            //         | Concat(head = Singleton p) -> Some v
+            //         | _ -> None
+            //     )
+            //     |> Seq.toArray
+            //
+            // if prefixes.Length > 0 then
+            //     cache.Builder.mkOrSeq (prefixes), None
+            // else
+            //
+            // let trimmed = nodes |> Seq.map (getPrefixNodeAndComplement cache) |> Seq.toArray
+            // let noComplements = trimmed |> Seq.forall (fun v -> (snd v).IsNone)
+            //
+            // if noComplements then
+            //     cache.Builder.mkOrSeq (trimmed |> Seq.map fst), None
+            // else
+            //     node, None
 
         else
 

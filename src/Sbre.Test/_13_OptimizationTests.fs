@@ -127,7 +127,7 @@ let ``initialOptimizations 04``() =
 
 [<Fact>]
 let ``initialOptimizations 05``() =
-    assertPrefixLength ".*t.*hat.*&.*a.*nd.*&.*t.*he.*&.*w.*as.*" 3
+    assertPrefixLength ".*t.*hat.*&.*a.*nd.*&.*t.*he.*&.*w.*as.*" 4
 
 
 [<Fact>]
@@ -227,6 +227,8 @@ let ``initialOptimizations 23``() =
         @"(?<=( |`|\-|\n|3).*).*&\w.*&.*\w&\w{4,}"
         @"φ;φ;φ;φ" // important to avoid state space blowup
 
+[<Fact>]
+let ``initialOptimizations 24``() = assertSetsPrefix @"s;.;.;c"
 
 
 
