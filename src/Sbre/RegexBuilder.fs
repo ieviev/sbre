@@ -1523,6 +1523,13 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                         let remainingHeads = nodesCorrectOrder[..i-1]
                         let newNode = this.mkConcatResizeArray(ResizeArray(seq {yield! remainingHeads; newOr}))
                         rewrittenNode <- Some newNode
+                    | Concat(head=chead;tail=ctail) ->
+                        let remainingHeads = nodesCorrectOrder[..i-1]
+                        let remainingTails = nodesCorrectOrder[i+1..]
+                        let newNode = this.mkConcatResizeArray(ResizeArray(seq {
+                            yield! remainingHeads; chead; ctail; yield! remainingTails
+                        }))
+                        rewrittenNode <- Some newNode
                     | _ ->
                         throwExn()
                 else
