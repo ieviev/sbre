@@ -179,7 +179,204 @@ let ``captures 191-200`` () = testCapture0InRange 191 200
 
 
 
+// unsupported regexes
+
+
+let testSameAsRuntime = _07_ComparisonTests.testSameAsRuntime
+let assertNodeWithoutPrefix = _02_NodeTests.assertNodeWithoutPrefix
+open Common
+
+[<Fact>]
+let ``unsupported 01``() =
+    let pattern = """^((31(?!\ (Feb(ruary)?|Apr(il)?|June?|(Sep(?=\b|t)t?|Nov)(ember)?)))|((30|29)(?!\ Feb(ruary)?))|(29(?=\ Feb(ruary)?\ (((1[6-9]|[2-9][0-9])(0[48]|[2468][048]|[13579][26])|((16|[2468][048]|[3579][26])00)))))|(0?[1-9])|1[0-9]|2[0-8])\ (Jan(uary)?|Feb(ruary)?|Ma(r(ch)?|y)|Apr(il)?|Ju((ly?)|(ne?))|Aug(ust)?|Oct(ober)?|(Sep(?=\b|t)t?|Nov|Dec)(ember)?)\ ((1[6-9]|[2-9][0-9])[0-9]{2})$"""
+    let input = "31 September 2003"
+    testSameAsRuntime pattern input
+
+[<Fact>]
+let ``unsupported 02``() =
+    let pattern = """^(1(?= ((Sept?)(em)?)) Sept? 1)$"""
+    let input = "1 Sept 1"
+    testSameAsRuntime pattern input
+
+
+[<Fact>]
+let ``unsupported 03``() =
+    let pattern = """^(1(?! ((Sep(?=\b|t)t?|Nov)(ember)?))).*$"""
+    let input = "31 September 2003"
+    testSameAsRuntime pattern input
+
+
+[<Fact>]
+let ``unsupported 04``() =
+    let matcher = Regex("""^(a(?!b)).*$""")
+    let ism = matcher.IsMatch("ab")
+    Assert.False(ism)
+    // printAllDerivatives """^(a(?!b)).*$""" "ab" []
+
+
+[<Fact>]
+let ``unsupported 05``() =
+    assertFirstMatchText @".*(?<=a)" "aaa" "aaa"
+
+
+[<Fact>]
+let ``unsupported 06``() =
+    let matcher = Regex("""^(1(?! (Sep))).*$""")
+    let ism = matcher.IsMatch("1 Sep")
+    Assert.False(ism)
+
+[<Fact>]
+let ``unsupported 07``() =
+    let matcher = Regex("""^(1(?= (Sep))).*$""")
+    let ism = matcher.IsMatch("1 Sep")
+    Assert.True(ism)
+
+[<Fact>]
+let ``unsupported 08``() = assertRawDerivative """⊤*\ba""" "a " [
+    @"(⊤*((?<=φ)|\A)a)?"
+    @"(⊤*((?<=φ)|\A)a|ε)"
+    @"(⊤*(\A|(?<=φ))a|ε)"
+    @"(ε|⊤*((?<=φ)|\A)a)"
+    @"(ε|⊤*(\A|(?<=φ))a)"
+    @"(⊤*(\A|(?<=φ))a)?"
+    // --
+    @"(⊤*(?<=(\A|φ))a)?"
+    @"(⊤*(?<=(φ|\A))a)?"
+]
+
+[<Fact>]
+let ``unsupported 09``() =
+    assertNodeWithoutPrefix """(\s+)?((\bmittags?|((in der )?nachts?)))""" [
+        "φ*((in der )?nacht|mittag)s?"
+        @"φ*(mittag|(in der )?nacht)s?"
+    ]
+
+[<Fact>] // semantic difference for performance!
+let ``unsupported 10``() =
+    let pattern = """\d(?=.*a)\d\d"""
+    let input = "123___a"
+    assertNoMatch pattern input
+
+[<Fact>]
+let ``unsupported 11``() =
+    let pattern = """\d(?=.*a)\d.\d"""
+    let input = "12a3___"
+    assertFirstMatchText pattern input "12a3"
+    // printAllDerivatives pattern input []
+
+
+//
+[<Fact>]
+let ``rex sample 1.1``() =
+    assertIsMatch
+        "android-ndk-r(?<ver>\d+)(?<tag>\w*)-\w*"
+        @"㏨android-ndk-r᪈-"
+
+
+[<Fact>]
+let ``rex sample 1.2``() =
+    assertMatchEnd
+        "1+\w*-\w*"
+        @"1-"
+        0 2
+
+
+[<Fact>]
+let ``rex sample 2.1``() =
+    assertIsMatch
+        @"(?<keep>[^aeiou])ies$"
+        @"솱ies"
+
+[<Fact>]
+let ``rex sample 2.2``() =
+    assertIsMatch
+        @"[^aeiou]ies$"
+        @"솱ies"
+
+[<Fact>]
+let ``rex sample 2.3``() =
+    assertMatchEnd
+        @"[^aeiou]ies$"
+        @"솱ies"
+        0 4
+
+[<Fact>]
+let ``rex sample 3.1``() =
+    assertSameAsRuntime
+        @"
+[ 	]"
+        @"║
+ 㩜昏"
+
+[<Fact>]
+let ``rex sample 3.2``() =
+    assertIsMatch
+        @"
+[ 	]"
+        @"║
+ 㩜昏"
+
+
+
+[<Fact>]
+let ``rex sample 4.1``() =
+    assertIsMatch
+        @"((a\b|na)\s+qqqq)"
+        @"a qqqq"
+
+[<Fact>]
+let ``rex sample 4.2``() =
+    assertIsMatch
+        @"([àa]\b\s+qqqq)"
+        @"à qqqq"
+
+
+[<Fact>]
+let ``rex sample 5.1``() =
+    assertIsMatch
+        @"((am|gegen|in der)\s+)?((nachmittags?|abends?|mitternachts?|\bmittags?|((in der )?nachts?)))"
+        @"am mittags"
+
+[<Fact>]
+let ``rex sample 5.2``() =
+    assertIsMatch
+        @"((am|gegen|in der)\s+)?((\bmittags?|((in der )?nachts?)))"
+        @"am mittags"
+
+[<Fact>]
+let ``rex sample 5.3``() =
+    assertIsMatch
+        @"(\s+)?((\bmittags?|((in der )?nachts?)))"
+        @" mittags"
+
+
+[<Fact>]
+let ``rex sample 5.4``() =
+    assertMatchEnd
+        @"(\s+)?((\bmittags?|((in der )?nachts?)))"
+        @" mittags"
+        1 8
+
+
+[<Fact>]
+let ``rex sample 6.1``() =
+    assertIsMatch
+        @"\A(?:(?:http|https):\/\/)?([-a-zA-Z0-9.]{2,256}\.[a-z]{2,4})\b(?:\/[-a-zA-Z0-9@:%_\+.\~#?\&//=]*)?"
+        @"http://hGy8s.wzzu�䪦൯"
+
+
+
 #endif
+
+
+
+
+
+
+
+
+
+
 
 
 

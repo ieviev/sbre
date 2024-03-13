@@ -30,18 +30,6 @@ let ``until 1``() =
 
 
 
-[<Fact>] // semantic difference for performance!
-let ``constrained test 1.1 - inner lookarounds are constrained``() =
-    let pattern = """\d(?=.*a)\d\d"""
-    let input = "123___a"
-    assertNoMatch pattern input
-
-[<Fact>]
-let ``constrained test 1.2 - inner lookarounds find a match in range``() =
-    let pattern = """\d(?=.*a)\d.\d"""
-    let input = "12a3___"
-    assertFirstMatchText pattern input "12a3"
-    // printAllDerivatives pattern input []
 
 [<Fact>]
 let ``constrained test 2.1 - intersections constrain match``() =

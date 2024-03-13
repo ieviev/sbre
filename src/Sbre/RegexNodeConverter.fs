@@ -165,6 +165,7 @@ let convertToSymbolicRegexNode
     let b = builder
 
     let mkConcat = b.mkConcatChecked
+    // let mkConcat = b.mkConcat
 
     let rec loop
         (acc: Types.RegexNode<BDD> list)

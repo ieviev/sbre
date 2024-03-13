@@ -1127,38 +1127,39 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             | true, v -> v
             | _ ->
                 match head, tail with
-                | SingletonStarLoop(p1), SingletonStarLoop(p2) ->
-                    if Solver.containsS solver p1 p2 then head
-                    elif Solver.containsS solver p2 p1 then tail
-                    else createCached(head,tail)
-                | SingletonStarLoop(p1), Concat(head=SingletonStarLoop(p2) as thead;tail=ctail) ->
-                    if Solver.containsS solver p1 p2 then this.mkConcat2(head,ctail)
-                    elif Solver.containsS solver p2 p1 then this.mkConcat2(thead,ctail)
-                    else createCached(head,tail)
+                // TODO: optimizations
+                // | SingletonStarLoop(p1), SingletonStarLoop(p2) ->
+                //     if Solver.containsS solver p1 p2 then head
+                //     elif Solver.containsS solver p2 p1 then tail
+                //     else createCached(head,tail)
+                // | SingletonStarLoop(p1), Concat(head=SingletonStarLoop(p2) as thead;tail=ctail) ->
+                //     if Solver.containsS solver p1 p2 then this.mkConcat2(head,ctail)
+                //     elif Solver.containsS solver p2 p1 then this.mkConcat2(thead,ctail)
+                //     else createCached(head,tail)
                 // normalize
                 | Concat(head=h1;tail=h2), tail ->
                     let merged = this.mkConcat2(h1,this.mkConcat2(h2,tail))
                     _concatCache.Add(key, merged)
                     merged
                 // // (?<=a.*)(?<=\W)aa to (?<=⊤*a.*&⊤*\W)aa
-                // | LookAround(node=node1;lookBack=true), Concat(head=LookAround(node=node2;lookBack=true;);tail=tail2) ->
-                //     let combined = this.mkAnd([
-                //         this.mkConcat2(this.trueStar,node1)
-                //         this.mkConcat2(this.trueStar,node2)
-                //     ])
-                //     let v = this.mkLookaround(combined, true, 0, RefSet.empty)
-                //     let v = this.mkConcat2(v, tail2)
-                //     _concatCache.Add(key, v)
-                //     v
-                // // (?<=a.*)(?<=\W) to (?<=⊤*a.*&⊤*\W)
-                // | LookAround(node=node1;lookBack=true), LookAround(node=node2;lookBack=true;) ->
-                //     let combined = this.mkAnd([
-                //         this.mkConcat2(this.trueStar,node1)
-                //         this.mkConcat2(this.trueStar,node2)
-                //     ])
-                //     let v = this.mkLookaround(combined, true, 0, RefSet.empty)
-                //     _concatCache.Add(key, v)
-                //     v
+                | LookAround(node=node1;lookBack=true), Concat(head=LookAround(node=node2;lookBack=true;);tail=tail2) ->
+                    let combined = this.mkAnd([
+                        this.mkConcat2(this.trueStar,node1)
+                        this.mkConcat2(this.trueStar,node2)
+                    ])
+                    let v = this.mkLookaround(combined, true, 0, RefSet.empty)
+                    let v = this.mkConcat2(v, tail2)
+                    _concatCache.Add(key, v)
+                    v
+                // (?<=a.*)(?<=\W) to (?<=⊤*a.*&⊤*\W)
+                | LookAround(node=node1;lookBack=true), LookAround(node=node2;lookBack=true;) ->
+                    let combined = this.mkAnd([
+                        this.mkConcat2(this.trueStar,node1)
+                        this.mkConcat2(this.trueStar,node2)
+                    ])
+                    let v = this.mkLookaround(combined, true, 0, RefSet.empty)
+                    _concatCache.Add(key, v)
+                    v
                 // (?<=.*).* to .*
                 | LookAround(node=SingletonStarLoop(pred) as look;lookBack=true), other when refEq look tail ->
                     let v = tail
@@ -1485,6 +1486,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                     // (?=1)11 ==> (11&1⊤*)
                     | Singleton _ -> b.mkAnd([ remainingTail; b.mkConcat2(lookBody,b.trueStar) ])
                     | _ ->
+                        throwExn()
                         // (?=⊤*), this just carries the nullability info
                         let unboundedLook = b.mkLookaround(b.trueStar,false,0,RefSet.empty)
                         // a(?=⊤*)
@@ -1522,7 +1524,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                         let newNode = this.mkConcatResizeArray(ResizeArray(seq {yield! remainingHeads; newOr}))
                         rewrittenNode <- Some newNode
                     | _ ->
-                        ()
+                        throwExn()
                 else
                     throwExn()
             | _ -> ()

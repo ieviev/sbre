@@ -655,13 +655,14 @@ let rec mkNodeWithoutLookbackPrefix (b: RegexBuilder<_>) (node: RegexNode<_>) =
     | Begin
     | End -> Epsilon
     | Concat(head = LookAround(lookBack = true); tail = tail) -> mkNodeWithoutLookbackPrefix b tail
+    | Concat(head = head; tail = tail) when head.IsAlwaysNullable ->
+        let convertedTail = mkNodeWithoutLookbackPrefix b tail
+        b.mkConcat2(head,convertedTail)
     | Concat(head = head; tail = tail) ->
         let convertedHead = mkNodeWithoutLookbackPrefix b head
-        // nodes |> Seq.map (mkNodeWithoutLookbackPrefix b)
-        // |> Seq.toArray
         match convertedHead with
-        | Epsilon -> tail
-        | _ -> node
+        | Epsilon -> mkNodeWithoutLookbackPrefix b tail
+        | _ -> b.mkConcat2(convertedHead,tail)
     | Or(nodes = xs) -> xs |> Seq.map (mkNodeWithoutLookbackPrefix b) |> Seq.toArray |> b.mkOrSeq
     | And(nodes = xs)
     | Or(nodes = xs) -> xs |> Seq.map (mkNodeWithoutLookbackPrefix b) |> b.mkAnd
