@@ -1486,7 +1486,6 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                     // (?=1)11 ==> (11&1⊤*)
                     | Singleton _ -> b.mkAnd([ remainingTail; b.mkConcat2(lookBody,b.trueStar) ])
                     | _ ->
-                        throwExn()
                         // (?=⊤*), this just carries the nullability info
                         let unboundedLook = b.mkLookaround(b.trueStar,false,0,RefSet.empty)
                         // a(?=⊤*)
@@ -1523,6 +1522,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                         let remainingHeads = nodesCorrectOrder[..i-1]
                         let newNode = this.mkConcatResizeArray(ResizeArray(seq {yield! remainingHeads; newOr}))
                         rewrittenNode <- Some newNode
+                    // attempt adding more context to the lookaround
                     | Concat(head=chead;tail=ctail) ->
                         let remainingHeads = nodesCorrectOrder[..i-1]
                         let remainingTails = nodesCorrectOrder[i+1..]
