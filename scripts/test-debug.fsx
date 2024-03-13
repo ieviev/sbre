@@ -10,12 +10,16 @@ open Sbre.Types
 
 // let nodeInfo = RegexNodeInfo<TSet>()
 
-let regex = Sbre.Regex "(ab)+"
-let matcher = regex.TSetMatcher
+let pattern = @"(?i)^(application/json|[^;/ 	]+/[^;/ 	]+[+]json)[ 	]*(;.*)?$"
+let input = @"APPLİcaTIOn/JsOn"
 
-let match1 = 
-    regex.Matches("__abab__ab__")
-    |> Seq.toArray
+
+let ismatch1 = System.Text.RegularExpressions.Regex.IsMatch(input, pattern)
+
+let ismatch2 = Sbre.Regex(pattern).IsMatch(input)
+
+
+
     
 
     

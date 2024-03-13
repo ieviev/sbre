@@ -394,6 +394,12 @@ let assertIsMatch (pattern:string) (input:string)  =
     let regex = Regex(pattern)
     Assert.True(regex.IsMatch(input))
 
+let assertSameAsRuntime (pattern:string) (input:string)  =
+    let regex1 = Regex(pattern)
+    let regex2 = System.Text.RegularExpressions.Regex(pattern, System.Text.RegularExpressions.RegexOptions.CultureInvariant)
+    Assert.Equal(regex2.IsMatch(input),regex1.IsMatch(input))
+
+
 
 let assertAllLLmatches (pattern:string) (input:string) (expected) =
     let result =

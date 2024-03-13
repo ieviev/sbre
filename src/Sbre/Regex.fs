@@ -534,34 +534,25 @@ type RegexMatcher<
 
 #if OPTIMIZE
     let _initialOptimizations =
-        let opts =
-            Optimizations.findInitialOptimizations
-                (fun (mt,node) ->
-                    let mutable loc = Location.getNonInitial()
-                    _createDerivative(&loc,mt,node) )
-                (fun node -> _getOrCreateState(reverseTrueStarredNode,node,false).Id )
-                (fun node -> _getOrCreateState(reverseTrueStarredNode,node,false).Flags )
-                _cache reverseNode reverseTrueStarredNode
-        // let cannotUsePrefix =
-        //     match opts with
-        //     | InitialOptimizations.SetsPrefix(prefix=prefix)
-        //     | InitialOptimizations.SetsPotentialStart prefix ->
-        //         let chrs = _cache.MintermChars(prefix.Span[0])
-        //         chrs.IsNone
-        //     | _ -> false
-        // if cannotUsePrefix then InitialOptimizations.NoOptimizations else opts
-        opts
+        Optimizations.findInitialOptimizations
+            (fun (mt,node) ->
+                let mutable loc = Location.getNonInitial()
+                _createDerivative(&loc,mt,node) )
+            (fun node -> _getOrCreateState(reverseTrueStarredNode,node,false).Id )
+            (fun node -> _getOrCreateState(reverseTrueStarredNode,node,false).Flags )
+            _cache reverseNode reverseTrueStarredNode
     let _lengthLookup =
         Optimizations.inferLengthLookup (fun node -> _getOrCreateState(reverseTrueStarredNode,node,false).Id ) getNonInitialDerivative _cache _noprefix
+    let _regexOverride =
+        Optimizations.inferOverrideRegex _initialOptimizations _lengthLookup _cache R_canonical reverseNode
 #else
     let _initialOptimizations =
         InitialOptimizations<'t>.NoOptimizations
     let _lengthLookup =
         LengthLookup<'t>.MatchEnd
+    let _regexOverride = None
 #endif
 
-    let _regexOverride =
-        Optimizations.inferOverrideRegex _initialOptimizations _lengthLookup _cache R_canonical
 
     member this.IsMatchRev
         (
@@ -595,12 +586,13 @@ type RegexMatcher<
 
     override this.IsMatch(input) =
         let mutable loc = Location.createReversedSpan input
-        let mutable _toplevelOr = _cache.False
-        if not reverseTrueStarredNode.DependsOnAnchor then
-            this.IsMatchRev(&loc)
-        else
-        // ismatch with anchors is more complex than nullability
-        match this.llmatch_all_count_only(input) with
+        // this.IsMatchRev(&loc)
+        // if not reverseTrueStarredNode.DependsOnAnchor then
+        //     this.IsMatchRev(&loc)
+        // else
+        // // ismatch with anchors is more complex than nullability
+        let matches = this.llmatch_all(input)
+        match matches.size with
         | 0 -> false
         | _ -> true
 
@@ -804,7 +796,7 @@ type RegexMatcher<
         let mutable currentMax = -2
 
         while looping do
-            // let mutable dfaState = _stateArray[currentStateId]
+            let mutable dfaState = _stateArray[currentStateId]
             let flags = _flagsArray[currentStateId]
 
             if flags.IsDeadend then

@@ -219,7 +219,11 @@ let ``initialOptimizations 23``() =
         @"φ;φ;φ;φ" // important to avoid state space blowup
 
 [<Fact>]
-let ``initialOptimizations 24``() = assertSetsPrefix @"s;.;.;c"
+let ``initialOptimizations 24``() = assertSetsPrefix """c...&...s""" @"s;.;.;c"
+
+[<Fact>]
+let ``initialOptimizations 25``() = assertPotentialStart """.*have.*&.*there.*""" @"e;[erv];[aerv];[aehrv];.;.;.;.;."
+
 
 
 

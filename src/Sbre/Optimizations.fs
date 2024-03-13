@@ -124,17 +124,7 @@ let rec getPrefixNode
     | Concat(Loop(low = 0; up = Int32.MaxValue), tail, _) -> getPrefixNode cache tail
     | Concat(Loop(node = body; low = n; up = Int32.MaxValue), tail, _) ->
         cache.Builder.mkConcat2 (cache.Builder.mkLoop (body, n, n), tail)
-    | And(nodes, info) ->
-        node
-        // let updated =
-        //     nodes
-        //     |> Seq.map (fun v ->
-        //         match v with
-        //         | Not _ -> v
-        //         | _ -> getPrefixNodeAndComplement cache v
-        //     )
-        //     |> cache.Builder.mkAnd
-        // updated
+    | And(nodes, info) -> node
     | _ -> node
 
 
@@ -236,7 +226,6 @@ let rec calcPotentialMatchStart
                         |> Seq.collect id
                         |> Seq.map fst
                         |> Solver.mergeSets cache.Solver
-                        // |> Seq.fold (|||) cache.Solver.Empty
 
                     // let pretty =
                     //     prefixDerivsList
@@ -244,6 +233,7 @@ let rec calcPotentialMatchStart
                     //         cache.PrettyPrintMinterm(mt), node
                     //     ))
                     //     |> Seq.toArray
+                    // let prettymerged = cache.PrettyPrintMinterm(unbox merged_pred)
 
                     nodes.Clear()
 
@@ -353,8 +343,8 @@ let findInitialOptimizations
                                 Some(chrs.Span[0])
                             else
 
-                                let up c = Char.IsUpper c || Char.IsWhiteSpace c
-                                let low c = Char.IsLower c || Char.IsWhiteSpace c
+                                let up c = Char.IsUpper c
+                                let low c = Char.IsLower c
 
                                 if
                                     (chrs.Length = 2)
@@ -931,9 +921,11 @@ let inferOverrideRegex
     (lengthLookup: LengthLookup<'t>)
     (c: RegexCache<'t>)
     (node: RegexNode<'t>)
+    (reverseNode: RegexNode<'t>)
     : OverrideRegex option
     =
-    if node.DependsOnAnchor || node.HasZerowidthHead then
+    if node.DependsOnAnchor || node.HasZerowidthHead ||
+       reverseNode.DependsOnAnchor || reverseNode.HasZerowidthHead then
         None
     else
         match lengthLookup, initialOptimizations with

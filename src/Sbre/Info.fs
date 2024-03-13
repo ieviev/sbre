@@ -253,6 +253,32 @@ module Node =
             | Begin | End -> Some (0 + acc)
         loop 0 node
 
+    let rec getMaxLength (node: RegexNode<_>) =
+        let rec loop (acc:int) node : int option =
+            match node with
+            | Concat(head, tail, _) ->
+                loop acc head
+                |> Option.bind (fun headLen ->
+                    loop headLen tail
+                )
+            | Epsilon -> Some (0 + acc)
+            | Or(nodes, _) | And(nodes, _) ->
+                let lengths =
+                    nodes
+                    |> Seq.choose (loop 0)
+                    |> Seq.toArray
+                if lengths.Length < nodes.Count then None else
+                Some (acc + Array.max lengths)
+            | Singleton _ -> Some (1 + acc)
+            | Loop(Singleton _, _, up, _) ->
+                if up = Int32.MaxValue then None else
+                Some (up + acc)
+            | Loop _ -> None
+            | Not _ -> None
+            | LookAround _ -> Some (0 + acc)
+            | Begin | End -> Some (0 + acc)
+        loop 0 node
+
 
 
     let rec containsRecursive (orNodes:NodeSet<'t>) (node: RegexNode<'t>)  =

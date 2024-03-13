@@ -115,12 +115,28 @@ let toRight (b:RegexBuilder<BDD>) (css:CharSetSolver) (outer:RegexNode array) id
         let kind = determineWordBorderNodeKind b css false temp
         kind
 
+
+
+let getOuterRight b css (node:RegexNode) =
+    if isNull node.Parent.Parent then None else
+    let p2 = node.Parent
+    let p2outer = children2Seq node.Parent.Parent |> Seq.toArray
+    let p2index =
+        p2outer
+        |> Seq.findIndex (fun v -> obj.ReferenceEquals(v, p2))
+    toRight b css p2outer p2index
+
 let rewriteWordBorder (b:RegexBuilder<BDD>) (css:CharSetSolver) (outer:RegexNode array) (idx:int) (node: RegexNode) =
     let left = toLeft b css outer idx
     let right = toRight b css outer idx
     match left, right with
+    | Some false, Some true
+    | Some true, Some false -> b.uniques._eps // irrelevant word border
     | _, Some true -> b.anchors._nonWordLeft.Value // wordchar right
-    | _, Some false -> b.anchors._wordLeft.Value // nonwordright
+    | _, Some false ->
+        // if idx <> 0 then
+        //     raise (UnsupportedPatternException("inner word borders are not supported"))
+        b.anchors._wordLeft.Value // nonwordright
     | Some true, _   -> b.anchors._nonWordRight.Value // wordleft
     | Some false, _  -> b.anchors._wordRight.Value    // nonwordleft
     | _ ->
@@ -148,6 +164,8 @@ let convertToSymbolicRegexNode
     =
     let b = builder
 
+    let mkConcat = b.mkConcatChecked
+
     let rec loop
         (acc: Types.RegexNode<BDD> list)
         (node: RegexNode)
@@ -161,7 +179,7 @@ let convertToSymbolicRegexNode
                 let allrewritten =
                     inner
                     |> Seq.map (convertAdjacent adjacent idx)
-                    |> Seq.map b.mkConcat
+                    |> Seq.map mkConcat
                     |> b.mkOrSeq
                 [allrewritten]
             | RegexNodeKind.Boundary ->
@@ -201,7 +219,7 @@ let convertToSymbolicRegexNode
         | RegexNodeKind.Multi -> (node.Str |> Seq.map b.one |> Seq.toList) @ acc
         | RegexNodeKind.Lazyloop
         | RegexNodeKind.Loop ->
-            let inner = b.mkConcat (convertChildren node)
+            let inner = mkConcat (convertChildren node)
             let current = b.mkLoop (inner, node.M, node.N)
             current :: acc
         | RegexNodeKind.Alternate ->
@@ -211,11 +229,11 @@ let convertToSymbolicRegexNode
                 node
                 |> children2Seq
                 |> Seq.map (convertAdjacent adjacent ownIndex)
-                |> Seq.map b.mkConcat
+                |> Seq.map mkConcat
             builder.mkOrSeq children2 :: acc
         | RegexNodeKind.Conjunction ->
             let children2 =
-                node |> children2Seq |> Seq.map convertSingle |> Seq.map b.mkConcat
+                node |> children2Seq |> Seq.map convertSingle |> Seq.map mkConcat
 
             builder.mkAnd children2 :: acc
 
@@ -224,10 +242,10 @@ let convertToSymbolicRegexNode
             inner @ acc
         | RegexNodeKind.Capture ->
             if node.N = -1 then
-                convertConcat node |> b.mkConcat |> List.singleton
+                convertConcat node |> mkConcat |> List.singleton
             else
                 if node.Options.HasFlag(RegexOptions.Negated) then
-                    let inner = convertConcat node |> b.mkConcat
+                    let inner = convertConcat node |> mkConcat
                     b.mkNot(inner)
                     :: acc
                 else
@@ -268,7 +286,7 @@ let convertToSymbolicRegexNode
             b.mkLoop (b.one bdd, node.M, node.N) :: acc
         | RegexNodeKind.Empty -> acc
         | RegexNodeKind.PositiveLookaround ->
-            let conc = b.mkConcat (convertConcat node)
+            let conc = mkConcat (convertConcat node)
             builder.mkLookaround(conc,node.Options.HasFlag(RegexOptions.RightToLeft), 0, RefSet.empty)
             :: acc
         | RegexNodeKind.NegativeLookaround ->
@@ -276,7 +294,7 @@ let convertToSymbolicRegexNode
             failwith $"negative lookarounds not supported: {node}"
 #else
             let lookBack = node.Options.HasFlag(RegexOptions.RightToLeft)
-            let lookBody = b.mkConcat (convertChildren node)
+            let lookBody = mkConcat (convertChildren node)
             let rewrittenLookaround = rewriteNegativeLookaround b lookBack lookBody
             rewrittenLookaround
             :: acc
@@ -285,5 +303,5 @@ let convertToSymbolicRegexNode
 
     let result = loop [] rootNode
 
-    // result |> List.rev |> b.mkConcat
-    result |> List.rev |> b.mkConcat
+    // result |> List.rev |> mkConcat
+    result |> List.rev |> mkConcat

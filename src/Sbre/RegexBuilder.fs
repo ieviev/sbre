@@ -303,8 +303,8 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 up = Int32.MaxValue,
                 info = _createInfo RegexNodeFlags.None solver.Full RefSet.empty
             )
-        _wordChar = lazy b.setFromStr @"\w"
-        _nonWordChar = lazy b.setFromStr @"\W"
+        _wordChar = lazy b.setFromCharClass(RegexCharClass.WordClass)
+        _nonWordChar = lazy b.setFromCharClass(RegexCharClass.NotWordClass)
         _zAnchor = RegexNode<'t>.End
         _aAnchor = RegexNode<'t>.Begin
     |}
@@ -318,7 +318,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
         let nonWordLeft =
             lazy
                 let body = b.mkOr2(RegexNode<'t>.Begin, _uniques._nonWordChar.Value)
-                b.mkLookaround(body ,true, 0, RefSet.empty)
+                b.mkLookaround(body ,lookBack=true, rel=0, pendingNullable=RefSet.empty)
 
         let wordLeft =
             lazy
@@ -374,9 +374,8 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                     // b.mkOr(ofSeq [ b.mkConcat c1; b.mkConcat c2 ])
 
             _wordBorder =
-
                     lazy
-                        failwith "w"
+                        failwith "todo: unhandled branch"
                         b.mkOrSeq(
                         [|
                             b.mkConcat2(nonWordLeft.Value, wordRight.Value)
@@ -1079,6 +1078,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
 
 
     member this.setFromStr(setPattern: string) =
+
         let tree =
             RegexParser.Parse(
                 setPattern,
@@ -1088,6 +1088,11 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
 
         let setStr = tree.Root.Child(0).Str
         let bdd = converter.CreateBDDFromSetString(setStr)
+        let converted = solver.ConvertFromBDD(bdd, bcss)
+        this.one converted
+
+    member this.setFromCharClass(setClass: string) =
+        let bdd = converter.CreateBDDFromSetString(setClass)
         let converted = solver.ConvertFromBDD(bdd, bcss)
         this.one converted
 
@@ -1126,34 +1131,34 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                     if Solver.containsS solver p1 p2 then head
                     elif Solver.containsS solver p2 p1 then tail
                     else createCached(head,tail)
-                | SingletonStarLoop(p1), Concat(head=SingletonStarLoop(p2);tail=ctail) ->
+                | SingletonStarLoop(p1), Concat(head=SingletonStarLoop(p2) as thead;tail=ctail) ->
                     if Solver.containsS solver p1 p2 then this.mkConcat2(head,ctail)
-                    elif Solver.containsS solver p2 p1 then this.mkConcat2(tail,ctail)
+                    elif Solver.containsS solver p2 p1 then this.mkConcat2(thead,ctail)
                     else createCached(head,tail)
                 // normalize
                 | Concat(head=h1;tail=h2), tail ->
                     let merged = this.mkConcat2(h1,this.mkConcat2(h2,tail))
                     _concatCache.Add(key, merged)
                     merged
-                // (?<=a.*)(?<=\W)aa to (?<=⊤*a.*&⊤*\W)aa
-                | LookAround(node=node1;lookBack=true), Concat(head=LookAround(node=node2;lookBack=true;);tail=tail2) ->
-                    let combined = this.mkAnd([
-                        this.mkConcat2(this.trueStar,node1)
-                        this.mkConcat2(this.trueStar,node2)
-                    ])
-                    let v = this.mkLookaround(combined, true, 0, RefSet.empty)
-                    let v = this.mkConcat2(v, tail2)
-                    _concatCache.Add(key, v)
-                    v
-                // (?<=a.*)(?<=\W) to (?<=⊤*a.*&⊤*\W)
-                | LookAround(node=node1;lookBack=true), LookAround(node=node2;lookBack=true;) ->
-                    let combined = this.mkAnd([
-                        this.mkConcat2(this.trueStar,node1)
-                        this.mkConcat2(this.trueStar,node2)
-                    ])
-                    let v = this.mkLookaround(combined, true, 0, RefSet.empty)
-                    _concatCache.Add(key, v)
-                    v
+                // // (?<=a.*)(?<=\W)aa to (?<=⊤*a.*&⊤*\W)aa
+                // | LookAround(node=node1;lookBack=true), Concat(head=LookAround(node=node2;lookBack=true;);tail=tail2) ->
+                //     let combined = this.mkAnd([
+                //         this.mkConcat2(this.trueStar,node1)
+                //         this.mkConcat2(this.trueStar,node2)
+                //     ])
+                //     let v = this.mkLookaround(combined, true, 0, RefSet.empty)
+                //     let v = this.mkConcat2(v, tail2)
+                //     _concatCache.Add(key, v)
+                //     v
+                // // (?<=a.*)(?<=\W) to (?<=⊤*a.*&⊤*\W)
+                // | LookAround(node=node1;lookBack=true), LookAround(node=node2;lookBack=true;) ->
+                //     let combined = this.mkAnd([
+                //         this.mkConcat2(this.trueStar,node1)
+                //         this.mkConcat2(this.trueStar,node2)
+                //     ])
+                //     let v = this.mkLookaround(combined, true, 0, RefSet.empty)
+                //     _concatCache.Add(key, v)
+                //     v
                 // (?<=.*).* to .*
                 | LookAround(node=SingletonStarLoop(pred) as look;lookBack=true), other when refEq look tail ->
                     let v = tail
@@ -1391,26 +1396,152 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             combined
 
 
-    /// TODO:
-    /// additional checks if the pattern is supported
-    member this.mkConcatChecked(nodesCorrectOrder: RegexNode< 't > list) : RegexNode< 't > =
-        raise (NotImplementedException())
-        // match nodesCorrectOrder with
-        // | [] -> Epsilon
-        // | [ x ] -> x
-        // | [ head; tail ] -> this.mkConcat2 (head, tail)
-        // | rest ->
-        //     let combined =
-        //         rest
-        //         |> Seq.rev
-        //         |> Seq.fold
-        //             (fun acc v ->
-        //                 match acc with
-        //                 | Epsilon -> v
-        //                 | _ -> this.mkConcat2 (v, acc)
-        //             )
-        //             Epsilon
-        //     combined
+    /// additional rewrites and checks if the pattern is supported
+    member this.mkConcatChecked(nodesCorrectOrder: RegexNode< 't > seq) : RegexNode< 't > =
+        let nodesCorrectOrder = Seq.toArray nodesCorrectOrder
+
+        let len = nodesCorrectOrder.Length
+        match nodesCorrectOrder.Length with
+        | 0 -> Epsilon
+        | 1 -> nodesCorrectOrder[0]
+        | _ ->
+        match nodesCorrectOrder[len-2],nodesCorrectOrder[len-1] with
+        // merge suffixes
+        | LookAround(node=node1;lookBack=false), LookAround(node=node2;lookBack=false) ->
+            let combined = this.mkAnd([
+                this.mkConcat2(node1,this.trueStar)
+                this.mkConcat2(node2,this.trueStar)
+            ])
+            let mergedSuffix = this.mkLookaround(combined, false, 0, RefSet.empty)
+            let leftSide = nodesCorrectOrder[..len-3]
+            this.mkConcatChecked(seq{ yield! leftSide; mergedSuffix })
+        | _ ->
+        match nodesCorrectOrder[0],nodesCorrectOrder[1] with
+        // merge prefixes
+        | LookAround(node=node1;lookBack=true), LookAround(node=node2;lookBack=true) ->
+            let combined = this.mkAnd([
+                this.mkConcat2(this.trueStar,node1)
+                this.mkConcat2(this.trueStar,node2)
+            ])
+            let mergedPrefix = this.mkLookaround(combined, true, 0, RefSet.empty)
+            this.mkConcatChecked(seq{ mergedPrefix; yield! nodesCorrectOrder[2..] })
+        | _ ->
+
+        let mutable rewrittenNode = None
+
+        let throwExn() =
+            raise (UnsupportedPatternException("this pattern contains currently unsupported anchors/lookarounds"))
+
+        for i = 0 to nodesCorrectOrder.Length - 1 do
+            let curr = nodesCorrectOrder[i]
+            if rewrittenNode.IsSome then () else
+            match curr with
+            // rewrite lookbacks
+            | LookAround(node=lookBody;lookBack=true) ->
+                // if prefix do nothing
+                if i = 0 then () else
+                let maxLookbackLength = Node.getMaxLength lookBody
+                match maxLookbackLength with
+                | Some 1 ->
+                    let leftNodes = nodesCorrectOrder[..i-1]
+                    let minleft =
+                        leftNodes
+                        |> Seq.fold (fun acc node ->
+                            acc
+                            |> Option.bind (fun n ->
+                                Node.getMaxLength node |> Option.map (fun v ->
+                                    v + n
+                                )
+                            )
+                        ) (Some 0)
+                    match minleft with
+                    | Some n when n >= 1 ->
+                        // merge left
+                        let leftSide = b.mkConcatResizeArray(ResizeArray(leftNodes))
+                        let look = b.mkConcat2(b.trueStar,lookBody)
+                        let remainingTails = b.mkConcatChecked(nodesCorrectOrder[i+1..])
+                        let newNode =
+                            b.mkConcat2(
+                                b.mkAnd(seq{leftSide;look}),
+                                remainingTails
+                            )
+                        rewrittenNode <- Some newNode
+
+
+                    | _ ->
+
+                        throwExn()
+                | _ ->
+                    throwExn()
+            // rewrite lookaheads
+            | LookAround(node=lookBody;lookBack=false) ->
+                // if suffix do nothing
+                if i + 1 = nodesCorrectOrder.Length then () else
+
+                let remainingTail = b.mkConcatChecked(nodesCorrectOrder[i+1..])
+
+                let rewrite =
+                    match lookBody with
+                    // (?=1)11 ==> (11&1⊤*)
+                    | Singleton _ -> b.mkAnd([ remainingTail; b.mkConcat2(lookBody,b.trueStar) ])
+                    | _ ->
+                        // (?=⊤*), this just carries the nullability info
+                        let unboundedLook = b.mkLookaround(b.trueStar,false,0,RefSet.empty)
+                        // a(?=⊤*)
+                        let case1 = b.mkConcat2(remainingTail, unboundedLook)
+                        // [a-z]⊤*
+                        let case2 = b.mkConcat2(lookBody,b.trueStar)
+
+                        let v = b.mkAnd([
+                            case1
+                            case2
+                        ])
+                        v
+                let newNode =
+                    b.mkConcatChecked(seq {
+                        yield! nodesCorrectOrder[..i-1]
+                        rewrite
+                    })
+
+                rewrittenNode <- Some newNode
+
+            | _ when curr.ContainsLookaround ->
+                // must rewrite prefix or suffix
+                if curr.HasPrefixOrSuffix then
+                    match curr with
+                    // attempt combining every or branch
+                    | Or(nodes=nodes) ->
+                        let remainingTails = nodesCorrectOrder[i+1..]
+                        let nodesWithTails =
+                            [|
+                                for node in nodes do
+                                    this.mkConcatChecked(seq {node; yield! remainingTails})
+                            |]
+                        let newOr = this.mkOrSeq(nodesWithTails)
+                        let remainingHeads = nodesCorrectOrder[..i-1]
+                        let newNode = this.mkConcatResizeArray(ResizeArray(seq {yield! remainingHeads; newOr}))
+                        rewrittenNode <- Some newNode
+                    | _ ->
+                        ()
+                else
+                    throwExn()
+            | _ -> ()
+
+        match rewrittenNode with
+        | Some rewritten -> rewritten
+        | _ ->
+
+            let combined =
+                nodesCorrectOrder
+                |> Seq.rev
+                |> Seq.fold
+                    (fun acc v ->
+                        match acc with
+                        | Epsilon -> v
+                        | _ -> this.mkConcat2 (v, acc)
+                    )
+                    Epsilon
+            combined
 
 
     member this.mkConcatResizeArray(nodesCorrectOrder: RegexNode< 't >ResizeArray) : RegexNode< 't > =

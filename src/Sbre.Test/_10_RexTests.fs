@@ -1,6 +1,8 @@
 [<Xunit.Collection("Sequential")>]
 module Sbre.Test._10_RexTests
 
+open System.Globalization
+open System.Text.RuntimeRegexCopy
 open Sbre
 open Sbre.Benchmarks.Jobs
 open Sbre.Types
@@ -24,7 +26,8 @@ let testSamplesRange (samples:Provider.Root seq) =
             try Some (Regex(pattern))
             with e -> None
 
-        let runtime = System.Text.RegularExpressions.Regex(pattern)
+        let runtime = System.Text.RegularExpressions.Regex(pattern, System.Text.RegularExpressions.RegexOptions.CultureInvariant)
+
         match matcher with
         | None ->
             () // unsupported
@@ -34,7 +37,7 @@ let testSamplesRange (samples:Provider.Root seq) =
                     let result = matcher.IsMatch(isMatch)
                     let result2 = runtime.IsMatch(isMatch)
                     if result <> result2 then
-                        failedSamples.Add($"{pattern}; {isMatch}; sbre {result}, dotnet {result2}")
+                        failedSamples.Add($"pat:{pattern}; input:{isMatch}; sbre {result}, dotnet {result2}")
                     // Assert.True((result = result2), $"should be the same: {pattern}\n{isMatch}\nmyregex:{result} = runtime:{result2}")
                 with e ->
                     Assert.True(false, $"exception in \n{pattern}\n{isMatch}\n{e.Message}")
@@ -42,21 +45,21 @@ let testSamplesRange (samples:Provider.Root seq) =
             failwith
                 (failedSamples |> String.concat "\n")
 
-//
-// [<Fact>]
-// let ``rex 01`` () =
-//     __SOURCE_DIRECTORY__ + "/data/rex-realworld-1.json"
-//     |> System.IO.File.ReadAllText
-//     |> Provider.ParseList
-//     |> testSamplesRange
-//
-//
-// [<Fact>]
-// let ``rex 02`` () =
-//     __SOURCE_DIRECTORY__ + "/data/rex-realworld-2.json"
-//     |> System.IO.File.ReadAllText
-//     |> Provider.ParseList
-//     |> testSamplesRange
+
+[<Fact>]
+let ``rex 01`` () =
+    __SOURCE_DIRECTORY__ + "/data/rex-realworld-1.json"
+    |> System.IO.File.ReadAllText
+    |> Provider.ParseList
+    |> testSamplesRange
+
+
+[<Fact>]
+let ``rex 02`` () =
+    __SOURCE_DIRECTORY__ + "/data/rex-realworld-2.json"
+    |> System.IO.File.ReadAllText
+    |> Provider.ParseList
+    |> testSamplesRange
 
 
 #endif

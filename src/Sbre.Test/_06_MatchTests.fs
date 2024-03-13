@@ -699,5 +699,72 @@ sdf
     ]
 
 
+//
+[<Fact>]
+let ``rex sample 1.1``() =
+    assertIsMatch
+        "android-ndk-r(?<ver>\d+)(?<tag>\w*)-\w*"
+        @"㏨android-ndk-r᪈-"
+
+
+[<Fact>]
+let ``rex sample 1.2``() =
+    assertMatchEnd
+        "1+\w*-\w*"
+        @"1-"
+        0 2
+
+
+[<Fact>]
+let ``rex sample 2.1``() =
+    assertIsMatch
+        @"(?<keep>[^aeiou])ies$"
+        @"솱ies"
+
+[<Fact>]
+let ``rex sample 2.2``() =
+    assertIsMatch
+        @"[^aeiou]ies$"
+        @"솱ies"
+
+[<Fact>]
+let ``rex sample 2.3``() =
+    assertMatchEnd
+        @"[^aeiou]ies$"
+        @"솱ies"
+        0 4
+
+[<Fact>]
+let ``rex sample 3.1``() =
+    assertSameAsRuntime
+        @"
+[ 	]"
+        @"║
+ 㩜昏"
+
+[<Fact>]
+let ``rex sample 3.2``() =
+    assertIsMatch
+        @"
+[ 	]"
+        @"║
+ 㩜昏"
+
+
+
+[<Fact>]
+let ``rex sample 4.1``() =
+    assertIsMatch
+        @"((a\b|na)\s+qqqq)"
+        @"a qqqq"
+
+[<Fact>]
+let ``rex sample 4.2``() =
+    assertIsMatch
+        @"([àa]\b\s+qqqq)"
+        @"à qqqq"
+
+
+
 
 #endif
