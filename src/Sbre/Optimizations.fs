@@ -72,9 +72,9 @@ let printPrefixSets (cache: RegexCache<_>) (sets: uint64 list) =
     )
     |> String.concat ";"
 
-let printPrettyDerivs (cache: RegexCache<_>) (derivs) =
+let printPrettyDerivs (cache: RegexCache<'t>) (derivs:('t*'a)[]) =
     derivs
-    |> (Array.map (fun (mt, node) -> $"{cache.PrettyPrintMinterm(mt), -13} ==> {node.ToString()}"))
+    |> (Array.map (fun (mt, node) -> $"{cache.PrettyPrintMinterm(unbox mt), -13} ==> {node.ToString()}"))
     |> String.concat "\n"
     |> (fun v -> "\n" + v)
 #endif
@@ -453,7 +453,7 @@ let findInitialOptimizations
 
 
 let tryGetLimitedSkip
-    getNonInitialDerivative
+    (getNonInitialDerivative:'t * RegexNode<_> -> RegexNode<_>)
     (getStateFlags: RegexNode<_> -> RegexStateFlags)
     (nodeToId: RegexNode<'t> -> int)
     (getStartset: RegexNode<_> -> 't)
@@ -655,16 +655,43 @@ let tryGetLimitedSkip
 
 let findActiveBranchOptimizations
     (options:SbreOptions)
-    getNonInitialDerivative
+    (getNonInitialDerivative:'t * RegexNode<_> -> RegexNode<_>)
     (nodeToId: RegexNode<'t> -> int)
     (nodeToStateFlags: RegexNode<'t> -> RegexStateFlags)
     (c: RegexCache<'t>)
     (node: RegexNode<'t>)
-    (trueStarredNode: RegexNode<'t>)
     =
-        let a = 1
-        failwith "todo"
-        ActiveBranchOptimizations.NoOptimizations
+        raise (NotImplementedException())
+        // let minterms = c.Minterms()
+        //
+        // let derivatives =
+        //     minterms
+        //     |> Array.map (fun minterm ->
+        //         getNonInitialDerivative(minterm,node)
+        //     )
+        //
+        // let ders = Array.zip minterms derivatives
+        // let pretty = Optimizations.printPrettyDerivs c ders
+        //
+        // // todo: lots of potential here
+        //
+        // let condition = (fun d ->
+        //     match d with
+        //     | LookAround(node=dnode) ->
+        //         not (refEq dnode node)
+        // )
+        //
+        // let startsetPredicate =
+        //     Seq.zip minterms derivatives
+        //     |> Seq.where (fun (_, d) -> condition d)
+        //     |> Seq.map fst
+        //     |> Solver.mergeSets c.Solver
+        //
+        //
+        //
+        // let a = 1
+        // failwith "todo"
+        // ActiveBranchOptimizations.NoOptimizations
 
 let rec mkNodeWithoutLookbackPrefix (b: RegexBuilder<_>) (node: RegexNode<_>) =
     match node with

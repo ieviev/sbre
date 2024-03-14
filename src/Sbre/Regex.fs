@@ -488,6 +488,21 @@ type RegexMatcher<
                 | _ ->
                     ()
 
+            // attempt find active optimizations
+            // match node with
+            // | LookAround(lookBack=false) when not state.Flags.CanSkip ->
+            //     let dbg = 1
+            //     let activeOpts =
+            //         Optimizations.findActiveBranchOptimizations
+            //             options
+            //             getNonInitialDerivative
+            //             (fun v -> _getOrCreateState(revTruestar,v,false).Id )
+            //             (fun v -> _getOrCreateState(revTruestar,v,false).Flags )
+            //             _cache
+            //             node
+            //     ()
+            // | _ -> ()
+
             if node.ContainsLookaround && node.CanBeNullable && not isInitial then
                 state.PendingNullablePositions <- node.PendingNullables.inner |> Seq.toArray |> Memory
                 if state.PendingNullablePositions.Length > 0 then
@@ -976,39 +991,40 @@ type RegexMatcher<
 
 
     member this.TrySkipActiveRev(flags:RegexStateFlags,loc:byref<Location>, currentStateId:byref<int>, acc: byref<SharedResizeArrayStruct<int>>) : bool =
-        let dfaState = _stateArray[currentStateId]
+            let dfaState = _stateArray[currentStateId]
+
         // if loc.Position = 0 then false else
-        if flags.HasActiveBranchOptimizations then
-            match dfaState.ActiveOptimizations with
-            | ActiveBranchOptimizations.PossibleStringPrefix(prefix,transId) ->
-                let limitedSlice = loc.Input.Slice(0, loc.Position)
-                let pspan = prefix.Span
-                if limitedSlice.EndsWith(pspan) then
-                    loc.Position <- loc.Position - pspan.Length
-                    currentStateId <- transId
-                    true
-                else
-                    false
-            // this is buggy
-            | LimitedSkip _ -> false
-            // | LimitedSkip(distance, termPred, termTransitionId, nonTermTransitionId) ->
-            //     if distance > loc.Position then // no more matches
-            //         loc.Position <- Location.final loc
-            //         false
-            //     else
-            //     let limitedSlice = loc.Input.Slice(loc.Position - distance, distance)
-            //     match limitedSlice.LastIndexOfAny(termPred) with
-            //     | -1 ->
-            //         loc.Position <- loc.Position - distance
-            //         currentStateId <- nonTermTransitionId
-            //         true
-            //     | idx ->
-            //         let newPos = loc.Position - distance + idx
-            //         loc.Position <- newPos
-            //         currentStateId <- termTransitionId
-            //         true // mark nullable
-            | NoOptimizations -> false
-        else
+        // if flags.HasActiveBranchOptimizations then
+        //     match dfaState.ActiveOptimizations with
+        //     | ActiveBranchOptimizations.PossibleStringPrefix(prefix,transId) ->
+        //         let limitedSlice = loc.Input.Slice(0, loc.Position)
+        //         let pspan = prefix.Span
+        //         if limitedSlice.EndsWith(pspan) then
+        //             loc.Position <- loc.Position - pspan.Length
+        //             currentStateId <- transId
+        //             true
+        //         else
+        //             false
+        //     // this is buggy
+        //     | LimitedSkip _ -> false
+        //     // | LimitedSkip(distance, termPred, termTransitionId, nonTermTransitionId) ->
+        //     //     if distance > loc.Position then // no more matches
+        //     //         loc.Position <- Location.final loc
+        //     //         false
+        //     //     else
+        //     //     let limitedSlice = loc.Input.Slice(loc.Position - distance, distance)
+        //     //     match limitedSlice.LastIndexOfAny(termPred) with
+        //     //     | -1 ->
+        //     //         loc.Position <- loc.Position - distance
+        //     //         currentStateId <- nonTermTransitionId
+        //     //         true
+        //     //     | idx ->
+        //     //         let newPos = loc.Position - distance + idx
+        //     //         loc.Position <- newPos
+        //     //         currentStateId <- termTransitionId
+        //     //         true // mark nullable
+        //     | NoOptimizations -> false
+        // else
             let tmp_loc = loc.Position
             _cache.TryNextStartsetLocationRightToLeft(
                 &loc,
