@@ -438,6 +438,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
     // let _or_values = ResizeArray()
 
 
+    member this.truePlus = _uniques._truePlus
     member this.trueStar = _uniques._trueStar
     member this.uniques = _uniques
     member this.anchors = _anchors
@@ -1481,23 +1482,33 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
 
                 let remainingTail = b.mkConcatChecked(nodesCorrectOrder[i+1..])
 
+                let lookMaxLength = Node.getMaxLength lookBody
+
+                match lookMaxLength with
+                | None -> raise (
+                    UnsupportedPatternException(
+                        "unconstrained lookarounds are only supported as prefixes/suffixes"))
+                | Some lookMaxLength ->
+
+                let remainingTailMinLength = Node.getMinLength remainingTail
+
+                let w = 1
+
                 let rewrite =
                     match lookBody with
                     // (?=1)11 ==> (11&1⊤*)
                     | Singleton _ -> b.mkAnd([ remainingTail; b.mkConcat2(lookBody,b.trueStar) ])
                     | _ ->
-                        // (?=⊤*), this just carries the nullability info
-                        let unboundedLook = b.mkLookaround(b.trueStar,false,0,RefSet.empty)
-                        // a(?=⊤*)
-                        let case1 = b.mkConcat2(remainingTail, unboundedLook)
-                        // [a-z]⊤*
-                        let case2 = b.mkConcat2(lookBody,b.trueStar)
-
-                        let v = b.mkAnd([
-                            case1
-                            case2
+                        // case 1, lookaround body is within match range
+                        let case1 = b.mkAnd([
+                            b.mkConcat2(remainingTail,b.trueStar)
+                            b.mkConcat2(lookBody,b.trueStar)
                         ])
-                        v
+
+                        // let case3 =
+                        //     b.mkNot(b.mkConcat2(remainingTail,b.trueStar))
+                        case1
+                        // case2
                 let newNode =
                     b.mkConcatChecked(seq {
                         yield! nodesCorrectOrder[..i-1]

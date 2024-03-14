@@ -251,19 +251,25 @@ let ``unsupported 09``() =
         @"φ*(mittag|(in der )?nacht)s?"
     ]
 
-[<Fact>] // semantic difference for performance!
+[<Fact>]
 let ``unsupported 10``() =
     let pattern = """\d(?=.*a)\d\d"""
     let input = "123___a"
-    assertNoMatch pattern input
+    assertIsMatch pattern input
 
 [<Fact>]
 let ``unsupported 11``() =
     let pattern = """\d(?=.*a)\d.\d"""
     let input = "12a3___"
     assertFirstMatchText pattern input "12a3"
-    // printAllDerivatives pattern input []
 
+[<Fact>]
+let ``unsupported 12``() =
+    let pattern = """\d(?=.*a)\d.\d"""
+    let input = "12_3a___"
+    assertFirstMatchText pattern input "12_3"
+
+//
 
 //
 [<Fact>]
@@ -363,6 +369,16 @@ let ``rex sample 6.1``() =
     assertIsMatch
         @"\A(?:(?:http|https):\/\/)?([-a-zA-Z0-9.]{2,256}\.[a-z]{2,4})\b(?:\/[-a-zA-Z0-9@:%_\+.\~#?\&//=]*)?"
         @"http://hGy8s.wzzu�䪦൯"
+
+
+
+[<Fact>]
+let ``rex sample 6.2``() =
+    assertIsMatch
+        @"([-a-zA-Z0-9.]{2,}\.[a-z]{2,4})\b(?:\/[-a-zA-Z0-9@:%_\+.\~#?\&//=]*)?"
+        @"http://hGy8s.wzzu�䪦൯"
+
+
 
 
 

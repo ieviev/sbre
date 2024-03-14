@@ -15,15 +15,17 @@ let ctx = Provider.GetSamples()
 
 let regexlibSamples = Provider.GetSamples()
 
-let escapeNegConj (str:string) = str.Replace("&",@"\&").Replace("~",@"\~")
+let escapeNegConj (str:string) =
+    System.Text.RegularExpressions.Regex.Replace(str,@"(?<!\\)[&~]|(?<=\\\\)[&~]", "\$0")
+    // str.Replace("&",@"\&").Replace("~",@"\~")
 let testSamplesRange (samples:Provider.Root seq) =
     let failedSamples = ResizeArray()
     for entry in samples do
         let pattern = entry.Pattern
         // escape ~ and & in pattern
-        let pattern = escapeNegConj pattern
+        let escapedPattern = escapeNegConj pattern
         let matcher =
-            try Some (Regex(pattern))
+            try Some (Regex(escapedPattern))
             with e -> None
 
         let runtime =
@@ -48,14 +50,14 @@ let testSamplesRange (samples:Provider.Root seq) =
             failwith
                 (failedSamples |> String.concat "\n")
 
-
+//
 // [<Fact>]
 // let ``rex 01`` () =
 //     __SOURCE_DIRECTORY__ + "/data/rex-realworld-1.json"
 //     |> System.IO.File.ReadAllText
 //     |> Provider.ParseList
 //     |> testSamplesRange
-//
+
 //
 // [<Fact>]
 // let ``rex 02`` () =

@@ -280,6 +280,15 @@ module Node =
         loop 0 node
 
 
+    let rec getMinLengthSeq (nodeSeq: RegexNode<_> seq) =
+        nodeSeq
+        |> Seq.fold (fun acc node ->
+            acc
+            |> Option.bind (fun n ->
+                getMinLength node |> Option.map (fun v -> v + n )
+            )
+        ) (Some 0)
+
 
     let rec containsRecursive (orNodes:NodeSet<'t>) (node: RegexNode<'t>)  =
         if orNodes.Contains(node) then true else
