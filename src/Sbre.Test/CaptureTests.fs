@@ -389,7 +389,41 @@ let ``rex sample 6.2``() =
         @"http://hGy8s.wzzu�䪦൯"
 
 
+[<Fact>]
+let ``rex sample 7.1``() =
+    assertIsMatch
+        @"\(?\b([0-9]{3})\)?[\s]?[-.●]?[\s]?([0-9]{3})[\s]?[-.●]?[\s]?([0-9]{4})\b"
+        @"�988)　602 5891꓏엩"
 
+[<Fact>]
+let ``rex sample 7.2``() =
+    assertIsMatch
+        @"\(?\b([0-9]{3})\)?[\s]?[-.●]?[\s]?([0-9]{3})[\s]?"
+        @"�988)　602 5891꓏엩"
+
+[<Fact>]
+let ``rex sample 7.3``() =
+    assertIsMatch
+        @"\(?\b([0-9]{3})\)?[\s]?[-.●]?[\s]?"
+        @"�988)　602 5891꓏엩"
+
+[<Fact>]
+let ``rex sample 8.1``() =
+    assertIsMatch
+        @"((ht|f)tp(s?)\:\/\/|www\.)[-a-zA-Z0-9@:%._\+~#=]{1,256}\.(?<Tld>[a-zA-Z0-9()]{1,6})\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)"
+        @"ftps://Z.)꼑"
+
+[<Fact>]
+let ``rex sample 8.2``() =
+    assertIsMatch
+        @"[-a-zA-Z0-9@:%._\+~#=]{1,256}\.(?<Tld>[a-zA-Z0-9()]{1,6})\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)"
+        @"Z.)꼑"
+
+[<Fact>]
+let ``rex sample 9.1``() =
+    assertIsMatch
+        @"\b(da(l(l[oae'])?|i|gli)?).+(a(l(l[oae'])?|i|gli)?)\b.+"
+        @"dal㰞赉all'䬷⹺쇉"
 
 
 #endif

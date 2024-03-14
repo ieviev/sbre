@@ -1399,6 +1399,46 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             head :: this.collectConcatNodes(tail)
         | _ -> [node]
 
+
+
+    member this.attemptRewriteCommonLookahead(lookahead,remainingTail) =
+        // let lookType1 = refEq lookahead _anchors._nonWordRight.Value
+        // let lookType2 = refEq lookahead _anchors._wordRight.Value
+        // let lookType3 = refEq lookahead _anchors._nonWordLeft.Value
+        // let lookType4 = refEq lookahead _anchors._wordLeft.Value
+
+        match lookahead, remainingTail with
+        // rewriting common word border uses
+        | lookahead, SingletonStarLoop(_) when refEq lookahead _anchors._nonWordRight.Value ->
+            let newNode = b.mkConcat2(b.uniques._nonWordChar.Value,remainingTail)
+            Some (b.mkLoop(newNode,0,1))
+        | lookahead, Loop(node=Singleton _ as loopBody;low=1;up=Int32.MaxValue) when refEq lookahead _anchors._nonWordRight.Value ->
+            let newNode = b.mkConcat2(b.uniques._nonWordChar.Value,b.mkLoop(loopBody,0,Int32.MaxValue))
+            Some (b.mkLoop(newNode,0,1))
+        // \b\s+abc
+        | lookahead, Concat(_) when refEq lookahead _anchors._nonWordRight.Value ->
+            Some(b.mkAnd(seq {
+               b.mkConcat2(b.uniques._nonWordChar.Value, b.trueStar)
+               remainingTail
+            }))
+        // \b(/[abc]*)
+        | lookahead, Loop(node=Concat(head=Singleton p) as loopBody;low=0;up=_) when refEq lookahead _anchors._nonWordRight.Value ->
+            let case1 = lookahead // \b
+            let case2 =  // /abc
+                b.mkAnd(seq {
+               b.mkConcat2(b.uniques._nonWordChar.Value, b.trueStar)
+               remainingTail
+            })
+            Some(b.mkOr2(case1, case2))
+
+        | LookAround(node=Singleton p as lookBody) , (Concat(_)|Singleton _) ->
+            Some(b.mkAnd(seq {
+               b.mkConcat2(lookBody, b.trueStar)
+               remainingTail
+            }))
+        | _ ->
+            None
+
     /// additional rewrites and checks if the pattern is supported
     member this.mkConcatChecked(nodesCorrectOrder: RegexNode< 't > seq) : RegexNode< 't > =
         let nodesCorrectOrder =
@@ -1455,7 +1495,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                         |> Seq.fold (fun acc node ->
                             acc
                             |> Option.bind (fun n ->
-                                Node.getMaxLength node |> Option.map (fun v ->
+                                Node.getMinLength node |> Option.map (fun v ->
                                     v + n
                                 )
                             )
@@ -1469,6 +1509,18 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                         let newNode =
                             b.mkConcat2(
                                 b.mkAnd(seq{leftSide;look}),
+                                remainingTails
+                            )
+                        rewrittenNode <- Some newNode
+                    | Some n when n = 0 ->
+                        // merge left
+                        let leftSide = b.mkConcatResizeArray(ResizeArray(leftNodes))
+                        let leftSideTS = b.mkConcat2(b.trueStar,leftSide)
+                        let look = b.mkConcat2(b.trueStar,lookBody)
+                        let remainingTails = b.mkConcatChecked(nodesCorrectOrder[i+1..])
+                        let newNode =
+                            b.mkConcat2(
+                                b.mkAnd(seq{leftSideTS;look}),
                                 remainingTails
                             )
                         rewrittenNode <- Some newNode
@@ -1503,17 +1555,10 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 | Some lookMaxLength ->
 
                 let rewrite =
-                    match lookBody with
-                    // (?=1)11 ==> (11&1⊤*)
-                    | Singleton _ -> b.mkAnd([ remainingTail; b.mkConcat2(lookBody,b.trueStar) ])
-                    | _ ->
-                        // case 1, lookaround body is within match range
-                        let case1 = b.mkAnd([
-                            b.mkConcat2(remainingTail,b.trueStar)
-                            b.mkConcat2(lookBody,b.trueStar)
-                        ])
-                        case1
-                        // case2
+                    match this.attemptRewriteCommonLookahead(curr,remainingTail) with
+                    | Some v -> v
+                    | _ -> throwExn()
+
                 let newNode =
                     b.mkConcatChecked(seq {
                         yield! nodesCorrectOrder[..i-1]

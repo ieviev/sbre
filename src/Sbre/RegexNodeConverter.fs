@@ -266,7 +266,7 @@ let convertToSymbolicRegexNode
             // TBD: explore possibilities of rewrites here
             match node.M, node.N with
             // +
-            | 1, Int32.MaxValue -> single :: b.mkLoop (single, 0, Int32.MaxValue) :: acc
+            // | 1, Int32.MaxValue -> single :: b.mkLoop (single, 0, Int32.MaxValue) :: acc
             | _ -> b.mkLoop (single, node.M, node.N) :: acc
 
         // anchors
