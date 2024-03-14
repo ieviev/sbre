@@ -173,8 +173,15 @@ module private BuilderHelpers =
 [<Sealed>]
 type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
     (converter: RegexNodeConverter, solver: ISolver< 't >, bcss: CharSetSolver, options:SbreOptions) as b =
-    let _createInfo flags containsMinterms pendingNullables =
-        RegexNodeInfo<'t>(NodeFlags = flags, Minterms = containsMinterms, PendingNullables=pendingNullables)
+    static let _createInfo flags containsMinterms pendingNullables =
+        RegexNodeInfo<'t>(NodeFlags = flags, SubsumedByMinterm = containsMinterms, PendingNullables=pendingNullables)
+
+    let _refComparer =
+        { new IEqualityComparer<RegexNode< 't >> with
+            member this.Equals(xs, ys) = refEq xs ys
+
+            member this.GetHashCode(x) = LanguagePrimitives.PhysicalHash x
+        }
 
     let getDerivativeCacheComparer() : IEqualityComparer<struct ('t * RegexNode<'t>)> =
         { new IEqualityComparer<struct ('t * RegexNode<'t>)> with
@@ -196,7 +203,6 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             member this.Equals(xs, ys) =
                 xs.Length = ys.Length &&
                 xs.Span.SequenceEqual(ys.Span)
-                // Seq.forall2 refEq xs.Span ys.Span
             member this.GetHashCode(x) = Enumerator.getSharedHash2 x
         }
 
@@ -222,12 +228,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 LanguagePrimitives.PhysicalHash x ^^^ r ^^^ LanguagePrimitives.PhysicalHash k
         }
 
-    let _refComparer =
-        { new IEqualityComparer<RegexNode< 't >> with
-            member this.Equals(xs, ys) = refEq xs ys
 
-            member this.GetHashCode(x) = LanguagePrimitives.PhysicalHash x
-        }
 
     let _bddrefComparer =
         { new IEqualityComparer<RegexNode< BDD >> with
@@ -824,12 +825,12 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 | Concat(head = Loop(low = 0; up = upper)) when upper <> Int32.MaxValue ->
                     // uniqueHeads
                     zeroloops <- zeroloops + 1
-                    derivatives.Add(deriv) |> ignore
-                | Loop(node = Singleton body; low = 0; up = Int32.MaxValue) ->
+                    derivatives.Add(deriv)
+                | Loop(node = Singleton _; low = 0; up = Int32.MaxValue) ->
                     singletonStarLoops.Add(deriv)
-                    derivatives.Add(deriv) |> ignore
+                    derivatives.Add(deriv)
                 | Epsilon -> status <- status ||| MkOrFlags.ContainsEpsilon
-                | _ -> derivatives.Add(deriv) |> ignore
+                | _ -> derivatives.Add(deriv)
 
             handleNode e.Current
 
@@ -840,8 +841,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                     if refEq starLoop deriv then () else
                     let subby = deriv.SubsumedByMinterm(solver)
                     if Solver.containsS solver pred subby then
-                        derivatives.Remove(deriv) |> ignore
-                    ()
+                        derivatives.Remove(deriv)
             | _ -> failwith "bug in regex node constructor"
 
         match status with
@@ -879,10 +879,10 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
 
         // add epsilon only if no nullables yet
         if (status &&& MkOrFlags.ContainsEpsilon) <> MkOrFlags.None then
-            if derivatives.Exists(fun v -> v.IsAlwaysNullable) then
+            if derivatives.Exists(_.IsAlwaysNullable) then
                 ()
             else
-                derivatives.Add(_uniques._eps) |> ignore
+                derivatives.Add(_uniques._eps)
 
         let mutable num_singletons = 0
         let merged =
@@ -891,17 +891,16 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                    (function
                 | Singleton p as d ->
                     num_singletons <- num_singletons + 1
-                    derivatives.Remove(d) |> ignore
+                    derivatives.Remove(d)
                     Some p
                 | _ -> None )
             |> Seq.fold (fun acc v -> solver.Or(acc,v) ) solver.Empty
         if num_singletons > 0 then
             let merged2 = b.one(merged)
-            derivatives.Add(merged2) |> ignore
+            derivatives.Add(merged2)
 
 
-        // if options.MinimizeOr then
-        if false then
+        if options.CompressOr then
             let mutable num_lookaheads = 0
             let mutable min_rel = Int32.MaxValue
             let merge_lookaheads =
@@ -910,7 +909,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                        (function
                     | LookAround(node=node;lookBack = false; relativeTo = rel; pendingNullables = pending) as look ->
                         num_lookaheads <- num_lookaheads + 1
-                        derivatives.Remove(look) |> ignore
+                        derivatives.Remove(look)
                         min_rel <- min min_rel rel
                         // let nulls = pending |> RefSet.map (fun v -> rel + v)
                         let nulls = pending |> RefSet<int>.addAll rel
@@ -996,12 +995,12 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                     let new_concat = this.mkConcat2(merged_heads,tail_key)
                     derivatives.Add(new_concat) |> ignore
 
-        let derivatives = ResizeArray(derivatives.AsArray().Distinct(_refComparer))
+
 
         if derivatives.Count = 0 then
             _uniques._false
         else
-        if derivatives.Count = 1 then derivatives[0]
+        if derivatives.Count = 1 then derivatives.AsSpan()[0]
         else
             let createNode(nodes: RegexNode< 't >Memory) =
                 match nodes with
@@ -1019,21 +1018,11 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                         this.CreateInfo(flags, minterms2,inner)
                     RegexNode.Or(ofSeq twoormore, mergedInfo)
 
-
-
-            let pool = ArrayPool<RegexNode<'t>>.Shared
-            let rentedArray = pool.Rent(derivatives.Count)
-            use mutable e = derivatives.GetEnumerator()
-            let mutable i = 0
-            while e.MoveNext() do
-                rentedArray[i] <- e.Current
-                i <- i + 1
-            let mem = rentedArray.AsMemory(0,i)
+            let mem = derivatives.AsMemory()
             mem.Span.Sort(physComparison)
 
             match _orCache.TryGetValue(mem) with
             | true, v ->
-                pool.Return(rentedArray)
                 v
             | _ ->
                 let v = createNode mem
@@ -1041,7 +1030,6 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 for i = 0 to key.Length - 1 do
                     newArr[i] <- key.Span[i]
                 _orCache.Add(newArr, v)
-                pool.Return(rentedArray)
                 v
 
     member this.mkNot(inner: RegexNode< 't >) =
@@ -1138,6 +1126,11 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                         if Solver.containsS solver p2 p1 then tail
                         elif refEq chead tail then tail
                         else createCached(head,tail)
+                    else createCached(head,tail)
+                // .{0,20}⊤*
+                | Loop(loopBody,0,n,headinfo), SingletonStarLoop(p2) ->
+                    let subMinterm = headinfo.SubsumedByMinterm
+                    if Solver.containsS solver p2 subMinterm then tail
                     else createCached(head,tail)
                 // normalize
                 | Concat(head=h1;tail=h2), tail ->

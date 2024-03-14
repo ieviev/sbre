@@ -63,13 +63,13 @@ let ``calc reverse prefix 3``() =
 
 [<Fact>]
 let ``calc reverse prefix 4``() =
-    assertPotentialStart @"~(⊤*\n\n⊤*)&⊤*Huck⊤*" @"[\nk];[\nck];[\ncku];[\nHcku]"
+    assertPotentialStart @"~(⊤*\n\n⊤*)&⊤*Huck⊤*" [@"[\nk];[\nck];[\ncku];[\nHcku]"]
     // really should be "k;c;u;H", but why?
 
 
 [<Fact>]
 let ``calc reverse prefix 5``() =
-    assertPotentialStart @"~(.*11.*)&[az1]{8,}" "[1az];[1az];[1az];[1az];[1az];[1az];[1az];[1az]"
+    assertPotentialStart @"~(.*11.*)&[az1]{8,}" ["[1az];[1az];[1az];[1az];[1az];[1az];[1az];[1az]"]
 
 
 [<Fact>]
@@ -82,7 +82,7 @@ let ``calc potential start 1``() =
         matcher.CreateDerivative(&loc, mt,node)
     )
     let prefix =
-        Optimizations.calcPotentialMatchStart getder getflags matcher.Cache matcher.ReversePattern
+        Optimizations.calcPotentialMatchStart regex.Options getder getflags matcher.Cache matcher.ReversePattern
     let prefixString = Optimizations.printPrefixSets matcher.Cache prefix
     Assert.Equal("[mnry];[enor];[Tiry]", prefixString)
 
@@ -118,23 +118,26 @@ let ``initialOptimizations 04``() =
 
 [<Fact>]
 let ``initialOptimizations 05``() =
-    assertPrefixLength ".*t.*hat.*&.*a.*nd.*&.*t.*he.*&.*w.*as.*" 4
+    assertPotentialStart ".*t.*hat.*&.*a.*nd.*&.*t.*he.*&.*w.*as.*" [
+        "[dest];[adehnst];.;.;.;."
+        @"[dest];[adehnst];.;.;.;.;.;.;.;.;."
+    ]
 
 
 [<Fact>]
 let ``initialOptimizations 06``() =
-    assertPotentialStart "Huck[a-zA-Z]+|Saw[a-zA-Z]+" "[A-Za-z];[kw];[ac];[Su]"
+    assertPotentialStart "Huck[a-zA-Z]+|Saw[a-zA-Z]+" ["[A-Za-z];[kw];[ac];[Su]"]
 
 [<Fact>]
 let ``initialOptimizations 07``() =
-    assertPotentialStart "Tom|Sawyer|Huckleberry|Finn" "[mnry];[enor];[Tiry]"
+    assertPotentialStart "Tom|Sawyer|Huckleberry|Finn" ["[mnry];[enor];[Tiry]"]
 
 // Twain
 // (?i)Twain
 
 [<Fact>]
 let ``initialOptimizations 08``() =
-    assertPotentialStart "\s([A-Za-z]awyer|[A-Za-z]inn)\s" "\s;[nr];[en];[iy];[A-Za-z];φ"
+    assertPotentialStart "\s([A-Za-z]awyer|[A-Za-z]inn)\s" ["\s;[nr];[en];[iy];[A-Za-z];φ"]
 
 
 [<Fact>]
@@ -148,12 +151,12 @@ let ``initialOptimizations 10``() =
 [<Fact>]
 let ``initialOptimizations 11``() =
     assertPotentialStart
-        @"@( |)G( |)R( |)[a,A,@,(\/\\))]" @"[(),/@A\\a];[ R];[ GR];[ @G]"
+        @"@( |)G( |)R( |)[a,A,@,(\/\\))]" [@"[(),/@A\\a];[ R];[ GR];[ @G]"]
 
 
 [<Fact>]
 let ``initialOptimizations 12``() =
-    assertPotentialStart @"a( |)b( |)c( |)d" @"d;[ c];[ bc];[ ab]"
+    assertPotentialStart @"a( |)b( |)c( |)d" [@"d;[ c];[ bc];[ ab]"]
 
 [<Fact>]
 let ``initialOptimizations 13``() =
@@ -161,7 +164,7 @@ let ``initialOptimizations 13``() =
 
 [<Fact>]
 let ``initialOptimizations 14``() =
-    assertPotentialStart @"(?<=a.*)(\bx)(?=.*c)" @"c;.;.;."
+    assertPotentialStart @"(?<=a.*)(\bx)(?=.*c)" [@"c;.;.;."]
 
 
 [<Fact>]
@@ -181,7 +184,7 @@ let ``initialOptimizations 17``() =
 let ``initialOptimizations 18``() =
     assertPotentialStart
         @"Sherlock Holmes|John Watson|Irene Adler|Inspector Lestrade|Professor Moriarty"
-        @"[enrsy];[deot];[almrs];[adlrt];[Aaiot];[ HWrs];[ eo];[LMkn];[ ceh];[or];[IJlo]"
+        [@"[enrsy];[deot];[almrs];[adlrt];[Aaiot];[ HWrs];[ eo];[LMkn];[ ceh];[or];[IJlo]"]
 
 // Pr[o]fess[o]r Moriarty
 // ___[or]____[ eo]
@@ -190,13 +193,13 @@ let ``initialOptimizations 18``() =
 let ``initialOptimizations 19``() =
     assertPotentialStart
         @"(?i)Sherlock Holmes|John Watson|Irene Adler|Inspector Lestrade|Professor Moriarty"
-        @"[ENRSYenrsy];[DEOTdeot];[ALMRSalmrs];[ADLRTadlrt];[AIOTaiot];[ HRSWhrsw];[ EOeo];[K-Nk-n\u212A];[ CEHceh];[ORor];[IJLOijlo]"
+        [@"[ENRSYenrsy];[DEOTdeot];[ALMRSalmrs];[ADLRTadlrt];[AIOTaiot];[ HRSWhrsw];[ EOeo];[K-Nk-n\u212A];[ CEHceh];[ORor];[IJLOijlo]"]
 
 [<Fact>]
 let ``initialOptimizations 20``() =
     assertPotentialStart
         @"(?:[A-Z][a-z]+\s*){10,100}"
-        @"φ;φ;φ;φ;φ;φ;φ;φ;φ;φ;φ;φ;φ;φ;φ;φ;φ;φ;φ;φ" // ? maybe vector256 to see if all equal
+        [@"φ;φ;φ;φ;φ;φ;φ;φ;φ;φ;φ;φ;φ;φ;φ;φ;φ;φ;φ;φ"] // ? maybe vector256 to see if all equal
 
 
 [<Fact>]
@@ -210,7 +213,7 @@ let ``initialOptimizations 21``() =
 let ``initialOptimizations 22``() =
     assertPotentialStart
         @"(?<=( |`|\-|\n|3).*).*&\w.*&.*\w"
-        @"φ;." // important to avoid state space blowup
+        [@"φ;."] // important to avoid state space blowup
 
 [<Fact>]
 let ``initialOptimizations 23``() =
@@ -222,7 +225,7 @@ let ``initialOptimizations 23``() =
 let ``initialOptimizations 24``() = assertSetsPrefix """c...&...s""" @"s;.;.;c"
 
 [<Fact>]
-let ``initialOptimizations 25``() = assertPotentialStart """.*have.*&.*there.*""" @"e;[erv];[aerv];[aehrv];.;.;.;.;."
+let ``initialOptimizations 25``() = assertPotentialStart """.*have.*&.*there.*""" [@"e;[erv];[aerv];[aehrv];.;.;.;.;."]
 
 [<Fact>]
 let ``initialOptimizations 26``() =

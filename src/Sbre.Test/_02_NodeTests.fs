@@ -458,7 +458,7 @@ let assertNodeWithoutPrefix (patt:string) (expected:string list) =
     assertContains expected (n2.ToString())
 
 let assertCanBuild (patt:string) (expected:string list) =
-    let m = Sbre.Regex(patt, SbreOptions(CanonicalizeStates=true, MinimizeOr=true))
+    let m = Sbre.Regex(patt, SbreOptions(CanonicalizeStates=true, CompressOr=true))
     // let n = m.RawPattern
     ()
 

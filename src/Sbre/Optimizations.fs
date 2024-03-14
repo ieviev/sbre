@@ -30,6 +30,7 @@ type InitialOptimizations<'t> =
 
 
 type ActiveBranchOptimizations =
+    | SkippableLookahead of a: int
     | LimitedSkip of
         distance: int *
         termPred: SearchValues<char> *
@@ -192,6 +193,7 @@ let rec calcPrefixSets
 
 
 let rec calcPotentialMatchStart
+    (options:SbreOptions)
     getNonInitialDerivative
     (getStateFlags: RegexNode<_> -> RegexStateFlags)
     (cache: RegexCache<_>)
@@ -203,12 +205,12 @@ let rec calcPotentialMatchStart
         let redundant = System.Collections.Generic.HashSet<RegexNode<'t>>(tsetComparer)
         redundant.Add(cache.False) |> ignore
         let nodes = HashSet(tsetComparer)
-        let tempList = ResizeArray()
+        // let tempList = ResizeArray()
+        let tempList = new SharedResizeArray<_>(128)
 
         let rec loop(acc: 't list) =
             tempList.Clear()
-
-            if nodes.Count > 30 || acc.Length > 50 || nodes.Count = 0 then
+            if nodes.Count > options.FindPotentialStartSizeLimit || acc.Length > 50 || nodes.Count = 0 then
                 acc |> List.rev
             else
                 let shouldExit = nodes |> Seq.exists (_.CanBeNullable)
@@ -222,10 +224,11 @@ let rec calcPotentialMatchStart
                     |> Seq.iter (tempList.Add)
 
                     let merged_pred =
-                        tempList
-                        |> Seq.collect id
-                        |> Seq.map fst
-                        |> Solver.mergeSets cache.Solver
+                        let mutable ss = cache.Solver.Empty
+                        for iseq in tempList do
+                            for n in iseq do
+                                ss <- cache.Solver.Or(ss,fst n)
+                        ss
 
                     // let pretty =
                     //     prefixDerivsList
@@ -237,9 +240,9 @@ let rec calcPotentialMatchStart
 
                     nodes.Clear()
 
-                    tempList
-                    |> Seq.iter (fun tmp -> tmp |> Seq.iter (fun v -> nodes.Add(snd v) |> ignore))
-                    // if acc.Length > 100 then [] // this is an arbitrary limit
+                    for iseq in tempList do
+                        iseq |> Seq.iter (fun v -> nodes.Add(snd v) |> ignore)
+
                     loop (merged_pred :: acc)
 
         let prefixStartNode = getPrefixNode cache startNode
@@ -281,6 +284,7 @@ let rec applyPrefixSetsWhileNotNullable
             applyPrefixSetsWhileNotNullable getNonInitialDerivative cache der tail
 
 let findInitialOptimizations
+    (options:SbreOptions)
     getNonInitialDerivative
     (nodeToId: RegexNode<'t> -> int)
     (nodeToStateFlags: RegexNode<'t> -> RegexStateFlags)
@@ -401,6 +405,7 @@ let findInitialOptimizations
         | _ ->
             match
                 Optimizations.calcPotentialMatchStart
+                    options
                     getNonInitialDerivative
                     nodeToStateFlags
                     c
@@ -648,6 +653,18 @@ let tryGetLimitedSkip
             | _ -> None
         | _ -> None
 
+let findActiveBranchOptimizations
+    (options:SbreOptions)
+    getNonInitialDerivative
+    (nodeToId: RegexNode<'t> -> int)
+    (nodeToStateFlags: RegexNode<'t> -> RegexStateFlags)
+    (c: RegexCache<'t>)
+    (node: RegexNode<'t>)
+    (trueStarredNode: RegexNode<'t>)
+    =
+        let a = 1
+        failwith "todo"
+        ActiveBranchOptimizations.NoOptimizations
 
 let rec mkNodeWithoutLookbackPrefix (b: RegexBuilder<_>) (node: RegexNode<_>) =
     match node with

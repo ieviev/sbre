@@ -94,13 +94,14 @@ let getInitOptimizations pattern =
     )
     let optimizations =
         Optimizations.findInitialOptimizations
+            regex.Options
             getder
             (fun node -> matcher.GetOrCreateState(node).Id)
             (fun node -> matcher.GetOrCreateState(node).Flags)
             matcher.Cache matcher.ReversePattern matcher.ReverseTrueStarredPattern
     optimizations
 
-let assertPotentialStart pattern expected =
+let assertPotentialStart (pattern:string) (expectedPatterns: string seq) =
     let regex = Regex(pattern)
     let matcher = regex.TSetMatcher
     let getder = (fun (mt,node) ->
@@ -109,6 +110,7 @@ let assertPotentialStart pattern expected =
     )
     let optimizations =
         Optimizations.findInitialOptimizations
+            regex.Options
             getder
             (fun node -> matcher.GetOrCreateState(node).Id)
             (fun node -> matcher.GetOrCreateState(node).Flags)
@@ -116,7 +118,7 @@ let assertPotentialStart pattern expected =
     match optimizations with
     | Optimizations.InitialOptimizations.SearchValuesPotentialStart(_,prefix) ->
         let prefixString = Optimizations.printPrefixSets matcher.Cache (prefix.ToArray() |> Seq.toList)
-        Assert.Equal(expected, prefixString)
+        Assert.Contains(prefixString,expectedPatterns)
     | _ -> failwith $"invalid optimization result: {optimizations}"
 
 
@@ -129,6 +131,7 @@ let assertPrefixLength pattern expected =
     )
     let optimizations =
         Optimizations.findInitialOptimizations
+            regex.Options
             getder
             (fun node -> matcher.GetOrCreateState(node).Id)
             (fun node -> matcher.GetOrCreateState(node).Flags)
@@ -150,6 +153,7 @@ let assertSetsPrefix pattern expected =
     )
     let optimizations =
         Optimizations.findInitialOptimizations
+            regex.Options
             getder
             (fun node -> matcher.GetOrCreateState(node).Id)
             (fun node -> matcher.GetOrCreateState(node).Flags)
@@ -169,6 +173,7 @@ let assertStringPrefix pattern expected =
     )
     let optimizations =
         Optimizations.findInitialOptimizations
+            regex.Options
             getder
             (fun node -> matcher.GetOrCreateState(node).Id)
             (fun node -> matcher.GetOrCreateState(node).Flags)

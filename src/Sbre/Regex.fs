@@ -513,6 +513,7 @@ type RegexMatcher<
 #if OPTIMIZE
     let _initialOptimizations =
         Optimizations.findInitialOptimizations
+            options
             (fun (mt,node) ->
                 let mutable loc = Location.getNonInitial()
                 _createDerivative(&loc,mt,node) )
@@ -663,16 +664,10 @@ type RegexMatcher<
             loc: inref<Location>
         ) =
         let minterm = _cache.MintermById(mintermId)
-        // try
         let targetState = this.GetOrCreateState(
             this.CreateDerivative( &loc, minterm, _stateArray[currentState].Node))
         targetState.Id
-        // with
-        //     e ->
-        //         // System.IO.File.WriteAllText("/home/ian/f/ieviev/sbre/src/Sbre.Test/data/sample-congress.txt", loc.Input.ToString())
-        //         failwith $"err:\n{this.PrettyPrintNode(this.RawPattern)}"
-        //         // failwith $"err:\n{_cache.PrettyPrintNode(this.RawPattern)}"
-        //         // failwith $"err:\n{_cache.PrettyPrintNode(this.RawPattern)}"
+
 
 #if DEBUG
     member this.GetStateAndFlagsById(stateId: int) = _stateArray[stateId]
@@ -740,14 +735,15 @@ type RegexMatcher<
             flags.IsAlwaysNullable ||
             this.IsNullable (&loc, _stateArray[stateId].Node))
 
-    // [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.IsNullable(loc: inref<Location>, node: RegexNode<'t>) : bool =
         _isNullable(&loc,node)
 
     member this.CreateDerivative ( loc: inref<Location>, loc_pred: 't, node: RegexNode<'t>
     ) : RegexNode<'t> =
 
-        let canonNode = node
+        let canonNode =
+            node
             // too expensive
             // match node.TryGetInfo with
             // | ValueSome info when info.IsCanonical -> node
@@ -923,38 +919,38 @@ type RegexMatcher<
     member this.TrySkipActiveFwd(flags:RegexStateFlags, loc: byref<Location>, currentStateId:byref<int>) =
         let dfaState = _stateArray[currentStateId]
         // if loc.Position = loc.Input.Length then false else
-        // if flags.HasFlag(RegexStateFlags.ActiveBranchOptimizations) then
-        //     match dfaState.ActiveOptimizations with
-        //     // | ActiveBranchOptimizations.PossibleStringPrefix(prefix,transId) ->
-        //     //     let limitedSlice = loc.Input.Slice(0, loc.Position)
-        //     //     let pspan = prefix.Span
-        //     //     if limitedSlice.EndsWith(pspan) then
-        //     //         loc.Position <- loc.Position - pspan.Length
-        //     //         currentStateId <- transId
-        //     //         true
-        //     //     else
-        //     //         false
-        //     | LimitedSkip(distance, termPred, termTransitionId, nonTermTransitionId) ->
-        //         if loc.Input.Length < loc.Position + distance then // no more matches
-        //             loc.Position <- Location.final loc
-        //             false
-        //         else
-        //         let limitedSlice = loc.Input.Slice(loc.Position, distance)
-        //         match limitedSlice.IndexOfAny(termPred) with
-        //         | -1 ->
-        //             loc.Position <- loc.Position + distance
-        //             currentStateId <- nonTermTransitionId
-        //             true
-        //         | idx ->
-        //             let newPos = loc.Position + distance - idx
-        //             // let relativepos = loc.Input.Slice(loc.Position - distance + idx, 10)
-        //             // let debug = relativepos.ToString()
-        //             // let newState = _stateArray[termTransitionId]
-        //             loc.Position <- newPos
-        //             currentStateId <- termTransitionId
-        //             true // mark nullable
-        //     | _ -> false
-        // else
+        if flags.HasFlag(RegexStateFlags.ActiveBranchOptimizations) then
+            match dfaState.ActiveOptimizations with
+            // | ActiveBranchOptimizations.PossibleStringPrefix(prefix,transId) ->
+            //     let limitedSlice = loc.Input.Slice(0, loc.Position)
+            //     let pspan = prefix.Span
+            //     if limitedSlice.EndsWith(pspan) then
+            //         loc.Position <- loc.Position - pspan.Length
+            //         currentStateId <- transId
+            //         true
+            //     else
+            //         false
+            | LimitedSkip(distance, termPred, termTransitionId, nonTermTransitionId) ->
+                if loc.Input.Length < loc.Position + distance then // no more matches
+                    loc.Position <- Location.final loc
+                    false
+                else
+                let limitedSlice = loc.Input.Slice(loc.Position, distance)
+                match limitedSlice.IndexOfAny(termPred) with
+                | -1 ->
+                    loc.Position <- loc.Position + distance
+                    currentStateId <- nonTermTransitionId
+                    true
+                | idx ->
+                    let newPos = loc.Position + distance - idx
+                    // let relativepos = loc.Input.Slice(loc.Position - distance + idx, 10)
+                    // let debug = relativepos.ToString()
+                    // let newState = _stateArray[termTransitionId]
+                    loc.Position <- newPos
+                    currentStateId <- termTransitionId
+                    true // mark nullable
+            | _ -> false
+        else
         // default single char skip
         let sharedIndex =
             _cache.TryNextStartsetLocationLeftToRight(&loc,dfaState.MintermSearchValues)
@@ -1416,6 +1412,7 @@ type Regex(pattern: string, [<Optional; DefaultParameterValue(null:SbreOptions)>
     override this.Match(input) = matcher.Match(input)
 
     member this.Matcher: GenericRegexMatcher = matcher
+    member this.Options: SbreOptions = options
 
     member this.TSetMatcher = matcher :?> RegexMatcher<uint64>
     member this.InitialReversePrefix =
