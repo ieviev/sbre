@@ -21,7 +21,7 @@ let twainPatterns = [
     @"[a-zA-Z]+ing"
     @"\s[a-zA-Z]{0,12}ing\s"
     @"([A-Za-z]awyer|[A-Za-z]inn)\s"
-    @"[""'][^""']{0,30}[?!\.][""']"
+    """["'][^"']{0,30}[?!\.]["']"""
 ]
 
 
@@ -141,7 +141,7 @@ let twain_ranges_3() =
 
 [<Fact>]
 let twain_ranges_4() =
-    let pat = """["'][^"']{0,30}[?!\.]["']]"""
+    let pat = """["'][^"']{0,30}[?!\.]["']"""
 
     let matches1 =
         (System.Text.RegularExpressions.Regex(pat).Matches(twain_input) )

@@ -217,6 +217,28 @@ let assertRevStates (pattern:string) (input:string) (expectedRegexesList:string 
     ()
 
 
+let assertLimitedSkip (pattern:string) (der1c:char) (lambda: _ -> unit) =
+    let regex = Regex(pattern)
+    let matcher = regex.TSetMatcher
+    let c = matcher.Cache
+    let getder = (fun (mt,node) ->
+        let loc = Pat.Location.getNonInitial()
+        matcher.CreateDerivative(&loc, mt,node)
+    )
+    let der1 = getder(c.CharToMinterm(der1c), matcher.ReverseTrueStarredPattern)
+    let optimizations =
+        Optimizations.tryGetLimitedSkip
+            regex.Options
+            getder
+            (fun node -> matcher.GetOrCreateState(node).Flags)
+            (fun node -> matcher.GetOrCreateState(node).Id)
+            (fun node -> matcher.GetOrCreateState(node).Startset)
+            matcher.Cache matcher.ReverseTrueStarredPattern der1
+    match optimizations with
+    | Some (Optimizations.ActiveBranchOptimizations.LimitedSkip(distance=dist; successPred = succPred; failPred = failPred)) ->
+        lambda (dist, c.PrettyPrintMinterm(succPred.Minterm), c.PrettyPrintMinterm(failPred.Minterm))
+    | _ -> failwith "invalid optimization result"
+
 
 // let assertNullability (regex:Regex) (input:string) (expectedRegexesList:string list list)  =
 //     let matcher = regex.TSetMatcher

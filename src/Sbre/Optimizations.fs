@@ -29,13 +29,21 @@ type InitialOptimizations<'t> =
 
 
 
-type ActiveBranchOptimizations =
+type ActiveBranchOptimizations<'t> =
     | SkippableLookahead of a: int
     | LimitedSkip of
         distance: int *
-        termPred: SearchValues<char> *
-        termTransitionId: int *
-        nonTermTransitionId: int
+        successPred: MintermSearchValues<'t> *
+        successTransitionId: int *
+        failPred: MintermSearchValues<'t> *
+        skipToEndTransitionId: int
+    | LimitedSkipOnePath of
+        distance: int *
+        skipPred: MintermSearchValues<'t> *
+        failPred: MintermSearchValues<'t> *
+        skipToEndTransitionId: int
+
+
     | PossibleStringPrefix of prefix: Memory<char> * transitionNodeId: int
     | NoOptimizations
 
@@ -453,6 +461,7 @@ let findInitialOptimizations
 
 
 let tryGetLimitedSkip
+    (options:SbreOptions)
     (getNonInitialDerivative:'t * RegexNode<_> -> RegexNode<_>)
     (getStateFlags: RegexNode<_> -> RegexStateFlags)
     (nodeToId: RegexNode<'t> -> int)
@@ -463,134 +472,13 @@ let tryGetLimitedSkip
     =
     assert (not node.ContainsLookaround)
     let redundant = HashSet([ revTrueStarNode ])
-    let skipTerm = getStartset revTrueStarNode
-    let skipTermSize = c.MintermChars(skipTerm)
+    let mutable failTSet = getStartset revTrueStarNode
+    let skipTermSize = c.MintermChars(failTSet)
     // todo: tune this
     if skipTermSize.IsNone || skipTermSize.Value.Length > 30 then
         None
     else
         match node with
-        | Or(nodes, info) when info.CanNotBeNullable() && nodes.Count < 5 ->
-            let nonInitial =
-                nodes
-                |> Seq.where (fun v -> not (refEq v revTrueStarNode))
-                |> Seq.toArray
-                |> c.Builder.mkOrSeq
-
-            let nonTermDerivatives(node: RegexNode<'t>) =
-                let ders1 =
-                    Optimizations.getNonRedundantDerivatives
-                        getNonInitialDerivative
-                        c
-                        redundant
-                        node
-
-                ders1 |> Seq.where (fun (mt, _) -> not (c.Solver.contains skipTerm mt)) |> Seq.toArray
-
-            let nonInitialNonTerm = nonTermDerivatives nonInitial
-
-            match nonInitialNonTerm with
-            | [| singlePath |] ->
-                let path = ResizeArray()
-
-                let rec loop(node: RegexNode<_>) =
-                    match nonTermDerivatives node with
-                    | [| (mt, single) |] when
-                        (not (node.CanBeNullable || refEq c.False node || c.Solver.IsFull(mt)))
-                        ->
-                        redundant.Add(node) |> ignore
-                        path.Add(mt)
-                        loop single
-                    | _ -> node
-
-                let finalNode = loop (snd singlePath)
-
-                if path.Count < 2 then
-                    None
-                else if c.MintermIsInverted(skipTerm) then
-                    None
-                else
-                    // "todo: inverted minterm"
-                    let chrs = c.MintermChars(skipTerm)
-
-                    if chrs.IsNone || chrs.Value.Length > 100 then
-                        None
-                    else
-
-                    let searchValuesSet = c.MintermSearchValues(skipTerm)
-
-                    match searchValuesSet.Mode with
-                    | MintermSearchMode.TSet -> None
-                    | _ ->
-                        Some(
-                            ActiveBranchOptimizations.LimitedSkip(
-                                distance = path.Count + 1,
-                                termPred = searchValuesSet.SearchValues,
-                                termTransitionId =
-                                    nodeToId (getNonInitialDerivative (skipTerm, node)),
-                                nonTermTransitionId =
-                                    nodeToId (c.Builder.mkOrSeq [| finalNode; revTrueStarNode |])
-                            )
-                        )
-
-            // alternate
-            | [| (m1, path1); (m2, path2) |] when refEq c.False path1 || refEq c.False path2 ->
-                let nonFalsePath = if refEq c.False path1 then (m2, path2) else (m1, path1)
-
-                let prefix =
-                    Optimizations.calcPrefixSets
-                        getNonInitialDerivative
-                        getStateFlags
-                        c
-                        (snd nonFalsePath)
-
-                let prefix = (fst nonFalsePath) :: prefix
-
-                let singleCharPrefixes =
-                    prefix
-                    |> Seq.map (fun v ->
-                        if c.MintermIsInverted(v) then
-                            None
-                        else
-                            let chrs = c.MintermChars(v)
-
-                            chrs
-                            |> Option.bind (fun chrs ->
-                                if chrs.Length = 1 then Some(chrs.Span[0]) else None
-                            )
-                    )
-                    |> Seq.takeWhile Option.isSome
-                    |> Seq.choose id
-                    |> Seq.rev
-                    |> Seq.toArray
-                    |> Memory
-
-                if singleCharPrefixes.Length > 1 then
-
-                    // let pretty = printPrefixSets c prefix
-                    let applied, reducedLength =
-                        Optimizations.applyPrefixSetsWhileNotNullable
-                            getNonInitialDerivative
-                            c
-                            node
-                            (List.take singleCharPrefixes.Length prefix)
-
-                    if reducedLength > 0 then
-                        None
-                    else // todo: edge case here
-
-                        Some(
-                            ActiveBranchOptimizations.PossibleStringPrefix(
-                                singleCharPrefixes,
-                                nodeToId applied
-                            )
-                        )
-
-                else
-                // TODO: optimization potential here
-                None
-
-            | _ -> None
         | Concat(_) ->
             let nonTermDerivatives(node: RegexNode<'t>) =
                 let ders1 =
@@ -600,57 +488,90 @@ let tryGetLimitedSkip
                         redundant
                         node
 
-                ders1 |> Seq.where (fun (mt, _) -> not (c.Solver.contains skipTerm mt)) |> Seq.toArray
+                ders1 |> Seq.where (fun (mt, _) -> not (c.Solver.contains failTSet mt)) |> Seq.toArray
 
             let nonInitialNonTerm = nonTermDerivatives node
 
-            match nonInitialNonTerm with
-            | [| singlePath |] ->
-                let path = ResizeArray()
+            let rec loop (skipMt:'t) (acc:'t list) (node: RegexNode<_>) =
+                match nonTermDerivatives node with
+                | [| (mt, single) |] when mt = skipMt &&
+                    (not (node.CanBeNullable || refEq c.False node || c.Solver.IsFull(mt)))
+                    ->
+                    redundant.Add(node) |> ignore
+                    loop skipMt (mt :: acc) single
+                | _ -> (acc |> List.rev), node
 
-                let rec loop(node: RegexNode<_>) =
-                    match nonTermDerivatives node with
-                    | [| (mt, single) |] when
-                        (not (node.CanBeNullable || refEq c.False node || c.Solver.IsFull(mt)))
-                        ->
-                        redundant.Add(node) |> ignore
-                        path.Add(mt)
 
-                        if path.Count > 25 then
-                            ()
+            let findRemainingSkip (successPath) (startPath) remaining =
+                match remaining with
+                | [| (startMt,potentialPath) |] ->
+                    let path, skipToEndNode = loop startMt [] (potentialPath)
+                    let successSet = fst successPath
 
-                        loop single
-                    | _ -> node
+                    let searchValuesSet = c.MintermSearchValues(successSet)
 
-                let finalNode = loop (snd singlePath)
-
-                if path.Count < 2 then
-                    None
-                else if c.MintermIsInverted(skipTerm) then
-                    None
-                else
-                    // failwith "todo: inverted minterm"
-                    let chrs = c.MintermChars(skipTerm)
-
-                    if chrs.IsNone || chrs.Value.Length > 100 then
-                        None
-                    else
-                        let searchValuesSet = c.MintermSearchValues(skipTerm)
-
-                        match searchValuesSet.Mode with
-                        | MintermSearchMode.TSet -> None
-                        | _ ->
-                            Some(
-                                ActiveBranchOptimizations.LimitedSkip(
-                                    distance = path.Count + 1,
-                                    termPred = searchValuesSet.SearchValues,
-                                    termTransitionId =
-                                        nodeToId (getNonInitialDerivative (skipTerm, node)),
-                                    nonTermTransitionId =
-                                        nodeToId (c.Builder.mkOrSeq [| finalNode; revTrueStarNode |])
-                                )
+                    match searchValuesSet.Mode with
+                    | MintermSearchMode.TSet -> None
+                    | _ ->
+                        let successNode = snd successPath
+                        let mergedPred = c.MintermSearchValues(c.Solver.Not(startMt))
+                        let w = 1
+                        Some(
+                            ActiveBranchOptimizations.LimitedSkip(
+                                distance = path.Length + 2,
+                                successPred = searchValuesSet,
+                                successTransitionId =
+                                    nodeToId (successNode),
+                                failPred = mergedPred,
+                                skipToEndTransitionId = nodeToId skipToEndNode
                             )
-            | _ -> None
+                        )
+                | _ ->
+                    None
+
+            let findRemainingSkipOneBranch (startPred1:'t,startNode1) remaining =
+                match remaining with
+                | [| (startMt,potentialPath) |] when startPred1 = startMt ->
+                    let path, skipToEndNode = loop startMt [] (potentialPath)
+                    let skipPred = c.MintermSearchValues(startMt)
+                    let failPred = c.MintermSearchValues(c.Solver.Not(startMt))
+                    let w = 1
+                    Some(
+                        ActiveBranchOptimizations.LimitedSkipOnePath(
+                            distance = path.Length + 2,
+                            skipPred = skipPred,
+                            failPred = failPred,
+                            skipToEndTransitionId = nodeToId skipToEndNode
+                        )
+                    )
+                | _ ->
+                    None
+
+            match nonInitialNonTerm with
+            // p1 = (2, (⊤*cb{0,5}a)?)
+            // p2 = (4, (⊤*cb{0,5}|b{0,4})a)
+            | [| p1; p2 |] when not (refEq (snd p1) c.False) && not (refEq (snd p2) c.False)  ->
+                // --
+                let immediatep1 = nonTermDerivatives (snd p1)
+                let immediatep2 = nonTermDerivatives (snd p2)
+                // p1 successful continue
+                if immediatep2 |> Array.contains (p1) && immediatep1.Length <= 1 then
+                    redundant.Add(snd p1) |> ignore
+                    let p2remain = immediatep2 |> Array.where (fun v -> v <> p1)
+                    findRemainingSkip p1 p2 p2remain
+                elif immediatep1 |> Array.contains (p2) && immediatep2.Length <= 1 then
+                    redundant.Add(snd p2) |> ignore
+                    let p1remain = immediatep1 |> Array.where (fun v -> v <> p2)
+                    findRemainingSkip p2 p1 p1remain
+                else
+                    None
+            | [| p1 |] when not (refEq (snd p1) c.False) ->
+                let immediatep1 = nonTermDerivatives (snd p1)
+                findRemainingSkipOneBranch p1 immediatep1
+            | _ ->
+                    None
+
+
         | _ -> None
 
 let findActiveBranchOptimizations

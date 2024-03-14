@@ -161,7 +161,6 @@ type RegexCache<
 
         couldBe
 
-
     // member this.SkipIndexOfAnyPrefix
     //     (
     //         loc: byref<Location>,
@@ -227,14 +226,13 @@ type RegexCache<
     //                 loc.Position <- currpos
 
 
-    member this.TryNextStartsetLocationRightToLeft
+    // [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    member this.TryNextIndexRightToLeft
         (
-            loc: byref<Location>,
+            slice: ReadOnlySpan<char>,
             set: MintermSearchValues<_>
-        ) : unit =
+        ) : int =
 
-        let currpos = loc.Position
-        let slice = loc.Input.Slice(0, currpos)
         let sharedIndex =
             match set.Mode with
             | MintermSearchMode.SearchValues ->
@@ -252,10 +250,52 @@ type RegexCache<
                     i + 1
                 else -1
             | _ -> failwith "impossible"
+        sharedIndex + 1 // -1 to 0 is right anyway
 
-        match sharedIndex with
-        | -1 -> loc.Position <- Location.final loc
-        | _ -> loc.Position <- sharedIndex + 1
+    member this.TryNextIndexRightToLeftRaw
+        (
+            slice: ReadOnlySpan<char>,
+            set: MintermSearchValues<_>
+        ) : int =
+
+        let sharedIndex =
+            match set.Mode with
+            | MintermSearchMode.SearchValues ->
+                slice.LastIndexOfAny(set.SearchValues)
+            | MintermSearchMode.InvertedSearchValues ->
+                slice.LastIndexOfAnyExcept(set.SearchValues)
+            | MintermSearchMode.TSet ->
+                let mutable fnd = false
+                let mutable i = slice.Length - 1
+                while not fnd && i >= 0 do
+                    if set.Contains(slice[i]) then
+                        fnd <- true
+                    i <- i - 1
+                if fnd then
+                    i + 1
+                else -1
+            | _ -> failwith "impossible"
+        sharedIndex
+
+    member this.TryNextIndexLeftToRight
+        (
+            slice: ReadOnlySpan<char>,
+            set: MintermSearchValues<'t>
+        ) =
+        match set.Mode with
+        | MintermSearchMode.SearchValues ->
+            slice.IndexOfAny(set.SearchValues)
+        | MintermSearchMode.InvertedSearchValues ->
+            slice.IndexOfAnyExcept(set.SearchValues)
+        | MintermSearchMode.TSet ->
+            let mutable fnd = false
+            let mutable i = 0
+            while not fnd && i < slice.Length do
+                if set.Contains(slice[i]) then
+                    fnd <- true
+                i <- i + 1
+            if not fnd then -1 else i - 1
+        | _ -> failwith "impossible"
 
     member this.TryNextStartsetLocationLeftToRight
         (
@@ -291,213 +331,46 @@ type RegexCache<
         let mutable currpos = loc.Position
         let mutable skipping = true
         let mutable resultEnd = ValueNone
-        let mutable slice: ReadOnlySpan<char> = inputSpan.Slice(0, currpos)
-        let searchValues = setSpan[0] //this.MintermSearchValues()
-        let firstSetChars = searchValues.SearchValues
+        let searchValues = setSpan[0]
         let tailPrefixSpan = setSpan.Slice(1)
 
         if tailPrefixSpan.Length = 0 then
             skipping <- false
-
             let sharedIndex =
-                slice <- inputSpan.Slice(0, currpos)
-                match searchValues.Mode with
-                | MintermSearchMode.SearchValues ->
-                    slice.LastIndexOfAny(firstSetChars)
-                | MintermSearchMode.InvertedSearchValues ->
-                    slice.LastIndexOfAnyExcept(firstSetChars)
-                | MintermSearchMode.TSet ->
-                    let mutable fnd = false
-                    let mutable i = slice.Length - 1
-                    while not fnd && i >= 0 do
-                        if searchValues.Contains(slice[i]) then
-                            fnd <- true
-                        i <- i - 1
-                    if fnd then
-                        i + 1
-                    else -1
-                | _ -> failwith "impossible"
-
-            if not (sharedIndex = -1) then
-                let potential = sharedIndex + 1
-                resultEnd <- ValueSome(potential)
+                this.TryNextIndexRightToLeft(inputSpan.Slice(0, currpos),searchValues)
+            resultEnd <- ValueSome(sharedIndex)
 
         while skipping do
             let sharedIndex =
-                slice <- inputSpan.Slice(0, currpos)
-                match searchValues.Mode with
-                | MintermSearchMode.SearchValues ->
-                    slice.LastIndexOfAny(firstSetChars)
-                | MintermSearchMode.InvertedSearchValues ->
-                    slice.LastIndexOfAnyExcept(firstSetChars)
-                | MintermSearchMode.TSet ->
-                    let mutable fnd = false
-                    let mutable i = slice.Length - 1
-                    while not fnd && i >= 0 do
-                        if searchValues.Contains(slice[i]) then
-                            fnd <- true
-                        i <- i - 1
-                    if fnd then
-                        i + 1
-                    else -1
-                | _ -> failwith "impossible"
+                this.TryNextIndexRightToLeft(inputSpan.Slice(0, currpos),searchValues)
 
-            if sharedIndex = -1 then
+            if sharedIndex = 0 then
                 skipping <- false
             else
-                let potential = sharedIndex + 1
-
                 let mutable couldBe = true
 
                 // exit if too far
-                if potential < setSpan.Length then
+                if sharedIndex < setSpan.Length then
                     skipping <- false
                     resultEnd <- ValueNone //ValueSome(potential)
                     couldBe <- false
 
-                // let pref = tailPrefixSpan.ToArray() |> Array.map this.PrettyPrintMinterm
                 // r to l
                 let mutable i = 0
 
                 while couldBe && i < tailPrefixSpan.Length do
-                    // let inputMinterm = this.Classify(inputSpan[potential - i - 2])
-                    // let loc1 = this.PrettyPrintMinterm(inputMinterm)
-                    // let loc2 = this.PrettyPrintMinterm(tailPrefixSpan[i])
-                    // let c1 = tailPrefixSpan[i].Contains(inputSpan[potential - i - 2])
-                    // if _solver.notElemOfSet inputMinterm tailPrefixSpan[i].Minterm then
-                    if not(tailPrefixSpan[i].Contains(inputSpan[potential - i - 2])) then
+                    if not(tailPrefixSpan[i].Contains(inputSpan[sharedIndex - i - 2])) then
                         couldBe <- false
 
                     i <- i + 1
 
-                // l to r
-                // let mutable i = _tailPrefixLength - 1
-                // while couldBe && i >= 0 do
-                //     let inputMinterm = this.Classify(inputSpan[potential - i - 2])
-                //     if Solver.notElemOfSet inputMinterm tailPrefixSpan[i] then
-                //         couldBe <- false
-                //     i <- i - 1
-
                 if couldBe then
                     skipping <- false
-                    resultEnd <- ValueSome(potential)
+                    resultEnd <- ValueSome(sharedIndex)
                 else
-                    currpos <- potential - 1
+                    currpos <- sharedIndex - 1
 
         resultEnd
-
-    // /// skip till a prefix of minterms matches
-    // member this.TryNextStartsetLocationArrayWithLoopTerminator
-    //     (
-    //         loc: inref<Location>,
-    //         setSpan: ReadOnlySpan<TSet>,
-    //         termSpan: ReadOnlySpan<TSet>
-    //     ) =
-    //     assert (termSpan.Length > 0)
-    //     let inputSpan = loc.Input
-    //     let mutable currpos = loc.Position
-    //     let mutable skipping = true
-    //     let mutable result = ValueNone
-    //     let mutable sharedIndex = -1
-    //
-    //     let mergedPrefix = setSpan[0] ||| termSpan[0]
-    //
-    //     let searchValues = this.MintermSearchValues(mergedPrefix)
-    //     match searchValues.Mode with
-    //     | MintermSearchMode.TSet -> ValueSome(currpos)
-    //     | _ ->
-    //     let firstSetChars = searchValues.SearchValues
-    //     let isInverted =
-    //         match searchValues.Mode with
-    //         | MintermSearchMode.InvertedSearchValues -> true
-    //         | _ -> false
-    //
-    //     while skipping do
-    //         if loc.Reversed then
-    //             let slice = inputSpan.Slice(0, currpos)
-    //
-    //             if not isInverted then
-    //                 sharedIndex <- slice.LastIndexOfAny(firstSetChars)
-    //             else
-    //                 sharedIndex <- slice.LastIndexOfAnyExcept(firstSetChars)
-    //         else
-    //             let slice = inputSpan.Slice(currpos)
-    //
-    //             if not isInverted then
-    //                 sharedIndex <- slice.IndexOfAny(firstSetChars)
-    //             else
-    //                 sharedIndex <- slice.IndexOfAnyExcept(firstSetChars)
-    //
-    //
-    //         if sharedIndex = -1 then
-    //             skipping <- false
-    //             result <- ValueNone
-    //         else
-    //             let potential = if loc.Reversed then sharedIndex + 1 else currpos + sharedIndex
-    //
-    //             let shouldExit =
-    //                 match loc.Reversed with
-    //                 | true -> potential < setSpan.Length
-    //                 | _ -> potential + setSpan.Length > (loc.Input.Length - 1)
-    //
-    //             if shouldExit then
-    //                 skipping <- false
-    //                 result <- ValueSome(potential)
-    //             else
-    //
-    //             let nextLocMinterm =
-    //                 if loc.Reversed then
-    //                     this.Classify(inputSpan[potential - 1])
-    //                 else
-    //                     this.Classify(inputSpan[potential])
-    //
-    //             let mutable canTerminateLoop, looping =
-    //                 if termSpan.Length = 0 then
-    //                     -1, true
-    //                 else
-    //                     let termMatch =
-    //                         // _solver.isElemOfSet(termSpan[0],nextLocMinterm)
-    //                         (Solver.elemOfSet termSpan[0] nextLocMinterm)
-    //
-    //                     (if termMatch then 0 else -1), termSpan.Length <> 1
-    //
-    //             let mutable i = 1
-    //             let mutable stopSearch = true
-    //
-    //             while looping && i < setSpan.Length do
-    //                 let nextLocMinterm =
-    //                     if loc.Reversed then
-    //                         this.Classify(inputSpan[potential - i - 1])
-    //                     else
-    //                         this.Classify(inputSpan[potential + i])
-    //
-    //                 match (Solver.elemOfSet setSpan[i] nextLocMinterm) with
-    //                 | false ->
-    //                     stopSearch <- false
-    //                     looping <- false
-    //
-    //                     if loc.Reversed then
-    //                         currpos <- potential - 1
-    //                     else
-    //                         currpos <- potential + 1
-    //                 | true -> i <- i + 1
-    //
-    //                 if canTerminateLoop >= 0 && i < termSpan.Length then
-    //                     match (Solver.elemOfSet termSpan[i] nextLocMinterm) with
-    //                     | true ->
-    //                         canTerminateLoop <- i
-    //
-    //                         if i = termSpan.Length - 1 then
-    //                             looping <- false
-    //                             stopSearch <- true
-    //                     | false -> canTerminateLoop <- -1
-    //
-    //             if stopSearch then
-    //                 skipping <- false
-    //                 result <- ValueSome(potential)
-    //
-    //     result
-
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.MintermForLocation(loc: Location) : _ =
@@ -556,6 +429,14 @@ type RegexCache<
         match i < 128 with
         | true -> minterms[_ascii[i]]
         | false -> minterms[_nonAscii.Find(i)]
+
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    member this.CharToMintermId(chr: char) : int =
+        let i = int chr
+
+        match i < 128 with
+        | true -> _ascii[i]
+        | false -> _nonAscii.Find(i)
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.MintermById(id: int) = minterms[id]

@@ -131,6 +131,19 @@ type RegexStateFlags =
 // todo: can be subsumed
 // todo: singleton loop
 
+
+
+[<RequireQualifiedAccess>]
+module StateFlags =
+    let inline cannotBeCached (flags:RegexStateFlags) =
+        flags &&& RegexStateFlags.DependsOnAnchor = RegexStateFlags.DependsOnAnchor
+
+    let inline isAlwaysNullable (flags:RegexStateFlags) =
+        flags &&& RegexStateFlags.AlwaysNullableFlag = RegexStateFlags.AlwaysNullableFlag
+
+    let inline canBeNullable (flags:RegexStateFlags) =
+        flags &&& RegexStateFlags.CanBeNullableFlag = RegexStateFlags.CanBeNullableFlag
+
 [<AutoOpen>]
 module RegexStateFlagsExtensions =
     type Sbre.Types.RegexStateFlags with
@@ -148,11 +161,7 @@ module RegexStateFlagsExtensions =
 
         [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
         member this.CannotBeCached =
-            this
-            &&& (
-            // RegexStateFlags.ContainsLookaroundFlag |||
-            RegexStateFlags.DependsOnAnchor)
-            <> RegexStateFlags.None
+            this &&& ( RegexStateFlags.DependsOnAnchor) = RegexStateFlags.DependsOnAnchor
 
         [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
         member this.HasActiveBranchOptimizations =

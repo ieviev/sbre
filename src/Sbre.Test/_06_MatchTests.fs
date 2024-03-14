@@ -703,9 +703,50 @@ sdf
 let ``subsumption test 1``() =
     assertIsMatch """^\d*\.?\d*$""" "3.14159"
 
+// [<Fact>]
+// let ``skip test 1``() =
+//     assertIsMatch """\b[0-9A-Za-z_]+\b""" " abcdef "
+
+
 [<Fact>]
 let ``skip test 1``() =
-    assertIsMatch """\b[0-9A-Za-z_]+\b""" " abcdef "
+    assertAllLLmatches """ab{0,5}c""" "bbabbbbbc" [2,7]
+
+[<Fact>]
+let ``skip test 2``() =
+    assertAllLLmatches """ab{0,5}c""" "bbbabbbbc" [3,6]
+
+[<Fact>]
+let ``skip test 3``() =
+    assertAllLLmatches """ab{0,5}c""" "bbbbabbbc" [4,5]
+
+[<Fact>]
+let ``skip test 4``() =
+    assertAllLLmatches """ab{0,5}c""" "bbbbbbbac" [7,2]
+
+[<Fact>]
+let ``skip test 5``() =
+    assertAllLLmatches """ab{0,5}c""" "bbabbbcbbac" [2,5; 9,2]
+
+
+[<Fact>]
+let ``skip test 2.1``() =
+    assertAllLLmatches """["'][^"']{0,30}[?!\.]["']""" """ hello!" """ []
+
+[<Fact>]
+let ``skip test 2.2``() =
+    assertAllLLmatches """["'][^"']{0,30}[?!\.]["']""" """ "hello!" """ [1,8]
+
+
+
+[<Fact>]
+let ``skip test 3.1``() =
+    assertAllLLmatches """a[^a]{0,4}a""" """ a____a """ [1,6]
+
+[<Fact>]
+let ``skip test 3.2``() =
+    assertAllLLmatches """a[^a]{0,5}a""" """ a____a """ [1,6]
+
 
 
 

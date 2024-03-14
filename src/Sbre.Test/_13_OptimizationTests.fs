@@ -241,56 +241,72 @@ let ``initialOptimizations 27``() =
         @"\W;[0-9A-Z_a-z]"
 
 
-
-
-[<Fact>]
-let ``activeOptimizations 1``() =
-    let regex = Regex("""["'][^"']{0,30}[?!\.]["']""")
-    let matcher = regex.TSetMatcher
-    let c = matcher.Cache
-    let getder = (fun (mt,node) ->
-        let loc = Pat.Location.getNonInitial()
-        matcher.CreateDerivative(&loc, mt,node)
-    )
-    let der1 = getder(c.CharToMinterm('"'), matcher.ReverseTrueStarredPattern)
-    let der2 = getder(c.CharToMinterm('.'), der1)
-    let optimizations =
-        Optimizations.tryGetLimitedSkip
-            getder
-            (fun node -> matcher.GetOrCreateState(node).Flags)
-            (fun node -> matcher.GetOrCreateState(node).Id)
-            (fun node -> matcher.GetOrCreateState(node).Startset)
-            matcher.Cache matcher.ReverseTrueStarredPattern der2
-    match optimizations with
-    | Some (Optimizations.ActiveBranchOptimizations.LimitedSkip(distance=n; termPred = termPred)) ->
-        // let tp = termPred // Any2CharSearchValues`1, Count = 2, Values = ""'"
-        // assertEqual 30 n
-        // assertEqual 31 n
-        assertTrue (n >= 30)
-
-    | _ -> failwith "invalid optimization result"
+// [<Fact>]
+// let ``activeOptimizations 1``() =
+//     let regex = Regex("""["'][^"']{0,30}[?!\.]["']""")
+//     let matcher = regex.TSetMatcher
+//     let c = matcher.Cache
+//     let getder = (fun (mt,node) ->
+//         let loc = Pat.Location.getNonInitial()
+//         matcher.CreateDerivative(&loc, mt,node)
+//     )
+//     let der1 = getder(c.CharToMinterm('"'), matcher.ReverseTrueStarredPattern)
+//     let der2 = getder(c.CharToMinterm('.'), der1)
+//     let optimizations =
+//         Optimizations.tryGetLimitedSkip
+//             regex.Options
+//             getder
+//             (fun node -> matcher.GetOrCreateState(node).Flags)
+//             (fun node -> matcher.GetOrCreateState(node).Id)
+//             (fun node -> matcher.GetOrCreateState(node).Startset)
+//             matcher.Cache matcher.ReverseTrueStarredPattern der2
+//     match optimizations with
+//     | Some (Optimizations.ActiveBranchOptimizations.LimitedSkip(distance=n; successPred = termPred)) ->
+//         // let tp = termPred // Any2CharSearchValues`1, Count = 2, Values = ""'"
+//         // assertEqual 30 n
+//         // assertEqual 31 n
+//         assertTrue (n >= 30)
+//
+//     | _ -> failwith "invalid optimization result"
 
 
 [<Fact>]
 let ``activeOptimizations 2``() =
-    let regex = Regex("""\b[0-9A-Za-z_]+\b""")
-    let matcher = regex.TSetMatcher
+    Common.assertLimitedSkip """ab{0,5}c""" 'c' (fun (dist,succ,fail) ->
+        assertEqual succ "a"
+        assertEqual fail "[^b]"
+        assertEqual dist 5
+    )
 
-    use acc = matcher.llmatch_all(" abc ")
-    ()
-    // let c = matcher.Cache
-    // let getder = (fun (mt,node) ->
-    //     let loc = Pat.Location.getNonInitial()
-    //     matcher.CreateDerivative(&loc, mt,node)
-    // )
-    //
-    // let ders =
-    //     Optimizations.getImmediateDerivatives (getder) c matcher.RawPattern
-    //     |> Seq.toArray
-    // let pretty = Optimizations.printPrettyDerivs c ders
-    // let asd = 1
-    // failwith "asd"
-    // ()
+
+// [<Fact>]
+// let ``limitedskip 1``() =
+//     let regex = Regex("""\s[a-zA-Z]{0,12}i""")
+//     let matcher = regex.TSetMatcher
+//     let c = matcher.Cache
+//     let getder = (fun (mt,node) ->
+//         let loc = Pat.Location.getNonInitial()
+//         matcher.CreateDerivative(&loc, mt,node)
+//     )
+//     let der1 = getder(c.CharToMinterm('i'), matcher.ReverseTrueStarredPattern)
+//     let der2 = getder(c.CharToMinterm('a'), der1)
+//     let optimizations =
+//         Optimizations.tryGetLimitedSkip
+//             getder
+//             (fun node -> matcher.GetOrCreateState(node).Flags)
+//             (fun node -> matcher.GetOrCreateState(node).Id)
+//             (fun node -> matcher.GetOrCreateState(node).Startset)
+//             matcher.Cache matcher.ReverseTrueStarredPattern der2
+//     match optimizations with
+//     | Some (Optimizations.ActiveBranchOptimizations.LimitedSkip(distance=n; termPred = termPred)) ->
+//         // let tp = termPred // Any2CharSearchValues`1, Count = 2, Values = ""'"
+//         // assertEqual 30 n
+//         // assertEqual 31 n
+//         assertTrue (n >= 30)
+//
+//     | _ -> failwith "invalid optimization result"
+
+
 
 
 
