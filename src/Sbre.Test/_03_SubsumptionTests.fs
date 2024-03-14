@@ -179,6 +179,22 @@ let ``merge 1``() = assertConverted """a|s""" [ "[as]" ]
 let ``merge 2``() = assertConverted """at|st""" [ "[as]t" ]
 
 
+[<Fact>]
+let ``look nontrivial 1``() =
+    assertConverted @"(.*ereht)?.*"  [
+        @".*"
+    ]
+
+[<Fact>]
+let ``loop nontrivial 2 ``() =
+    assertRawDerivative @".*t.*hat" "ttt" [
+        @".*hat"
+    ]
+
+
+
+
+
 
 #endif
 

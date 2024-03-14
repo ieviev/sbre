@@ -699,6 +699,11 @@ sdf
     ]
 
 
+[<Fact>]
+let ``subsumption test 1``() =
+    assertIsMatch """^\d*\.?\d*$""" "3.14159"
+
+
 
 
 #endif

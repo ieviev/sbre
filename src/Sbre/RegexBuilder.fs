@@ -1129,14 +1129,28 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             | _ ->
                 match head, tail with
                 // TODO: optimizations
-                // | SingletonStarLoop(p1), SingletonStarLoop(p2) ->
-                //     if Solver.containsS solver p1 p2 then head
-                //     elif Solver.containsS solver p2 p1 then tail
-                //     else createCached(head,tail)
-                // | SingletonStarLoop(p1), Concat(head=SingletonStarLoop(p2) as thead;tail=ctail) ->
-                //     if Solver.containsS solver p1 p2 then this.mkConcat2(head,ctail)
-                //     elif Solver.containsS solver p2 p1 then this.mkConcat2(thead,ctail)
-                //     else createCached(head,tail)
+                | SingletonStarLoop(p1), SingletonStarLoop(p2) ->
+                    if Solver.containsS solver p1 p2 then head
+                    elif Solver.containsS solver p2 p1 then tail
+                    else createCached(head,tail)
+                | SingletonStarLoop(p1), Concat(head=SingletonStarLoop(p2) as thead;tail=ctail) ->
+                    if Solver.containsS solver p1 p2 then this.mkConcat2(head,ctail)
+                    elif Solver.containsS solver p2 p1 then this.mkConcat2(thead,ctail)
+                    else createCached(head,tail)
+                // .*(t.*)?hat.* -> .*hat
+                | SingletonStarLoop(p1), Concat(head=Loop(ConcatSuffix tsuffix,0,1,_)as thead;tail=ctail) ->
+                    let theadsubsume = thead.SubsumedByMinterm(solver)
+                    let condition1 = Solver.containsS solver p1 theadsubsume
+                    if condition1 && refEq head tsuffix then this.mkConcat2(head,ctail) else
+                    createCached(head,tail)
+                // (.*ab)?.* -> .*
+                | Loop(Concat(head=SingletonStarLoop(p1)) as chead,0,1,headinfo), SingletonStarLoop(p2) ->
+                    let subMinterm = head.SubsumedByMinterm(solver)
+                    if Solver.containsS solver p2 subMinterm then
+                        if Solver.containsS solver p2 p1 then tail
+                        elif refEq chead tail then tail
+                        else createCached(head,tail)
+                    else createCached(head,tail)
                 // normalize
                 | Concat(head=h1;tail=h2), tail ->
                     let merged = this.mkConcat2(h1,this.mkConcat2(h2,tail))

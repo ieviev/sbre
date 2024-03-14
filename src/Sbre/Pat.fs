@@ -193,6 +193,12 @@ let (|HasPrefixOrSuffix|_|) (node: RegexNode<_>) =
     | Concat(tail=HasPrefixOrSuffix()) -> ValueSome()
     | _ -> ValueNone
 
+
+let (|ConcatSuffix|) (node: RegexNode<_>) =
+    match node with
+    | Concat(head=_;tail=ConcatSuffix(suff)) -> suff
+    | suff -> suff
+
 [<return: Struct>]
 let (|StarLoop|_|) (node: RegexNode<_>) =
     match node with
