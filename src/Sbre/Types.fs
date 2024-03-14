@@ -623,7 +623,24 @@ type SharedResizeArray<'t when 't : equality>(initialSize:int) =
             found <- lambda e.Current
         found
     member this.AsSpan() = pool.AsSpan(0, size)
+    member this.AsMemory() = pool.AsMemory(0, size)
     member this.AsArray() = pool.AsSpan(0, size).ToArray()
+    member this.AsDistinctArray() =
+        let shr = new SharedResizeArray<_>(size)
+        for i = 0 to size - 1 do
+            let curr = pool[i]
+            if shr.Contains(curr) then ()
+            else shr.Add(curr)
+        shr
+    // member this.Distinct() =
+    //     let poolSpan = pool.AsSpan(0, size)
+    //     for i = size - 1 downto 1 do
+    //         let precSlice = poolSpan.Slice(0,i - 1)
+    //         if precSlice.Contains(poolSpan[i]) then
+    //             this.Remove(poolSpan)
+    //             ()
+    //         else shr.Add(curr)
+    //     shr
 
     interface IDisposable with
         member this.Dispose() =
