@@ -1195,63 +1195,63 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
 
                 // INNER LOOKAROUND
 #if REWRITE_INNER
-                // TODO: ⊤*(?<=aaa) not correct - this does not have the same semantics
-                // a(?<=[a-z]) to (a&(⊤*[a-z])
-                // [a-f]{3}((?<=bc)ijk)|(?<=cd)def))
-                // [a-f]{3}((?<=bc)ijk)|(?<=cd)def))
-                // aaa&(?=[a-z]{3})...
-                | head, LookAround(node=node;lookBack=true) when not (refEq head b.trueStar) ->
-                    // only rewrite trivial examples!
-                    let rewrite =
-                        match node with
-                        | Singleton _ ->
-                            b.mkAnd([ head; b.mkConcat2(b.trueStar,node) ])
-                        | Loop(node=Singleton _; low=0; up=1) ->
-                            b.mkAnd([ head; b.mkConcat2(b.trueStar,node) ])
-                        | _ ->
-                            raise (UnsupportedPatternException("inner lookarounds are not yet supported!"))
-                    _concatCache.Add(key, rewrite)
-                    rewrite
-                // (?=[a-z])a to (a&([a-z]⊤*)
-                // (?=ab)a to (a&(?=ab)
-                | LookAround(node=lookbody;lookBack=false),tail  ->
-                    // match tail with
-                    // | SingletonStarLoop(_) ->
-                    //     let v =
-                    //         let flags = Flags.inferConcat head tail
-                    //         let mergedMinterms = solver.Or(head.SubsumedByMinterm(solver),tail.SubsumedByMinterm(solver))
-                    //         let info = this.CreateInfo(flags, mergedMinterms, RefSet.union head.PendingNullables tail.PendingNullables)
-                    //         Concat(head, tail, info)
-                    //     _concatCache.Add(key, v)
-                    //     v
-                    // | _ ->
-
-                    // only rewrite trivial examples!
-                    let rewrite =
-                        match lookbody with
-                        // (?=1)11 ==> (11&1⊤*)
-                        | Singleton _ -> b.mkAnd([ tail; b.mkConcat2(lookbody,b.trueStar) ])
-                        | _ ->
-                            // (?=[a-z])a
-
-                            // (?=⊤*), this just carries the nullability info
-                            let unboundedLook = b.mkLookaround(b.trueStar,false,0,RefSet.empty)
-
-                            // a(?=⊤*)
-                            let case1 = b.mkConcat2(tail, unboundedLook)
-                            // [a-z]⊤*
-                            let case2 = b.mkConcat2(lookbody,b.trueStar)
-
-                            let v = b.mkAnd([
-                                case1
-                                case2
-                            ])
-                            v
-                    _concatCache.Add(key, rewrite)
-                    rewrite
-#else
-                | LookAround(node=_;lookBack=false),other | other, LookAround(node=_;lookBack=true) when not (refEq other _uniques._trueStar ) ->
-                    failwith "Sbre does not yet support inner lookarounds"
+//                 // TODO: ⊤*(?<=aaa) not correct - this does not have the same semantics
+//                 // a(?<=[a-z]) to (a&(⊤*[a-z])
+//                 // [a-f]{3}((?<=bc)ijk)|(?<=cd)def))
+//                 // [a-f]{3}((?<=bc)ijk)|(?<=cd)def))
+//                 // aaa&(?=[a-z]{3})...
+//                 | head, LookAround(node=node;lookBack=true) when not (refEq head b.trueStar) ->
+//                     // only rewrite trivial examples!
+//                     let rewrite =
+//                         match node with
+//                         | Singleton _ ->
+//                             b.mkAnd([ head; b.mkConcat2(b.trueStar,node) ])
+//                         | Loop(node=Singleton _; low=0; up=1) ->
+//                             b.mkAnd([ head; b.mkConcat2(b.trueStar,node) ])
+//                         | _ ->
+//                             raise (UnsupportedPatternException("inner lookarounds are not yet supported!"))
+//                     _concatCache.Add(key, rewrite)
+//                     rewrite
+//                 // (?=[a-z])a to (a&([a-z]⊤*)
+//                 // (?=ab)a to (a&(?=ab)
+//                 | LookAround(node=lookbody;lookBack=false),tail  ->
+//                     // match tail with
+//                     // | SingletonStarLoop(_) ->
+//                     //     let v =
+//                     //         let flags = Flags.inferConcat head tail
+//                     //         let mergedMinterms = solver.Or(head.SubsumedByMinterm(solver),tail.SubsumedByMinterm(solver))
+//                     //         let info = this.CreateInfo(flags, mergedMinterms, RefSet.union head.PendingNullables tail.PendingNullables)
+//                     //         Concat(head, tail, info)
+//                     //     _concatCache.Add(key, v)
+//                     //     v
+//                     // | _ ->
+//
+//                     // only rewrite trivial examples!
+//                     let rewrite =
+//                         match lookbody with
+//                         // (?=1)11 ==> (11&1⊤*)
+//                         | Singleton _ -> b.mkAnd([ tail; b.mkConcat2(lookbody,b.trueStar) ])
+//                         | _ ->
+//                             // (?=[a-z])a
+//
+//                             // (?=⊤*), this just carries the nullability info
+//                             let unboundedLook = b.mkLookaround(b.trueStar,false,0,RefSet.empty)
+//
+//                             // a(?=⊤*)
+//                             let case1 = b.mkConcat2(tail, unboundedLook)
+//                             // [a-z]⊤*
+//                             let case2 = b.mkConcat2(lookbody,b.trueStar)
+//
+//                             let v = b.mkAnd([
+//                                 case1
+//                                 case2
+//                             ])
+//                             v
+//                     _concatCache.Add(key, rewrite)
+//                     rewrite
+// #else
+                // | LookAround(node=_;lookBack=false),other | other, LookAround(node=_;lookBack=true) when not (refEq other _uniques._trueStar ) ->
+                //     raise (UnsupportedPatternException("inner lookarounds are not supported"))
 #endif
                 | _ ->
                     let v =
@@ -1398,9 +1398,18 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             combined
 
 
+    member this.collectConcatNodes(node:RegexNode<_>) =
+        match node with
+        | Concat(head=head;tail=tail) ->
+            head :: this.collectConcatNodes(tail)
+        | _ -> [node]
+
     /// additional rewrites and checks if the pattern is supported
     member this.mkConcatChecked(nodesCorrectOrder: RegexNode< 't > seq) : RegexNode< 't > =
-        let nodesCorrectOrder = Seq.toArray nodesCorrectOrder
+        let nodesCorrectOrder =
+            nodesCorrectOrder
+            |> Seq.collect (this.collectConcatNodes)
+            |> Seq.toArray
 
         let len = nodesCorrectOrder.Length
         match nodesCorrectOrder.Length with
@@ -1471,8 +1480,17 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
 
 
                     | _ ->
+                        // experimental
+                        let leftSide = b.mkConcatResizeArray(ResizeArray(leftNodes))
+                        let look = b.mkConcat2(b.trueStar,lookBody)
+                        let remainingTails = b.mkConcatChecked(nodesCorrectOrder[i+1..])
+                        let newNode =
+                            b.mkConcat2(
+                                b.mkAnd(seq{leftSide;look}),
+                                remainingTails
+                            )
+                        rewrittenNode <- Some newNode
 
-                        throwExn()
                 | _ ->
                     throwExn()
             // rewrite lookaheads
@@ -1481,18 +1499,13 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 if i + 1 = nodesCorrectOrder.Length then () else
 
                 let remainingTail = b.mkConcatChecked(nodesCorrectOrder[i+1..])
-
                 let lookMaxLength = Node.getMaxLength lookBody
-
                 match lookMaxLength with
                 | None -> raise (
                     UnsupportedPatternException(
                         "unconstrained lookarounds are only supported as prefixes/suffixes"))
+
                 | Some lookMaxLength ->
-
-                let remainingTailMinLength = Node.getMinLength remainingTail
-
-                let w = 1
 
                 let rewrite =
                     match lookBody with
@@ -1504,9 +1517,6 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                             b.mkConcat2(remainingTail,b.trueStar)
                             b.mkConcat2(lookBody,b.trueStar)
                         ])
-
-                        // let case3 =
-                        //     b.mkNot(b.mkConcat2(remainingTail,b.trueStar))
                         case1
                         // case2
                 let newNode =

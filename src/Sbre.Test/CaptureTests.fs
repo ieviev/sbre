@@ -242,6 +242,9 @@ let ``unsupported 08``() = assertRawDerivative """⊤*\ba""" "a " [
     // --
     @"(⊤*(?<=(\A|φ))a)?"
     @"(⊤*(?<=(φ|\A))a)?"
+    // --
+    @"(⊤*(\A|φ)a)?"
+    @"(⊤*(φ|\A)a)?"
 ]
 
 [<Fact>]
@@ -269,7 +272,14 @@ let ``unsupported 12``() =
     let input = "12_3a___"
     assertFirstMatchText pattern input "12_3"
 
-//
+
+[<Fact>]
+let ``unsupported 13``() =
+    let pattern = """~(^0*$)&~(^0*\.0*$)&^\d{1,5}(\.\d{1,3})?$"""
+    let input = "12345.123"
+    assertFirstMatchText pattern input "12345.123"
+
+
 
 //
 [<Fact>]
