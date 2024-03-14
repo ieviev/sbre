@@ -230,28 +230,32 @@ type RegexCache<
     member this.TryNextStartsetLocationRightToLeft
         (
             loc: byref<Location>,
-            set: SearchValues<char>,
-            isInverted: bool
+            set: MintermSearchValues<_>
         ) : unit =
 
         let currpos = loc.Position
-
-        // try
         let slice = loc.Input.Slice(0, currpos)
-
-
         let sharedIndex =
-            if isInverted then
-                slice.LastIndexOfAnyExcept(set)
-            else
-                slice.LastIndexOfAny(set)
+            match set.Mode with
+            | MintermSearchMode.SearchValues ->
+                slice.LastIndexOfAny(set.SearchValues)
+            | MintermSearchMode.InvertedSearchValues ->
+                slice.LastIndexOfAnyExcept(set.SearchValues)
+            | MintermSearchMode.TSet ->
+                let mutable fnd = false
+                let mutable i = slice.Length - 1
+                while not fnd && i >= 0 do
+                    if set.Contains(slice[i]) then
+                        fnd <- true
+                    i <- i - 1
+                if fnd then
+                    i + 1
+                else -1
+            | _ -> failwith "impossible"
 
         match sharedIndex with
         | -1 -> loc.Position <- Location.final loc
         | _ -> loc.Position <- sharedIndex + 1
-        // with e ->
-        //     failwith $"pos:{loc.Position}\n{loc.Input.ToString()}"
-
 
     member this.TryNextStartsetLocationLeftToRight
         (
@@ -272,7 +276,7 @@ type RegexCache<
                 if set.Contains(slice[i]) then
                     fnd <- true
                 i <- i + 1
-            failwith "todo search"
+            if not fnd then -1 else i - 1
         | _ -> failwith "impossible"
 
 

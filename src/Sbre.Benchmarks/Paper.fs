@@ -337,14 +337,14 @@ type TwainRegexes() =
             fullInput
         )
 
-let sherlock = "/mnt/g/repos/rebar/benchmarks/haystacks/sherlock.txt" |> System.IO.File.ReadAllText
+// let sherlock = "/mnt/ice/repos/rebar/benchmarks/haystacks/sherlock.txt" |> System.IO.File.ReadAllText
 
 type TwainRegexesMatchOnly() =
     inherit
         Jobs.TestAllEnginesAllPatternsMatchOnly(
             [
                // """\b\w+nn\b"""
-               "Twain"
+               // "Twain"
                // "(?i)Twain"
                // "[a-z]shing"
                // @"Huck[a-zA-Z]+|Saw[a-zA-Z]+" // ++
@@ -356,10 +356,10 @@ type TwainRegexesMatchOnly() =
                // "Tom.{10,25}river|river.{10,25}Tom" // ++
                // "[a-zA-Z]+ing"
                // "\s([A-Za-z]awyer|[A-Za-z]inn)\s" // ++
-               // """["'][^"']{0,30}[?!\.]["']""" // ++
+               """["'][^"']{0,30}[?!\.]["']""" // ++
                // "\s[a-zA-Z]{0,12}ing\s"
             ],
-            sherlock
+            fullInput
         )
 
 
@@ -425,7 +425,7 @@ type Rebar5() =
             [
                """\b[0-9A-Za-z_]+\b"""
             ],
-            "/mnt/g/repos/rebar/benchmarks/haystacks/opensubtitles/en-sampled.txt" |> System.IO.File.ReadAllText
+            "/mnt/ice/repos/rebar/benchmarks/haystacks/opensubtitles/en-sampled.txt" |> System.IO.File.ReadAllText
         )
 
 

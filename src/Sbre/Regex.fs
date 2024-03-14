@@ -69,9 +69,9 @@ type MatchState<'t when 't :> IEquatable<'t> and 't: equality >(node: RegexNode<
 
     // member val PendingNullablePositions: Set<int> = Set.empty with get, set
     member val ActiveOptimizations: ActiveBranchOptimizations = ActiveBranchOptimizations.NoOptimizations with get, set
-    member val StartsetChars: SearchValues<char> = Unchecked.defaultof<_> with get, set
+    // member val StartsetChars: SearchValues<char> = Unchecked.defaultof<_> with get, set
     member val MintermSearchValues: MintermSearchValues<'t> = Unchecked.defaultof<_> with get, set
-    member val StartsetIsInverted: bool = Unchecked.defaultof<_> with get, set
+    // member val StartsetIsInverted: bool = Unchecked.defaultof<_> with get, set
 
 type RegexSearchMode =
     | FirstNullable
@@ -372,9 +372,6 @@ type RegexMatcher<
 
 
     let _createStartset(state: MatchState<'t>, initial: bool) =
-        // todo: performance sensitive
-        if not options.FindLookaroundPrefix then () else
-
         let minterms = _cache.Minterms()
 
         let derivatives =
@@ -416,25 +413,13 @@ type RegexMatcher<
             |> Seq.where (fun (_, d) -> condition d)
             |> Seq.map fst
             |> Solver.mergeSets _cache.Solver
-            // |> Seq.fold (|||) _cache.Solver.Empty
 
         // let dbg_startset = _cache.PrettyPrintMinterm(unbox startsetPredicate)
         // invert empty startset (nothing to skip to)
         let setChars = _cache.MintermSearchValues(startsetPredicate)
-        let isInverted = _cache.MintermIsInverted(startsetPredicate)
-
         state.MintermSearchValues <- setChars
-        // TODO:
-        match setChars.Mode with
-        | MintermSearchMode.InvertedSearchValues
-        | MintermSearchMode.SearchValues ->
-            state.Startset <- startsetPredicate
-            state.StartsetChars <- setChars.SearchValues
-            state.StartsetIsInverted <- isInverted
-        | _ ->
-            state.Startset <- startsetPredicate
-            state.StartsetChars <- Unchecked.defaultof<_>
-            state.StartsetIsInverted <- isInverted
+        state.Startset <- startsetPredicate
+
 
 
 
@@ -482,7 +467,6 @@ type RegexMatcher<
             if
                 not (_cache.Solver.IsEmpty(state.Startset) || _cache.Solver.IsFull(state.Startset))
             then
-                if isNull state.StartsetChars then () else
                 state.Flags <- state.Flags ||| RegexStateFlags.CanSkipFlag
             else
                 ()
@@ -504,12 +488,14 @@ type RegexMatcher<
                             state.Node
                 match limitedSkip with
                 | Some ls ->
-                    if isNull state.StartsetChars then () else
-                    state.ActiveOptimizations <- ls
-                    state.Flags <-
-                        state.Flags |||
-                        RegexStateFlags.CanSkipFlag |||
-                        RegexStateFlags.ActiveBranchOptimizations
+                    match state.MintermSearchValues.Mode with
+                    | MintermSearchMode.SearchValues ->
+                        state.ActiveOptimizations <- ls
+                        state.Flags <-
+                            state.Flags |||
+                            RegexStateFlags.CanSkipFlag |||
+                            RegexStateFlags.ActiveBranchOptimizations
+                    | _ -> ()
                 | _ ->
                     ()
 
@@ -1043,8 +1029,7 @@ type RegexMatcher<
             let tmp_loc = loc.Position
             _cache.TryNextStartsetLocationRightToLeft(
                 &loc,
-                dfaState.StartsetChars,
-                dfaState.StartsetIsInverted
+                dfaState.MintermSearchValues
             )
             // adding all skipped locations todo: optimize this to ranges
             if tmp_loc > loc.Position && this.StateIsNullable(flags, &loc, currentStateId) then
@@ -1053,20 +1038,6 @@ type RegexMatcher<
                 true
             else
                 false
-     // [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-     member this.TrySkipActiveLeftToRight(loc: byref<Location>, currentStateId:byref<int>) : unit =
-        let dfaState = _stateArray[currentStateId]
-
-        let isInverted = dfaState.StartsetIsInverted
-        let setChars = dfaState.StartsetChars
-        let slice = loc.Input.Slice(loc.Position)
-        let sharedIndex =
-            if isInverted then slice.IndexOfAnyExcept(setChars)
-            else slice.IndexOfAny(setChars)
-        if sharedIndex = -1 then
-            loc.Position <- Location.final loc
-        else
-            loc.Position <- loc.Position + sharedIndex
 
     member this.HandleNullableRev(flags:RegexStateFlags,acc: byref<SharedResizeArrayStruct<int>>,loc,currentStateId) =
         if flags.IsPendingNullable then
@@ -1096,7 +1067,7 @@ type RegexMatcher<
 
         while looping do
             let flags = _flagsArray[currentStateId]
-            let dfaState = _stateArray[currentStateId]
+            // let dfaState = _stateArray[currentStateId]
 #if SKIP
             if (flags.CanSkipInitial && this.TrySkipInitialRev(&loc, &currentStateId))
 

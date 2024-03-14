@@ -59,7 +59,7 @@ type OverrideRegex =
         isAscii: bool
 
 #if DEBUG
-let printPrefixSets (cache: RegexCache<_>) (sets: 't list) =
+let printPrefixSets (cache: RegexCache<_>) (sets: uint64 list) =
     sets
     |> Seq.map cache.PrettyPrintMinterm
     |> Seq.map (fun v ->
@@ -568,7 +568,7 @@ let tryGetLimitedSkip
                             getNonInitialDerivative
                             c
                             node
-                            (List.take singleCharPrefixes.Length (prefix))
+                            (List.take singleCharPrefixes.Length prefix)
 
                     if reducedLength > 0 then
                         None

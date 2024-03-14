@@ -1178,79 +1178,11 @@ type TestAllEnginesAllPatternsMatchOnly(patterns: string list, input: string) =
     // member this.None() =
     //     this.None_Regex.Count(inputText)
 
-    // [<Benchmark(Description = "Sbre")>]
-    // member this.Sbre() =
-    //     this.Sbre_Regex.Count(inputText)
+    [<Benchmark(Description = "Sbre")>]
+    member this.Sbre() =
+        this.Sbre_Regex.Count(inputText)
 
     //
-    [<Benchmark()>]
-    member this.LastIndexOfOrdinalIgnoreCase() =
-        let span = inputText.AsSpan()
-        let mutable looping = true
-        let mutable count = 0
-        let mutable currPos = inputText.Length - 1
-        while looping do
-            let slice = span.Slice(0,currPos)
-            match slice.LastIndexOf("Sherlock Holmes", StringComparison.OrdinalIgnoreCase) with
-            | -1 -> looping <- false
-            | n ->
-                count <- count + 1
-                currPos <- n
-        // if count <> 522 then
-        //     failwith $"invalid count: {count}" |> ignore
-
-    [<Benchmark()>]
-    member this.IndexOfOrdinalIgnoreCase() =
-        let span = inputText.AsSpan()
-        let mutable looping = true
-        let mutable count = 0
-        let mutable currPos = 0
-        let textLength = "Sherlock Holmes".Length
-        while looping do
-            let slice = span.Slice(currPos)
-            match slice.IndexOf("Sherlock Holmes", StringComparison.OrdinalIgnoreCase) with
-            | -1 -> looping <- false
-            | n ->
-                count <- count + 1
-                currPos <- currPos + n + textLength
-        // if count <> 522 then
-        //     failwith $"invalid count: {count}" |> ignore
-
-    [<Benchmark()>]
-    member this.LastIndexOfOrdinal() =
-        let span = inputText.AsSpan()
-        let mutable looping = true
-        let mutable count = 0
-        let mutable currPos = inputText.Length - 1
-        while looping do
-            let slice = span.Slice(0,currPos)
-            match slice.LastIndexOf("Sherlock Holmes", StringComparison.Ordinal) with
-            | -1 -> looping <- false
-            | n ->
-                count <- count + 1
-                currPos <- n
-        // if count <> 513 then
-        //     failwith $"{count}" |> ignore
-
-
-
-    [<Benchmark()>]
-    member this.IndexOfOrdinal() =
-        let span = inputText.AsSpan()
-        let mutable looping = true
-        let mutable count = 0
-        let mutable currPos = 0
-        let textLength = "Sherlock Holmes".Length
-        while looping do
-            let slice = span.Slice(currPos)
-            match slice.IndexOf("Sherlock Holmes", StringComparison.Ordinal) with
-            | -1 -> looping <- false
-            | n ->
-                count <- count + 1
-                currPos <- currPos + n + textLength
-        // if count <> 513 then
-        //     failwith $"{count}" |> ignore
-
 
 
 
