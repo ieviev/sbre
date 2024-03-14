@@ -372,6 +372,9 @@ type RegexMatcher<
 
 
     let _createStartset(state: MatchState<'t>, initial: bool) =
+        // expensive for a single match
+        if state.Node.ContainsLookaround && not options.FindLookaroundPrefix then () else
+
         let minterms = _cache.Minterms()
 
         let derivatives =
@@ -384,23 +387,8 @@ type RegexMatcher<
                     _createDerivative(&loc, minterm, state.Node)
             )
 
-        // debug pretty minterms
-        // let prettyMinterms =
-        //     Seq.zip minterms derivatives
-        //     |> Seq.map (fun (mt,d) ->
-        //         $"{_cache.PrettyPrintMinterm(mt)} : {_cache.PrettyPrintNode(d)}"
-        //     )
-        //     |> String.concat "\n"
-        //
-        // let startsetPredicateStr =
-        //     Seq.zip minterms derivatives
-        //     |> Seq.where (fun (mt,d) ->
-        //         not (refEq d _cache.False)
-        //     )
-        //     |> Seq.map (fun (mt,d) ->
-        //         $"{_cache.PrettyPrintMinterm(mt)} : {_cache.PrettyPrintNode(d)}"
-        //     )
-        //     |> String.concat "\n"
+        // let ders = Array.zip minterms derivatives
+        // Optimizations.printPrettyDerivs _cache (ders)
 
         let condition =
             if initial then
@@ -419,6 +407,12 @@ type RegexMatcher<
         let setChars = _cache.MintermSearchValues(startsetPredicate)
         state.MintermSearchValues <- setChars
         state.Startset <- startsetPredicate
+        if
+            not (_cache.Solver.IsEmpty(state.Startset) || _cache.Solver.IsFull(state.Startset))
+        then
+            state.Flags <- state.Flags ||| RegexStateFlags.CanSkipFlag
+        else
+            ()
 
 
 
@@ -464,12 +458,7 @@ type RegexMatcher<
 
             // generate startset
             _createStartset (state, isInitial)
-            if
-                not (_cache.Solver.IsEmpty(state.Startset) || _cache.Solver.IsFull(state.Startset))
-            then
-                state.Flags <- state.Flags ||| RegexStateFlags.CanSkipFlag
-            else
-                ()
+
 
             if not isInitial
                // && not (state.Flags.HasFlag(RegexStateFlags.CanSkipFlag))
@@ -553,10 +542,8 @@ type RegexMatcher<
         let mutable found = false
         let mutable currentStateId = DFA_TR_rev
 
-
         while looping do
             let flags = _flagsArray[currentStateId]
-            // let mutable dfaState = _stateArray[currentStateId]
 #if SKIP
             if (flags.CanSkipInitial && this.TrySkipInitialRev(&loc, &currentStateId))
                 then ()
@@ -575,15 +562,15 @@ type RegexMatcher<
 
     override this.IsMatch(input) =
         let mutable loc = Location.createReversedSpan input
-        // this.IsMatchRev(&loc)
-        // if not reverseTrueStarredNode.DependsOnAnchor then
-        //     this.IsMatchRev(&loc)
-        // else
-        // // ismatch with anchors is more complex than nullability
-        let matches = this.llmatch_all(input)
-        match matches.size with
-        | 0 -> false
-        | _ -> true
+        this.IsMatchRev(&loc)
+        // // if not reverseTrueStarredNode.DependsOnAnchor then
+        // //     this.IsMatchRev(&loc)
+        // // else
+        // // // ismatch with anchors is more complex than nullability
+        // let matches = this.llmatch_all(input)
+        // match matches.size with
+        // | 0 -> false
+        // | _ -> true
 
 
     override this.Match(input) : SingleMatchResult =
@@ -1288,24 +1275,6 @@ module Helpers =
         : GenericRegexMatcher
         =
         match bddMinterms.Length with
-        // | n when n < 32 ->
-        //     let solver = UInt32Solver(minterms, charsetSolver)
-        //     let uintbuilder = RegexBuilder(converter, solver, charsetSolver)
-        //     let trueStarredNode  = (Minterms.transform uintbuilder charsetSolver solver) trueStarPattern
-        //     let rawNode = (Minterms.transform uintbuilder charsetSolver solver) symbolicBddnode
-        //     let optimizations = RegexFindOptimizations(regexTree.Root, RegexOptions.NonBacktracking)
-        //     let reverseNode = RegexNode.rev uintbuilder rawNode
-        //     let cache =
-        //         Sbre.RegexCache(
-        //             solver,
-        //             charsetSolver,
-        //             _implicitDotstarPattern = trueStarredNode,
-        //             _rawPattern = rawNode,
-        //             _reversePattern = reverseNode,
-        //             _builder = uintbuilder,
-        //             _optimizations = optimizations
-        //         )
-        //     RegexMatcher<uint32>(trueStarredNode,rawNode,reverseNode,cache) :> GenericRegexMatcher
         | n when n <= 64 ->
             let solver = UInt64Solver(bddMinterms, charsetSolver)
 #if DEBUG
@@ -1368,7 +1337,6 @@ module Helpers =
 
             let backToBdd = Minterms.transformBack uintbuilder bddBuilder solver charsetSolver (m.RawPatternObj)
             let recomputedMinterms = backToBdd |> Minterms.compute symbolicBuilder
-            let dbg = 1
             // if not (refEq (m.RawPatternObj) (rawNode)) then
             //     let backToBdd = Minterms.transformBack uintbuilder bddBuilder solver charsetSolver (m.RawPatternObj)
             //     let recomputedMinterms = backToBdd |> Minterms.compute symbolicBuilder

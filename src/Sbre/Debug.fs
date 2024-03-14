@@ -14,13 +14,14 @@ module Debug =
 [<AllowNullLiteral>]
 type SbreOptions() =
     /// initial dfa size
-    member val InitialDfaCapacity = 1024 with get, set
+    member val InitialDfaCapacity = 2048 with get, set
     /// maximum dfa size
     member val MaxDfaCapacity = 1_000_000 with get, set
     /// very expensive upfront but reduces state space
     member val CanonicalizeStates = false with get, set
     /// attempt to make alternations at the cost of initialization time
     member val MinimizeOr = false with get, set
-    member val FindLookaroundPrefix = true with get, set
+    member val MaxPrefixLength = 20 with get, set
+    member val FindLookaroundPrefix = false with get, set
 
 

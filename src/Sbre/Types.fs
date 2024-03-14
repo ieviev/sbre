@@ -395,9 +395,7 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
         match this with
         | LookAround(regexNode, lookBack, relativeTo, pendingNullables, regexNodeInfo) ->
             if regexNode.CanNotBeNullable then RefSet.empty else
-            pendingNullables.inner
-            |> Set.map (fun v -> v + relativeTo)
-            |> RefSet.Create
+            pendingNullables |> RefSet<int>.addAll relativeTo
         | _ ->
             this.TryGetInfo
             |> ValueOption.map (_.PendingNullables)
@@ -574,7 +572,7 @@ type TSolver = UInt64Solver
 // type TSet = byte
 
 [<Sealed>]
-type SharedResizeArray<'t>(initialSize:int) =
+type SharedResizeArray<'t when 't : equality>(initialSize:int) =
     let mutable size = 0
     let mutable limit = initialSize
     let mutable pool : 't array = ArrayPool.Shared.Rent(initialSize)
@@ -597,10 +595,27 @@ type SharedResizeArray<'t>(initialSize:int) =
         while not found && e.MoveNext() do
             found <- obj.ReferenceEquals(e.Current,item)
         found
+    member this.Remove(item:'t) =
+        let mutable span : Span<'t> = pool.AsSpan(0, size)
+        let mutable e = pool.AsSpan(0, size).GetEnumerator()
+        let mutable idx = -1
+        let mutable i = 0
+        while idx = -1 && e.MoveNext() do
+            if obj.ReferenceEquals(e.Current,item) then
+                idx <- i
+            i <- i + 1
+
+        if idx = size - 1 then
+            size <- size - 1
+        else
+            span[idx] <- span[size - 1]
+            size <- size - 1
+
     member this.GetEnumerator() =
         let mutable e = pool.AsSpan(0, size).GetEnumerator()
         e
     member this.Length = size
+    member this.Count = size
     member this.Exists(lambda) =
         let mutable e = pool.AsSpan(0, size).GetEnumerator()
         let mutable found = false
@@ -684,34 +699,47 @@ type SharedResizeArrayStruct<'t> =
 
 /// set with canonical reference comparisons
 type RefSet<'t when 't : comparison> =
-    static let cache = Dictionary<Set<'t>, RefSet<'t>>()
+    static let _cache = Dictionary<ImmutableHashSet<'t>, RefSet<'t>>()
+    static let _addCache = Dictionary<struct(int*RefSet<int>), RefSet<int>>()
+    static let _empty = RefSet.Create(ImmutableHashSet.Create())
+    static let _zeroList = RefSet.Create(ImmutableHashSet.Create(0))
 
-    val mutable inner : Set<'t>
+    val mutable inner : ImmutableHashSet<'t>
     static member Create(src:seq<'t>) : RefSet<'t> =
-         let src_set = Set.ofSeq src
-         match cache.TryGetValue(src_set) with
+         let src_set: ImmutableHashSet<'t> = ImmutableHashSet.CreateRange src
+         match _cache.TryGetValue(src_set) with
          | true, v -> v
          | _ ->
              let newset = RefSet(src_set)
-             cache.Add(src_set,newset)
+             _cache.Add(src_set,newset)
              newset
 
     member this.IsEmpty : bool = this.inner.IsEmpty
     static member unionMany (sets:RefSet<'t> seq) : RefSet<'t> =
-        sets
-        |> Seq.map (fun v -> v.inner)
-        |> Set.unionMany
-        |> RefSet.Create
-    static member map (fn) (arg:RefSet<'t>) : RefSet<'t> =
+        let b = ImmutableHashSet.CreateBuilder()
+        sets |> Seq.iter (fun v -> b.UnionWith(v.inner))
+        RefSet.Create(b.ToImmutable())
+    static member map (fn: 't -> 't) (arg:RefSet<'t>) : RefSet<'t> =
+        let b = ImmutableHashSet.CreateBuilder()
         arg.inner
-        |> Set.map fn
-        |> RefSet.Create
-    static member union (arg1:RefSet<'t>) (arg2:RefSet<'t>) : RefSet<'t> =
-        Set.union arg1.inner arg2.inner |> RefSet.Create
-    static member zeroList : RefSet<int> = RefSet.Create(Set.singleton 0)
-    static member empty : RefSet<'t> = RefSet.Create(Set.empty)
+        |> Seq.map fn
+        |> b.UnionWith
+        RefSet.Create(b.ToImmutable())
 
-    private new(src_set:Set<'t>) = {inner=src_set}
+    static member addAll (addBy: int) (arg:RefSet<int>) : RefSet<int> =
+        let key = struct(addBy,arg)
+        match _addCache.TryGetValue(key) with
+        | true, v -> v
+        | _ ->
+            let updated  = arg |> RefSet.map (fun v -> v + addBy)
+            _addCache.Add(key,updated)
+            updated
+    static member union (arg1:RefSet<'t>) (arg2:RefSet<'t>) : RefSet<'t> =
+        arg1.inner.Union(arg2.inner) |> RefSet.Create
+    static member zeroList : RefSet<int> = _zeroList
+    static member empty : RefSet<'t> = _empty
+
+    private new(src_set:ImmutableHashSet<'t>) = {inner=src_set}
 
 
 
