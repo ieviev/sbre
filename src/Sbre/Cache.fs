@@ -253,7 +253,27 @@ type RegexCache<
         //     failwith $"pos:{loc.Position}\n{loc.Input.ToString()}"
 
 
-
+    member this.TryNextStartsetLocationLeftToRight
+        (
+            loc: inref<Location>,
+            set: MintermSearchValues<'t>
+        ) =
+        assert not loc.Reversed
+        let slice =  loc.Input.Slice(loc.Position)
+        match set.Mode with
+        | MintermSearchMode.SearchValues ->
+            slice.IndexOfAny(set.SearchValues)
+        | MintermSearchMode.InvertedSearchValues ->
+            slice.IndexOfAnyExcept(set.SearchValues)
+        | MintermSearchMode.TSet ->
+            let mutable fnd = false
+            let mutable i = 0
+            while not fnd && i < slice.Length do
+                if set.Contains(slice[i]) then
+                    fnd <- true
+                i <- i + 1
+            failwith "todo search"
+        | _ -> failwith "impossible"
 
 
     member this.TryNextStartsetLocationArrayReversed

@@ -21,5 +21,6 @@ type SbreOptions() =
     member val CanonicalizeStates = false with get, set
     /// attempt to make alternations at the cost of initialization time
     member val MinimizeOr = false with get, set
+    member val FindLookaroundPrefix = true with get, set
 
 

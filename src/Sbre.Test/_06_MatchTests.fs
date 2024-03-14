@@ -703,6 +703,9 @@ sdf
 let ``subsumption test 1``() =
     assertIsMatch """^\d*\.?\d*$""" "3.14159"
 
+[<Fact>]
+let ``skip test 1``() =
+    assertIsMatch """\b[0-9A-Za-z_]+\b""" " abcdef "
 
 
 

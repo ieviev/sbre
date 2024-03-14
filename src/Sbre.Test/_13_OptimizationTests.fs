@@ -224,6 +224,19 @@ let ``initialOptimizations 24``() = assertSetsPrefix """c...&...s""" @"s;.;.;c"
 [<Fact>]
 let ``initialOptimizations 25``() = assertPotentialStart """.*have.*&.*there.*""" @"e;[erv];[aerv];[aehrv];.;.;.;.;."
 
+[<Fact>]
+let ``initialOptimizations 26``() =
+    assertSetsPrefix
+        """[A-Za-z]{10}\s+[\s\S]{0,100}Result[\s\S]{0,100}\s+[A-Za-z]{10}"""
+        @"[A-Za-z];[A-Za-z];[A-Za-z];[A-Za-z];[A-Za-z];[A-Za-z];[A-Za-z];[A-Za-z];[A-Za-z];[A-Za-z];φ"
+
+
+[<Fact>]
+let ``initialOptimizations 27``() =
+    assertSetsPrefix
+        """\b[0-9A-Za-z_]+\b"""
+        @"\W;[0-9A-Z_a-z]"
+
 
 
 
@@ -253,6 +266,28 @@ let ``activeOptimizations 1``() =
         assertTrue (n >= 30)
 
     | _ -> failwith "invalid optimization result"
+
+
+[<Fact>]
+let ``activeOptimizations 2``() =
+    let regex = Regex("""\b[0-9A-Za-z_]+\b""")
+    let matcher = regex.TSetMatcher
+
+    use acc = matcher.llmatch_all(" abc ")
+    ()
+    // let c = matcher.Cache
+    // let getder = (fun (mt,node) ->
+    //     let loc = Pat.Location.getNonInitial()
+    //     matcher.CreateDerivative(&loc, mt,node)
+    // )
+    //
+    // let ders =
+    //     Optimizations.getImmediateDerivatives (getder) c matcher.RawPattern
+    //     |> Seq.toArray
+    // let pretty = Optimizations.printPrettyDerivs c ders
+    // let asd = 1
+    // failwith "asd"
+    // ()
 
 
 

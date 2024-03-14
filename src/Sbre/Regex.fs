@@ -70,6 +70,7 @@ type MatchState<'t when 't :> IEquatable<'t> and 't: equality >(node: RegexNode<
     // member val PendingNullablePositions: Set<int> = Set.empty with get, set
     member val ActiveOptimizations: ActiveBranchOptimizations = ActiveBranchOptimizations.NoOptimizations with get, set
     member val StartsetChars: SearchValues<char> = Unchecked.defaultof<_> with get, set
+    member val MintermSearchValues: MintermSearchValues<'t> = Unchecked.defaultof<_> with get, set
     member val StartsetIsInverted: bool = Unchecked.defaultof<_> with get, set
 
 type RegexSearchMode =
@@ -372,7 +373,7 @@ type RegexMatcher<
 
     let _createStartset(state: MatchState<'t>, initial: bool) =
         // todo: performance sensitive
-        if state.Flags.ContainsLookaround then () else
+        if not options.FindLookaroundPrefix then () else
 
         let minterms = _cache.Minterms()
 
@@ -417,10 +418,12 @@ type RegexMatcher<
             |> Solver.mergeSets _cache.Solver
             // |> Seq.fold (|||) _cache.Solver.Empty
 
-        // let dbg_startset = _cache.PrettyPrintMinterm(startsetPredicate)
+        // let dbg_startset = _cache.PrettyPrintMinterm(unbox startsetPredicate)
         // invert empty startset (nothing to skip to)
         let setChars = _cache.MintermSearchValues(startsetPredicate)
         let isInverted = _cache.MintermIsInverted(startsetPredicate)
+
+        state.MintermSearchValues <- setChars
         // TODO:
         match setChars.Mode with
         | MintermSearchMode.InvertedSearchValues
@@ -980,17 +983,27 @@ type RegexMatcher<
         //     | _ -> false
         // else
         // default single char skip
-        let isInverted = dfaState.StartsetIsInverted
-        let setChars = dfaState.StartsetChars
-        let slice = loc.Input.Slice(loc.Position)
         let sharedIndex =
-            if isInverted then slice.IndexOfAnyExcept(setChars)
-            else slice.IndexOfAny(setChars)
-        if sharedIndex = -1 then
+            _cache.TryNextStartsetLocationLeftToRight(&loc,dfaState.MintermSearchValues)
+        match  sharedIndex with
+        | -1 ->
             loc.Position <- Location.final loc
-        else
+        | _ ->
             loc.Position <- loc.Position + sharedIndex
         false
+        //
+        //
+        // let isInverted = dfaState.StartsetIsInverted
+        // let setChars = dfaState.StartsetChars
+        // let slice = loc.Input.Slice(loc.Position)
+        // let sharedIndex =
+        //     if isInverted then slice.IndexOfAnyExcept(setChars)
+        //     else slice.IndexOfAny(setChars)
+        // if sharedIndex = -1 then
+        //     loc.Position <- Location.final loc
+        // else
+        //     loc.Position <- loc.Position + sharedIndex
+        // false
 
 
     member this.TrySkipActiveRev(flags:RegexStateFlags,loc:byref<Location>, currentStateId:byref<int>, acc: byref<SharedResizeArrayStruct<int>>) : bool =
