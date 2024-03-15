@@ -154,16 +154,13 @@ type RegexStateFlags =
 module StateFlags =
     let inline cannotBeCached (flags:RegexStateFlags) =
         flags &&& RegexStateFlags.DependsOnAnchor = RegexStateFlags.DependsOnAnchor
-
     let inline isAlwaysNullable (flags:RegexStateFlags) =
         flags &&& RegexStateFlags.AlwaysNullableFlag = RegexStateFlags.AlwaysNullableFlag
-
     let inline canBeNullable (flags:RegexStateFlags) =
         flags &&& RegexStateFlags.CanBeNullableFlag = RegexStateFlags.CanBeNullableFlag
-
     let inline canSkipInitial (flags:RegexStateFlags) =
-        flags &&& (RegexStateFlags.InitialFlag ||| RegexStateFlags.DependsOnAnchor) = RegexStateFlags.InitialFlag
-
+        // flags &&& (RegexStateFlags.InitialFlag ||| RegexStateFlags.DependsOnAnchor) = RegexStateFlags.InitialFlag
+        flags &&& (RegexStateFlags.InitialFlag) = RegexStateFlags.InitialFlag
     let inline canSkip (flags:RegexStateFlags) =
         flags &&& (RegexStateFlags.CanSkipFlag) = RegexStateFlags.CanSkipFlag
 

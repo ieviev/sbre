@@ -279,11 +279,6 @@ let findInitialOptimizations
     (node: RegexNode<'t>)
     (trueStarredNode: RegexNode<'t>)
     =
-#if NO_SKIP_LOOKAROUNDS
-    if node.ContainsLookaround then
-        InitialOptimizations.NoOptimizations
-    else
-#endif
         match Optimizations.calcPrefixSets getNonInitialDerivative nodeToStateFlags c node with
         | prefix when prefix.Length > 1 ->
             let mts = c.Minterms()

@@ -489,7 +489,7 @@ type SampleRegexes() =
                // "Twain"
                // "(?i)Twain"
                // "[a-z]shing"
-               @"Huck[a-zA-Z]+|Saw[a-zA-Z]+"
+               // @"Huck[a-zA-Z]+|Saw[a-zA-Z]+"
                // "[a-q][^u-z]{13}x"
                // "Tom|Sawyer|Huckleberry|Finn"
                // "(?i)Tom|Sawyer|Huckleberry|Finn"

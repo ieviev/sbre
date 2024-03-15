@@ -580,13 +580,11 @@ type RegexMatcher<
                 // Throw away weights
                 |> Array.map (fun (i, set, _) -> (i, set))
                 // Filter out TSets, because they are slow to check
-                |> fun (sets: (int * MintermSearchValues<_>) array) ->
-                    let _, bestSetType = sets[0]
-
-                    if bestSetType.Mode = MintermSearchMode.TSet then
-                        sets[0..0]
-                    else
-                        sets |> Array.filter (fun (_, set) -> set.Mode <> MintermSearchMode.TSet)
+                // |> fun (sets: (int * MintermSearchValues<_>) array) ->
+                //     let _, bestSetType = sets[0]
+                //     if bestSetType.Mode = MintermSearchMode.TSet then
+                //         sets[0..0]
+                //     else sets |> Array.filter (fun (_, set) -> set.Mode <> MintermSearchMode.TSet)
                 // Convert to an array of struct tuples
                 |> Array.map (fun (i, set) -> struct (i, set))
 
@@ -608,6 +606,14 @@ type RegexMatcher<
         let mutable looping = true
         let mutable found = false
         let mutable currentStateId = DFA_TR_rev
+
+        // only consider anchors in the start
+        let flags = _flagsArray[currentStateId]
+        if this.StateIsNullable(flags, &loc, currentStateId) then true else
+
+        if loc.Position > 0 then
+            this.TakeTransitionWithAnchors(flags, &currentStateId, &loc)
+            loc.Position <- loc.Position - 1
 
         while looping do
             let flags = _flagsArray[currentStateId]
@@ -788,8 +794,9 @@ type RegexMatcher<
             _dfaDelta[dfaOffset] <- nextState
             currentState <- nextState
 
+
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    member this.TakeTransition
+    member this.TakeTransitionWithAnchors
         (
             flags: RegexStateFlags,
             currentState: byref<int>,
@@ -803,6 +810,30 @@ type RegexMatcher<
         if StateFlags.cannotBeCached flags && (loc.Position = loc.Input.Length || loc.Position = 0) then
             this.TakeAnchorTransition(&currentState,&loc,mintermId)
         else
+        if
+            // existing transition in dfa
+            nextStateId > 0
+        then
+            currentState <- nextStateId
+        else
+
+        // new transition
+        if obj.ReferenceEquals(null, _stateArray[nextStateId]) then
+            let nextState = this.TryNextDerivative(&currentState, mintermId, &loc)
+            _dfaDelta[dfaOffset] <- nextState
+            currentState <- nextState
+
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    member this.TakeTransition
+        (
+            flags: RegexStateFlags,
+            currentState: byref<int>,
+            loc: inref<Location>
+        ) =
+        let mintermId = _cache.MintermId(loc)
+        let dfaOffset = this.GetDeltaOffset(currentState, mintermId)
+        let nextStateId = _dfaDelta[dfaOffset]
+
         if
             // existing transition in dfa
             nextStateId > 0
@@ -1156,6 +1187,22 @@ type RegexMatcher<
         else
             currentMax <- loc.Position
 
+
+    // ensure begin and end anchor works correctly
+    member this.TakeStepWithAnchors
+        (
+            acc: byref<SharedResizeArrayStruct<int>>,
+            loc: byref<Location>,
+            currentStateId: byref<int>
+        ) : unit =
+        let flags = _flagsArray[currentStateId]
+        if this.StateIsNullable(flags, &loc, currentStateId) then
+            this.HandleNullableRev(flags,&acc,loc,currentStateId)
+        if loc.Position > 0 then
+            this.TakeTransitionWithAnchors(flags, &currentStateId, &loc)
+            loc.Position <- loc.Position - 1
+
+
     /// unoptimized collect all nullable positions
     member this.CollectReverseNullablePositions
         (
@@ -1167,6 +1214,9 @@ type RegexMatcher<
 
         let mutable looping = true
         let mutable currentStateId = DFA_TR_rev
+
+        // only consider anchors in the start
+        this.TakeStepWithAnchors(&acc,&loc,&currentStateId)
 
         while looping do
             let flags = _flagsArray[currentStateId]
