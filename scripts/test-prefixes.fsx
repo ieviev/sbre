@@ -17,17 +17,17 @@ r.TSetMatcher.Cache.Minterms()
 
 // [abc]{0,1}
 
-let regex1 = Sbre.Regex(".*have.*&.*there.*")
-let cache1 = regex1.TSetMatcher.Cache
-let prefix1 = regex1.InitialReversePrefix
+// let regex1 = Sbre.Regex(".*have.*&.*there.*")
+// let cache1 = regex1.TSetMatcher.Cache
+// let prefix1 = regex1.InitialReversePrefix
 
-let prefixSets1 =
-    match prefix1 with
-    | InitialOptimizations.PotentialStartPrefix(prefix) -> 
-        Array.toList (prefix.ToArray())
-    | _ -> failwith "debug"
+// let prefixSets1 =
+//     match prefix1 with
+//     | InitialOptimizations.SearchValuesPotentialStart(prefix,_) -> 
+//         Array.toList (prefix.ToArray())
+//     | _ -> failwith $"{prefix1}"
 
-let prefixPretty1 = Optimizations.printPrefixSets cache1 (prefixSets1)
+// let prefixPretty1 = Optimizations.printPrefixSets cache1 (prefixSets1)
 
 // ".*have.*&.*there.*")
 // "e;[rv];[ae];h"
@@ -35,10 +35,11 @@ let prefixPretty1 = Optimizations.printPrefixSets cache1 (prefixSets1)
 let regex2 = Sbre.Regex("Huck[a-zA-Z]+|Saw[a-zA-Z]+")
 let cache2 = regex2.TSetMatcher.Cache
 let prefix2 = regex2.InitialReversePrefix
+let prefix3 = Optimizations.getImmediateDerivatives
 
 let prefixSets2 =
     match prefix2 with
-    | InitialOptimizations.PotentialStartPrefix(prefix) -> 
+    | InitialOptimizations.SearchValuesPotentialStart(prefix,_) -> 
         Array.toList (prefix.ToArray())
     | _ -> failwith "debug"
 

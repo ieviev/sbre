@@ -1180,7 +1180,8 @@ type TestAllEnginesAllPatternsMatchOnly(patterns: string list, input: string) =
 
     [<Benchmark(Description = "Sbre")>]
     member this.Sbre() =
-        this.Sbre_Regex.Count(inputText)
+        // this.Sbre_Regex.Count(inputText)
+        this.Sbre_Regex.TSetMatcher.llmatch_all(inputText).size
 
     //
 

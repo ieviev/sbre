@@ -24,6 +24,13 @@ open Sbre.Test
 //     for i = 1 to 1000 do
 //         suite.Sbre() |> ignore
 
+let suite = Paper.Rebar1()
+for pat in suite.Patterns do
+    suite.Pattern <- pat
+    suite.Setup()
+    for i = 1 to 1000 do
+        suite.Sbre() |> ignore
+
 
 
 // let pref = Optimizations.Prefix2()
@@ -56,7 +63,7 @@ open Sbre.Test
 // let pref = _06_MatchTests.``lookback 2``()
 // let pref = _02_NodeTests.``very large pat 01``()
 // let pref = BenchmarkTests.``learning sample 1``()
-let pref = BenchmarkTests.leipzig_count()
+// let pref = BenchmarkTests.leipzig_count()
 // let pref = _06_MatchTests.``lookback 3``()
 // let pref = _06_MatchTests.``lookback 1``()
 let ab = 1

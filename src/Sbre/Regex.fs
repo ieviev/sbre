@@ -706,8 +706,9 @@ type RegexMatcher<
     /// return all matches on input
     override this.Matches(input) =
         let mr = ResizeArray()
+        let allResults = this.llmatch_all input
 
-        for result in this.llmatch_all input do
+        for result in allResults do
             mr.Add(
                 {
                     Value = input.Slice(result.Index, result.Length).ToString()
@@ -715,8 +716,9 @@ type RegexMatcher<
                     Length = result.Length
                 }
             )
-
         mr
+
+
 
     /// counts the number of matches
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]

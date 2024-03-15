@@ -486,13 +486,17 @@ type SampleRegexes() =
         Jobs.TestSbreAllPatternsMatchOnly(
         // Jobs.TestSbreAllPatternsCountSpans(
             [
+               """\b\w+\b"""
+               """\w+"""
+               """~(\T*\W\T*)"""
+               """~(\T*\W\T*)\w"""
                // "Twain"
                // "(?i)Twain"
                // "[a-z]shing"
                // @"Huck[a-zA-Z]+|Saw[a-zA-Z]+"
                // "[a-q][^u-z]{13}x"
                // "Tom|Sawyer|Huckleberry|Finn"
-               "(?i)Tom|Sawyer|Huckleberry|Finn"
+               // "(?i)Tom|Sawyer|Huckleberry|Finn"
                // ".{0,2}(Tom|Sawyer|Huckleberry|Finn)"
                // ".{2,4}(Tom|Sawyer|Huckleberry|Finn)"
                // "Tom.{10,25}river|river.{10,25}Tom"

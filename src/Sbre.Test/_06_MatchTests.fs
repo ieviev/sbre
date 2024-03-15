@@ -565,52 +565,36 @@ let ``web app test 6``() =
 
     Assert.Equal([ (5, 124); (212, 37) ], result |> Seq.map (fun v -> v.Index, v.Length))
 
-let webappsample7 =
-    """
-remarked to Joan:
-
-"Out of charity I will consider that you did not know who devised
-this measure which you condemn in so candid language."
-
-"Save your charity for another occasion, my
+let webappsample7 = """
+zeros divisible by 3
+++
+1
+11
+111
+000
+000000
+01010
+0110110
+011011001101101
+--
+00
+100
+010
+001
+0000
+00000
+0000000
 """
 
+[<Fact>]
+let ``web app test 7``() =
 
-//
-// [<Fact>]
-// let ``dfa match 3``() =
-//     let regex = Regex(@"~(⊤*\d\d⊤*)")
-//     let matcher = regex.TSetMatcher
-//     assertAllStates regex "aa11aaa" [
-//         [ @"⟨⊤*~(⟨⊤*⟨\d{2,2}⊤*⟩⟩)⟩" ]
-//         [ @"⟨⊤*~(⟨⊤*⟨\d{2,2}⊤*⟩⟩)⟩" ]
-//         [ @"⟨⊤*~(⟨⊤*⟨\d{2,2}⊤*⟩⟩)⟩"; @"~(⟨⊤*⟨\d{2,2}⊤*⟩⟩)" ]
-//         [ @"⟨⊤*~(⟨⊤*⟨\d{2,2}⊤*⟩⟩)⟩" ]
-//         [ @"⟨⊤*~(⟨⊤*⟨\d{2,2}⊤*⟩⟩)⟩" ]
-//     ]
+    assertAllLLmatches """^.*&(1+01*01*0)*&.*$""" webappsample7 [
+
+    ]
 
 
-// [<Fact>]
-// let ``dfa match 4``() = assertDfaMatchEnds "..a" "_a__" []
-//
-// [<Fact>]
-// let ``dfa match 5``() = assertDfaMatchEnds "..a" "__a__" [3]
-//
-// [<Fact>]
-// let ``dfa match 6``() = assertDfaMatchEnds "..a" "___a__" [4]
-//
-// [<Fact>]
-// let ``dfa match 7``() = assertDfaMatchEnds "..a" "___a__" [4]
 
-// [<Fact>]
-// let ``llmatch 1``() =
-//     let regex = Regex("abc")
-//     let matcher = regex.TSetMatcher
-//
-//     let result =
-//         matcher.LLMatchPositions("__abc__")
-//         |> Seq.toArray
-//     Assert.Equal([4; 7; 12], result |> Seq.map (fun v -> v.Index) )
 
 let input =
     """[assembly: InternalsVisibleTo("Microsoft.Automata.Z3, PublicKey=" +
