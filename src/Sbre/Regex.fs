@@ -1038,33 +1038,38 @@ type RegexMatcher<
                         let newPos = loc.Position - distance + idx
                         loc.Position <- newPos
                         false // mark nullable
-            | LimitedSkipOnePath(distance, skipPred, failPred, skipToEndTransitionId) ->
+            | LimitedSkipOnePath(distance, skipPred, failPred, skipToEndTransitionId, cachedTransitions) ->
+                if distance > loc.Position then // no more matches
+                    // loc.Position <- Location.final loc
+                    false
+                else
                 let startPos = loc.Position - distance
                 let length =
                     if startPos < 0 then distance + startPos else
                     distance
-                if length = 0 then false else
 
                 let limitedSlice = loc.Input.Slice(max 0 startPos, length)
                 match _cache.TryNextIndexRightToLeftRaw(limitedSlice,failPred) with
                 | -1 ->
                     loc.Position <- loc.Position - length
                     currentStateId <- skipToEndTransitionId
-                    // let newState = _stateArray[currentStateId]
                     true // if end then do something
                 | idx ->
                     let nskipped = (length - idx)
-                    // take n transitions in single step
                     let mutable tempStateId = currentStateId
-                    let mutable tempState = _stateArray[tempStateId].Node
-                    for i = 1 to nskipped do
-                        let flags = _flagsArray[tempStateId]
-                        this.TakeTransition(flags,&tempStateId, &loc)
-                        tempState <- _stateArray[tempStateId].Node
+
+                    // lazily cache the skip transitions
+                    match cachedTransitions.TryGetValue(nskipped) with
+                    | true, v ->
+                        tempStateId <- v
+                    | _ ->
+                        for i = 1 to nskipped do
+                            let flags = _flagsArray[tempStateId]
+                            this.TakeTransition(flags,&tempStateId, &loc)
+                        cachedTransitions.Add(nskipped,tempStateId)
+
                     loc.Position <- loc.Position - length + idx + 1
                     this.TakeTransition(flags,&tempStateId, &loc)
-                    tempState <- _stateArray[tempStateId].Node
-
                     currentStateId <- tempStateId
                     loc.Position <- loc.Position - 1
                     true // mark nullable

@@ -226,7 +226,7 @@ type RegexCache<
     //                 loc.Position <- currpos
 
 
-    // [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.TryNextIndexRightToLeft
         (
             slice: ReadOnlySpan<char>,

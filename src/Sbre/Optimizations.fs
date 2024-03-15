@@ -41,7 +41,8 @@ type ActiveBranchOptimizations<'t> =
         distance: int *
         skipPred: MintermSearchValues<'t> *
         failPred: MintermSearchValues<'t> *
-        skipToEndTransitionId: int
+        skipToEndTransitionId: int *
+        cachedTransitions: Dictionary<int,int>
 
 
     | PossibleStringPrefix of prefix: Memory<char> * transitionNodeId: int
@@ -535,13 +536,14 @@ let tryGetLimitedSkip
                     let path, skipToEndNode = loop startMt [] (potentialPath)
                     let skipPred = c.MintermSearchValues(startMt)
                     let failPred = c.MintermSearchValues(c.Solver.Not(startMt))
-                    let w = 1
+                    // if path.Length < 20 then None else
                     Some(
                         ActiveBranchOptimizations.LimitedSkipOnePath(
                             distance = path.Length + 2,
                             skipPred = skipPred,
                             failPred = failPred,
-                            skipToEndTransitionId = nodeToId skipToEndNode
+                            skipToEndTransitionId = nodeToId skipToEndNode,
+                            cachedTransitions = Dictionary()
                         )
                     )
                 | _ ->
