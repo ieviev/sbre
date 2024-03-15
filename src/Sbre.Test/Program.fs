@@ -9,20 +9,20 @@ open Sbre.Benchmarks
 open Sbre.Test
 
 //
-// let suite = Paper.SampleRegexes()
-// for pat in suite.Patterns do
-//     suite.Pattern <- pat
-//     suite.Setup()
-//     for i = 1 to 1000 do
-//         suite.Sbre() |> ignore
-
-
-let suite = Paper.Rebar10()
+let suite = Paper.SampleRegexes()
 for pat in suite.Patterns do
     suite.Pattern <- pat
     suite.Setup()
     for i = 1 to 1000 do
         suite.Sbre() |> ignore
+
+
+// let suite = Paper.Rebar10()
+// for pat in suite.Patterns do
+//     suite.Pattern <- pat
+//     suite.Setup()
+//     for i = 1 to 1000 do
+//         suite.Sbre() |> ignore
 
 
 

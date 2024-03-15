@@ -5,6 +5,7 @@ open System.Buffers
 open System.Collections.Generic
 open System.Globalization
 open System.Numerics
+open System.Reflection
 open System.Reflection.Metadata
 open System.Runtime.CompilerServices
 open System.Text.RuntimeRegexCopy.Symbolic
@@ -376,9 +377,6 @@ type RegexMatcher<
     let _createStartset(state: MatchState<'t>, initial: bool) =
         // expensive for a single match
         if state.Node.ContainsLookaround && not options.FindLookaroundPrefix then () else
-        if state.Id > 12000 then
-            ()
-
         let minterms = _cache.Minterms()
 
         let derivatives =
@@ -544,6 +542,54 @@ type RegexMatcher<
         Optimizations.inferLengthLookup (fun node -> _getOrCreateState(reverseTrueStarredNode,node,false).Id ) getNonInitialDerivative _cache _noprefix
     let _regexOverride =
         Optimizations.inferOverrideRegex _initialOptimizations _lengthLookup _cache R_canonical reverseNode
+
+    let _prefixSets =
+        match _initialOptimizations with
+        | InitialOptimizations.SearchValuesPotentialStart(prefix,_) ->
+            prefix.ToArray() |> Array.rev
+        | InitialOptimizations.SearchValuesPrefix(prefix, _) ->
+            prefix.ToArray() |> Array.rev
+        | InitialOptimizations.StringPrefix (charPrefix, _) ->
+            charPrefix.ToArray()
+            |> Array.map (_cache.Classify >> _cache.MintermSearchValues)
+        | InitialOptimizations.StringPrefixCaseIgnore(_, _, charPrefix, _, _) ->
+            [||]
+        | _ -> [||]
+
+    let _commonalityScoreSimple (charSet: char array) =
+        charSet
+        |> Array.map (fun c -> if Char.IsAsciiLetterLower c then 10.0 else 0.0)
+        |> Array.sum
+    let _weightedSets =
+        if _prefixSets.Length = 0 then
+            [||]
+        else
+            _prefixSets
+                // Calculate weights
+                |> Array.mapi (fun i set ->
+                    let mintermSV = set
+                    match mintermSV.Mode with
+                    | MintermSearchMode.TSet -> (i, mintermSV, 100000.0)
+                    | MintermSearchMode.SearchValues ->
+                        let weight = _commonalityScoreSimple (mintermSV.CharactersInMinterm.Value.Span.ToArray())
+                        (i, mintermSV, weight)
+                    | MintermSearchMode.InvertedSearchValues -> (i, mintermSV, 10000.0)
+                    | _ -> failwith "impossible!")
+                // Sort by weight
+                |> Array.sortBy (fun (_, _, score) -> score)
+                // Throw away weights
+                |> Array.map (fun (i, set, _) -> (i, set))
+                // Filter out TSets, because they are slow to check
+                |> fun (sets: (int * MintermSearchValues<_>) array) ->
+                    let _, bestSetType = sets[0]
+
+                    if bestSetType.Mode = MintermSearchMode.TSet then
+                        sets[0..0]
+                    else
+                        sets |> Array.filter (fun (_, set) -> set.Mode <> MintermSearchMode.TSet)
+                // Convert to an array of struct tuples
+                |> Array.map (fun (i, set) -> struct (i, set))
+
 #else
     let _initialOptimizations =
         InitialOptimizations<'t>.NoOptimizations
@@ -838,55 +884,47 @@ type RegexMatcher<
         currentMax
 
 
-    member this.TrySkipInitialRev2(loc:byref<Location>, currentStateId:byref<int>, weightedSets: inref<struct(int * MintermSearchValues<'t>) array>) : bool =
+    member this.TrySkipInitialRevWeighted(loc: byref<Location>) : bool =
         let textSpan = loc.Input
         let currentPosition = loc.Position
-        let charSetsCount = weightedSets.Length
-        let struct(rarestCharSetIndex, rarestCharSet) = weightedSets[0]
+        let charSetsCount = _weightedSets.Length
+
+        let struct (rarestCharSetIndex, rarestCharSet) =
+            _weightedSets[0]
+
         let mutable searching = true
         let mutable prevMatch = currentPosition
+        let rarestOffset = _prefixSets.Length - rarestCharSetIndex
+
         while searching do
-            let nextMatch =
-                match rarestCharSet.Mode with
-                | MintermSearchMode.InvertedSearchValues -> textSpan.Slice(0, prevMatch).LastIndexOfAnyExcept(rarestCharSet.SearchValues)
-                | MintermSearchMode.SearchValues -> textSpan.Slice(0, prevMatch).LastIndexOfAny(rarestCharSet.SearchValues)
-                | MintermSearchMode.TSet ->
-                    let mutable fnd = false
-                    let slice = textSpan.Slice(0, prevMatch)
-                    let mutable i = slice.Length - 1
-                    while not fnd && i >= 0 do
-                        if rarestCharSet.Contains(slice[i]) then
-                            fnd <- true
-                        i <- i - 1
-                    if fnd then i + 1 else -1
-                | _ -> failwith "invalid enum"
-
-
-            match nextMatch with
-            // | curMatch when (curMatch - rarestCharSetIndex >= 0 && curMatch - rarestCharSetIndex + weightedSets.Length < textSpan.Length) ->
-            | curMatch when (curMatch - rarestCharSetIndex >= 0 && curMatch - rarestCharSetIndex + charSetsCount <= currentPosition) ->
+            let sharedIndex = _cache.TryNextIndexRightToLeftRaw(textSpan.Slice(0, prevMatch),rarestCharSet)
+            match sharedIndex with
+            | n when n - rarestCharSetIndex < 0 ->
+                searching <- false
+                loc.Position <- 0
+            | curMatch when (curMatch + rarestOffset <= currentPosition)
+                ->
                 let absMatchStart = curMatch - rarestCharSetIndex
                 let mutable fullMatch = true
                 let mutable i = 1
+
                 while fullMatch && i < charSetsCount do
-                    let struct (weightedSetIndex,weightedSet) = weightedSets[i]
+                    let struct (weightedSetIndex, weightedSet) = _weightedSets[i]
                     if not (weightedSet.Contains(textSpan[absMatchStart + weightedSetIndex])) then
                         fullMatch <- false
                     else
                         i <- i + 1
-                // ?
-                // prevMatch <-
-                //     if rarestCharSetIndex = 0 then absMatchStart - 1 else
-                //     absMatchStart + rarestCharSetIndex
+
                 prevMatch <- absMatchStart + rarestCharSetIndex
+
                 if fullMatch && i = charSetsCount then
                     searching <- false
-                    loc.Position <- absMatchStart + charSetsCount
-            | -1 ->
-                searching <- false
-                loc.Position <- 0
+                    fullMatch <- true
+                    loc.Position <- absMatchStart + _prefixSets.Length
+
             | outOfBounds -> prevMatch <- outOfBounds
         currentPosition <> loc.Position
+
 
     member this.TrySkipInitialRev(loc:byref<Location>, currentStateId:byref<int>) : bool =
         // if loc.Position = loc.Input.Length  then false else
@@ -936,6 +974,7 @@ type RegexMatcher<
                 loc.Position <- resultStart
                 true
         | InitialOptimizations.SearchValuesPrefix(prefix, transitionNodeId) ->
+            if true then this.TrySkipInitialRevWeighted &loc else
             let pspan = prefix.Span
             let skipResult = _cache.TryNextStartsetLocationArrayReversed( &loc, pspan )
             match skipResult with
@@ -949,6 +988,8 @@ type RegexMatcher<
                 loc.Position <- Location.final loc
                 false
         | InitialOptimizations.SearchValuesPotentialStart (prefix,_) ->
+            if true then this.TrySkipInitialRevWeighted &loc else
+
             let skipResult = _cache.TryNextStartsetLocationArrayReversed( &loc, prefix.Span )
             match skipResult with
             | ValueSome resultEnd ->

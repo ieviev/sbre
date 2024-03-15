@@ -278,6 +278,16 @@ let ``activeOptimizations 2``() =
         assertEqual dist 5
     )
 
+// ab{0,5}c
+// ab{0,30}c
+// ab{0,100}c
+
+// \b[0-9A-Za-z_]+\b
+
+// abbbbb|c
+// a|bbbbbc
+
+
 
 // [<Fact>]
 // let ``limitedskip 1``() =

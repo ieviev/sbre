@@ -67,7 +67,7 @@ module
 
         let searchChars =
             startsets1
-            |> Array.collect (fun v -> v.Chars)
+            |> Array.collect (_.Chars)
 
         let invertedStartset0 =
             PredStartset.Of(StartsetFlags.Inverted, searchChars)
@@ -929,7 +929,6 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                         num_lookaheads <- num_lookaheads + 1
                         derivatives.Remove(look)
                         min_rel <- min min_rel rel
-                        // let nulls = pending |> RefSet.map (fun v -> rel + v)
                         let nulls = pending |> RefSet<int>.addAll rel
                         Some (node,look, nulls)
                     | _ -> None )
@@ -1054,9 +1053,6 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             let createNode(inner: RegexNode< 't >) =
                 match inner with
                 | _ when refEq _uniques._false inner -> _uniques._trueStar // ~(⊥) -> ⊤*
-
-                // not correct in bb(?!b)
-                // | Loop(node=Concat(head=TrueStar solver); low=0)  -> _uniques._false
                 | StarLoop _ -> _uniques._false // ~(R*) -> ⊥
                 | Epsilon -> _uniques._truePlus // ~(ε) -> ⊤+
                 | _ ->
@@ -1282,7 +1278,6 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
 
         let createCached (body: RegexNode< 't >, lookBack:bool, rel:int, pendingNullable:RefSet<int>) =
             let key2 = struct (body, lookBack, rel, pendingNullable)
-            let cach = _lookaroundCache
             match _lookaroundCache.TryGetValue(key2) with
             | true, v -> v
             | _ ->
@@ -1328,18 +1323,6 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             | Some 0 -> this.uniques._eps, [node]
             | _ ->
                 failwith $"todo: can not infer width for lookaround: {node.ToString()}"
-
-            // let suffixes = ResizeArray()
-            // let remaining =
-            //     nodes
-            //     |> Seq.map this.stripSuffixes
-            //     |> Seq.map (fun (n,s) ->
-            //         suffixes.AddRange(s)
-            //         n
-            //     )
-            //     |> Seq.where (fun v -> not (refEq _uniques._false v))
-            //     |> Seq.toArray
-            // b.mkOrSeq(remaining), List.ofSeq suffixes
         | _ -> node, []
 
     member this.stripPrefixSuffix(node: RegexNode< 't >)  =
@@ -1368,17 +1351,12 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
         | LookAround(lookBack=true) -> [node], this.uniques._eps, []
         | Or(nodes=nodes; info=info) ->
             // this isnt really supported but could work in zero-width cases
-
             if refEq this.anchors._dollarAnchor.Value node then
                 [],this.uniques._eps, [node]
             elif refEq this.anchors._caretAnchor.Value node then
                 failwith "aa"
             else
                 [],node, []
-            // match Node.getFixedLength node with
-            // | Some 0 -> [],node, []
-            // | _ ->
-            //     failwith $"todo: can not infer width for lookaround: {node.ToString()}"
         | _ -> [],node, []
 
     member this.getConcatList(node: RegexNode< 't >)  =
@@ -1420,11 +1398,6 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
 
 
     member this.attemptRewriteCommonLookahead(lookahead:RegexNode<'t>,remainingTail:RegexNode<'t>) =
-        // let lookType1 = refEq lookahead _anchors._nonWordRight.Value
-        // let lookType2 = refEq lookahead _anchors._wordRight.Value
-        // let lookType3 = refEq lookahead _anchors._nonWordLeft.Value
-        // let lookType4 = refEq lookahead _anchors._wordLeft.Value
-
         match lookahead, remainingTail with
         // rewriting common word border uses
         | lookahead, SingletonStarLoop(pred) when refEq lookahead _anchors._nonWordRight.Value ->

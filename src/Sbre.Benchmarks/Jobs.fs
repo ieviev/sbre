@@ -1165,9 +1165,9 @@ type TestAllEnginesAllPatternsMatchOnly(patterns: string list, input: string) =
     // member this.Symbolic() =
     //     this.NonBack_Regex.Count(inputText)
     //
-    // [<Benchmark(Description = "Compiled")>]
-    // member this.Compiled() =
-    //     this.Compiled_Regex.Count(inputText)
+    [<Benchmark(Description = "Compiled")>]
+    member this.Compiled() =
+        this.Compiled_Regex.Count(inputText)
 
     // [<Benchmark(Description = "Sbre")>]
     // member this.Sbre() =
@@ -1359,6 +1359,19 @@ type TestAllEnginesAllPatternsSeparate(patterns: (string*string) list, input: st
 type TestAllEnginesAllPatternsWithCompileTime(patterns: (string) list, input: string) =
     do AppContext.SetData("REGEX_NONBACKTRACKING_MAX_AUTOMATA_SIZE", 1_000_000)
     let inputText = input
+
+    // .*?abc
+
+    /// ______abc
+    ///
+    /// ⊤*?abc
+    /// ______|abc|_abc_abc
+    ///
+    /// ⊤*abc
+    /// |______abc_abc_abc|
+
+
+
     let opts_None =
         Text.RegularExpressions.RegexOptions.None
         ||| Text.RegularExpressions.RegexOptions.ExplicitCapture
@@ -1403,9 +1416,9 @@ type TestAllEnginesAllPatternsWithCompileTime(patterns: (string) list, input: st
 
     [<Benchmark(Description = "Sbre")>]
     member this.Sbre() =
-        // Regex(this.Pattern).Count(inputText)
+        Regex(this.Pattern).Count(inputText)
         // (Regex(this.Pattern).Matcher :?> RegexMatcher<uint64>).DfaCount(inputText)
-        this.CompiledEngine.Count(inputText)
+        // this.CompiledEngine.Count(inputText)
         // this.CompiledEngine.DfaCount(inputText)
         // use cts = new CancellationTokenSource()
         // cts.CancelAfter(millisecondsDelay = 10_000)
