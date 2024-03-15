@@ -242,6 +242,11 @@ let ``initialOptimizations 27``() =
 
 
 // [<Fact>]
+// let ``initialOptimizations 28``() =
+//     assertPotentialStart "Tom|Sawyer|Huckleberry|Finn" ["[mnry];[enor];[Tiry]"]
+
+
+// [<Fact>]
 // let ``activeOptimizations 1``() =
 //     let regex = Regex("""["'][^"']{0,30}[?!\.]["']""")
 //     let matcher = regex.TSetMatcher

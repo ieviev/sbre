@@ -480,6 +480,7 @@ let tryGetLimitedSkip
                 match remaining with
                 | [| (startMt,potentialPath) |] ->
                     let path, skipToEndNode = loop startMt [] (potentialPath)
+                    if path.Length = 0 then None else
                     let successSet = fst successPath
 
                     let searchValuesSet = c.MintermSearchValues(successSet)
@@ -507,11 +508,13 @@ let tryGetLimitedSkip
                 match remaining with
                 | [| (startMt,potentialPath) |] when startPred1 = startMt ->
                     let path, skipToEndNode = loop startMt [] (potentialPath)
+                    if path.Length = 0 then None else
                     let skipPred = c.MintermSearchValues(startMt)
                     let failPred = c.MintermSearchValues(c.Solver.Not(startMt))
                     // if path.Length < 20 then None else
                     Some(
                         ActiveBranchOptimizations.LimitedSkipOnePath(
+                            // distance = path.Length + 2,
                             distance = path.Length + 2,
                             skipPred = skipPred,
                             failPred = failPred,

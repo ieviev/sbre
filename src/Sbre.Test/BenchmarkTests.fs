@@ -123,6 +123,24 @@ let twain_ranges_2() =
         (matches1|> Seq.map (fun v -> struct (v.Index,v.Length)))
         (matches2 |> Seq.map (fun v -> struct (v.Index,v.Length)))
 
+[<Fact>]
+let leipzig_count() =
+    let pat = @"\s[a-zA-Z]{0,12}ing\s"
+
+    let slice = (File.ReadAllText("/mnt/ice/repos/rebar/benchmarks/haystacks/imported/leipzig-3200.txt"))
+    let matches2 = (Sbre.Regex(pat).Matches(slice)) |> Seq.toArray
+
+    assertEqual 55248 matches2.Length
+
+[<Fact>]
+let leipzig_count_2() =
+    let pat = @".{0,2}(Huckleberry|Sawyer|Finn|Tom)"
+    let slice = (File.ReadAllText("/mnt/ice/repos/rebar/benchmarks/haystacks/imported/leipzig-3200.txt"))
+    let matches2 = (Sbre.Regex(pat).Matches(slice)) |> Seq.toArray
+    assertEqual 2598 matches2.Length
+
+
+
 
 [<Fact>]
 let twain_ranges_3() =

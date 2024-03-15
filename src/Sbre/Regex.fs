@@ -558,7 +558,13 @@ type RegexMatcher<
 
     let _commonalityScoreSimple (charSet: char array) =
         charSet
-        |> Array.map (fun c -> if Char.IsAsciiLetterLower c then 10.0 else 0.0)
+        |> Array.map (fun c ->
+            if not (Char.IsAscii(c)) then 12.0
+            elif Char.IsWhiteSpace c then 11.0
+            elif Char.IsAsciiLetterLower c then 10.0
+            elif Char.IsAsciiDigit c then 8.0
+            else 9.0
+        )
         |> Array.sum
     let _weightedSets =
         if _prefixSets.Length = 0 then
@@ -1005,7 +1011,7 @@ type RegexMatcher<
                 loc.Position <- resultStart
                 true
         | InitialOptimizations.SearchValuesPrefix(prefix, transitionNodeId) ->
-            if true then this.TrySkipInitialRevWeighted &loc else
+            if options.UsePrefixOptimizations then this.TrySkipInitialRevWeighted &loc else
             let pspan = prefix.Span
             let skipResult = _cache.TryNextStartsetLocationArrayReversed( &loc, pspan )
             match skipResult with
@@ -1019,7 +1025,7 @@ type RegexMatcher<
                 loc.Position <- Location.final loc
                 false
         | InitialOptimizations.SearchValuesPotentialStart (prefix,_) ->
-            if true then this.TrySkipInitialRevWeighted &loc else
+            if options.UsePrefixOptimizations then this.TrySkipInitialRevWeighted &loc else
 
             let skipResult = _cache.TryNextStartsetLocationArrayReversed( &loc, prefix.Span )
             match skipResult with
@@ -1134,20 +1140,27 @@ type RegexMatcher<
                 | -1 ->
                     loc.Position <- loc.Position - length
                     currentStateId <- skipToEndTransitionId
-                    true // if end then do something
+                    // true // if end then do something
+                    length <> 0
+
                 | idx ->
+
+
                     let nskipped = (length - idx)
                     let mutable tempStateId = currentStateId
 
                     // lazily cache the skip transitions
-                    match cachedTransitions.TryGetValue(nskipped) with
-                    | true, v ->
-                        tempStateId <- v
-                    | _ ->
-                        for i = 1 to nskipped do
+                    // match cachedTransitions.TryGetValue(nskipped) with
+                    // | true, v ->
+                    //     tempStateId <- v
+                    // | _ ->
+                    if true then
+                        for i = 1 to nskipped - 1 do
                             let flags = _flagsArray[tempStateId]
                             this.TakeTransition(flags,&tempStateId, &loc)
-                        cachedTransitions.Add(nskipped,tempStateId)
+                        // cachedTransitions.Add(nskipped,tempStateId)
+
+                    // if true then false else
 
                     loc.Position <- loc.Position - length + idx + 1
                     this.TakeTransition(flags,&tempStateId, &loc)

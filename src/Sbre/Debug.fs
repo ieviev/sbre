@@ -27,6 +27,7 @@ type SbreOptions() =
     member val FindLookaroundPrefix = false with get, set
     ///
     member val FindPotentialStartSizeLimit = 500 with get, set
+    member val UsePrefixOptimizations = false with get, set
 
 
     static member HighThroughputDefaults =
