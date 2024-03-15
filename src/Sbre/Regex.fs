@@ -737,6 +737,7 @@ type RegexMatcher<
             _dfaDelta[dfaOffset] <- nextState
             currentState <- nextState
 
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.TakeTransition
         (
             flags: RegexStateFlags,
@@ -883,6 +884,7 @@ type RegexMatcher<
         currentPosition <> loc.Position
 
     member this.TrySkipInitialRev(loc:byref<Location>, currentStateId:byref<int>) : bool =
+        // if loc.Position = loc.Input.Length  then false else
         match _initialOptimizations with
         | InitialOptimizations.StringPrefix(prefix, transitionNodeId) ->
             let slice = loc.Input.Slice(0, loc.Position)
@@ -1017,7 +1019,7 @@ type RegexMatcher<
                     false
             | LimitedSkip(distance, successPred, termTransitionId, failPred, skipToEndTransitionId) ->
                 if distance > loc.Position then // no more matches
-                    // loc.Position <- Location.final loc
+                    loc.Position <- Location.final loc
                     false
                 else
                 let limitedSlice = loc.Input.Slice(loc.Position - distance, distance)
@@ -1436,7 +1438,7 @@ type Regex(pattern: string, [<Optional; DefaultParameterValue(null:SbreOptions)>
     let regexTree =
         ExtendedRegexParser.Parse(
             pattern,
-            RegexOptions.ExplicitCapture ||| RegexOptions.NonBacktracking ||| RegexOptions.Multiline,
+            RegexOptions.ExplicitCapture ||| RegexOptions.NonBacktracking ||| RegexOptions.Multiline ||| RegexOptions.CultureInvariant,
             CultureInfo.InvariantCulture
         )
     let charsetSolver = CharSetSolver()

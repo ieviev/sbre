@@ -99,13 +99,13 @@ let toLeft (b:RegexBuilder<BDD>) (css:CharSetSolver) (outer:RegexNode array) idx
     | 0 -> None
     | n ->
         let temp = outer[n-1]
-        match temp.Kind with
-        | RegexNodeKind.Loop when temp.M = 0 ->
-            // TODO: semantics
-            toLeft b css outer (idx - 1)
-        | _ ->
-            let kind = determineWordBorderNodeKind b css true temp
-            kind
+        // match temp.Kind with
+        // | RegexNodeKind.Loop when temp.M = 0 ->
+        //     // TODO: semantics
+        //     toLeft b css outer (idx - 1)
+        // | _ ->
+        let kind = determineWordBorderNodeKind b css true temp
+        kind
 
 let toRight (b:RegexBuilder<BDD>) (css:CharSetSolver) (outer:RegexNode array) idx =
     match idx with
@@ -132,25 +132,22 @@ let rewriteWordBorder (b:RegexBuilder<BDD>) (css:CharSetSolver) (outer:RegexNode
     match left, right with
     | Some false, Some true
     | Some true, Some false -> b.uniques._eps // irrelevant word border
-    | _, Some true -> b.anchors._nonWordLeft.Value // wordchar right
-    | _, Some false ->
-        // if idx <> 0 then
-        //     raise (UnsupportedPatternException("inner word borders are not supported"))
-        b.anchors._wordLeft.Value // nonwordright
     | Some true, _   -> b.anchors._nonWordRight.Value // wordleft
     | Some false, _  -> b.anchors._wordRight.Value    // nonwordleft
+    | _, Some true -> b.anchors._nonWordLeft.Value // wordchar right
+    | _, Some false -> b.anchors._wordLeft.Value // nonwordright
     | _ ->
-        if outer.Length = 1 then
-            let single = outer[0]
-            if isNull single.Parent.Parent then b.anchors._wordBorder.Value else
-            let p2 = single.Parent
-            let p2outer = children2Seq single.Parent.Parent |> Seq.toArray
-            let p2index =
-                p2outer
-                |> Seq.findIndex (fun v -> obj.ReferenceEquals(v, p2))
-            rewriteWordBorder b css p2outer p2index node
-        else
-            failwith @"Sbre does not support unconstrained word borders, rewrite \b.*\b to \b\w+\b or \b\s+\b to show which side the word is on"
+        // if outer.Length = 1 then
+        //     let single = outer[0]
+        //     if isNull single.Parent.Parent then b.anchors._wordBorder.Value else
+        //     let p2 = single.Parent
+        //     let p2outer = children2Seq single.Parent.Parent |> Seq.toArray
+        //     let p2index =
+        //         p2outer
+        //         |> Seq.findIndex (fun v -> obj.ReferenceEquals(v, p2))
+        //     rewriteWordBorder b css p2outer p2index node
+        // else
+        raise (UnsupportedPatternException @"Sbre does not support unconstrained word borders, rewrite \b.*\b to \b\w+\b or \b\s+\b to show which side the word is on")
 
 
 

@@ -19,6 +19,7 @@ let escapeNegConj (str:string) =
     System.Text.RegularExpressions.Regex.Replace(str,@"(?<!\\)[&~]|(?<=\\\\)[&~]", "\$0")
     // str.Replace("&",@"\&").Replace("~",@"\~")
 let testSamplesRange (samples:Provider.Root seq) =
+    System.Globalization.CultureInfo.CurrentCulture <- CultureInfo.InvariantCulture
     let failedSamples = ResizeArray()
     for entry in samples do
         let pattern = entry.Pattern
@@ -29,7 +30,8 @@ let testSamplesRange (samples:Provider.Root seq) =
             with e -> None
 
         let runtime =
-            try Some (System.Text.RegularExpressions.Regex(pattern, System.Text.RegularExpressions.RegexOptions.CultureInvariant))
+            try Some (System.Text.RegularExpressions.Regex(
+                pattern, System.Text.RegularExpressions.RegexOptions.CultureInvariant))
             with e -> None
 
 

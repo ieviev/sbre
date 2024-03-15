@@ -14,30 +14,26 @@ type MintermSearchMode =
     | SearchValues = 1
     | InvertedSearchValues = 2
 
-type MintermSearchValues<'t>
-    (
-        tset: 't,
-        mode: MintermSearchMode,
-        searchValues: SearchValues<char>,
-        characters: Memory<char> option,
-        minterms: 't[],
-        classifier: MintermClassifier,
-        solver: ISolver<'t>
-    ) =
-    member val Classifier: MintermClassifier = classifier with get, set
-    member val Mode: MintermSearchMode = mode with get, set
-    member val Minterm: 't = tset with get, set
-    member val SearchValues: SearchValues<char> = searchValues with get, set
-    member val CharactersInMinterm: Memory<char> option = characters with get, set
+[<Sealed>]
+type MintermSearchValues<'t> =
+    val Classifier: MintermClassifier
+    val Mode: MintermSearchMode
+    val Minterms: 't[]
+    val Minterm: 't
+    val SearchValues: SearchValues<char>
+    val CharactersInMinterm: Memory<char> option
+    val Solver: ISolver<'t>
+
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.Contains(chr: char) =
-        match mode with
-        | MintermSearchMode.TSet ->
-            let mtid = classifier.GetMintermID(int chr)
-            let charminterm = minterms[mtid]
-            solver.elemOfSet this.Minterm charminterm
+        match this.Mode with
         | MintermSearchMode.SearchValues -> this.SearchValues.Contains(chr)
         | MintermSearchMode.InvertedSearchValues -> not(this.SearchValues.Contains(chr))
-        | _ -> ArgumentOutOfRangeException() |> raise
+        | MintermSearchMode.TSet ->
+            let mtid = this.Classifier.GetMintermID(int chr)
+            let charminterm = this.Minterms[mtid]
+            this.Solver.elemOfSet this.Minterm charminterm
+        | _ -> failwith ""
 
     override this.ToString() =
         let desc =
@@ -49,15 +45,15 @@ type MintermSearchValues<'t>
         $"{this.Mode.ToString()}: {desc}"
 
     new(tset: 't, minterms: 't[], classifier:MintermClassifier, solver) =
-        MintermSearchValues<'t>(
-            tset,
-            MintermSearchMode.TSet,
-            Unchecked.defaultof<_>,
-            None,
-            minterms,
-            classifier,
-            solver
-        )
+        {
+            Classifier = classifier
+            Mode = MintermSearchMode.TSet
+            Minterms = minterms
+            Minterm = tset
+            SearchValues = Unchecked.defaultof<_>
+            CharactersInMinterm = None
+            Solver = solver
+        }
 
     new(tset: 't, characters: Memory<char>, invert: bool, solver) =
         let mode =
@@ -65,16 +61,17 @@ type MintermSearchValues<'t>
                 MintermSearchMode.InvertedSearchValues
             else
                 MintermSearchMode.SearchValues
+        {
+            Mode = mode
+            Minterm = tset
+            CharactersInMinterm = Some characters
+            SearchValues = SearchValues.Create(characters.Span)
+            Minterms = Unchecked.defaultof<_>
+            Classifier = Unchecked.defaultof<_>
+            Solver = solver
+        }
 
-        MintermSearchValues<'t>(
-            tset,
-            mode,
-            SearchValues.Create(characters.Span),
-            Some characters,
-            Unchecked.defaultof<_>,
-            Unchecked.defaultof<_>,
-            solver
-        )
+
 
 
 [<Sealed>]
@@ -252,30 +249,28 @@ type RegexCache<
             | _ -> failwith "impossible"
         sharedIndex + 1 // -1 to 0 is right anyway
 
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.TryNextIndexRightToLeftRaw
         (
             slice: ReadOnlySpan<char>,
             set: MintermSearchValues<_>
         ) : int =
-
-        let sharedIndex =
-            match set.Mode with
-            | MintermSearchMode.SearchValues ->
-                slice.LastIndexOfAny(set.SearchValues)
-            | MintermSearchMode.InvertedSearchValues ->
-                slice.LastIndexOfAnyExcept(set.SearchValues)
-            | MintermSearchMode.TSet ->
-                let mutable fnd = false
-                let mutable i = slice.Length - 1
-                while not fnd && i >= 0 do
-                    if set.Contains(slice[i]) then
-                        fnd <- true
-                    i <- i - 1
-                if fnd then
-                    i + 1
-                else -1
-            | _ -> failwith "impossible"
-        sharedIndex
+        match set.Mode with
+        | MintermSearchMode.SearchValues ->
+            slice.LastIndexOfAny(set.SearchValues)
+        | MintermSearchMode.InvertedSearchValues ->
+            slice.LastIndexOfAnyExcept(set.SearchValues)
+        | MintermSearchMode.TSet ->
+            let mutable fnd = false
+            let mutable i = slice.Length - 1
+            while not fnd && i >= 0 do
+                if set.Contains(slice[i]) then
+                    fnd <- true
+                i <- i - 1
+            if fnd then
+                i + 1
+            else -1
+        | _ -> failwith ""
 
     member this.TryNextIndexLeftToRight
         (
@@ -333,6 +328,7 @@ type RegexCache<
         let mutable resultEnd = ValueNone
         let searchValues = setSpan[0]
         let tailPrefixSpan = setSpan.Slice(1)
+        // let tailPrefixLength = tailPrefixSpan.Length
 
         if tailPrefixSpan.Length = 0 then
             skipping <- false
@@ -342,33 +338,29 @@ type RegexCache<
 
         while skipping do
             let sharedIndex =
-                this.TryNextIndexRightToLeft(inputSpan.Slice(0, currpos),searchValues)
+                this.TryNextIndexRightToLeftRaw(inputSpan.Slice(0, currpos),searchValues)
 
-            if sharedIndex = 0 then
+            if sharedIndex = -1 then
                 skipping <- false
             else
                 let mutable couldBe = true
 
                 // exit if too far
-                if sharedIndex < setSpan.Length then
+                if sharedIndex < tailPrefixSpan.Length then
                     skipping <- false
-                    resultEnd <- ValueNone //ValueSome(potential)
                     couldBe <- false
 
-                // r to l
                 let mutable i = 0
-
                 while couldBe && i < tailPrefixSpan.Length do
-                    if not(tailPrefixSpan[i].Contains(inputSpan[sharedIndex - i - 2])) then
+                    if not(tailPrefixSpan[i].Contains(inputSpan[sharedIndex - i - 1])) then
                         couldBe <- false
-
                     i <- i + 1
 
                 if couldBe then
                     skipping <- false
-                    resultEnd <- ValueSome(sharedIndex)
+                    resultEnd <- ValueSome(sharedIndex + 1)
                 else
-                    currpos <- sharedIndex - 1
+                    currpos <- sharedIndex
 
         resultEnd
 

@@ -305,7 +305,11 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 info = _createInfo RegexNodeFlags.None solver.Full RefSet.empty
             )
         _wordChar = lazy b.setFromCharClass(RegexCharClass.WordClass)
+        // _wordChar = lazy b.setFromStr "[\w\u200C\u200D]"
+        // _nonWordChar = lazy b.setFromStr "[\W\u200C\u200D]"
         _nonWordChar = lazy b.setFromCharClass(RegexCharClass.NotWordClass)
+
+        // _nonWordChar = lazy b.setFromStr @"\W"
         _zAnchor = RegexNode<'t>.End
         _aAnchor = RegexNode<'t>.Begin
     |}
@@ -376,7 +380,6 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
 
             _wordBorder =
                     lazy
-                        failwith "todo: unhandled branch"
                         b.mkOrSeq(
                         [|
                             b.mkConcat2(nonWordLeft.Value, wordRight.Value)
@@ -669,6 +672,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             | n, falseNode | falseNode, n when refEq falseNode _uniques._false -> falseNode
             | n, trueStarNode | trueStarNode, n when refEq _uniques._trueStar trueStarNode -> n
             | n, Epsilon | Epsilon, n -> if n.CanNotBeNullable then _uniques._false else createCached(key)
+            | Singleton s1, Singleton s2 -> b.one (solver.And(s1,s2))
             | And(nodes=nodes) as andNode, other | other, (And(nodes=nodes) as andNode) ->
                 if nodes.Contains(other) then andNode else
                 let merged = this.mkAnd([|yield! nodes;other|])
@@ -1401,7 +1405,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
 
 
 
-    member this.attemptRewriteCommonLookahead(lookahead,remainingTail) =
+    member this.attemptRewriteCommonLookahead(lookahead:RegexNode<'t>,remainingTail:RegexNode<'t>) =
         // let lookType1 = refEq lookahead _anchors._nonWordRight.Value
         // let lookType2 = refEq lookahead _anchors._wordRight.Value
         // let lookType3 = refEq lookahead _anchors._nonWordLeft.Value
@@ -1409,12 +1413,18 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
 
         match lookahead, remainingTail with
         // rewriting common word border uses
-        | lookahead, SingletonStarLoop(_) when refEq lookahead _anchors._nonWordRight.Value ->
+        | lookahead, SingletonStarLoop(pred) when refEq lookahead _anchors._nonWordRight.Value ->
+            // b.mkAnd2(b.uniques._nonWordChar.Value,b.one pred
             let newNode = b.mkConcat2(b.uniques._nonWordChar.Value,remainingTail)
             Some (b.mkLoop(newNode,0,1))
-        | lookahead, Loop(node=Singleton _ as loopBody;low=1;up=Int32.MaxValue) when refEq lookahead _anchors._nonWordRight.Value ->
-            let newNode = b.mkConcat2(b.uniques._nonWordChar.Value,b.mkLoop(loopBody,0,Int32.MaxValue))
-            Some (b.mkLoop(newNode,0,1))
+        // \b.+
+        | LookAround(node=lookBody), Loop(node=(Singleton loopPred as loopBody);low=1;up=Int32.MaxValue) when refEq lookahead _anchors._nonWordRight.Value ->
+            // let newBody = b.mkAnd2(b.uniques._nonWordChar.Value,loopBody)
+            // let newNode = b.mkConcat2(newBody,b.mkLoop(loopBody,0,Int32.MaxValue))
+            Some(b.mkAnd(seq {
+               b.mkConcat2(lookBody, b.trueStar)
+               remainingTail
+            }))
         // \b\s+abc
         | lookahead, Concat(_) when refEq lookahead _anchors._nonWordRight.Value ->
             Some(b.mkAnd(seq {

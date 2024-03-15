@@ -283,14 +283,14 @@ let ``unsupported 13``() =
 
 //
 [<Fact>]
-let ``rex sample 1.1``() =
+let ``rex sample 01.1``() =
     assertIsMatch
         "android-ndk-r(?<ver>\d+)(?<tag>\w*)-\w*"
         @"㏨android-ndk-r᪈-"
 
 
 [<Fact>]
-let ``rex sample 1.2``() =
+let ``rex sample 01.2``() =
     assertMatchEnd
         "1+\w*-\w*"
         @"1-"
@@ -298,26 +298,26 @@ let ``rex sample 1.2``() =
 
 
 [<Fact>]
-let ``rex sample 2.1``() =
+let ``rex sample 02.1``() =
     assertIsMatch
         @"(?<keep>[^aeiou])ies$"
         @"솱ies"
 
 [<Fact>]
-let ``rex sample 2.2``() =
+let ``rex sample 02.2``() =
     assertIsMatch
         @"[^aeiou]ies$"
         @"솱ies"
 
 [<Fact>]
-let ``rex sample 2.3``() =
+let ``rex sample 02.3``() =
     assertMatchEnd
         @"[^aeiou]ies$"
         @"솱ies"
         0 4
 
 [<Fact>]
-let ``rex sample 3.1``() =
+let ``rex sample 03.1``() =
     assertSameAsRuntime
         @"
 [ 	]"
@@ -325,7 +325,7 @@ let ``rex sample 3.1``() =
  㩜昏"
 
 [<Fact>]
-let ``rex sample 3.2``() =
+let ``rex sample 03.2``() =
     assertIsMatch
         @"
 [ 	]"
@@ -335,39 +335,39 @@ let ``rex sample 3.2``() =
 
 
 [<Fact>]
-let ``rex sample 4.1``() =
+let ``rex sample 04.1``() =
     assertIsMatch
         @"((a\b|na)\s+qqqq)"
         @"a qqqq"
 
 [<Fact>]
-let ``rex sample 4.2``() =
+let ``rex sample 04.2``() =
     assertIsMatch
         @"([àa]\b\s+qqqq)"
         @"à qqqq"
 
 
 [<Fact>]
-let ``rex sample 5.1``() =
+let ``rex sample 05.1``() =
     assertIsMatch
         @"((am|gegen|in der)\s+)?((nachmittags?|abends?|mitternachts?|\bmittags?|((in der )?nachts?)))"
         @"am mittags"
 
 [<Fact>]
-let ``rex sample 5.2``() =
+let ``rex sample 05.2``() =
     assertIsMatch
         @"((am|gegen|in der)\s+)?((\bmittags?|((in der )?nachts?)))"
         @"am mittags"
 
 [<Fact>]
-let ``rex sample 5.3``() =
+let ``rex sample 05.3``() =
     assertIsMatch
         @"(\s+)?((\bmittags?|((in der )?nachts?)))"
         @" mittags"
 
 
 [<Fact>]
-let ``rex sample 5.4``() =
+let ``rex sample 05.4``() =
     assertMatchEnd
         @"(\s+)?((\bmittags?|((in der )?nachts?)))"
         @" mittags"
@@ -375,7 +375,7 @@ let ``rex sample 5.4``() =
 
 
 [<Fact>]
-let ``rex sample 6.1``() =
+let ``rex sample 06.1``() =
     assertIsMatch
         @"\A(?:(?:http|https):\/\/)?([-a-zA-Z0-9.]{2,256}\.[a-z]{2,4})\b(?:\/[-a-zA-Z0-9@:%_\+.\~#?\&//=]*)?"
         @"http://hGy8s.wzzu�䪦൯"
@@ -383,47 +383,56 @@ let ``rex sample 6.1``() =
 
 
 [<Fact>]
-let ``rex sample 6.2``() =
+let ``rex sample 06.2``() =
     assertIsMatch
         @"([-a-zA-Z0-9.]{2,}\.[a-z]{2,4})\b(?:\/[-a-zA-Z0-9@:%_\+.\~#?\&//=]*)?"
         @"http://hGy8s.wzzu�䪦൯"
 
 
 [<Fact>]
-let ``rex sample 7.1``() =
+let ``rex sample 07.1``() =
     assertIsMatch
         @"\(?\b([0-9]{3})\)?[\s]?[-.●]?[\s]?([0-9]{3})[\s]?[-.●]?[\s]?([0-9]{4})\b"
         @"�988)　602 5891꓏엩"
 
 [<Fact>]
-let ``rex sample 7.2``() =
+let ``rex sample 07.2``() =
     assertIsMatch
         @"\(?\b([0-9]{3})\)?[\s]?[-.●]?[\s]?([0-9]{3})[\s]?"
         @"�988)　602 5891꓏엩"
 
 [<Fact>]
-let ``rex sample 7.3``() =
+let ``rex sample 07.3``() =
     assertIsMatch
         @"\(?\b([0-9]{3})\)?[\s]?[-.●]?[\s]?"
         @"�988)　602 5891꓏엩"
 
 [<Fact>]
-let ``rex sample 8.1``() =
+let ``rex sample 08.1``() =
     assertIsMatch
         @"((ht|f)tp(s?)\:\/\/|www\.)[-a-zA-Z0-9@:%._\+~#=]{1,256}\.(?<Tld>[a-zA-Z0-9()]{1,6})\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)"
         @"ftps://Z.)꼑"
 
 [<Fact>]
-let ``rex sample 8.2``() =
+let ``rex sample 08.2``() =
     assertIsMatch
         @"[-a-zA-Z0-9@:%._\+~#=]{1,256}\.(?<Tld>[a-zA-Z0-9()]{1,6})\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)"
         @"Z.)꼑"
 
 [<Fact>]
-let ``rex sample 9.1``() =
+let ``rex sample 09.1``() =
     assertIsMatch
         @"\b(da(l(l[oae'])?|i|gli)?).+(a(l(l[oae'])?|i|gli)?)\b.+"
-        @"dal㰞赉all'䬷⹺쇉"
+        @"dal㰞赉all'䬷⹺쇉;"
+
+[<Fact>]
+let ``rex sample 10.2``() =
+    assertNoMatch
+        @"\b(from).+(to)\b.+"
+        @"from⍪堑to䶶孒"
+
+
+
 
 
 #endif
