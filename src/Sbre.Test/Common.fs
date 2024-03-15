@@ -329,8 +329,8 @@ let assertNullablePositions (pattern:string) (input:string) (expected) =
     let matcher = regex.TSetMatcher
     let mutable loc = Location.createReversedSpan (input.AsSpan())
     use mutable acc = new SharedResizeArrayStruct<int>(100)
-    let result = matcher.CollectReverseNullablePositions(&acc,&loc)
-    Assert.Equal<int>(expected, result.AsArray())
+    matcher.CollectReverseNullablePositions(&acc,&loc)
+    Assert.Equal<int>(expected, acc.AsArray())
 
 let printAllDerivatives (pattern:string) (input:string) (expected: string list list) =
     let regex = Regex(pattern)
@@ -392,8 +392,8 @@ let assertNoMatch (pattern:string) (input:string)  =
     let matcher = regex.TSetMatcher
     let mutable loc = Location.createReversedSpan (input.AsSpan())
     use mutable acc = new SharedResizeArrayStruct<int>(100)
-    let result = matcher.CollectReverseNullablePositions(&acc,&loc)
-    Assert.Equal(0, result.Length)
+    matcher.CollectReverseNullablePositions(&acc,&loc)
+    Assert.Equal(0, acc.Length)
 
 
 let assertUnsupported (pattern:string) (input:string)  =
@@ -414,8 +414,8 @@ let assertNoMatchRaw (pattern:string) (input:string)  =
     let matcher = regex.TSetMatcher
     let mutable loc = Location.createReversedSpan (input.AsSpan())
     use mutable acc = new SharedResizeArrayStruct<int>(100)
-    let result = matcher.CollectReverseNullablePositions(&acc,&loc)
-    Assert.Equal(0, result.Length)
+    matcher.CollectReverseNullablePositions(&acc,&loc)
+    Assert.Equal(0, acc.Length)
 
 let assertIsMatch (pattern:string) (input:string)  =
     let regex = Regex(pattern)

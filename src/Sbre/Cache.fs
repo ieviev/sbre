@@ -272,6 +272,7 @@ type RegexCache<
             else -1
         | _ -> failwith ""
 
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.TryNextIndexLeftToRight
         (
             slice: ReadOnlySpan<char>,
@@ -292,27 +293,6 @@ type RegexCache<
             if not fnd then -1 else i - 1
         | _ -> failwith "impossible"
 
-    member this.TryNextStartsetLocationLeftToRight
-        (
-            loc: inref<Location>,
-            set: MintermSearchValues<'t>
-        ) =
-        assert not loc.Reversed
-        let slice =  loc.Input.Slice(loc.Position)
-        match set.Mode with
-        | MintermSearchMode.SearchValues ->
-            slice.IndexOfAny(set.SearchValues)
-        | MintermSearchMode.InvertedSearchValues ->
-            slice.IndexOfAnyExcept(set.SearchValues)
-        | MintermSearchMode.TSet ->
-            let mutable fnd = false
-            let mutable i = 0
-            while not fnd && i < slice.Length do
-                if set.Contains(slice[i]) then
-                    fnd <- true
-                i <- i + 1
-            if not fnd then -1 else i - 1
-        | _ -> failwith "impossible"
 
 
     member this.TryNextStartsetLocationArrayReversed
@@ -399,13 +379,8 @@ type RegexCache<
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.MintermId(loc: Location) : _ =
-        let mutable pos = loc.Position
-
-        if loc.Reversed then
-            pos <- pos - 1
-
-        let i = int (loc.Input[pos])
-
+        let i =
+            int (if loc.Reversed then loc.Input[loc.Position - 1] else loc.Input[loc.Position])
         match i < 128 with
         | true -> _ascii[i]
         | false -> _nonAscii.Find(i)

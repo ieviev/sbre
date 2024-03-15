@@ -904,7 +904,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             derivatives.Add(merged2)
 
 
-        if options.CompressOr then
+        if options.CompressPattern then
             let mutable num_lookaheads = 0
             let mutable min_rel = Int32.MaxValue
             let merge_lookaheads =

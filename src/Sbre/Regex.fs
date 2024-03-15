@@ -669,6 +669,7 @@ type RegexMatcher<
     member this.GetOrCreateState(node: RegexNode<'t>) : MatchState<'t> =
         _getOrCreateState (reverseTrueStarredNode,node, false)
 
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member private this.GetDeltaOffset(stateId: int, mintermId: int) =
         (stateId <<< _mintermsLog) ||| mintermId
 
@@ -818,8 +819,8 @@ type RegexMatcher<
             if flags.IsDeadend then
                 looping <- false
             else
-            // if flags.CanSkipLeftToRight then
-            //     this.TrySkipActiveFwd(flags,&loc,&currentStateId) |> ignore
+            if flags.CanSkipLeftToRight then
+                this.TrySkipActiveFwd(flags,&loc,&currentStateId) |> ignore
 
             // set max nullability after skipping
             if this.StateIsNullable(flags, &loc, currentStateId) then
@@ -988,7 +989,9 @@ type RegexMatcher<
         //     //         loc.Position <- newPos
         //     //         currentStateId <- termTransitionId
         //     //         true // mark nullable
-        //     | _ -> false
+        //     | _ ->
+        //         // failwith "opts"
+        //         false
         // else
         // default single char skip
         let sharedIndex =
@@ -1113,7 +1116,7 @@ type RegexMatcher<
         (
             acc: byref<SharedResizeArrayStruct<int>>,
             loc: byref<Location>
-        ) : SharedResizeArrayStruct<int> =
+        ) : unit =
         assert (loc.Position > -1)
         assert (loc.Reversed = true)
 
@@ -1122,12 +1125,12 @@ type RegexMatcher<
 
         while looping do
             let flags = _flagsArray[currentStateId]
-            let dfaState = _stateArray[currentStateId]
+            // let dfaState = _stateArray[currentStateId]
 #if SKIP
-            if (flags.CanSkipInitial && this.TrySkipInitialRev(&loc, &currentStateId))
+            if (StateFlags.canSkipInitial flags && this.TrySkipInitialRev(&loc, &currentStateId))
 
 #if SKIP_ACTIVE
-               || (flags.CanSkip && this.TrySkipActiveRev(flags,&loc, &currentStateId, &acc))
+               || (StateFlags.canSkip flags && this.TrySkipActiveRev(flags,&loc, &currentStateId, &acc))
 #endif
                 then ()
             else
@@ -1140,7 +1143,6 @@ type RegexMatcher<
                 loc.Position <- loc.Position - 1
             else
                 looping <- false
-        acc
 
     member this.PrintAllDerivatives
         (
@@ -1183,6 +1185,7 @@ type RegexMatcher<
                 looping <- false
         ders |> Seq.toList
 
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.getMatchEnd(loc: byref<Location>) : int =
         match _lengthLookup with
         | LengthLookup.FixedLength fl -> loc.Position + fl
@@ -1256,53 +1259,39 @@ type RegexMatcher<
             this.llmatch_all_override(&matches,&loc,regOverride)
         | _ ->
             let mutable acc = new SharedResizeArrayStruct<int>(512)
-            let allPotentialStarts =
-                this.CollectReverseNullablePositions(&acc, &loc)
+            this.CollectReverseNullablePositions(&acc, &loc)
             loc.Reversed <- false
             let mutable nextValidStart = 0
-            let startSpans = allPotentialStarts.AsSpan()
+            let startSpans = acc.AsSpan()
             for i = (startSpans.Length - 1) downto 0 do
                 let currStart = startSpans[i]
                 if currStart >= nextValidStart then
                     loc.Position <- currStart
                     let matchEnd = this.getMatchEnd(&loc)
-                    match matchEnd with
-                    | -2 -> failwith "found bug in match"
-                    | _ ->
-                        matches.Add({ MatchPosition.Index = currStart; Length = (matchEnd - currStart) })
-                        nextValidStart <- matchEnd
+                    // match matchEnd with
+                    // | -2 -> failwith "found bug in match"
+                    // | _ ->
+                    matches.Add({ MatchPosition.Index = currStart; Length = (matchEnd - currStart) })
+                    nextValidStart <- matchEnd
             acc.Dispose()
         matches
 
 
 
-
     member this.llmatch_all_count_only(input: ReadOnlySpan<char>) : int =
         let mutable loc = Location.createReversedSpan input
-        let mutable count = 0
-        // use mutable matches = new SharedResizeArrayStruct<MatchPosition>(512)
-        // match _regexOverride with
-        // | Some regOverride ->
-        //     this.llmatch_all_override(&matches,&loc,regOverride)
-        // | _ ->
-        use mutable acc = new SharedResizeArrayStruct<int>(512)
-        let allPotentialStarts =
-            this.CollectReverseNullablePositions(&acc, &loc)
+        use mutable acc = new SharedResizeArrayStruct<int>(64)
+        this.CollectReverseNullablePositions(&acc, &loc)
         loc.Reversed <- false
-        let mutable nextValidStart = 0
-        let startSpans = allPotentialStarts.AsSpan()
+        let startSpans = acc.AsSpan()
+        let mutable count = 0
         for i = startSpans.Length - 1 downto 0 do
             let currStart = startSpans[i]
-            if currStart >= nextValidStart then
+            if currStart >= loc.Position then
                 loc.Position <- currStart
                 let matchEnd = this.getMatchEnd(&loc)
-                // match matchEnd with
-                // | -2 -> failwith "found bug in match"
-                // | _ ->
-                // let pos = { MatchPosition.Index = currStart; Length = (matchEnd - currStart) }
-                // matches.Add(pos)
                 count <- count + 1
-                nextValidStart <- matchEnd
+                loc.Position <- matchEnd
         count
 
     /// return just the positions of matches without allocating the result

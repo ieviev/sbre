@@ -25,6 +25,7 @@ module Debug =
 
 #endif
 
+[<IsByRefLike>]
 type LocationKind =
     | StartPos = 0uy
     | Center = 1uy
@@ -109,24 +110,40 @@ module RegexNodeFlagsExtensions =
 
 
 //
+// [<Flags>]
+// type RegexStateFlags =
+//     | None = 0
+//     | InitialFlag = 1
+//     | DeadendFlag = 2
+//     | CanBeNullableFlag = 4
+//     | CanSkipFlag = 8
+//     | HasPrefixFlag = 16
+//     | ContainsLookaroundFlag = 32
+//     | HasCounterFlag = 64
+//     | UseDotnetOptimizations = 128
+//     | ContainsInitialFlag = 256
+//     | AlwaysNullableFlag = 512
+//     | ActiveBranchOptimizations = 1024
+//     | IsPendingNullableFlag = 2048
+//     | DependsOnAnchor = 4096
+
 [<Flags>]
 type RegexStateFlags =
-    | None = 0
-    | InitialFlag = 1
-    | DeadendFlag = 2
-    | CanBeNullableFlag = 4
-    | CanSkipFlag = 8
-    | HasPrefixFlag = 16
-    | ContainsLookaroundFlag = 32
-    | HasCounterFlag = 64
-    | UseDotnetOptimizations = 128
-    | ContainsInitialFlag = 256
-    | AlwaysNullableFlag = 512
-    | ActiveBranchOptimizations = 1024
-    | IsPendingNullableFlag = 2048
-    // | IsRelativeNegatedNullableFlag = 4096
-    // | CanHaveMultipleNullables = 8192
-    | DependsOnAnchor = 16384
+    | None = 0s
+    | InitialFlag = 1s
+    | DeadendFlag = 2s
+    | CanBeNullableFlag = 4s
+    | CanSkipFlag = 8s
+    | HasPrefixFlag = 16s
+    | ContainsLookaroundFlag = 32s
+    | HasCounterFlag = 64s
+    | UseDotnetOptimizations = 128s
+    | ContainsInitialFlag = 256s
+    | AlwaysNullableFlag = 512s
+    | ActiveBranchOptimizations = 1024s
+    | IsPendingNullableFlag = 2048s
+    | DependsOnAnchor = 4096s
+
 // todo: fixed length
 // todo: can be subsumed
 // todo: singleton loop
@@ -144,7 +161,14 @@ module StateFlags =
     let inline canBeNullable (flags:RegexStateFlags) =
         flags &&& RegexStateFlags.CanBeNullableFlag = RegexStateFlags.CanBeNullableFlag
 
+    let inline canSkipInitial (flags:RegexStateFlags) =
+        flags &&& (RegexStateFlags.InitialFlag ||| RegexStateFlags.DependsOnAnchor) = RegexStateFlags.InitialFlag
+
+    let inline canSkip (flags:RegexStateFlags) =
+        flags &&& (RegexStateFlags.CanSkipFlag) = RegexStateFlags.CanSkipFlag
+
 [<AutoOpen>]
+[<Sealed>]
 module RegexStateFlagsExtensions =
     type Sbre.Types.RegexStateFlags with
 
@@ -817,6 +841,7 @@ type SharedResizeArrayStruct<'t> =
     member this.Dispose() = ArrayPool.Shared.Return(this.pool)
 
     interface IDisposable with
+        [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
         member this.Dispose() = this.Dispose()
 
     new(initialSize: int) =
@@ -826,24 +851,9 @@ type SharedResizeArrayStruct<'t> =
             pool = ArrayPool.Shared.Rent(initialSize)
         }
 
-//
-// type RefSet<'t when 't : comparison > =
-//     static let cache = Dictionary<Set<'t>, RefSet<'t>>()
-//     static member Create(source:Set<'t>) =
-//         // ..
-//         match cache.TryGetValue(source) with
-//         | true, v -> v
-//         | _ ->
-//             let rs = RefSet(source)
-//             rs
-//
-//
-//     member val Set = Set.empty
-//
-//     new(source:Set<'t>) = RefSet(Set=Set.empty)
-//
 
 /// set with canonical reference comparisons
+[<Sealed>]
 type RefSet<'t when 't: comparison> =
     static let comparer =
         { new IEqualityComparer<RefSet<'t> Memory> with
@@ -859,7 +869,7 @@ type RefSet<'t when 't: comparison> =
     static let _empty = RefSet(ImmutableHashSet.Create())
     static let _zeroList = RefSet(ImmutableHashSet.Create(0))
 
-    val mutable inner: ImmutableHashSet<'t>
+    val inner: ImmutableHashSet<'t>
 
     static member Create(src: seq<'t>) : RefSet<'t> =
         if Seq.isEmpty (src) then

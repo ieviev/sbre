@@ -20,10 +20,8 @@ type SbreOptions() =
     /// very expensive upfront but reduces state space
     member val CanonicalizeStates = false with get, set
     /// attempt to make smaller alternations at the cost of initialization time
-    member val CompressOr = false with get, set
-
+    member val CompressPattern = false with get, set
     member val MaxPrefixLength = 20 with get, set
-
     /// default: false, attempt to optimize lookaround prefixes.
     /// can be expensive with unbounded lookarounds
     member val FindLookaroundPrefix = false with get, set
@@ -33,13 +31,13 @@ type SbreOptions() =
 
     static member HighThroughputDefaults =
         SbreOptions(
-            CompressOr=false,
+            CompressPattern=false,
             FindLookaroundPrefix=false,
             FindPotentialStartSizeLimit=100
         )
     static member LearningDefaults =
         SbreOptions(
-            CompressOr=false,
+            CompressPattern=false,
             FindLookaroundPrefix=false,
             FindPotentialStartSizeLimit=100
         )

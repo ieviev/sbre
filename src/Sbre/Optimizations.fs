@@ -151,22 +151,18 @@ let rec calcPrefixSets
     let prefixStartNode = getPrefixNode cache startNode
 
     let rec loop (acc: 't list) node =
-        let prefix_derivs =
-            getNonRedundantDerivatives getNonInitialDerivative cache redundant node
-            |> Seq.toArray
-
-        if not acc.IsEmpty && redundant.Contains(node) then
-            acc |> List.rev
-        elif node.CanBeNullable then
+        if (not acc.IsEmpty && redundant.Contains(node)) || node.CanBeNullable then
             acc |> List.rev
         else
+            let prefix_derivs =
+                getNonRedundantDerivatives getNonInitialDerivative cache redundant node
+                |> Seq.toArray
             // let pretty =
             //     prefix_derivs
             //     |> (Array.map (fun (mt,node) ->
             //         cache.PrettyPrintMinterm(mt), node
             //     ))
             //     |> Seq.toArray
-
             match prefix_derivs with
             | [| (mt, deriv) |] ->
                 if refEq deriv node then
@@ -180,24 +176,6 @@ let rec calcPrefixSets
 
     let prefix = loop [] prefixStartNode
     prefix
-    // match complementStartset with
-    // | _ when prefix.IsEmpty -> prefix
-    // | None -> prefix
-    // | Some compl ->
-    //     let complementStartset = calcPrefixSets getNonInitialDerivative getStateFlags cache compl
-    //
-    //     let trimmedPrefix =
-    //         if complementStartset.Length = 0 then
-    //             []
-    //         else
-    //             prefix
-    //             |> Seq.takeWhile (fun v ->
-    //
-    //                 not (cache.Solver.isElemOfSet (v, complementStartset[0]))
-    //             )
-    //             |> Seq.toList
-    //
-    //     if trimmedPrefix.IsEmpty then [ prefix[0] ] else trimmedPrefix
 
 
 
@@ -219,7 +197,7 @@ let rec calcPotentialMatchStart
 
         let rec loop(acc: 't list) =
             tempList.Clear()
-            if nodes.Count > options.FindPotentialStartSizeLimit || acc.Length > 50 || nodes.Count = 0 then
+            if nodes.Count > options.FindPotentialStartSizeLimit || acc.Length > options.MaxPrefixLength || nodes.Count = 0 then
                 acc |> List.rev
             else
                 let shouldExit = nodes |> Seq.exists (_.CanBeNullable)
@@ -566,6 +544,12 @@ let tryGetLimitedSkip
                     let p1remain = immediatep1 |> Array.where (fun v -> v <> p2)
                     findRemainingSkip p2 p1 p1remain
                 else
+                    // if node.ToString() = """([^"']){0,30}[!.?]["']""" then
+                    //     ()
+                    // if immediatep1 = immediatep2 then
+                    //     findRemainingSkipOneBranch p1 immediatep1
+                    // else
+
                     None
             | [| p1 |] when not (refEq (snd p1) c.False) ->
                 let immediatep1 = nonTermDerivatives (snd p1)
