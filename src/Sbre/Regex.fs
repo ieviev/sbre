@@ -344,6 +344,8 @@ type RegexMatcher<
             let languages = canonNodes |> Seq.map mkLang
             let mergedLanguage = attemptMergeUnionLang _cache mkLang node languages
             let mknode = (fun _ -> _cache.Builder.mkOrSeq(canonNodes) )
+            // let mergedLanguage = mkLang node
+            // let mknode = (fun _ -> node)
             _cache.Builder.GetCanonical(node,mergedLanguage, mknode)
         | Singleton _ ->
             let mknode = (fun _ -> node )
@@ -374,12 +376,14 @@ type RegexMatcher<
     let _createStartset(state: MatchState<'t>, initial: bool) =
         // expensive for a single match
         if state.Node.ContainsLookaround && not options.FindLookaroundPrefix then () else
+        if state.Id > 12000 then
+            ()
 
         let minterms = _cache.Minterms()
 
         let derivatives =
             minterms
-            |> Array.map (fun minterm ->
+            |> Seq.map (fun minterm ->
                 match RegexNode.getCachedTransition (minterm, state.Node) with
                 | ValueSome v -> v
                 | _ ->

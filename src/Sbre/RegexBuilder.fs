@@ -527,7 +527,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             v
 
     member this.mkOr2 (node1: RegexNode<'t>, node2: RegexNode<'t>) : RegexNode<'t> =
-        let key = [|node1;node2|]
+        let key = ([|node1;node2|])
         Array.sortInPlaceBy LanguagePrimitives.PhysicalHash key
 
         // actually creates it without trying to subsume
@@ -572,7 +572,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             | (SingletonStarLoop(p1) as node1), (SingletonStarLoop(p2) as node2) ->
                 if Solver.containsS solver p1 p2 then node1
                 elif Solver.containsS solver p2 p1 then node2
-                else createCached(key)
+                else createCached(key.ToArray())
             // merge head
             | Concat(head=chead1;tail=ctail1) as c1, (Concat(head=chead2;tail=ctail2) as c2)
             | (Concat(head=chead2;tail=ctail2) as c2),(Concat(head=chead1;tail=ctail1) as c1) when
@@ -601,7 +601,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                     this.mkConcat2(newHead, t1)
                 else
 
-                createCached(key)
+                createCached(key.ToArray())
 
 
     member this.mergeAndPrefixSuffix (nodes: RegexNode<'t>seq) : RegexNode<'t> =
@@ -805,6 +805,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
         | true, v -> v
         | _ ->
 #if SUBSUME
+        // if key.Length = 2 then this.mkOr2(key.Span[0],key.Span[1]) else
         if key.Length = 2 then this.mkOr2(key.Span[0],key.Span[1]) else
 #endif
 
@@ -826,7 +827,8 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                     enumerating <- false
                     status <- MkOrFlags.IsTrueStar
                 | Or(nodes, _) -> nodes |> Seq.iter handleNode
-                | Concat(head = Loop(low = 0; up = upper)) when upper <> Int32.MaxValue ->
+                | Concat(head = Loop(low = 0; up = upper))
+                | Loop(low = 0; up = upper) when upper <> Int32.MaxValue ->
                     // uniqueHeads
                     zeroloops <- zeroloops + 1
                     derivatives.Add(deriv)
@@ -863,18 +865,30 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
 
             for der in derivatives do
                 match der with
-                | Concat(head = Loop(low = 0; up = upper; node = body); tail = tail) when upper < Int32.MaxValue ->
+                | Concat(head = Loop(low = 0; up = upper; node = body); tail = tail)
+                    when upper < Int32.MaxValue ->
                     _or_values.Add(der)
                     let key = struct (body, tail)
                     match _or_loop_dict.TryGetValue(key) with
                     | true, v -> _or_loop_dict[key] <- max v upper
                     | _ -> _or_loop_dict.Add(struct (body, tail), upper)
+                | Loop(low = 0; up = upper; node = body) when upper < Int32.MaxValue ->
+                    _or_values.Add(der)
+                    let key = struct (body, _uniques._eps)
+                    match _or_loop_dict.TryGetValue(key) with
+                    | true, v -> _or_loop_dict[key] <- max v upper
+                    | _ -> _or_loop_dict.Add(struct (body, _uniques._eps), upper)
                 | _ -> ()
 
             for der in _or_values do
                 match der with
                 | Concat(head = Loop(low = 0; up = upper; node = body); tail = tail) when upper < Int32.MaxValue ->
                     let key = struct (body, tail)
+                    let maxv = _or_loop_dict[key]
+                    if upper < maxv then
+                        derivatives.Remove(der) |> ignore
+                | Loop(low = 0; up = upper; node = body) when upper < Int32.MaxValue ->
+                    let key = struct (body, _uniques._eps)
                     let maxv = _or_loop_dict[key]
                     if upper < maxv then
                         derivatives.Remove(der) |> ignore
