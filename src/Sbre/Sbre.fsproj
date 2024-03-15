@@ -31,8 +31,8 @@
     <DefineConstants>$(DefineConstants);OPTIMIZE</DefineConstants>
     <DefineConstants>$(DefineConstants);REWRITE_INNER</DefineConstants>
     <DefineConstants>$(DefineConstants);SUBSUME</DefineConstants>
-<!--    <DefineConstants>$(DefineConstants);SKIP</DefineConstants>-->
-<!--    <DefineConstants>$(DefineConstants);SKIP_ACTIVE</DefineConstants>-->
+    <DefineConstants>$(DefineConstants);SKIP</DefineConstants>
+    <DefineConstants>$(DefineConstants);SKIP_ACTIVE</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Sbre.Test" />
