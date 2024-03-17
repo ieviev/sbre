@@ -483,13 +483,20 @@ type CounterMatchTimeRegexes() =
 
 type SampleRegexes() =
     inherit
-        Jobs.TestSbreAllPatternsMatchOnly(
-        // Jobs.TestSbreAllPatternsCountSpans(
+        // Jobs.TestSbreAllPatternsMatchOnly(
+        Jobs.TestSbreAllPatternsCountSpans(
             [
                """\b\w+\b"""
+               """\b[0-9A-Za-z_]+\b"""
+               """(?<=\W)\w+(?=\W)"""
+               """(?<=\W)[0-9A-Za-z_]+(?=\W)"""
                """\w+"""
+               """[0-9A-Za-z_]+"""
+               """~(\T*[ ]\T*)"""
+               """~(\T*[^0-9A-Za-z_]\T*)"""
                """~(\T*\W\T*)"""
-               """~(\T*\W\T*)\w"""
+
+               // ---
                // "Twain"
                // "(?i)Twain"
                // "[a-z]shing"

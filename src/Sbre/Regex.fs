@@ -863,12 +863,12 @@ type RegexMatcher<
             loc: inref<Location>,
             stateId: int
         ) : bool =
-        // StateFlags.isAlwaysNullable flags || (
-        //     flags.CanBeNullable &&
-        //     this.IsNullable (&loc, _stateArray[stateId].Node))
-        StateFlags.canBeNullable flags && (
-            StateFlags.isAlwaysNullable flags ||
-            this.IsNullable (&loc, _stateArray[stateId].Node))
+        StateFlags.canBeNullable flags &&
+            ( StateFlags.isAlwaysNullable flags ||
+            // important: prevent unnecessary work if anchor can not be nullable
+            (if Location.isFinal loc then
+                this.IsNullable (&loc, _stateArray[stateId].Node)
+            else false))
 
     member this.IsNullable(loc: inref<Location>, node: RegexNode<'t>) : bool =
         _isNullable(&loc,node)

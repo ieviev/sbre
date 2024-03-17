@@ -137,16 +137,6 @@ let rewriteWordBorder (b:RegexBuilder<BDD>) (css:CharSetSolver) (outer:RegexNode
     | _, Some true -> b.anchors._nonWordLeft.Value // wordchar right
     | _, Some false -> b.anchors._wordLeft.Value // nonwordright
     | _ ->
-        // if outer.Length = 1 then
-        //     let single = outer[0]
-        //     if isNull single.Parent.Parent then b.anchors._wordBorder.Value else
-        //     let p2 = single.Parent
-        //     let p2outer = children2Seq single.Parent.Parent |> Seq.toArray
-        //     let p2index =
-        //         p2outer
-        //         |> Seq.findIndex (fun v -> obj.ReferenceEquals(v, p2))
-        //     rewriteWordBorder b css p2outer p2index node
-        // else
         raise (UnsupportedPatternException @"Sbre does not support unconstrained word borders, rewrite \b.*\b to \b\w+\b or \b\s+\b to show which side the word is on")
 
 

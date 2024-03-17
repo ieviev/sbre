@@ -32,31 +32,17 @@ let comparePerf pattern =
     ]
 
 let a = comparePerf "Twain"
-let b = comparePerf "Twain.*"
-let c = comparePerf ".*Twain.*"
-let a01 = comparePerf ".*Twain.*(?=.*in)"
-let a02 = comparePerf ".*Twain(?=.*in)"
-let a03 = comparePerf "Twain(?=.*in)"
-let a04 = comparePerf "(?<=in.*)Twain"
-let a05 = comparePerf "Twain"
-let a06 = comparePerf """["'][^"']{0,30}[?!\.]["']"""
 
-
-
-
-// let nodeInfo = RegexNodeInfo<TSet>()
-
-let regex = """["'][^"']{0,30}[?!\.]["']"""
-
-let match1 =
-    // "Twain.*&~(⊤*Sam⊤*)" |> 
-    "Twain.*(?=.*in)" |> 
-    Sbre.Regex  
-    |> (fun v -> v.Matches(longSample))
+let allMatches pattern = 
+    Sbre.Regex(pattern).Matches(longSample)
     |> Seq.toArray
     
 
-let mult = 
-    match1
-    |> Seq.where (fun v -> v.Value.Contains("'"))
-    |> Seq.toArray
+let t1 = allMatches @"\b\w+\b" // 2877671
+let t2 = allMatches @"\w+" // 2877671
+let t3 = allMatches @"~(\T*\W\T*)" // 6555774 (empty matches)
+let t4 = allMatches @"~(\T*\W\T*)&\T+" // 2877671
+let t5 = allMatches @"~(|\T*\W\T*)" // 2877671
+
+t5.Length
+

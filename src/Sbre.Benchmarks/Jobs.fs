@@ -1469,6 +1469,7 @@ type TestSbreAllPatternsMatchOnly(patterns: (string) list, input: string) =
 
     [<Benchmark(Description = "Sbre")>]
     member this.Sbre() =
+        // this.CompiledEngine.Count(inputText)
         this.CompiledEngine.Count(inputText)
 
 [<MemoryDiagnoser(false)>]

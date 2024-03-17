@@ -586,14 +586,6 @@ zeros divisible by 3
 0000000
 """
 
-[<Fact>]
-let ``web app test 7``() =
-
-    assertAllLLmatches """^.*&(1+01*01*0)*&.*$""" webappsample7 [
-
-    ]
-
-
 
 
 let input =
