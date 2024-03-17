@@ -224,7 +224,7 @@ type RegexCache<
 
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    member this.TryNextIndexRightToLeftRaw
+    member this.TryNextIndexRightToLeft
         (
             slice: inref<ReadOnlySpan<char>>,
             set: MintermSearchValues<_>
@@ -288,13 +288,13 @@ type RegexCache<
             skipping <- false
             let slice = inputSpan.Slice(0, currpos)
             let sharedIndex =
-                this.TryNextIndexRightToLeftRaw(&slice,searchValues)
+                this.TryNextIndexRightToLeft(&slice,searchValues)
             resultEnd <- ValueSome(sharedIndex + 1)
 
         while skipping do
             let slice = inputSpan.Slice(0, currpos)
             let sharedIndex =
-                this.TryNextIndexRightToLeftRaw(&slice,searchValues)
+                this.TryNextIndexRightToLeft(&slice,searchValues)
 
             if sharedIndex = -1 then
                 skipping <- false

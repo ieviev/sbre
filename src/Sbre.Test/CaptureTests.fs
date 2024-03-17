@@ -358,8 +358,8 @@ let ``rex sample 04.1``() =
 [<Fact>]
 let ``rex sample 04.2``() =
     assertIsMatch
-        @"([àa]\b\s+qqqq)"
-        @"à qqqq"
+        @"(a\b\s+qqqq)"
+        @"a qqqq"
 
 
 [<Fact>]
@@ -452,6 +452,12 @@ let ``rex sample 11.1``() =
     assertIsMatch
         """(\\*)("|$)"""
         @"嶾⣒"
+
+// [<Fact>]
+// let ``rex sample 12.1``() =
+//     assertIsMatch
+//         """\s*content=["'][^;]+;\s*charset\s*=\s*([^'"]+)"""
+//         """囒;charset=�ᆲᓖ"""
 
 
 

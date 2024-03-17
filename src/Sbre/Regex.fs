@@ -5,14 +5,11 @@ open System.Buffers
 open System.Collections.Generic
 open System.Globalization
 open System.Numerics
-open System.Reflection
-open System.Reflection.Metadata
 open System.Runtime.CompilerServices
 open System.Text.RuntimeRegexCopy.Symbolic
 open System.Text.RuntimeRegexCopy
 open Microsoft.FSharp.Core
 open Sbre.Algorithm
-open Sbre.Info
 open Sbre.Optimizations
 open Sbre.Types
 open Sbre.Pat
@@ -100,6 +97,8 @@ type RegexMatcher<
     let _stateCache = Dictionary<RegexNode<'t>, MatchState<'t>>()
     let mutable _stateArray = Array.zeroCreate<MatchState<'t>> InitialDfaStateCapacity
     let mutable _flagsArray = Array.zeroCreate<RegexStateFlags> InitialDfaStateCapacity
+    let mutable _stateMem = _stateArray.AsMemory()
+    let mutable _flagsMem = _flagsArray.AsMemory()
     let _minterms : 't[] = _cache.Minterms()
     let _mintermsLog = BitOperations.Log2(uint64 _minterms.Length) + 1
     let mutable _dfaDelta: int[] = Array.init (InitialDfaStateCapacity <<< _mintermsLog) (fun _ -> 0) // 0 : initial state
@@ -339,8 +338,8 @@ type RegexMatcher<
             let ch = _canonicalize head
             let ct = _canonicalize tail
             let cat = _cache.Builder.mkConcat2(ch,ct)
-            _cache.Builder.GetCanonical(node,mkLang cat,(fun v -> cat))
-        | Or(nodes=nodes; info = info) ->
+            _cache.Builder.GetCanonical(node,mkLang cat,(fun _ -> cat))
+        | Or(nodes=nodes; info = _) ->
             let canonNodes =  nodes |> Seq.map _canonicalize |> Seq.toArray
             let languages = canonNodes |> Seq.map mkLang
             let mergedLanguage = attemptMergeUnionLang _cache mkLang node languages
@@ -552,7 +551,7 @@ type RegexMatcher<
         | InitialOptimizations.StringPrefix (charPrefix, _) ->
             charPrefix.ToArray()
             |> Array.map (_cache.Classify >> _cache.MintermSearchValues)
-        | InitialOptimizations.StringPrefixCaseIgnore(_, _, charPrefix, _, _) ->
+        | InitialOptimizations.StringPrefixCaseIgnore _ ->
             [||]
         | _ -> [||]
 
@@ -603,53 +602,10 @@ type RegexMatcher<
 #endif
 
 
-    member this.IsMatchRev
-        (
-            loc: byref<Location>
-        ) : bool =
-        assert (loc.Position > -1)
-        assert (loc.Reversed = true)
-        let mutable looping = true
-        let mutable found = false
-        let mutable currentStateId = DFA_TR_rev
-
-        // only consider anchors in the start
-        let flags = _flagsArray[currentStateId]
-        if this.StateIsNullable(flags, &loc, currentStateId) then true else
-
-        if loc.Position > 0 then
-            this.TakeTransitionWithAnchors(flags, &currentStateId, &loc)
-            loc.Position <- loc.Position - 1
-
-        while looping do
-            let flags = _flagsArray[currentStateId]
-#if SKIP
-            if (flags.CanSkipInitial && this.TrySkipInitialRev(&loc, &currentStateId))
-                then ()
-            else
-#endif
-            if this.StateIsNullable(flags, &loc, currentStateId) then
-                found <- true
-                looping <- false
-
-            if loc.Position > 0 then
-                this.TakeTransition(flags, &currentStateId, &loc)
-                loc.Position <- loc.Position - 1
-            else
-                looping <- false
-        found
-
     override this.IsMatch(input) =
+        let mutable acc = new SharedResizeArrayStruct<int>(1)
         let mutable loc = Location.createReversedSpan input
-        this.IsMatchRev(&loc)
-        // // if not reverseTrueStarredNode.DependsOnAnchor then
-        // //     this.IsMatchRev(&loc)
-        // // else
-        // // // ismatch with anchors is more complex than nullability
-        // let matches = this.llmatch_all(input)
-        // match matches.size with
-        // | 0 -> false
-        // | _ -> true
+        this.CollectReverseFirstNull(&acc,&loc)
 
 
     override this.Match(input) : SingleMatchResult =
@@ -810,13 +766,13 @@ type RegexMatcher<
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.TakeTransition
         (
-            flags: RegexStateFlags,
+            deltaSpan: Span<int>,
             currentState: byref<int>,
             loc: inref<Location>
         ) =
         let mintermId = _cache.MintermId(loc)
         let dfaOffset = this.GetDeltaOffset(currentState, mintermId)
-        let nextStateId = _dfaDelta[dfaOffset]
+        let nextStateId = deltaSpan[dfaOffset]
 
         if
             // existing transition in dfa
@@ -828,7 +784,7 @@ type RegexMatcher<
         // new transition
         if obj.ReferenceEquals(null, _stateArray[nextStateId]) then
             let nextState = this.TryNextDerivative(&currentState, mintermId, &loc)
-            _dfaDelta[dfaOffset] <- nextState
+            deltaSpan[dfaOffset] <- nextState
             currentState <- nextState
 
 
@@ -875,8 +831,11 @@ type RegexMatcher<
         let mutable currentStateId = startStateId
         let mutable currentMax = -2
 
+        let _flagsSpan = _flagsArray.AsSpan()
+        let _dfaDeltaSpan = _dfaDelta.AsSpan()
+
         while looping do
-            let mutable dfaState = _stateArray[currentStateId].Node
+            // let mutable dfaState = _stateArray[currentStateId].Node
             let flags = _flagsArray[currentStateId]
 
             if StateFlags.isDeadEnd flags then
@@ -884,13 +843,13 @@ type RegexMatcher<
             else
 
             if StateFlags.canSkipLeftToRight flags &&
-               this.TrySkipActiveFwd(flags,&loc,&currentStateId) then () else
+               this.TrySkipActiveFwd(_dfaDeltaSpan,flags,&loc,&currentStateId) then () else
             // set max nullability after skipping
             if this.StateIsNullable(flags, &loc, currentStateId) then
                 this.HandleNullableFwd(flags, &currentMax, loc, currentStateId)
 
             if loc.Position < loc.Input.Length then
-                this.TakeTransition(flags, &currentStateId, &loc)
+                this.TakeTransition(_dfaDeltaSpan, &currentStateId, &loc)
                 loc.Position <- loc.Position + 1
             else
                 looping <- false
@@ -902,7 +861,6 @@ type RegexMatcher<
         let currentPosition = loc.Position
         let charSetsCount = _weightedSets.Length
         let wsetspan = _weightedSets.AsSpan()
-
         let struct (rarestCharSetIndex, rarestCharSet) = wsetspan[0]
         let mutable searching = true
         let mutable prevMatch = currentPosition
@@ -910,37 +868,54 @@ type RegexMatcher<
         let mutable resultEnd = ValueNone
 
         while searching do
-            let slice = textSpan.Slice(0, prevMatch)
-            let sharedIndex = _cache.TryNextIndexRightToLeftRaw(&slice,rarestCharSet)
+            if prevMatch < rarestOffset then
+                searching <- false
+                resultEnd <- ValueNone
+            else
+            let slice = textSpan.Slice(0, prevMatch - rarestOffset + 1)
+            let sharedIndex = _cache.TryNextIndexRightToLeft(&slice,rarestCharSet)
             prevMatch <- sharedIndex
             match sharedIndex with
             | n when n - rarestCharSetIndex < 0 ->
                 searching <- false
                 resultEnd <- ValueNone
             | curMatch ->
-                if (curMatch + rarestOffset <= currentPosition) then
-                    let absMatchStart = curMatch - rarestCharSetIndex
-                    let mutable fullMatch = true
-                    let mutable i = 1
+                let absMatchStart = curMatch - rarestCharSetIndex
+                let mutable fullMatch = true
+                let mutable i = 1
 
-                    while fullMatch && i < charSetsCount do
-                        let struct (weightedSetIndex, weightedSet) = wsetspan[i]
-                        if not (weightedSet.Contains(textSpan[absMatchStart + weightedSetIndex])) then
-                            fullMatch <- false
-                        else
-                            i <- i + 1
+                while fullMatch && i < charSetsCount do
+                    let struct (weightedSetIndex, weightedSet) = wsetspan[i]
+                    if not (weightedSet.Contains(textSpan[absMatchStart + weightedSetIndex])) then
+                        fullMatch <- false
+                    i <- i + 1
 
-                    if fullMatch && i = charSetsCount then
-                        searching <- false
-                        resultEnd <- ValueSome (absMatchStart + _prefixSets.Length)
-
+                if fullMatch && i = charSetsCount then
+                    searching <- false
+                    resultEnd <- ValueSome (absMatchStart + _prefixSets.Length)
+                else
+                    prevMatch <- curMatch + rarestOffset - 1
 
         resultEnd
 
 
     member this.TrySkipInitialRev(loc:byref<Location>, currentStateId:byref<int>) : bool =
         match _initialOptimizations with
-        | InitialOptimizations.SearchValuesPrefix(prefix,_)
+        | InitialOptimizations.SearchValuesPrefix (prefix,transitionNodeId) ->
+#if SKIP_PREFIX
+            let skipResult = this.TrySkipInitialRevWeighted &loc
+#else
+            let skipResult = _cache.TryNextStartsetLocationArrayReversed(&loc,prefix.Span)
+#endif
+            match skipResult with
+            | ValueSome resultEnd ->
+                let suffixStart = resultEnd - prefix.Length
+                currentStateId <- transitionNodeId
+                loc.Position <- suffixStart
+                loc.Position <> resultEnd
+            | ValueNone -> // no matches remaining
+                loc.Position <- 0
+                false
         | InitialOptimizations.SearchValuesPotentialStart (prefix,_) ->
 #if SKIP_PREFIX
             let skipResult = this.TrySkipInitialRevWeighted &loc
@@ -949,14 +924,9 @@ type RegexMatcher<
 #endif
             match skipResult with
             | ValueSome resultEnd ->
+                let cnd = loc.Position <> resultEnd
                 loc.Position <- resultEnd
-                match _initialOptimizations with
-                | InitialOptimizations.SearchValuesPrefix(_,transitionNodeId) ->
-                    let suffixStart = resultEnd - prefix.Length
-                    currentStateId <- transitionNodeId
-                    loc.Position <- suffixStart
-                    loc.Position <> resultEnd
-                | _ -> loc.Position <> resultEnd
+                cnd
             | ValueNone -> // no matches remaining
                 loc.Position <- 0
                 false
@@ -997,12 +967,13 @@ type RegexMatcher<
 
 
 
-    member this.TrySkipActiveFwd(flags:RegexStateFlags, loc: byref<Location>, currentStateId:byref<int>) =
+    member this.TrySkipActiveFwd(_dfaDeltaSpan: Span<int>,flags:RegexStateFlags, loc: byref<Location>, currentStateId:byref<int>) =
         let dfaState = _stateArray[currentStateId]
 
-        if flags.HasFlag(RegexStateFlags.ActiveBranchOptimizations) then
+        if StateFlags.hasActiveBranchOptimizations flags then
+            if true then false else
             match dfaState.ActiveOptimizations with
-            | LimitedSkipOnePath(distance, skipPred, failPred, skipToEndTransitionId, cachedTransitions) ->
+            | LimitedSkipOnePath(distance, _, failPred, _, cachedTransitions) ->
                 let maxLen = loc.Input.Length
                 if distance + loc.Position >= maxLen then // no more matches
                     false
@@ -1020,20 +991,20 @@ type RegexMatcher<
                         let nskipped = idx
                         let mutable tempStateId = currentStateId
                         // lazily cache the skip transitions
-                        match cachedTransitions[nskipped] with
+                        match cachedTransitions.Span[nskipped] with
                         | -1 ->
                             for i = 0 to nskipped - 1 do
-                                let flags = _flagsArray[tempStateId]
-                                this.TakeTransition(flags,&tempStateId, &loc)
-                            cachedTransitions[nskipped] <- tempStateId
+                                let _ = _flagsArray[tempStateId]
+                                this.TakeTransition(_dfaDeltaSpan,&tempStateId, &loc)
+                            cachedTransitions.Span[nskipped] <- tempStateId
                         | v ->
                             tempStateId <- v
                         loc.Position <- loc.Position + nskipped
-                        this.TakeTransition(flags,&tempStateId, &loc)
+                        this.TakeTransition(_dfaDeltaSpan,&tempStateId, &loc)
                         currentStateId <- tempStateId
                         loc.Position <- loc.Position + 1
                         true
-            | LimitedSkip2Chars(distance, skipPred, failPred, skipToEndTransitionId, cachedTransitions) ->
+            | LimitedSkip2Chars(distance, _, failPred, _, cachedTransitions) ->
                 let maxLen = loc.Input.Length
                 if distance + loc.Position >= maxLen then // no more matches
                     false
@@ -1048,12 +1019,10 @@ type RegexMatcher<
                         | -1 ->
                             let slice2 = loc.Input.Slice(loc.Position,distance + 2)
                             let pos2 = _cache.TryNextIndexLeftToRight(slice2,failPred)
-                            this.TakeTransition(flags,&currentStateId, &loc)
+                            this.TakeTransition(_dfaDeltaSpan,&currentStateId, &loc)
                             loc.Position <- loc.Position + 1
-                            this.TakeTransition(flags,&currentStateId, &loc)
+                            this.TakeTransition(_dfaDeltaSpan,&currentStateId, &loc)
                             loc.Position <- loc.Position + 1
-                            // this.TakeTransition(flags,&currentStateId, &loc)
-                            ()
                             pos2 - 2
                         | n -> n
 
@@ -1062,6 +1031,7 @@ type RegexMatcher<
                     | -1 ->
                         false
                     | idx ->
+
                         if idx = 0 then false else
                         let nskipped = idx
                         let mutable tempStateId = currentStateId
@@ -1070,15 +1040,15 @@ type RegexMatcher<
                         match cachedTransitions[nskipped] with
                         | -1 ->
                             for i = 0 to nskipped do
-                                let flags = _flagsArray[tempStateId]
-                                this.TakeTransition(flags,&tempStateId, &loc)
+                                let _ = _flagsArray[tempStateId]
+                                this.TakeTransition(_dfaDeltaSpan,&tempStateId, &loc)
                             cachedTransitions[nskipped] <- tempStateId
                         | n ->
                             tempStateId <- n
 
                         loc.Position <- loc.Position + (nskipped - 2)
                         // let n1 = _stateArray[tempStateId]
-                        this.TakeTransition(flags,&tempStateId, &loc)
+                        this.TakeTransition(_dfaDeltaSpan,&tempStateId, &loc)
                         currentStateId <- tempStateId
                         // let n2 = _stateArray[tempStateId]
                         loc.Position <- loc.Position + 1
@@ -1109,14 +1079,20 @@ type RegexMatcher<
 
 
 
-    member this.TrySkipActiveRev(flags:RegexStateFlags,loc:byref<Location>, currentStateId:byref<int>, acc: byref<SharedResizeArrayStruct<int>>) : bool =
+    member this.TrySkipActiveRev(
+        _dfaDeltaSpan : Span<int>,
+        flags:RegexStateFlags,
+        loc:byref<Location>,
+        currentStateId:byref<int>,
+        acc: byref<SharedResizeArrayStruct<int>>) : bool =
 
 
-        // if loc.Position = 0 then false else
+        if true then false else
         if StateFlags.hasActiveBranchOptimizations flags then
+
             let dfaState = _stateArray[currentStateId]
             match dfaState.ActiveOptimizations with
-            | LimitedSkipOnePath(distance, skipPred, failPred, skipToEndTransitionId, cachedTransitions) ->
+            | LimitedSkipOnePath(distance, _, failPred, skipToEndTransitionId, cachedTransitions) ->
                 if distance > loc.Position then // no more matches
                 // loc.Position <- Location.final loc
                     false
@@ -1127,7 +1103,7 @@ type RegexMatcher<
                         distance
 
                     let limitedSlice = loc.Input.Slice(max 0 startPos, length)
-                    match _cache.TryNextIndexRightToLeftRaw(&limitedSlice,failPred) with
+                    match _cache.TryNextIndexRightToLeft(&limitedSlice,failPred) with
                     | -1 ->
                         loc.Position <- loc.Position - length
                         currentStateId <- skipToEndTransitionId
@@ -1137,43 +1113,44 @@ type RegexMatcher<
                         let mutable tempStateId = currentStateId
 
                         // lazily cache the skip transitions
-                        match cachedTransitions[nskipped] with
+                        match cachedTransitions.Span[nskipped] with
                         | -1 ->
                             for i = 1 to nskipped - 1 do
-                                let flags = _flagsArray[tempStateId]
-                                this.TakeTransition(flags,&tempStateId, &loc)
-                            cachedTransitions[nskipped] <- tempStateId
+                                // let flags = _flagsArray[tempStateId]
+                                this.TakeTransition(_dfaDeltaSpan,&tempStateId, &loc)
+                            cachedTransitions.Span[nskipped] <- tempStateId
                         | v ->
                             tempStateId <- v
 
                         loc.Position <- loc.Position - length + idx + 1
-                        this.TakeTransition(flags,&tempStateId, &loc)
+                        this.TakeTransition(_dfaDeltaSpan,&tempStateId, &loc)
                         currentStateId <- tempStateId
                         loc.Position <- loc.Position - 1
                         true
             | LimitedSkip(distance, successPred, termTransitionId, failPred, skipToEndTransitionId) ->
-                if distance > loc.Position then // no more matches
-                    loc.Position <- Location.final loc
-                    false
-                else
-                    let limitedSlice = loc.Input.Slice(loc.Position - distance, distance)
-                    match _cache.TryNextIndexRightToLeftRaw(&limitedSlice,failPred) with
-                    | -1 ->
-                        loc.Position <- loc.Position - distance
-                        currentStateId <- skipToEndTransitionId
-                        // let newState = _stateArray[currentStateId]
-                        true
-                    | idx ->
-                        match successPred.Contains(limitedSlice[idx]) with
-                        | true ->
-                            let newPos = loc.Position - distance + idx
-                            loc.Position <- newPos
-                            currentStateId <- termTransitionId
-                            true
-                        | _ ->
-                            let newPos = loc.Position - distance + idx
-                            loc.Position <- newPos
-                            false // mark nullable
+                false
+                // if distance > loc.Position then // no more matches
+                //     // loc.Position <- Location.final loc
+                //     false
+                // else
+                //     let limitedSlice = loc.Input.Slice(loc.Position - distance, distance)
+                //     match _cache.TryNextIndexRightToLeft(&limitedSlice,failPred) with
+                //     | -1 ->
+                //         loc.Position <- loc.Position - distance
+                //         currentStateId <- skipToEndTransitionId
+                //         // let newState = _stateArray[currentStateId]
+                //         true
+                //     | idx ->
+                //         match successPred.Contains(limitedSlice[idx]) with
+                //         | true ->
+                //             let newPos = loc.Position - distance + idx
+                //             loc.Position <- newPos
+                //             currentStateId <- termTransitionId
+                //             true
+                //         | _ ->
+                //             let newPos = loc.Position - distance + idx
+                //             loc.Position <- newPos
+                //             false // mark nullable
             | ActiveBranchOptimizations.PossibleStringPrefix(prefix,transId) ->
                 let limitedSlice = loc.Input.Slice(0, loc.Position)
                 let pspan = prefix.Span
@@ -1185,12 +1162,12 @@ type RegexMatcher<
                     false // mark nullable
             | NoOptimizations -> false
             | SkippableLookahead _ -> false
-            | LimitedSkip2Chars(_) -> false
+            | LimitedSkip2Chars _ -> false
         else
             let tmp_loc = loc.Position
             let dfaState = _stateArray[currentStateId]
             let slice = loc.Input.Slice(0,loc.Position)
-            match _cache.TryNextIndexRightToLeftRaw( &slice, dfaState.MintermSearchValues ) with
+            match _cache.TryNextIndexRightToLeft( &slice, dfaState.MintermSearchValues ) with
             | -1 -> loc.Position <- Location.final loc
             | n -> loc.Position <- n + 1
             // adding all skipped locations todo: optimize this to ranges
@@ -1233,7 +1210,7 @@ type RegexMatcher<
             loc.Position <- loc.Position - 1
 
 
-    /// unoptimized collect all nullable positions
+
     member this.CollectReverseNullablePositions
         (
             acc: byref<SharedResizeArrayStruct<int>>,
@@ -1245,17 +1222,18 @@ type RegexMatcher<
         let mutable looping = true
         let mutable currentStateId = DFA_TR_rev
 
+        let _flagsSpan = _flagsArray.AsSpan()
+        let _dfaDeltaSpan = _dfaDelta.AsSpan()
         // only consider anchors in the start
         this.TakeStepWithAnchors(&acc,&loc,&currentStateId)
 
         while looping do
-            let flags = _flagsArray[currentStateId]
-            // let dfaState = _stateArray[currentStateId]
+            let flags = _flagsSpan[currentStateId]
 #if SKIP
             if (StateFlags.canSkipInitial flags && this.TrySkipInitialRev(&loc, &currentStateId))
 
 #if SKIP_ACTIVE
-               || (StateFlags.canSkip flags && this.TrySkipActiveRev(flags,&loc, &currentStateId, &acc))
+               || (StateFlags.canSkip flags && this.TrySkipActiveRev(_dfaDeltaSpan,flags,&loc, &currentStateId, &acc))
 #endif
                 then ()
             else
@@ -1264,10 +1242,53 @@ type RegexMatcher<
                 this.HandleNullableRev(flags,&acc,loc,currentStateId)
 
             if loc.Position > 0 then
-                this.TakeTransition(flags, &currentStateId, &loc)
+                this.TakeTransition(_dfaDeltaSpan, &currentStateId, &loc)
                 loc.Position <- loc.Position - 1
             else
                 looping <- false
+
+    member this.CollectReverseFirstNull
+        (
+            acc: byref<SharedResizeArrayStruct<int>>,
+            loc: byref<Location>
+        ) : bool =
+        assert (loc.Position > -1)
+        assert (loc.Reversed = true)
+
+        let mutable found = false
+        let mutable looping = true
+        let mutable currentStateId = DFA_TR_rev
+
+        let _flagsSpan = _flagsArray.AsSpan()
+        let _dfaDeltaSpan = _dfaDelta.AsSpan()
+        // only consider anchors in the start
+        this.TakeStepWithAnchors(&acc,&loc,&currentStateId)
+
+        while looping do
+            let flags = _flagsSpan[currentStateId]
+            let _ = _stateArray[currentStateId]
+#if SKIP
+            if (StateFlags.canSkipInitial flags && this.TrySkipInitialRev(&loc, &currentStateId))
+
+#if SKIP_ACTIVE
+               || (StateFlags.canSkip flags && this.TrySkipActiveRev(_dfaDeltaSpan,flags,&loc, &currentStateId, &acc))
+#endif
+                then ()
+            else
+#endif
+            if this.StateIsNullable(flags, &loc, currentStateId) then
+                this.HandleNullableRev(flags,&acc,loc,currentStateId)
+
+            if loc.Position > 0 then
+                this.TakeTransition(_dfaDeltaSpan, &currentStateId, &loc)
+                loc.Position <- loc.Position - 1
+            else
+                looping <- false
+            if acc.size > 0 then
+                looping <- false
+                found <- true
+        found
+
 
     member this.PrintAllDerivatives
         (
@@ -1280,6 +1301,9 @@ type RegexMatcher<
         let mutable currentStateId = DFA_TR_rev
         let ders = ResizeArray()
 
+        let _flagsSpan = _flagsArray.AsSpan()
+        let _dfaDeltaSpan = _dfaDelta.AsSpan()
+
         while looping do
             let flags = _flagsArray[currentStateId]
             if this.StateIsNullable(flags, &loc, currentStateId) then
@@ -1289,7 +1313,7 @@ type RegexMatcher<
                 else acc.Add loc.Position
 
             if loc.Position > 0 then
-                this.TakeTransition(flags, &currentStateId, &loc)
+                this.TakeTransition(_dfaDeltaSpan, &currentStateId, &loc)
                 let state = _stateArray[currentStateId]
 
                 let modified =
@@ -1297,7 +1321,7 @@ type RegexMatcher<
                     | Or(nodes=nodes) ->
                         nodes
                         |> Seq.where (function
-                            Concat(head=Pat.TrueStar _cache.Solver) -> false
+                            Concat(head=TrueStar _cache.Solver) -> false
                             | _ -> true
                         )
                         |> _cache.Builder.mkOrSeq
@@ -1430,7 +1454,7 @@ type RegexMatcher<
     member this.RawPatternObj = R_canonical
     member this.PrettyPrintNode(node) =
         let bddNode =
-            Sbre.Minterms.transformBack
+            Minterms.transformBack
                 _cache.Builder
                 _cache.BddBuilder
                 _cache.Solver
@@ -1482,8 +1506,8 @@ module Helpers =
 
             let m = RegexMatcher(rawNode, cache, options)
 
-            if not (refEq (m.RawPattern) (rawNode)) then
-                let backToBdd = Minterms.transformBack uintbuilder bddBuilder solver charsetSolver (m.RawPattern)
+            if not (refEq m.RawPattern rawNode) then
+                let backToBdd = Minterms.transformBack uintbuilder bddBuilder solver charsetSolver m.RawPattern
                 let recomputedMinterms = backToBdd |> Minterms.compute symbolicBuilder
                 // TODO: analyze this
                 // if recomputedMinterms.Length <> bddMinterms.Length then
@@ -1501,7 +1525,7 @@ module Helpers =
             else
             m
 
-        | n ->
+        | _ ->
             // ideally subsume the minterms to 64 or below
             let solver = BitVectorSolver(bddMinterms, charsetSolver)
             let uintbuilder = RegexBuilder(converter, solver, charsetSolver, options)
@@ -1519,8 +1543,8 @@ module Helpers =
 
             let m = RegexMatcher(rawNode, cache, options)
 
-            let backToBdd = Minterms.transformBack uintbuilder bddBuilder solver charsetSolver (m.RawPatternObj)
-            let recomputedMinterms = backToBdd |> Minterms.compute symbolicBuilder
+            let backToBdd = Minterms.transformBack uintbuilder bddBuilder solver charsetSolver m.RawPatternObj
+            let _ = backToBdd |> Minterms.compute symbolicBuilder
             // if not (refEq (m.RawPatternObj) (rawNode)) then
             //     let backToBdd = Minterms.transformBack uintbuilder bddBuilder solver charsetSolver (m.RawPatternObj)
             //     let recomputedMinterms = backToBdd |> Minterms.compute symbolicBuilder

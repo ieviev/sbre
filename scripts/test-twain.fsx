@@ -45,4 +45,3 @@ let t4 = allMatches @"~(\T*\W\T*)&\T+" // 2877671
 let t5 = allMatches @"~(|\T*\W\T*)" // 2877671
 
 t5.Length
-

@@ -40,7 +40,7 @@ type ActiveBranchOptimizations<'t> =
         skipPred: MintermSearchValues<'t> *
         failPred: MintermSearchValues<'t> *
         skipToEndTransitionId: int *
-        cachedTransitions: int[]
+        cachedTransitions: Memory<int>
     | LimitedSkip2Chars of
         distance: int *
         skipPred: MintermSearchValues<'t> *
@@ -526,7 +526,6 @@ let tryGetLimitedSkip
                     | _ ->
                         let successNode = snd successPath
                         let mergedPred = c.MintermSearchValues(c.Solver.Not(startMt))
-                        let w = 1
                         Some(
                             ActiveBranchOptimizations.LimitedSkip(
                                 distance = path.Length + 2,
@@ -555,7 +554,7 @@ let tryGetLimitedSkip
                             skipPred = skipPred,
                             failPred = failPred,
                             skipToEndTransitionId = nodeToId skipToEndNode,
-                            cachedTransitions = Array.init (path.Length + 3) (fun v -> -1)
+                            cachedTransitions = Memory(Array.init (path.Length + 3) (fun v -> -1))
                         )
                     )
                 | _ ->
