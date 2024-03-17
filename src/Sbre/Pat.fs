@@ -279,6 +279,9 @@ module Location =
         loc.Reversed && loc.Position = 0
         || not loc.Reversed && loc.Position = loc.Input.Length
 
+    let inline isEdge (loc: Location) =
+        loc.Position = 0 || loc.Position = loc.Input.Length
+
     let inline nextPosition (loc: Location) =
         match loc.Reversed with
         | true -> (loc.Position - 1)

@@ -779,30 +779,6 @@ type RegexMatcher<
             currentState <- nextState
 
 
-    member this.TakeMintermTransition
-        (
-            flags: RegexStateFlags,
-            currentState: byref<int>,
-            mintermId: int,
-            loc:Location
-        ) =
-        let dfaOffset = this.GetDeltaOffset(currentState, mintermId)
-        let nextStateId = _dfaDelta[dfaOffset]
-
-        if
-            // existing transition in dfa
-            nextStateId > 0
-        then
-            currentState <- nextStateId
-        else
-
-        // new transition
-        if obj.ReferenceEquals(null, _stateArray[nextStateId]) then
-            let nextState = this.TryNextDerivative(&currentState, mintermId, &loc)
-            _dfaDelta[dfaOffset] <- nextState
-            currentState <- nextState
-
-
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.TakeTransitionWithAnchors
         (
@@ -866,7 +842,7 @@ type RegexMatcher<
         StateFlags.canBeNullable flags &&
             ( StateFlags.isAlwaysNullable flags ||
             // important: prevent unnecessary work if anchor can not be nullable
-            (if Location.isFinal loc then
+            (if Location.isEdge loc then
                 this.IsNullable (&loc, _stateArray[stateId].Node)
             else false))
 
@@ -875,7 +851,6 @@ type RegexMatcher<
 
     member this.CreateDerivative ( loc: inref<Location>, loc_pred: 't, node: RegexNode<'t>
     ) : RegexNode<'t> =
-
         let canonNode =
             node
             // too expensive
@@ -888,7 +863,6 @@ type RegexMatcher<
             //     | LocationKind.Center -> _canonicalize node
             //     | LocationKind.EndPos -> node
             //     | _ -> failwith "?"
-
         _createDerivative(&loc,loc_pred,canonNode)
 
     /// end position with DFA
@@ -902,15 +876,15 @@ type RegexMatcher<
         let mutable currentMax = -2
 
         while looping do
-            // let mutable dfaState = _stateArray[currentStateId]
+            let mutable dfaState = _stateArray[currentStateId].Node
             let flags = _flagsArray[currentStateId]
 
-            if flags.IsDeadend then
+            if StateFlags.isDeadEnd flags then
                 looping <- false
             else
-            if flags.CanSkipLeftToRight then
-                this.TrySkipActiveFwd(flags,&loc,&currentStateId) |> ignore
 
+            if StateFlags.canSkipLeftToRight flags &&
+               this.TrySkipActiveFwd(flags,&loc,&currentStateId) then () else
             // set max nullability after skipping
             if this.StateIsNullable(flags, &loc, currentStateId) then
                 this.HandleNullableFwd(flags, &currentMax, loc, currentStateId)
@@ -923,51 +897,69 @@ type RegexMatcher<
         currentMax
 
 
-    member this.TrySkipInitialRevWeighted(loc: byref<Location>) : bool =
+    member this.TrySkipInitialRevWeighted(loc: byref<Location>) : int voption =
         let textSpan = loc.Input
         let currentPosition = loc.Position
         let charSetsCount = _weightedSets.Length
+        let wsetspan = _weightedSets.AsSpan()
 
-        let struct (rarestCharSetIndex, rarestCharSet) =
-            _weightedSets[0]
-
+        let struct (rarestCharSetIndex, rarestCharSet) = wsetspan[0]
         let mutable searching = true
         let mutable prevMatch = currentPosition
         let rarestOffset = _prefixSets.Length - rarestCharSetIndex
+        let mutable resultEnd = ValueNone
 
         while searching do
-            let sharedIndex = _cache.TryNextIndexRightToLeftRaw(textSpan.Slice(0, prevMatch),rarestCharSet)
+            let slice = textSpan.Slice(0, prevMatch)
+            let sharedIndex = _cache.TryNextIndexRightToLeftRaw(&slice,rarestCharSet)
+            prevMatch <- sharedIndex
             match sharedIndex with
             | n when n - rarestCharSetIndex < 0 ->
                 searching <- false
-                loc.Position <- 0
-            | curMatch when (curMatch + rarestOffset <= currentPosition)
-                ->
-                let absMatchStart = curMatch - rarestCharSetIndex
-                let mutable fullMatch = true
-                let mutable i = 1
+                resultEnd <- ValueNone
+            | curMatch ->
+                if (curMatch + rarestOffset <= currentPosition) then
+                    let absMatchStart = curMatch - rarestCharSetIndex
+                    let mutable fullMatch = true
+                    let mutable i = 1
 
-                while fullMatch && i < charSetsCount do
-                    let struct (weightedSetIndex, weightedSet) = _weightedSets[i]
-                    if not (weightedSet.Contains(textSpan[absMatchStart + weightedSetIndex])) then
-                        fullMatch <- false
-                    else
-                        i <- i + 1
+                    while fullMatch && i < charSetsCount do
+                        let struct (weightedSetIndex, weightedSet) = wsetspan[i]
+                        if not (weightedSet.Contains(textSpan[absMatchStart + weightedSetIndex])) then
+                            fullMatch <- false
+                        else
+                            i <- i + 1
 
-                prevMatch <- absMatchStart + rarestCharSetIndex
+                    if fullMatch && i = charSetsCount then
+                        searching <- false
+                        resultEnd <- ValueSome (absMatchStart + _prefixSets.Length)
 
-                if fullMatch && i = charSetsCount then
-                    searching <- false
-                    fullMatch <- true
-                    loc.Position <- absMatchStart + _prefixSets.Length
 
-            | outOfBounds -> prevMatch <- outOfBounds
-        currentPosition <> loc.Position
+        resultEnd
 
 
     member this.TrySkipInitialRev(loc:byref<Location>, currentStateId:byref<int>) : bool =
-        // if loc.Position = loc.Input.Length  then false else
         match _initialOptimizations with
+        | InitialOptimizations.SearchValuesPrefix(prefix,_)
+        | InitialOptimizations.SearchValuesPotentialStart (prefix,_) ->
+#if SKIP_PREFIX
+            let skipResult = this.TrySkipInitialRevWeighted &loc
+#else
+            let skipResult = _cache.TryNextStartsetLocationArrayReversed(&loc,prefix.Span)
+#endif
+            match skipResult with
+            | ValueSome resultEnd ->
+                loc.Position <- resultEnd
+                match _initialOptimizations with
+                | InitialOptimizations.SearchValuesPrefix(_,transitionNodeId) ->
+                    let suffixStart = resultEnd - prefix.Length
+                    currentStateId <- transitionNodeId
+                    loc.Position <- suffixStart
+                    loc.Position <> resultEnd
+                | _ -> loc.Position <> resultEnd
+            | ValueNone -> // no matches remaining
+                loc.Position <- 0
+                false
         | InitialOptimizations.StringPrefix(prefix, transitionNodeId) ->
             let slice = loc.Input.Slice(0, loc.Position)
             let resultStart = slice.LastIndexOf(prefix.Span)
@@ -978,17 +970,6 @@ type RegexMatcher<
                 currentStateId <- transitionNodeId
                 loc.Position <- resultStart
                 true
-        | InitialOptimizations.SinglePotentialStart (prefix,inverted) ->
-            let slice = loc.Input.Slice(0, loc.Position)
-            let resultStart =
-                if not inverted then slice.LastIndexOfAny(prefix)
-                else (slice.LastIndexOfAnyExcept(prefix))
-            if resultStart = -1 then
-                loc.Position <- Location.final loc
-                false
-            else
-                loc.Position <- resultStart + 1
-                false
         | InitialOptimizations.StringPrefixCaseIgnore(_,tailSet, prefix,_, transitionNodeId) ->
             let mutable resultStart = loc.Position
             let mutable found = false
@@ -1012,89 +993,96 @@ type RegexMatcher<
                 currentStateId <- transitionNodeId
                 loc.Position <- resultStart
                 true
-        | InitialOptimizations.SearchValuesPrefix(prefix, transitionNodeId) ->
-            if options.UsePrefixOptimizations then this.TrySkipInitialRevWeighted &loc else
-            let pspan = prefix.Span
-            let skipResult = _cache.TryNextStartsetLocationArrayReversed( &loc, pspan )
-            match skipResult with
-            | ValueSome resultEnd ->
-                let suffixStart = resultEnd - prefix.Length
-                currentStateId <- transitionNodeId
-                loc.Position <- suffixStart
-                true
-            | ValueNone ->
-                // no matches remaining
-                loc.Position <- Location.final loc
-                false
-        | InitialOptimizations.SearchValuesPotentialStart (prefix,_) ->
-            if options.UsePrefixOptimizations then this.TrySkipInitialRevWeighted &loc else
-
-            let skipResult = _cache.TryNextStartsetLocationArrayReversed( &loc, prefix.Span )
-            match skipResult with
-            | ValueSome resultEnd ->
-                let n = resultEnd <> loc.Position
-                loc.Position <- resultEnd
-                n
-            | ValueNone ->
-                // no matches remaining
-                loc.Position <- Location.final loc
-                false
-        | InitialOptimizations.NoOptimizations -> false
+        | _ -> false
 
 
 
     member this.TrySkipActiveFwd(flags:RegexStateFlags, loc: byref<Location>, currentStateId:byref<int>) =
         let dfaState = _stateArray[currentStateId]
-        // if loc.Position = loc.Input.Length then false else
-        // if flags.HasFlag(RegexStateFlags.ActiveBranchOptimizations) then
-        //     match dfaState.ActiveOptimizations with
-        //     // | ActiveBranchOptimizations.PossibleStringPrefix(prefix,transId) ->
-        //     //     let limitedSlice = loc.Input.Slice(0, loc.Position)
-        //     //     let pspan = prefix.Span
-        //     //     if limitedSlice.EndsWith(pspan) then
-        //     //         loc.Position <- loc.Position - pspan.Length
-        //     //         currentStateId <- transId
-        //     //         true
-        //     //     else
-        //     //         false
-        //     // | LimitedSkip(distance, termPred, termTransitionId, nonTermTransitionId) ->
-        //     //     if loc.Input.Length < loc.Position + distance then // no more matches
-        //     //         loc.Position <- Location.final loc
-        //     //         false
-        //     //     else
-        //     //     let limitedSlice = loc.Input.Slice(loc.Position, distance)
-        //     //     match _cache.TryNextIndexLeftToRight(limitedSlice,termPred) with
-        //     //     | -1 ->
-        //     //         loc.Position <- loc.Position + distance
-        //     //         currentStateId <- nonTermTransitionId
-        //     //         true
-        //     //     | idx ->
-        //     //         let newPos = loc.Position + distance - idx
-        //     //         loc.Position <- newPos
-        //     //         currentStateId <- termTransitionId
-        //     //         true // mark nullable
-        //     | _ ->
-        //         // failwith "opts"
-        //         false
-        // else
-        // default single char skip
-        let sharedIndex =
-            _cache.TryNextIndexLeftToRight(loc.Input.Slice(loc.Position),dfaState.MintermSearchValues)
-        match sharedIndex with
-        | -1 ->
-            loc.Position <- Location.final loc
-        | _ ->
-            loc.Position <- loc.Position + sharedIndex
-        false
 
-
-
-    member this.TrySkipActiveRev(flags:RegexStateFlags,loc:byref<Location>, currentStateId:byref<int>, acc: byref<SharedResizeArrayStruct<int>>) : bool =
-        let dfaState = _stateArray[currentStateId]
-
-        // if loc.Position = 0 then false else
-        if flags.HasActiveBranchOptimizations then
+        if flags.HasFlag(RegexStateFlags.ActiveBranchOptimizations) then
             match dfaState.ActiveOptimizations with
+            | LimitedSkipOnePath(distance, skipPred, failPred, skipToEndTransitionId, cachedTransitions) ->
+                let maxLen = loc.Input.Length
+                if distance + loc.Position >= maxLen then // no more matches
+                    false
+                else
+                    let endPos = loc.Position + distance
+                    let limitedSlice =
+                        if endPos > maxLen then loc.Input.Slice(loc.Position) else
+                        loc.Input.Slice(loc.Position,distance)
+
+                    match _cache.TryNextIndexLeftToRight(limitedSlice,failPred) with
+                    | -1 -> false
+                    | idx ->
+                        // if true then false else
+                        if idx = 0 then false else
+                        let nskipped = idx
+                        let mutable tempStateId = currentStateId
+                        // lazily cache the skip transitions
+                        match cachedTransitions[nskipped] with
+                        | -1 ->
+                            for i = 0 to nskipped - 1 do
+                                let flags = _flagsArray[tempStateId]
+                                this.TakeTransition(flags,&tempStateId, &loc)
+                            cachedTransitions[nskipped] <- tempStateId
+                        | v ->
+                            tempStateId <- v
+                        loc.Position <- loc.Position + nskipped
+                        this.TakeTransition(flags,&tempStateId, &loc)
+                        currentStateId <- tempStateId
+                        loc.Position <- loc.Position + 1
+                        true
+            | LimitedSkip2Chars(distance, skipPred, failPred, skipToEndTransitionId, cachedTransitions) ->
+                let maxLen = loc.Input.Length
+                if distance + loc.Position >= maxLen then // no more matches
+                    false
+                else
+                    let endPos = loc.Position + distance
+                    let limitedSlice =
+                        if endPos > maxLen then loc.Input.Slice(loc.Position) else
+                        loc.Input.Slice(loc.Position,distance)
+
+                    let skipResult =
+                        match _cache.TryNextIndexLeftToRight(limitedSlice,failPred) with
+                        | -1 ->
+                            let slice2 = loc.Input.Slice(loc.Position,distance + 2)
+                            let pos2 = _cache.TryNextIndexLeftToRight(slice2,failPred)
+                            this.TakeTransition(flags,&currentStateId, &loc)
+                            loc.Position <- loc.Position + 1
+                            this.TakeTransition(flags,&currentStateId, &loc)
+                            loc.Position <- loc.Position + 1
+                            // this.TakeTransition(flags,&currentStateId, &loc)
+                            ()
+                            pos2 - 2
+                        | n -> n
+
+
+                    match skipResult with
+                    | -1 ->
+                        false
+                    | idx ->
+                        if idx = 0 then false else
+                        let nskipped = idx
+                        let mutable tempStateId = currentStateId
+                        loc.Position <- loc.Position + 1
+                        // lazily cache the skip transitions
+                        match cachedTransitions[nskipped] with
+                        | -1 ->
+                            for i = 0 to nskipped do
+                                let flags = _flagsArray[tempStateId]
+                                this.TakeTransition(flags,&tempStateId, &loc)
+                            cachedTransitions[nskipped] <- tempStateId
+                        | n ->
+                            tempStateId <- n
+
+                        loc.Position <- loc.Position + (nskipped - 2)
+                        // let n1 = _stateArray[tempStateId]
+                        this.TakeTransition(flags,&tempStateId, &loc)
+                        currentStateId <- tempStateId
+                        // let n2 = _stateArray[tempStateId]
+                        loc.Position <- loc.Position + 1
+                        true
             | ActiveBranchOptimizations.PossibleStringPrefix(prefix,transId) ->
                 let limitedSlice = loc.Input.Slice(0, loc.Position)
                 let pspan = prefix.Span
@@ -1104,80 +1092,107 @@ type RegexMatcher<
                     true
                 else
                     false
+            | _ ->
+                false
+        else
+        // default single char skip
+        let sharedIndex =
+            _cache.TryNextIndexLeftToRight(loc.Input.Slice(loc.Position),dfaState.MintermSearchValues)
+        match sharedIndex with
+        | -1 ->
+            loc.Position <- Location.final loc
+            false
+        | _ ->
+            loc.Position <- loc.Position + sharedIndex
+            sharedIndex <> 0
+
+
+
+
+    member this.TrySkipActiveRev(flags:RegexStateFlags,loc:byref<Location>, currentStateId:byref<int>, acc: byref<SharedResizeArrayStruct<int>>) : bool =
+
+
+        // if loc.Position = 0 then false else
+        if StateFlags.hasActiveBranchOptimizations flags then
+            let dfaState = _stateArray[currentStateId]
+            match dfaState.ActiveOptimizations with
+            | LimitedSkipOnePath(distance, skipPred, failPred, skipToEndTransitionId, cachedTransitions) ->
+                if distance > loc.Position then // no more matches
+                // loc.Position <- Location.final loc
+                    false
+                else
+                    let startPos = loc.Position - distance
+                    let length =
+                        if startPos < 0 then distance + startPos else
+                        distance
+
+                    let limitedSlice = loc.Input.Slice(max 0 startPos, length)
+                    match _cache.TryNextIndexRightToLeftRaw(&limitedSlice,failPred) with
+                    | -1 ->
+                        loc.Position <- loc.Position - length
+                        currentStateId <- skipToEndTransitionId
+                        length <> 0
+                    | idx ->
+                        let nskipped = (length - idx)
+                        let mutable tempStateId = currentStateId
+
+                        // lazily cache the skip transitions
+                        match cachedTransitions[nskipped] with
+                        | -1 ->
+                            for i = 1 to nskipped - 1 do
+                                let flags = _flagsArray[tempStateId]
+                                this.TakeTransition(flags,&tempStateId, &loc)
+                            cachedTransitions[nskipped] <- tempStateId
+                        | v ->
+                            tempStateId <- v
+
+                        loc.Position <- loc.Position - length + idx + 1
+                        this.TakeTransition(flags,&tempStateId, &loc)
+                        currentStateId <- tempStateId
+                        loc.Position <- loc.Position - 1
+                        true
             | LimitedSkip(distance, successPred, termTransitionId, failPred, skipToEndTransitionId) ->
                 if distance > loc.Position then // no more matches
                     loc.Position <- Location.final loc
                     false
                 else
-                let limitedSlice = loc.Input.Slice(loc.Position - distance, distance)
-                match _cache.TryNextIndexRightToLeftRaw(limitedSlice,failPred) with
-                | -1 ->
-                    loc.Position <- loc.Position - distance
-                    currentStateId <- skipToEndTransitionId
-                    // let newState = _stateArray[currentStateId]
-                    true
-                | idx ->
-                    match successPred.Contains(limitedSlice[idx]) with
-                    | true ->
-                        let newPos = loc.Position - distance + idx
-                        loc.Position <- newPos
-                        currentStateId <- termTransitionId
+                    let limitedSlice = loc.Input.Slice(loc.Position - distance, distance)
+                    match _cache.TryNextIndexRightToLeftRaw(&limitedSlice,failPred) with
+                    | -1 ->
+                        loc.Position <- loc.Position - distance
+                        currentStateId <- skipToEndTransitionId
+                        // let newState = _stateArray[currentStateId]
                         true
-                    | _ ->
-                        let newPos = loc.Position - distance + idx
-                        loc.Position <- newPos
-                        false // mark nullable
-            | LimitedSkipOnePath(distance, skipPred, failPred, skipToEndTransitionId, cachedTransitions) ->
-                if distance > loc.Position then // no more matches
-                    // loc.Position <- Location.final loc
-                    false
+                    | idx ->
+                        match successPred.Contains(limitedSlice[idx]) with
+                        | true ->
+                            let newPos = loc.Position - distance + idx
+                            loc.Position <- newPos
+                            currentStateId <- termTransitionId
+                            true
+                        | _ ->
+                            let newPos = loc.Position - distance + idx
+                            loc.Position <- newPos
+                            false // mark nullable
+            | ActiveBranchOptimizations.PossibleStringPrefix(prefix,transId) ->
+                let limitedSlice = loc.Input.Slice(0, loc.Position)
+                let pspan = prefix.Span
+                if limitedSlice.EndsWith(pspan) then
+                    loc.Position <- loc.Position - pspan.Length
+                    currentStateId <- transId
+                    true
                 else
-                let startPos = loc.Position - distance
-                let length =
-                    if startPos < 0 then distance + startPos else
-                    distance
-
-                let limitedSlice = loc.Input.Slice(max 0 startPos, length)
-                match _cache.TryNextIndexRightToLeftRaw(limitedSlice,failPred) with
-                | -1 ->
-                    loc.Position <- loc.Position - length
-                    currentStateId <- skipToEndTransitionId
-                    // true // if end then do something
-                    length <> 0
-
-                | idx ->
-
-
-                    let nskipped = (length - idx)
-                    let mutable tempStateId = currentStateId
-
-                    // lazily cache the skip transitions
-                    // match cachedTransitions.TryGetValue(nskipped) with
-                    // | true, v ->
-                    //     tempStateId <- v
-                    // | _ ->
-                    if true then
-                        for i = 1 to nskipped - 1 do
-                            let flags = _flagsArray[tempStateId]
-                            this.TakeTransition(flags,&tempStateId, &loc)
-                        // cachedTransitions.Add(nskipped,tempStateId)
-
-                    // if true then false else
-
-                    loc.Position <- loc.Position - length + idx + 1
-                    this.TakeTransition(flags,&tempStateId, &loc)
-                    currentStateId <- tempStateId
-                    loc.Position <- loc.Position - 1
-                    true // mark nullable
+                    false // mark nullable
             | NoOptimizations -> false
             | SkippableLookahead _ -> false
+            | LimitedSkip2Chars(_) -> false
         else
             let tmp_loc = loc.Position
-
-            match _cache.TryNextIndexRightToLeft( loc.Input.Slice(0,loc.Position), dfaState.MintermSearchValues ) with
+            let dfaState = _stateArray[currentStateId]
+            let slice = loc.Input.Slice(0,loc.Position)
+            match _cache.TryNextIndexRightToLeftRaw( &slice, dfaState.MintermSearchValues ) with
             | -1 -> loc.Position <- Location.final loc
-            | n -> loc.Position <- n
-
+            | n -> loc.Position <- n + 1
             // adding all skipped locations todo: optimize this to ranges
             if tmp_loc > loc.Position && this.StateIsNullable(flags, &loc, currentStateId) then
                 for i = tmp_loc downto loc.Position + 1 do
@@ -1187,7 +1202,7 @@ type RegexMatcher<
                 false
 
     member this.HandleNullableRev(flags:RegexStateFlags,acc: byref<SharedResizeArrayStruct<int>>,loc:Location,currentStateId:int) =
-        if flags.IsPendingNullable then
+        if StateFlags.isPendingNullable flags then
             let span = _stateArray[currentStateId].PendingNullablePositions.Span
             for i = span.Length - 1 downto 0 do
                 acc.Add (span[i] + loc.Position)
@@ -1195,7 +1210,7 @@ type RegexMatcher<
             acc.Add loc.Position
 
     member this.HandleNullableFwd(flags:RegexStateFlags,currentMax:byref<int>,loc,currentStateId) =
-        if flags.IsPendingNullable then
+        if StateFlags.isPendingNullable flags then
             let pending = _stateArray[currentStateId].PendingNullablePositions.Span
             for p in pending do
                currentMax <- max currentMax (loc.Position - p)

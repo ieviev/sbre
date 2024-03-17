@@ -164,6 +164,17 @@ module StateFlags =
     let inline canSkip (flags:RegexStateFlags) =
         flags &&& (RegexStateFlags.CanSkipFlag) = RegexStateFlags.CanSkipFlag
 
+    let inline canSkipLeftToRight (flags:RegexStateFlags) =
+        flags &&& (RegexStateFlags.CanSkipFlag) = RegexStateFlags.CanSkipFlag
+
+    let inline isDeadEnd (flags:RegexStateFlags) =
+        flags &&& (RegexStateFlags.DeadendFlag) = RegexStateFlags.DeadendFlag
+
+    let inline isPendingNullable (flags:RegexStateFlags) =
+        flags &&& (RegexStateFlags.IsPendingNullableFlag) = RegexStateFlags.IsPendingNullableFlag
+    let inline hasActiveBranchOptimizations (flags:RegexStateFlags) =
+        flags &&& (RegexStateFlags.ActiveBranchOptimizations) = RegexStateFlags.ActiveBranchOptimizations
+
 [<AutoOpen>]
 [<Sealed>]
 module RegexStateFlagsExtensions =
@@ -796,7 +807,7 @@ type SharedResizeArrayStruct<'t> =
     val mutable limit: int
     val mutable pool: 't array
 
-    // [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.Add(item) =
         if this.size = this.limit then
             this.Grow()

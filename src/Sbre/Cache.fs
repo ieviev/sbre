@@ -224,35 +224,9 @@ type RegexCache<
 
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    member this.TryNextIndexRightToLeft
-        (
-            slice: ReadOnlySpan<char>,
-            set: MintermSearchValues<_>
-        ) : int =
-
-        let sharedIndex =
-            match set.Mode with
-            | MintermSearchMode.SearchValues ->
-                slice.LastIndexOfAny(set.SearchValues)
-            | MintermSearchMode.InvertedSearchValues ->
-                slice.LastIndexOfAnyExcept(set.SearchValues)
-            | MintermSearchMode.TSet ->
-                let mutable fnd = false
-                let mutable i = slice.Length - 1
-                while not fnd && i >= 0 do
-                    if set.Contains(slice[i]) then
-                        fnd <- true
-                    i <- i - 1
-                if fnd then
-                    i + 1
-                else -1
-            | _ -> failwith "impossible"
-        sharedIndex + 1 // -1 to 0 is right anyway
-
-    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.TryNextIndexRightToLeftRaw
         (
-            slice: ReadOnlySpan<char>,
+            slice: inref<ReadOnlySpan<char>>,
             set: MintermSearchValues<_>
         ) : int =
         match set.Mode with
@@ -266,10 +240,9 @@ type RegexCache<
             while not fnd && i >= 0 do
                 if set.Contains(slice[i]) then
                     fnd <- true
+                    i <- i + 1
                 i <- i - 1
-            if fnd then
-                i + 1
-            else -1
+            i
         | _ -> failwith ""
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
@@ -289,8 +262,9 @@ type RegexCache<
             while not fnd && i < slice.Length do
                 if set.Contains(slice[i]) then
                     fnd <- true
+                    i <- i - 1
                 i <- i + 1
-            if not fnd then -1 else i - 1
+            if not fnd then -1 else i
         | _ -> failwith "impossible"
 
 
@@ -312,13 +286,15 @@ type RegexCache<
 
         if tailPrefixSpan.Length = 0 then
             skipping <- false
+            let slice = inputSpan.Slice(0, currpos)
             let sharedIndex =
-                this.TryNextIndexRightToLeft(inputSpan.Slice(0, currpos),searchValues)
-            resultEnd <- ValueSome(sharedIndex)
+                this.TryNextIndexRightToLeftRaw(&slice,searchValues)
+            resultEnd <- ValueSome(sharedIndex + 1)
 
         while skipping do
+            let slice = inputSpan.Slice(0, currpos)
             let sharedIndex =
-                this.TryNextIndexRightToLeftRaw(inputSpan.Slice(0, currpos),searchValues)
+                this.TryNextIndexRightToLeftRaw(&slice,searchValues)
 
             if sharedIndex = -1 then
                 skipping <- false

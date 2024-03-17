@@ -23,8 +23,6 @@ type InitialOptimizations<'t> =
     | SearchValuesPrefix of prefix: Memory<MintermSearchValues<'t>> * transitionNodeId: int
     /// potential start prefix from searchvalues
     | SearchValuesPotentialStart of prefix: Memory<MintermSearchValues<'t>> * tsetprefix: Memory<'t>
-    /// just a single set like [ae]
-    | SinglePotentialStart of prefix: SearchValues<char> * inverted: bool
 
 
 
@@ -42,7 +40,13 @@ type ActiveBranchOptimizations<'t> =
         skipPred: MintermSearchValues<'t> *
         failPred: MintermSearchValues<'t> *
         skipToEndTransitionId: int *
-        cachedTransitions: Dictionary<int,int>
+        cachedTransitions: int[]
+    | LimitedSkip2Chars of
+        distance: int *
+        skipPred: MintermSearchValues<'t> *
+        failPred: MintermSearchValues<'t> *
+        skipToEndTransitionId: int *
+        cachedTransitions: int[]
 
 
     | PossibleStringPrefix of prefix: Memory<char> * transitionNodeId: int
@@ -464,6 +468,16 @@ let tryGetLimitedSkip
 
                 ders1 |> Seq.where (fun (mt, _) -> not (c.Solver.contains failTSet mt)) |> Seq.toArray
 
+            let nonTSetDerivatives (failTSet:'t) (node: RegexNode<'t>) =
+                let ders1 =
+                    Optimizations.getNonRedundantDerivatives
+                        getNonInitialDerivative
+                        c
+                        redundant
+                        node
+
+                ders1 |> Seq.where (fun (mt, _) -> not (c.Solver.contains failTSet mt)) |> Seq.toArray
+
             let nonInitialNonTerm = nonTermDerivatives node
 
             let rec loop (skipMt:'t) (acc:'t list) (node: RegexNode<_>) =
@@ -474,6 +488,28 @@ let tryGetLimitedSkip
                     redundant.Add(node) |> ignore
                     loop skipMt (mt :: acc) single
                 | _ -> (acc |> List.rev), node
+
+            let rec loopN (skipMt:'t) (acc:'t list) (nodes: RegexNode<'t>[]) =
+                let ders =
+                    nodes
+                    |> Seq.collect (nonTSetDerivatives skipMt)
+                    |> Seq.distinct
+                    |> Seq.toArray
+                let allMts =
+                    ders
+                    |> Seq.map fst
+                    |> Solver.mergeSets c.Solver
+                let shouldExit =
+                    ders
+                    |> Seq.map snd
+                    |> Seq.exists (fun v -> v.CanBeNullable || refEq c.False v)
+                let canContinue =
+                    skipMt = c.Solver.Not(allMts)
+                if canContinue && not shouldExit then
+                    redundant.Add(node) |> ignore
+                    loopN skipMt (skipMt :: acc) (ders |> Array.map snd)
+                else
+                    (acc |> List.rev), node
 
 
             let findRemainingSkip (successPath) (startPath) remaining =
@@ -519,10 +555,32 @@ let tryGetLimitedSkip
                             skipPred = skipPred,
                             failPred = failPred,
                             skipToEndTransitionId = nodeToId skipToEndNode,
-                            cachedTransitions = Dictionary()
+                            cachedTransitions = Array.init (path.Length + 3) (fun v -> -1)
                         )
                     )
                 | _ ->
+                    None
+
+            let findRemainingSkipOneBranchLeftToRight (failSet:'t) remaining =
+
+                match remaining with
+                | [| (p1,n1); (p2,n2) |] ->
+                    let path, skipToEndNode = loopN failSet [] (Array.map snd remaining)
+                    if path.Length = 0 then None else
+                    let failSv = c.MintermSearchValues(failSet)
+                    let skipSv = c.MintermSearchValues(c.Solver.Not(failSet))
+                    // if path.Length < 20 then None else
+                    Some(
+                        ActiveBranchOptimizations.LimitedSkip2Chars(
+                            distance = path.Length + 2, // +1 index, +2 already taken derivs
+                            skipPred = skipSv,
+                            failPred = failSv,
+                            skipToEndTransitionId = nodeToId c.False, // should not be possible
+                            cachedTransitions = Array.init (path.Length + 2) (fun v -> -1)
+                        )
+                    )
+                | _ ->
+
                     None
 
             match nonInitialNonTerm with
@@ -542,12 +600,17 @@ let tryGetLimitedSkip
                     let p1remain = immediatep1 |> Array.where (fun v -> v <> p2)
                     findRemainingSkip p2 p1 p1remain
                 else
-                    // if node.ToString() = """([^"']){0,30}[!.?]["']""" then
-                    //     ()
-                    // if immediatep1 = immediatep2 then
-                    //     findRemainingSkipOneBranch p1 immediatep1
-                    // else
-
+#if SKIP_EXPERIMENTAL
+                    if immediatep1 = immediatep2 then
+                        let merged =
+                            // c.Solver.Not(c.Solver.Or(failTSet,c.Solver.Or(fst p1, fst p2)))
+                            c.Solver.Not(c.Solver.Or(fst p1, fst p2))
+                        let nonts = nonTSetDerivatives merged (snd p2)
+                        if not(c.Solver.IsFull(merged)) then
+                            findRemainingSkipOneBranchLeftToRight (merged) immediatep1
+                        else None
+                    else
+#endif
                     None
             | [| p1 |] when not (refEq (snd p1) c.False) ->
                 let immediatep1 = nonTermDerivatives (snd p1)

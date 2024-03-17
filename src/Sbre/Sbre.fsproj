@@ -33,6 +33,8 @@
     <DefineConstants>$(DefineConstants);SUBSUME</DefineConstants>
     <DefineConstants>$(DefineConstants);SKIP</DefineConstants>
     <DefineConstants>$(DefineConstants);SKIP_ACTIVE</DefineConstants>
+    <DefineConstants>$(DefineConstants);SKIP_PREFIX</DefineConstants>
+<!--    <DefineConstants>$(DefineConstants);SKIP_EXPERIMENTAL</DefineConstants>-->
   </PropertyGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Sbre.Test" />

@@ -447,6 +447,13 @@ let ``rex sample 10.2``() =
         @"from⍪堑to䶶孒"
 
 
+[<Fact>]
+let ``rex sample 11.1``() =
+    assertIsMatch
+        """(\\*)("|$)"""
+        @"嶾⣒"
+
+
 
 
 

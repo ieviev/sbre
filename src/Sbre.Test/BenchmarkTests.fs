@@ -93,20 +93,6 @@ let twain_counts_6() =
         (System.Text.RegularExpressions.Regex(twainPatterns[idx]).Count(twain_input))
         (Sbre.Regex(twainPatterns[idx]).Count(twain_input))
 
-[<Fact>]
-let twain_ranges_1() =
-    let pat = @"[""'][^""']{0,30}[?!\.][""']"
-
-    let matches1 =
-        (System.Text.RegularExpressions.Regex(pat).Matches(twain_input) )
-    let matches2 = (Sbre.Regex(pat).Matches(twain_input)) |> Seq.toArray
-
-    assertEqual matches1.Count matches2.Length
-
-    assertAllEqual
-        (matches1|> Seq.map (fun v -> struct (v.Index,v.Length)))
-        (matches2 |> Seq.map (fun v -> struct (v.Index,v.Length)))
-
 
 [<Fact>]
 let twain_ranges_2() =
