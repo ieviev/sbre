@@ -405,15 +405,10 @@ type RegexCache<
     member val False: RegexNode<_> = _builder.uniques._false
     member val Eps: RegexNode<_> = _builder.uniques._eps
     member val TrueStar: RegexNode<_> = _builder.uniques._trueStar
-
+    member val Ascii = _ascii
+    member val NonAscii = _nonAscii
 
     member cache.PrettyPrintMinterm(xs: _) : string = (box cache.Solver :?> UInt64Solver).PrettyPrint(xs, _charsetSolver)
-
-    // member this.PrettyPrintNode(node: RegexNode<'t>) : string =
-
-    //     Debug.debuggerSolver <- Some (box this.Solver :?> UInt64Solver :> ISolver<uint64>)
-    //     node.ToString()
-
 
 
 #if DEBUG

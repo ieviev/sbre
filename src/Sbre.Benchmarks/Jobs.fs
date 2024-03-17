@@ -1180,8 +1180,8 @@ type TestAllEnginesAllPatternsMatchOnly(patterns: string list, input: string) =
 
     [<Benchmark(Description = "Sbre")>]
     member this.Sbre() =
-        // this.Sbre_Regex.Count(inputText)
-        this.Sbre_Regex.TSetMatcher.llmatch_all(inputText).size
+        this.Sbre_Regex.Count(inputText)
+        // this.Sbre_Regex.TSetMatcher.llmatch_all(inputText).size
 
     //
 
@@ -1485,7 +1485,8 @@ type TestSbreAllPatternsCountSpans(patterns: (string) list, input: string) =
 
     [<GlobalSetup>]
     member this.Setup() =
-        let regex = Regex(this.Pattern)
+        let opts = SbreOptions.HighThroughputDefaults
+        let regex = Regex(this.Pattern,opts)
         let matcher = regex.Matcher :?> RegexMatcher<TSet>
         this.CompiledEngine <- matcher
         ()

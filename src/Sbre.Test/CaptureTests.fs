@@ -453,11 +453,12 @@ let ``rex sample 11.1``() =
         """(\\*)("|$)"""
         @"嶾⣒"
 
-// [<Fact>]
-// let ``rex sample 12.1``() =
-//     assertIsMatch
-//         """\s*content=["'][^;]+;\s*charset\s*=\s*([^'"]+)"""
-//         """囒;charset=�ᆲᓖ"""
+[<Fact>]
+let ``rex sample 12.1``() =
+    assertIsMatch
+        """\s*content=["'][^;]+;\s*charset\s*=\s*([^'"]+)"""
+        """Ѱ鉨켡暙턺 　content="囒;
+ charset=�ᆲᓖ"""
 
 
 

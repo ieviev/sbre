@@ -24,23 +24,27 @@ type SbreOptions() =
     member val MaxPrefixLength = 20 with get, set
     /// default: false, attempt to optimize lookaround prefixes.
     /// can be expensive with unbounded lookarounds
-    member val FindLookaroundPrefix = true with get, set
+    member val FindLookaroundPrefix = false with get, set
     ///
     member val FindPotentialStartSizeLimit = 500 with get, set
-    member val UsePrefixOptimizations = true with get, set
-
+    member val UsePrefixOptimizations = false with get, set
 
     static member HighThroughputDefaults =
         SbreOptions(
-            CompressPattern=false,
-            FindLookaroundPrefix=false,
-            FindPotentialStartSizeLimit=100
+            CanonicalizeStates=false,
+            CompressPattern=true,
+            FindLookaroundPrefix=true,
+            FindPotentialStartSizeLimit=1000,
+            UsePrefixOptimizations=true,
+            InitialDfaCapacity=1024
         )
     static member LearningDefaults =
         SbreOptions(
             CompressPattern=false,
             FindLookaroundPrefix=false,
-            FindPotentialStartSizeLimit=100
+            FindPotentialStartSizeLimit=20,
+            InitialDfaCapacity=4096,
+            UsePrefixOptimizations=false
         )
 
 

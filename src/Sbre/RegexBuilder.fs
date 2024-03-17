@@ -653,12 +653,6 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 | _ when twoormore.Length = 1 -> twoormore[0]
                 | _ ->
                     let newAnd = RegexNode.And(ofSeq twoormore, mergedInfo)
-// #if CANONICAL
-//                 let newAnd =
-//                     this.CanonicalizeCallback
-//                     |> Option.map (fun fn -> fn newAnd )
-//                     |> Option.defaultValue newAnd
-// #endif
                     _andCache.TryAdd(key,newAnd) |> ignore
                     newAnd
 
