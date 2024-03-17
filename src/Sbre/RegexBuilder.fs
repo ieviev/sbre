@@ -651,6 +651,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 match twoormore with
                 | _ when twoormore.Length = 0 -> _uniques._trueStar
                 | _ when twoormore.Length = 1 -> twoormore[0]
+
                 | _ ->
                     let newAnd = RegexNode.And(ofSeq twoormore, mergedInfo)
                     _andCache.TryAdd(key,newAnd) |> ignore
@@ -659,7 +660,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
         match _andCache.TryGetValue(key) with
         | true, v -> v
         | _ ->
-            if typeof<'t> = typeof<BDD> then createCached(key) else
+            // if typeof<'t> = typeof<BDD> then createCached(key) else
 
             match node1, node2 with
             | n1, n2 when refEq n1 n2 -> n1
@@ -723,6 +724,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             derivatives.Add(merged) |> ignore
 
 
+
         match status with
         | MkAndFlags.IsFalse -> _uniques._false
         | MkAndFlags.ContainsEpsilon when derivatives |> Seq.exists(fun v -> v.CanNotBeNullable) ->
@@ -730,6 +732,120 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
         | _ ->
             if status.HasFlag(MkAndFlags.ContainsEpsilon) then
                 derivatives.Add(_uniques._eps) |> ignore
+
+            let allSingletons =
+                derivatives
+                |> Seq.forall (function Singleton _ -> true | _ -> false)
+
+            if allSingletons && derivatives.Count > 0 then
+                derivatives
+                |> Seq.map (function Singleton pred -> pred | _ -> failwith "_")
+                |> Solver.mergeSets solver
+                |> b.one
+            else
+
+
+            if options.CompressPattern then
+                let grouped_heads =
+                    derivatives
+                    |> Seq.groupBy (fun v ->
+                        match v with
+                        | Concat(head = head; tail = tail) ->
+                            let fixlen = Node.getFixedLength(head)
+                            match fixlen with
+                            | Some 0 -> None
+                            | _ when tail = _uniques._eps -> None
+                            | _ -> fixlen
+                        | _ -> None
+                    )
+                    |> Seq.toArray
+
+                derivatives.Clear()
+                grouped_heads
+                |> Seq.iter (fun (g,res) ->
+                    match g with
+                    | None ->
+                        for n in res do
+                            derivatives.Add(n) |> ignore
+                    | Some sharedLen ->
+                    let group = res |> Seq.toArray
+                    match group with
+                    | [| single |] -> derivatives.Add(single) |> ignore
+                    | _ ->
+
+                    let grouped =
+                        res
+                        |> Seq.map (fun v ->
+                            match v with
+                            | Concat(head=head;tail=tail) -> head,tail
+                            | _ -> failwith "?"
+                        )
+                    let headArray = grouped |> Seq.map fst |> Seq.toArray
+                    let tailArray = grouped |> Seq.map snd |> Seq.toArray
+                    let newHead = this.mkAnd(headArray)
+                    let newTail = this.mkAnd(tailArray)
+                    let newNode2 = this.mkConcat2(newHead,newTail)
+                    derivatives.Add(newNode2) |> ignore
+                )
+
+                let grouped_tails =
+                    derivatives
+                    |> Seq.map (function Pat.SplitTail (h,d) -> h,d )
+                    |> Seq.groupBy (fun (h,t) ->
+                        let fixlen = Node.getFixedLength(t)
+                        match fixlen with
+                        | Some 0 -> None
+                        | _ when h.Count = 0 -> None
+                        | _ -> fixlen
+                    )
+                    |> Seq.toArray
+
+                derivatives.Clear()
+                grouped_tails
+                |> Seq.iter (fun (g,res) ->
+                    match g with
+                    | None ->
+                        for n in res do
+                            derivatives.Add(this.mkConcat2(this.mkConcatResizeArray(fst n),snd n)) |> ignore
+                    | Some sharedLen ->
+                    let grouped =
+                        res
+                    let tailArray = grouped |> Seq.map snd |> Seq.toArray
+                    let headArray = grouped |> Seq.map (fun (fst,_) -> b.mkConcatResizeArray(fst)) |> Seq.toArray
+                    let newHead = this.mkAnd(headArray)
+                    let newTail = this.mkAnd(tailArray)
+                    let newNode2 = this.mkConcat2(newHead,newTail)
+                    derivatives.Add(newNode2) |> ignore
+                )
+
+                // let grouped_tails =
+                //     derivatives
+                //     |> Seq.map (function Pat.SplitTail (h,d) -> h,d )
+                //     |> Seq.groupBy snd
+                //     |> Seq.toArray
+                // // SplitTail
+                // if grouped_tails.Length > 0 then
+                //     derivatives.Clear()
+                //     for (tail_key,group) in grouped_tails do
+                //         let group_arr = group |> Seq.toArray
+                //         if group_arr.Length = 1 then
+                //             let hd = fst group_arr[0]
+                //             let t = snd group_arr[0]
+                //             let newNode =
+                //                 if hd.Count = 0 then t
+                //                 else this.mkConcat2(this.mkConcatResizeArray(hd),tail_key)
+                //             derivatives.Add(newNode) |> ignore
+                //         else
+                //         let new_heads =
+                //             group_arr |> Seq.map (fun (fst,_) ->
+                //                 if fst.Count = 0 then _uniques._eps
+                //                 elif fst.Count = 1 then fst[0] else
+                //                 this.mkConcatResizeArray(fst)
+                //             )
+                //         let merged_heads = this.mkAnd(new_heads)
+                //         let new_concat = this.mkConcat2(merged_heads,tail_key)
+                //         derivatives.Add(new_concat) |> ignore
+
             let createNode(nodes: RegexNode<_>[]) =
                 match nodes with
                 | _ when nodes.Length = 0 -> _uniques._trueStar

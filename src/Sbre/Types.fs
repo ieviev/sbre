@@ -1,5 +1,6 @@
 namespace rec Sbre.Types
 
+open System.Globalization
 open Sbre
 open System
 open System.Buffers
@@ -11,6 +12,8 @@ open System.Diagnostics
 
 exception UnsupportedPatternException of string
 
+
+type UnicodeConditions = System.Text.RegularExpressions.Symbolic.UnicodeCategoryConditions
 
 [<AutoOpen>]
 module Static =
@@ -428,6 +431,193 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
             | true -> $"(?<={inner})"
             + pending
         | Concat(h, t, info) -> $"{h.ToString()}{t.ToString()}"
+        | Epsilon -> "ε"
+        | End -> @"\z"
+        | Begin -> @"\A"
+
+    member this.ToStringLong() =
+        let printNode (x:RegexNode<_>) = x.ToStringLong()
+        let print (set) =
+            if typeof<'tset> = typeof<BDD> then
+                let mutable remainingSet = box set :?> BDD
+                let mutable addedSets = ""
+                let initial = Static.staticCharSetSolver.PrettyPrint(remainingSet)
+                match initial with
+                | @"[^\n]" -> "."
+                | @"." -> "\."
+                | _ ->
+                let isInverted = initial.StartsWith("[^")
+                if isInverted then
+                    remainingSet <- staticCharSetSolver.Not(remainingSet)
+
+                let containsSet (p1:BDD) =
+                    let cond4 =
+                        staticCharSetSolver.IsEmpty(
+                            staticCharSetSolver.And(staticCharSetSolver.Not(remainingSet),p1)
+                        )
+                    cond4
+                    // not (staticCharSetSolver.IsEmpty()
+                let removeSet (removedSet:BDD) =
+                    remainingSet <- staticCharSetSolver.And(remainingSet,staticCharSetSolver.Not(removedSet))
+                let wordBdd = UnicodeConditions.WordLetter(staticCharSetSolver)
+                let nonWordBdd = staticCharSetSolver.Not(wordBdd)
+                let spaceBdd = UnicodeConditions.WhiteSpace
+                let nonSpaceBdd = staticCharSetSolver.Not(spaceBdd)
+                let digitBdd = UnicodeConditions.GetCategory(UnicodeCategory.DecimalDigitNumber)
+                let nonDigitBdd = staticCharSetSolver.Not(digitBdd)
+                if containsSet wordBdd then
+                    removeSet wordBdd
+                    addedSets <- addedSets + "\w"
+                if containsSet nonWordBdd then
+                    removeSet nonWordBdd
+                    addedSets <- addedSets + "\W"
+                if containsSet digitBdd then
+                    removeSet digitBdd
+                    addedSets <- addedSets + "\d"
+                if containsSet nonDigitBdd then
+                    removeSet nonDigitBdd
+                    addedSets <- addedSets + "\D"
+                if containsSet spaceBdd then
+                    removeSet spaceBdd
+                    addedSets <- addedSets + "\s"
+                if containsSet nonSpaceBdd then
+                    removeSet nonSpaceBdd
+                    addedSets <- addedSets + "\S"
+                let orig = Static.staticCharSetSolver.PrettyPrint(remainingSet)
+                let inv = if isInverted then "^" else ""
+                match orig with
+                | "[]" ->
+                    match addedSets.Length with
+                    | 2 -> addedSets
+                    | _ -> $"[{inv}{addedSets}]"
+                | orig when orig.StartsWith('[')  ->
+                    $"[{inv}{addedSets}{orig[1..]}"
+                | _ ->
+                    if addedSets = "" then
+                        if isInverted then $"[{inv}{orig}]" else
+                        orig
+                    else $"[{inv}{addedSets}{orig}]"
+            else
+#if RELEASE
+                "φ"
+#else
+                Debug.debuggerSolver.Value.PrettyPrint(unbox (box set), Static.staticCharSetSolver)
+#endif
+
+        let isFull(tset: 'tset) =
+            if typeof<'tset> = typeof<BDD> then
+                Static.staticCharSetSolver.IsFull(unbox (box tset))
+            else
+                Debug.debuggerSolver.Value.IsFull(unbox (box tset))
+
+        let isEmpty(tset: 'tset) =
+            if typeof<'tset> = typeof<BDD> then
+                Static.staticCharSetSolver.IsEmpty(unbox (box tset))
+            else
+                Debug.debuggerSolver.Value.IsEmpty(unbox (box tset))
+
+        let paren str = $"({str})"
+
+        let tostr(v: 'tset) =
+            if isFull v then
+                "⊤"
+            elif isEmpty v then
+                "⊥"
+            else
+
+                match print v with
+                | @"[^\n]" -> "."
+                | c -> c
+
+        match this with
+        | Singleton v -> tostr v
+        | Or(items, _) ->
+            let itlen = items.Count
+
+            let setItems: string list = items |> Seq.map printNode |> Seq.toList
+            let combinedList = setItems
+
+            combinedList |> String.concat "|" |> paren
+        | And(items, _) ->
+            let setItems: string list = items |> Seq.map printNode |> Seq.toList
+
+
+            setItems |> String.concat "&" |> paren
+        | Not(items, info) ->
+            let inner = items.ToStringLong()
+
+            $"~({inner})"
+        | Loop(body, lower, upper, info) ->
+            let inner = body.ToStringLong()
+
+            let isStar = lower = 0 && upper = Int32.MaxValue
+
+            let inner = if inner.Length = 1 then inner else $"({inner})"
+
+            let loopCount =
+                if isStar then "*"
+                elif lower = 1 && upper = Int32.MaxValue then "+"
+                elif lower = 0 && upper = 1 then "?"
+                else $"{{{lower},{upper}}}"
+
+            match isStar with
+            | true -> $"{inner}*"
+            | false -> inner + loopCount
+
+        | LookAround(body, lookBack, relativeTo, pending, _) ->
+            match body with
+            | Or(nodes = nodes) ->
+                let isCaret =
+                    match nodes.Count = 2 with
+                    | true when lookBack ->
+                        let items2str = nodes |> Seq.map (printNode) |> ResizeArray
+                        let v1 = items2str.Contains(@"\A")
+                        let v2 = items2str.Contains(@"\n")
+                        if v1 && v2 then Some "^" else None
+                    | _ -> None
+
+                let isDollar =
+                    match nodes.Count = 2 with
+                    | true when not lookBack ->
+                        let items2str = nodes |> Seq.map (printNode) |> ResizeArray
+                        let v1 = items2str.Contains(@"\z")
+                        let v2 = items2str.Contains(@"\n")
+                        if v1 && v2 then Some "$" else None
+                    | _ -> None
+
+                match isCaret, isDollar with
+                | Some s, _
+                | _, Some s -> s
+                | _ ->
+
+
+                let inner = printNode body
+
+                let pending =
+                    if pending.inner.IsEmpty then
+                        ""
+                    else
+                        $"%A{Seq.toList pending.inner}"
+
+                match lookBack with
+                | false -> $"(?={inner})"
+                | true -> $"(?<={inner})"
+                + pending
+            | _ ->
+
+            let inner = printNode body
+
+            let pending =
+                if pending.inner.IsEmpty then
+                    ""
+                else
+                    $"%A{Seq.toList pending.inner}"
+
+            match lookBack with
+            | false -> $"(?={inner})"
+            | true -> $"(?<={inner})"
+            + pending
+        | Concat(h, t, info) -> $"{printNode h}{printNode t}"
         | Epsilon -> "ε"
         | End -> @"\z"
         | Begin -> @"\A"

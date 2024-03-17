@@ -1462,6 +1462,27 @@ type RegexMatcher<
                 _cache.CharsetSolver
                 node
         bddNode.ToString()
+
+    /// print full node with expanded sets
+    member this.PrettyPrintNodeLong(node) =
+        let bddNode =
+            Minterms.transformBack
+                _cache.Builder
+                _cache.BddBuilder
+                _cache.Solver
+                _cache.CharsetSolver
+                node
+        bddNode.ToStringLong()
+
+    member this.GetBddNode(node) =
+        let bddNode =
+            Minterms.transformBack
+                _cache.Builder
+                _cache.BddBuilder
+                _cache.Solver
+                _cache.CharsetSolver
+                node
+        bddNode
     member this.RawPatternWithoutLookback = box _stateArray[DFA_R_noPrefix].Node :?> RegexNode<uint64>
 
     member this.ReversePattern = box reverseNode :?> RegexNode<uint64>
