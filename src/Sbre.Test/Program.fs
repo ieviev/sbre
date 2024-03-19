@@ -9,12 +9,12 @@ open Sbre.Benchmarks
 open Sbre.Test
 
 //
-let suite = Paper.SampleRegexes()
-for pat in suite.Patterns do
-    suite.Pattern <- pat
-    suite.Setup()
-    for i = 1 to 1000 do
-        suite.Sbre() |> ignore
+// let suite = Paper.SampleRegexes()
+// for pat in suite.Patterns do
+//     suite.Pattern <- pat
+//     suite.Setup()
+//     for i = 1 to 1000 do
+//         suite.Sbre() |> ignore
 
 
 // let suite = Paper.Rebar10()
@@ -71,3 +71,18 @@ let ab = 1
 // "((⊤*(6|8(.*))?&(⊤*(0(|6|[48]|8())?)"
 // "(.*φ&.*&~(.*):.*)&φ.*)(?=():⊤*&.*):⊤*))"
 // "(.*φ&.*&~(.*):.*)&φ.*)(?=():⊤*&.*):⊤*))"
+
+
+
+open FParsec
+// let parse1 = CharParsers.run Parser.Syntax.r_regex "ab(cd|ef)"
+let parse1 = CharParsers.run Parser.Syntax.r_regex "ab→cd"
+
+stdout.WriteLine $"%A{parse1}"
+
+
+
+
+
+
+

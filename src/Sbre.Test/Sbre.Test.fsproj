@@ -20,7 +20,7 @@
         <Compile Include="_06_MatchTests.fs" />
         <Compile Include="_07_ComparisonTests.fs" />
         <Compile Include="_08_ConjunctionTests.fs" />
-        <Compile Include="_09_DfaNodeTests.fs"/>
+        <Compile Include="_09_DfaNodeTests.fs" />
         <Compile Include="_10_RexTests.fs" />
         <Compile Include="_11_LookaroundTests.fs" />
         <Compile Include="_12_NegLookaroundTests.fs" />
@@ -53,6 +53,7 @@
       <ProjectReference Include="..\Sbre.Benchmarks\Sbre.Benchmarks.fsproj" />
       <ProjectReference Include="..\RuntimeRegexCopy\RuntimeRegexCopy.csproj" PrivateAssets="all" />
       <ProjectReference Include="..\Sbre\Sbre.fsproj" />
+      <ProjectReference Include="..\Sbre.Parser\Sbre.Parser.fsproj" />
     </ItemGroup>
 
 </Project>
