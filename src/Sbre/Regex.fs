@@ -40,7 +40,6 @@ type MatchPosition = {
     member this.GetText(input: ReadOnlySpan<char>) =
         input.Slice(this.Index, this.Length).ToString()
 
-
 [<AbstractClass>]
 type GenericRegexMatcher() =
     abstract member IsMatch: input: ReadOnlySpan<char> -> bool
@@ -48,10 +47,8 @@ type GenericRegexMatcher() =
     abstract member Matches: input: ReadOnlySpan<char> -> MatchResult seq
     abstract member EnumerateMatches: input: ReadOnlySpan<char> -> Span<MatchPosition>
     abstract member MatchPositions: input: ReadOnlySpan<char> -> MatchPosition seq
-    // abstract member MatchText: input:ReadOnlySpan<char> -> string option
     abstract member Match: input: ReadOnlySpan<char> -> SingleMatchResult
     abstract member Count: input: ReadOnlySpan<char> -> int
-
 
 
 [<Sealed>]
@@ -1335,6 +1332,12 @@ type RegexMatcher<
                 looping <- false
         ders |> Seq.toList
 
+    /// tries to match ^PATTERN from the beginning, for use in parser
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    member this.SingleMatchLeftToRight(input: ReadOnlySpan<char>) : int =
+        let mutable loc = Location.createSpan input 0
+        this.DfaEndPosition(&loc, DFA_R_noPrefix)
+
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.getMatchEnd(loc: byref<Location>) : int =
         match _lengthLookup with
@@ -1508,7 +1511,7 @@ module Helpers =
         | n when n <= 64 ->
             let solver = UInt64Solver(bddMinterms, charsetSolver)
 #if DEBUG
-            Debug.debuggerSolver <- Some solver
+            Common.debuggerSolver <- Some solver
 #endif
             let uintbuilder = RegexBuilder(converter, solver, charsetSolver, options)
 

@@ -200,7 +200,8 @@ let ``compress 1``() =
             @"(.+φ&φ.+&.{5,65})"
             @"(.{5,65}&φ.+&.+φ)"
             @"(φ.+&.+φ&.{5,65})"
-            @"(φ.+φ&.{5,65})"
+            @"(φ.+&.{5,65}&.+φ)"
+            @"(.+φ&.{5,65}&φ.+)"
         ]
 
 
@@ -231,6 +232,24 @@ let ``print huge 3``() =
     //     @"[\da]"
     // ]
 
+
+[<Fact>]
+let ``print huge 4``() =
+    let r = Sbre.Regex("""a\W""")
+    let pat = r.TSetMatcher.PrettyPrintNodeLong(r.TSetMatcher.RawPattern)
+    ()
+    pat |> assertContains [
+        @"a\W"
+    ]
+
+[<Fact>]
+let ``print huge 5``() =
+    let r = Sbre.Regex("""[-!#~f]""")
+    let pat = r.TSetMatcher.PrettyPrintNodeLong(r.TSetMatcher.RawPattern)
+    ()
+    pat |> assertContains [
+        @"[!#-f\~]"
+    ]
 
 
 

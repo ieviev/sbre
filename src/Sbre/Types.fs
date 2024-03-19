@@ -308,26 +308,27 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
         let maxwidth: int = 50
 
         let print node =
+
             if typeof<'tset> = typeof<BDD> then
                 Static.staticCharSetSolver.PrettyPrint(unbox (box node))
             else
 #if RELEASE
                 "φ"
 #else
-                Debug.debuggerSolver.Value.PrettyPrint(unbox (box node), Static.staticCharSetSolver)
+                Common.debuggerSolver.Value.PrettyPrint(unbox (box node), Static.staticCharSetSolver)
 #endif
 
         let isFull(tset: 'tset) =
             if typeof<'tset> = typeof<BDD> then
                 Static.staticCharSetSolver.IsFull(unbox (box tset))
             else
-                Debug.debuggerSolver.Value.IsFull(unbox (box tset))
+                Common.debuggerSolver.Value.IsFull(unbox (box tset))
 
         let isEmpty(tset: 'tset) =
             if typeof<'tset> = typeof<BDD> then
                 Static.staticCharSetSolver.IsEmpty(unbox (box tset))
             else
-                Debug.debuggerSolver.Value.IsEmpty(unbox (box tset))
+                Common.debuggerSolver.Value.IsEmpty(unbox (box tset))
 
         let paren str = $"({str})"
 
@@ -437,122 +438,54 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
 
     member this.ToStringLong() =
         let printNode (x:RegexNode<_>) = x.ToStringLong()
-        let print (set) =
-            if typeof<'tset> = typeof<BDD> then
-                let mutable remainingSet = box set :?> BDD
-                let mutable addedSets = ""
-                let initial = Static.staticCharSetSolver.PrettyPrint(remainingSet)
-                match initial with
-                | @"[^\n]" -> "."
-                | @"." -> "\."
-                | _ ->
-                let isInverted = initial.StartsWith("[^")
-                if isInverted then
-                    remainingSet <- staticCharSetSolver.Not(remainingSet)
-
-                let containsSet (p1:BDD) =
-                    let cond4 =
-                        staticCharSetSolver.IsEmpty(
-                            staticCharSetSolver.And(staticCharSetSolver.Not(remainingSet),p1)
-                        )
-                    cond4
-                    // not (staticCharSetSolver.IsEmpty()
-                let removeSet (removedSet:BDD) =
-                    remainingSet <- staticCharSetSolver.And(remainingSet,staticCharSetSolver.Not(removedSet))
-                let wordBdd = UnicodeConditions.WordLetter(staticCharSetSolver)
-                let nonWordBdd = staticCharSetSolver.Not(wordBdd)
-                let spaceBdd = UnicodeConditions.WhiteSpace
-                let nonSpaceBdd = staticCharSetSolver.Not(spaceBdd)
-                let digitBdd = UnicodeConditions.GetCategory(UnicodeCategory.DecimalDigitNumber)
-                let nonDigitBdd = staticCharSetSolver.Not(digitBdd)
-                if containsSet wordBdd then
-                    removeSet wordBdd
-                    addedSets <- addedSets + "\w"
-                if containsSet nonWordBdd then
-                    removeSet nonWordBdd
-                    addedSets <- addedSets + "\W"
-                if containsSet digitBdd then
-                    removeSet digitBdd
-                    addedSets <- addedSets + "\d"
-                if containsSet nonDigitBdd then
-                    removeSet nonDigitBdd
-                    addedSets <- addedSets + "\D"
-                if containsSet spaceBdd then
-                    removeSet spaceBdd
-                    addedSets <- addedSets + "\s"
-                if containsSet nonSpaceBdd then
-                    removeSet nonSpaceBdd
-                    addedSets <- addedSets + "\S"
-                let orig = Static.staticCharSetSolver.PrettyPrint(remainingSet)
-                let inv = if isInverted then "^" else ""
-                match orig with
-                | "[]" ->
-                    match addedSets.Length with
-                    | 2 -> addedSets
-                    | _ -> $"[{inv}{addedSets}]"
-                | orig when orig.StartsWith('[')  ->
-                    $"[{inv}{addedSets}{orig[1..]}"
-                | _ ->
-                    if addedSets = "" then
-                        if isInverted then $"[{inv}{orig}]" else
-                        orig
-                    else $"[{inv}{addedSets}{orig}]"
-            else
-#if RELEASE
-                "φ"
-#else
-                Debug.debuggerSolver.Value.PrettyPrint(unbox (box set), Static.staticCharSetSolver)
-#endif
-
         let isFull(tset: 'tset) =
             if typeof<'tset> = typeof<BDD> then
                 Static.staticCharSetSolver.IsFull(unbox (box tset))
             else
-                Debug.debuggerSolver.Value.IsFull(unbox (box tset))
+                Common.debuggerSolver.Value.IsFull(unbox (box tset))
 
         let isEmpty(tset: 'tset) =
             if typeof<'tset> = typeof<BDD> then
                 Static.staticCharSetSolver.IsEmpty(unbox (box tset))
             else
-                Debug.debuggerSolver.Value.IsEmpty(unbox (box tset))
-
-        let paren str = $"({str})"
-
-        let tostr(v: 'tset) =
-            if isFull v then
+                Common.debuggerSolver.Value.IsEmpty(unbox (box tset))
+        let printSet (tset:'tset) =
+            if isFull tset then
                 "⊤"
-            elif isEmpty v then
+            elif isEmpty tset then
                 "⊥"
             else
-
-                match print v with
-                | @"[^\n]" -> "."
-                | c -> c
-
+            if typeof<'tset> = typeof<BDD> then
+                let bdd : BDD = box tset :?> BDD
+                BDD.prettyPrintBDD(bdd)
+            else
+#if RELEASE
+                "φ"
+#else
+                Common.debuggerSolver.Value.PrettyPrint(unbox (box tset), Static.staticCharSetSolver)
+#endif
+        let paren str = $"({str})"
         match this with
-        | Singleton v -> tostr v
+        | Singleton v -> printSet v
         | Or(items, _) ->
-            let itlen = items.Count
-
             let setItems: string list = items |> Seq.map printNode |> Seq.toList
             let combinedList = setItems
-
             combinedList |> String.concat "|" |> paren
         | And(items, _) ->
             let setItems: string list = items |> Seq.map printNode |> Seq.toList
-
-
             setItems |> String.concat "&" |> paren
         | Not(items, info) ->
             let inner = items.ToStringLong()
-
             $"~({inner})"
         | Loop(body, lower, upper, info) ->
             let inner = body.ToStringLong()
 
             let isStar = lower = 0 && upper = Int32.MaxValue
 
-            let inner = if inner.Length = 1 then inner else $"({inner})"
+            let inner =
+                match body with
+                | Singleton _ -> inner
+                | _ ->  $"({inner})"
 
             let loopCount =
                 if isStar then "*"
@@ -590,9 +523,7 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
                 | _, Some s -> s
                 | _ ->
 
-
                 let inner = printNode body
-
                 let pending =
                     if pending.inner.IsEmpty then
                         ""
@@ -606,18 +537,16 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
             | _ ->
 
             let inner = printNode body
-
             let pending =
                 if pending.inner.IsEmpty then
                     ""
                 else
                     $"%A{Seq.toList pending.inner}"
-
             match lookBack with
             | false -> $"(?={inner})"
             | true -> $"(?<={inner})"
             + pending
-        | Concat(h, t, info) -> $"{printNode h}{printNode t}"
+        | Concat(head=h; tail=t) -> $"{printNode h}{printNode t}"
         | Epsilon -> "ε"
         | End -> @"\z"
         | Begin -> @"\A"
