@@ -162,8 +162,9 @@ module StateFlags =
     let inline canBeNullable (flags:RegexStateFlags) =
         flags &&& RegexStateFlags.CanBeNullableFlag = RegexStateFlags.CanBeNullableFlag
     let inline canSkipInitial (flags:RegexStateFlags) =
-        // flags &&& (RegexStateFlags.InitialFlag ||| RegexStateFlags.DependsOnAnchor) = RegexStateFlags.InitialFlag
-        flags &&& (RegexStateFlags.InitialFlag) = RegexStateFlags.InitialFlag
+        flags &&& (RegexStateFlags.InitialFlag ||| RegexStateFlags.CanSkipFlag) = (RegexStateFlags.InitialFlag ||| RegexStateFlags.CanSkipFlag)
+    let inline isInitial (flags:RegexStateFlags) =
+        flags &&& (RegexStateFlags.InitialFlag) = (RegexStateFlags.InitialFlag)
     let inline canSkip (flags:RegexStateFlags) =
         flags &&& (RegexStateFlags.CanSkipFlag) = RegexStateFlags.CanSkipFlag
 

@@ -46,7 +46,8 @@ type SbreOptions() =
             FindPotentialStartSizeLimit=5000,
             UsePrefixOptimizations=true,
             InitialDfaCapacity=1024,
-            MaxPrefixLength = 20
+            MaxPrefixLength = 20,
+            UseEcma=false
         )
     static member LearningDefaults =
         SbreOptions(

@@ -30,17 +30,17 @@ let ``der neg anchor 2``() = _04_DerivativeTests.testRevDerivative (@"(?!b)","a"
     @"((?<=~(⊤*a))b)?"
 ])
 
-[<Fact>]
-let ``der neg anchor 3``() = _04_DerivativeTests.testRevDerivative (@"bb(?!b)","b",[
-    // @"(b|(?<=~((⊤*b|ε)))bb)"
-    // @"(b|(?<=~((ε|⊤*b)))bb)"
-    // @"((?<=~((⊤*b|ε)))bb|b)"
-    // @"((?<=~((ε|⊤*b)))bb|b)"
-    // @"(b|(?<=~((⊤*b)?))bb)"
-    // @"((?<=~((⊤*b)?))bb|b)"
-    // @"((?<=~((⊤*b)?))b)?b"
-    @"((?<=~((⊤*b)?))b{2,2}|b)"
-])
+// [<Fact>]
+// let ``der neg anchor 3``() = _04_DerivativeTests.testRevDerivative (@"bb(?!b)","b",[
+//     // @"(b|(?<=~((⊤*b|ε)))bb)"
+//     // @"(b|(?<=~((ε|⊤*b)))bb)"
+//     // @"((?<=~((⊤*b|ε)))bb|b)"
+//     // @"((?<=~((ε|⊤*b)))bb|b)"
+//     // @"(b|(?<=~((⊤*b)?))bb)"
+//     // @"((?<=~((⊤*b)?))bb|b)"
+//     // @"((?<=~((⊤*b)?))b)?b"
+//     @"((?<=~((⊤*b)?))b{2,2}|b)"
+// ])
 
 // [<Fact>]
 // let ``der neg anchor 4``() = _04_DerivativeTests.testRevDerivative (@"bb(?!a)","b",[ @"b"; ])

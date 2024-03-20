@@ -411,8 +411,22 @@ type RegexMatcher<
         if
             not (_cache.Solver.IsEmpty(state.Startset) || _cache.Solver.IsFull(state.Startset))
         then
-            state.Flags <- state.Flags ||| RegexStateFlags.CanSkipFlag
+            if _minterms.Length > 40 then () else
+            match setChars.Mode, setChars.SearchValuesSize with
+            | MintermSearchMode.TSet, n  ->
+                state.Flags <- state.Flags ||| RegexStateFlags.CanSkipFlag
+            | MintermSearchMode.InvertedSearchValues, n  ->
+                if n > 25 then
+                    state.Flags <- state.Flags ||| RegexStateFlags.CanSkipFlag
+            | MintermSearchMode.SearchValues, n  ->
+                if _minterms.Length > 60 then () else
+                if n < 64 then
+                    state.Flags <- state.Flags ||| RegexStateFlags.CanSkipFlag
+                else ()
+            | _ -> ()
         else
+            // if initial then
+            //     state.Flags <- state.Flags ||| RegexStateFlags.CanSkipFlag
             ()
 
 
@@ -542,18 +556,12 @@ type RegexMatcher<
         Optimizations.inferLengthLookup (fun node -> _getOrCreateState(reverseTrueStarredNode,node,false).Id ) getNonInitialDerivative _cache _noprefix
     let _regexOverride =
         Optimizations.inferOverrideRegex _initialOptimizations _lengthLookup _cache R_canonical reverseNode
-
     let _prefixSets =
         match _initialOptimizations with
         | InitialOptimizations.SearchValuesPotentialStart(prefix,_) ->
             prefix.ToArray() |> Array.rev
         | InitialOptimizations.SearchValuesPrefix(prefix, _) ->
             prefix.ToArray() |> Array.rev
-        | InitialOptimizations.StringPrefix (charPrefix, _) ->
-            charPrefix.ToArray()
-            |> Array.map (_cache.Classify >> _cache.MintermSearchValues)
-        | InitialOptimizations.StringPrefixCaseIgnore _ ->
-            [||]
         | _ -> [||]
 
     let _commonalityScoreSimple (charSet: char array) =
@@ -868,11 +876,7 @@ type RegexMatcher<
         let mutable currentStateId = startStateId
         let mutable currentMax = -2
 
-        let _flagsSpan = _flagsArray.AsSpan()
-        let _dfaDeltaSpan = _dfaDelta.AsSpan()
-
         while looping do
-            // let mutable dfaState = _stateArray[currentStateId].Node
             let flags = _flagsArray[currentStateId]
 
             if StateFlags.isDeadEnd flags then
@@ -880,7 +884,7 @@ type RegexMatcher<
             else
 
             if StateFlags.canSkipLeftToRight flags &&
-               this.TrySkipActiveFwd(_dfaDeltaSpan,flags,&loc,&currentStateId) then () else
+               this.TrySkipActiveFwd(flags,&loc,&currentStateId) then () else
             // set max nullability after skipping
             if this.StateIsNullable(flags, &loc, currentStateId) then
                 this.HandleNullableFwd(flags, &currentMax, loc, currentStateId)
@@ -1004,7 +1008,7 @@ type RegexMatcher<
 
 
 
-    member this.TrySkipActiveFwd(_dfaDeltaSpan: Span<int>,flags:RegexStateFlags, loc: byref<Location>, currentStateId:byref<int>) =
+    member this.TrySkipActiveFwd(flags:RegexStateFlags, loc: byref<Location>, currentStateId:byref<int>) =
         let dfaState = _stateArray[currentStateId]
 
         if StateFlags.hasActiveBranchOptimizations flags then
@@ -1120,7 +1124,6 @@ type RegexMatcher<
         loc:byref<Location>,
         currentStateId:byref<int>,
         acc: byref<SharedResizeArrayStruct<int>>) : bool =
-
 
 
         if StateFlags.hasActiveBranchOptimizations flags then
@@ -1266,14 +1269,25 @@ type RegexMatcher<
             // let dfaState = _stateArray[currentStateId]
             let flags = _flagsArray[currentStateId]
 #if SKIP
-            if (StateFlags.canSkipInitial flags && this.TrySkipInitialRev(&loc, &currentStateId))
-
-#if SKIP_ACTIVE
-               || (StateFlags.canSkip flags && this.TrySkipActiveRev(flags,&loc, &currentStateId, &acc))
-#endif
+            // if false
+            if (StateFlags.canSkip flags) && (
+               (StateFlags.isInitial flags && this.TrySkipInitialRev(&loc, &currentStateId))
+               || this.TrySkipActiveRev(flags,&loc, &currentStateId, &acc)
+            )
                 then ()
             else
 #endif
+
+// #if SKIP
+//             // if false
+//             if (StateFlags.canSkipInitial flags && this.TrySkipInitialRev(&loc, &currentStateId))
+// #if SKIP_ACTIVE
+//
+//                || (StateFlags.canSkip flags && this.TrySkipActiveRev(flags,&loc, &currentStateId, &acc))
+// #endif
+//                 then ()
+//             else
+// #endif
             if this.StateIsNullable(flags, &loc, currentStateId) then
                 this.HandleNullableRev(flags,&acc,loc.Position,currentStateId)
 
@@ -1633,9 +1647,7 @@ module Helpers =
 type Regex(pattern: string, [<Optional; DefaultParameterValue(null:SbreOptions)>] options: SbreOptions) =
     inherit GenericRegexMatcher()
 
-
     let options = if obj.ReferenceEquals(options,null) then SbreOptions() else options
-
     let pattern = pattern.Replace("⊤", @"[\s\S]")
 
     // experimental parser!

@@ -21,6 +21,7 @@ type MintermSearchValues<'t> =
     val Minterms: 't[]
     val Minterm: 't
     val SearchValues: SearchValues<char>
+    val SearchValuesSize: int
     val CharactersInMinterm: Memory<char> option
     val Solver: ISolver<'t>
 
@@ -53,6 +54,7 @@ type MintermSearchValues<'t> =
             SearchValues = Unchecked.defaultof<_>
             CharactersInMinterm = None
             Solver = solver
+            SearchValuesSize = 0
         }
 
     new(tset: 't, characters: Memory<char>, invert: bool, solver) =
@@ -69,6 +71,7 @@ type MintermSearchValues<'t> =
             Minterms = Unchecked.defaultof<_>
             Classifier = Unchecked.defaultof<_>
             Solver = solver
+            SearchValuesSize = characters.Length
         }
 
 

@@ -121,6 +121,14 @@ let ``a conversion 2.7``() = assertConverted """t(s?|sday)""" [
 ]
 
 
+// [<Fact>]
+// let ``a conversion 2.8``() =
+//     assertConvertedBv (__SOURCE_DIRECTORY__ + "/data/pattern-date.txt" |> File.ReadAllText |> (fun v -> v.Trim()))
+//         [
+//     "ts?day"
+// ]
+
+
 
 // [<Fact>]
 // let ``b conversion 2.2``() = assertConverted """((⊤*,}.*|.*)&(⊤*X|))|(⊤*,}.*&(⊤*X|))""" [

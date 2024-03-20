@@ -507,5 +507,10 @@ let assertConverted (pattern: string) (expected: string list) =
     let asstr = reg.TSetMatcher.PrettyPrintNode reg.TSetMatcher.RawPattern
     Assert.Contains<string>(asstr,expected)
 
+let assertConvertedBv (pattern: string) (expected: string list) =
+    let reg = Regex(pattern)
+    let mat = (reg.Matcher:?>RegexMatcher<BitVector>)
+    let asstr = mat.PrettyPrintNode mat.RawPattern
+    Assert.Contains<string>(asstr,expected)
 
 #endif

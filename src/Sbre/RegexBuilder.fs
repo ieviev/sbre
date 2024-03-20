@@ -1788,6 +1788,9 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             match body, lower, upper with
             | _, 0, 0 -> Epsilon
             | _, 1, 1 -> body
+            // .*{0,1} -> .*
+            | Loop(node=node;low=0;up=Int32.MaxValue), 0, up ->
+                body
             | _ ->
                 let flags = Flags.inferLoop (body, lower, upper)
                 let info = b.CreateInfo(flags, body.SubsumedByMinterm(solver),body.PendingNullables)

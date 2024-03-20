@@ -284,13 +284,13 @@ let ``initialOptimizations 27``() =
 //     | _ -> failwith "invalid optimization result"
 
 
-[<Fact>]
-let ``activeOptimizations 2``() =
-    Common.assertLimitedSkip """ab{0,5}c""" 'c' (fun (dist,succ,fail) ->
-        assertEqual succ "a"
-        assertEqual fail "[^b]"
-        assertEqual dist 5
-    )
+// [<Fact>]
+// let ``activeOptimizations 2``() =
+//     Common.assertLimitedSkip """ab{0,5}c""" 'c' (fun (dist,succ,fail) ->
+//         assertEqual succ "a"
+//         assertEqual fail "[^b]"
+//         assertEqual dist 5
+//     )
 
 // ab{0,5}c
 // ab{0,30}c

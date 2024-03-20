@@ -232,6 +232,7 @@ let rec calcPotentialMatchStart
 #if DEBUG
                     // let p =
                     //     nodes
+                    //     |> Seq.where (fun v -> v.CanBeNullable)
                     //     |> Seq.map (fun v -> v.CanBeNullable, backToBdd(v).ToStringLong())
                     //     |> Seq.toArray
 #endif
@@ -518,16 +519,17 @@ let tryGetLimitedSkip
                     | _ ->
                         let successNode = snd successPath
                         let mergedPred = c.MintermSearchValues(c.Solver.Not(startMt))
-                        Some(
-                            ActiveBranchOptimizations.LimitedSkip(
-                                distance = path.Length + 2,
-                                successPred = searchValuesSet,
-                                successTransitionId =
-                                    nodeToId (successNode),
-                                failPred = mergedPred,
-                                skipToEndTransitionId = nodeToId skipToEndNode
-                            )
-                        )
+                        // Some(
+                        //     ActiveBranchOptimizations.LimitedSkip(
+                        //         distance = path.Length + 2,
+                        //         successPred = searchValuesSet,
+                        //         successTransitionId =
+                        //             nodeToId (successNode),
+                        //         failPred = mergedPred,
+                        //         skipToEndTransitionId = nodeToId skipToEndNode
+                        //     )
+                        // )
+                        None
                 | _ ->
                     None
 
