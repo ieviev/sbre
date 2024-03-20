@@ -6,6 +6,7 @@ open System
 open System.Globalization
 open Sbre
 open Sbre.Benchmarks
+open Sbre.Parser
 open Sbre.Test
 
 //
@@ -76,11 +77,25 @@ let ab = 1
 
 open FParsec
 // let parse1 = CharParsers.run Parser.Syntax.r_regex "ab(cd|ef)"
-let parse1 = CharParsers.run Parser.Syntax.r_regex "ab→cd"
 
-stdout.WriteLine $"%A{parse1}"
+// let pattern = """~(\T*(\n\T*){2})&\T*g\T*&~(\T*")&[A-Za-z]{5}\T*"""
+// let pattern = """[A-Za-z]{5}\T*"""
+let pattern = """static &.*(?=.*\s[A-Z]\w+\()&(?<!//.*).*&.*(?=~(\T*(\n\T*){6})\})"""
+let parse1 = CharParsers.run Parser.Syntax.r_regex pattern
+// let parse1 = CharParsers.run Parser.Syntax.r_regex "ab→cd"
+// let parse1 = CharParsers.run Parser.Syntax.r_regex "^.*$"
+
+stdout.WriteLine pattern
+match parse1 with
+| ParserResult.Success(res,_,position) ->
+    stdout.WriteLine $"%A{res}"
+    stdout.WriteLine (Pattern.toString res)
+| _ ->
+    stdout.WriteLine (string parse1)
 
 
+
+    // let pattern = ".*A.*→.*B.*"
 
 
 
