@@ -953,6 +953,7 @@ type SharedResizeArrayStruct<'t> =
 
         found
 
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.GetEnumerator() =
         let mutable e = this.pool.AsSpan(0, this.size).GetEnumerator()
         e

@@ -4,6 +4,7 @@ module Sbre.Test.Common
 
 open System
 open System.Collections
+open System.Text.RuntimeRegexCopy.Symbolic
 open Sbre
 open Sbre.Algorithm
 open Sbre.CountingSet
@@ -161,6 +162,23 @@ let assertSetsPrefix pattern expected =
     match optimizations with
     | Optimizations.InitialOptimizations.SearchValuesPrefix(prefix, transId) ->
         let prefixString = Optimizations.printPrefixSets matcher.Cache (prefix.ToArray() |> Seq.map (fun v -> v.Minterm) |>  Seq.toList)
+        Assert.Equal(expected, prefixString)
+    | _ -> failwith $"invalid optimization result: {optimizations}"
+
+let assertBvSetsPrefix pattern expected =
+    let regex = Regex(pattern)
+    let matcher = regex.Matcher :?> RegexMatcher<BitVector>
+    let getder = (fun (mt,node) ->
+        let loc = Pat.Location.getNonInitial()
+        matcher.CreateDerivative(&loc, mt,node)
+    )
+    let optimizations = matcher.InternalOptimizations
+    match optimizations with
+    | Optimizations.InitialOptimizations.SearchValuesPrefix(prefix, transId) ->
+        let prefixString = Optimizations.printPrefixSets2 matcher.Cache (prefix.ToArray() |> Seq.map (fun v -> v.Minterm) |>  Seq.toList)
+        Assert.Equal(expected, prefixString)
+    | Optimizations.InitialOptimizations.SearchValuesPotentialStart(prefix, transId) ->
+        let prefixString = Optimizations.printPrefixSets2 matcher.CacheObj (prefix.ToArray() |> Seq.map (fun v -> v.Minterm) |>  Seq.toList)
         Assert.Equal(expected, prefixString)
     | _ -> failwith $"invalid optimization result: {optimizations}"
 

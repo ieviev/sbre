@@ -564,6 +564,12 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             | Loop(node=node;low=2;up=2), other | other, Loop(node=node;low=2;up=2) when refEq node other ->
                 // this.mkConcat2(node,this.mkOr2(Epsilon,node))
                 this.mkLoop(node, 1, 2)
+            // t(s?|sday) -> ts?day
+            | Loop(node=node;low=0;up=1), Concat(head=chead1;tail=ctail1)
+            | Concat(head=chead1;tail=ctail1), Loop(node=node;low=0;up=1)
+                when refEq node chead1 ->
+                let newHead = this.mkLoop(node, 0, 1)
+                this.mkConcat2(newHead, ctail1)
             | Or(nodes=nodes) as orNode, other | other, (Or(nodes=nodes) as orNode) ->
                 if nodes.Contains(other) then orNode else
                 let arr = seq {yield! nodes;other}
@@ -1227,7 +1233,45 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             match _concatCache.TryGetValue(key) with
             | true, v -> v
             | _ ->
+                let incrLoop x y =
+                    match x, y with
+                    | Int32.MaxValue, _ | _, Int32.MaxValue -> Int32.MaxValue
+                    | _ -> x + y
                 match head, tail with
+                // merge loops 1
+                | Singleton pred1, Concat(head=Singleton pred2;tail=tail2) when pred1 = pred2 ->
+                    let newHead = this.mkLoop(head, 2, 2)
+                    let v = this.mkConcat2(newHead, tail2)
+                    _concatCache.Add(key, v)
+                    v
+                // merge loops 2
+                | Singleton pred1, Concat(head=Loop(node=Singleton pred2;low=low;up=up);tail=tail2) when pred1 = pred2 ->
+                    let newHead = this.mkLoop(head,incrLoop low 1, incrLoop up 1)
+                    let v = this.mkConcat2(newHead, tail2)
+                    _concatCache.Add(key, v)
+                    v
+                // | Singleton pred1, Concat(head=Loop(node=Singleton pred2;low=low;up=Int32.MaxValue);tail=tail2) when Solver.containsS solver pred2 pred1 ->
+                //     let dbg = 1
+                //     let v =
+                //         let flags = Flags.inferConcat head tail
+                //         let mergedMinterms = solver.Or(head.SubsumedByMinterm(solver),tail.SubsumedByMinterm(solver))
+                //         let info = this.CreateInfo(flags, mergedMinterms, RefSet.union head.PendingNullables tail.PendingNullables)
+                //         Concat(head, tail, info)
+                //
+                //     _concatCache.Add(key, v)
+                //     v
+                    // failwith "asd"
+                    // let newHead = this.mkLoop(head,incrLoop low 1, incrLoop up 1)
+                    // let v = this.mkConcat2(newHead, tail2)
+                    // _concatCache.Add(key, v)
+                    // v
+                // merge loops 3
+                | Loop(node=(Singleton pred1 as loopNode);low=low1;up=up1), Concat(head=Loop(node=Singleton pred2;low=low2;up=up2);tail=tail2) when pred1 = pred2 ->
+                    let newHead = this.mkLoop(loopNode, incrLoop low1 low2, incrLoop up1 up2)
+                    let v = this.mkConcat2(newHead, tail2)
+                    _concatCache.Add(key, v)
+                    v
+
                 // TODO: optimizations
                 | SingletonStarLoop(p1), SingletonStarLoop(p2) ->
                     if Solver.containsS solver p1 p2 then head

@@ -250,8 +250,10 @@ let ``unsupported 08``() = assertRawDerivative """⊤*\ba""" "a " [
 [<Fact>]
 let ``unsupported 09``() =
     assertNodeWithoutPrefix """(\s+)?((\bmittags?|((in der )?nachts?)))""" [
-        "φ*((in der )?nacht|mittag)s?"
-        @"φ*(mittag|(in der )?nacht)s?"
+        // "φ*((in der )?nacht|mittag)s?"
+        // @"φ*(mittag|(in der )?nacht)s?"
+        @"φ*((in der )?nacht|mit{2,2}ag)s?"
+        @"φ*(mit{2,2}ag|(in der )?nacht)s?"
     ]
 
 [<Fact>]

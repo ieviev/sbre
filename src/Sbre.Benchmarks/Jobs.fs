@@ -1479,7 +1479,8 @@ type TestSbreAllPatternsMatchOnly(patterns: (string) list, input: string) =
 type TestSbreAllPatternsCountSpans(patterns: (string) list, input: string) =
     let inputText = input
     member this.Patterns: System.Collections.Generic.IEnumerable<string> = patterns
-    member val CompiledEngine: Sbre.RegexMatcher<TSet> = Unchecked.defaultof<_> with get, set
+    // member val CompiledEngine: Sbre.RegexMatcher<TSet> = Unchecked.defaultof<_> with get, set
+    member val CompiledEngine: Sbre.Regex = Unchecked.defaultof<_> with get, set
     [<ParamsSource("Patterns")>]
     member val Pattern: string = "" with get, set
 
@@ -1487,13 +1488,20 @@ type TestSbreAllPatternsCountSpans(patterns: (string) list, input: string) =
     member this.Setup() =
         let opts = SbreOptions.HighThroughputDefaults
         let regex = Regex(this.Pattern,opts)
-        let matcher = regex.Matcher :?> RegexMatcher<TSet>
-        this.CompiledEngine <- matcher
+        // let matcher = regex.Matcher :?> RegexMatcher<TSet>
+        this.CompiledEngine <- regex
         ()
 
     [<Benchmark(Description = "Sbre")>]
     member this.Sbre() =
-        use asd = this.CompiledEngine.llmatch_all(inputText)
+        // use asd = this.CompiledEngine.llmatch_all(inputText)
+        // use asd = this.CompiledEngine.(inputText)
+        use matches = this.CompiledEngine.Test(inputText)
+        for m in matches do
+            ()
+        // for m in this.CompiledEngine.EnumerateMatches(inputText) do
+        //     ()
+        // use asd = this.CompiledEngine.e
         ()
 
 [<MemoryDiagnoser(false)>]

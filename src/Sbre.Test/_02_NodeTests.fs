@@ -115,6 +115,11 @@ let ``a conversion 2.6``() = assertConverted """([a-zA-Z]+)Huck|([a-zA-Z]+)Saw""
     """([A-Za-z])+(Saw|Huck)"""
 ]
 
+[<Fact>]
+let ``a conversion 2.7``() = assertConverted """t(s?|sday)""" [
+    "ts?day"
+]
+
 
 
 // [<Fact>]

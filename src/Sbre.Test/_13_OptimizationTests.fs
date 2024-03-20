@@ -2,6 +2,7 @@
 module Sbre.Test._13_OptimizationTests
 
 open System.Buffers
+open System.IO
 open System.Runtime.Intrinsics.X86
 open Sbre
 open Sbre.Benchmarks.Jobs
@@ -239,6 +240,14 @@ let ``initialOptimizations 27``() =
     assertSetsPrefix
         """\b[0-9A-Za-z_]+\b"""
         @"\W;[0-9A-Z_a-z]"
+
+
+// [<Fact>]
+// let ``initialOptimizations 28``() =
+//     assertBvSetsPrefix
+//         (__SOURCE_DIRECTORY__ + "/data/pattern-date.txt" |> File.ReadAllText |> (fun v -> v.Trim()))
+//         @"\W;[0-9A-Z_a-z]"
+
 
 
 // [<Fact>]

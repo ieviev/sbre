@@ -46,6 +46,7 @@ type GenericRegexMatcher() =
     abstract member Replace: input: ReadOnlySpan<char> * replacement: ReadOnlySpan<char> -> string
     abstract member Matches: input: ReadOnlySpan<char> -> MatchResult seq
     abstract member EnumerateMatches: input: ReadOnlySpan<char> -> Span<MatchPosition>
+    abstract member Test: input: ReadOnlySpan<char> -> SharedResizeArrayStruct<MatchPosition>
     abstract member MatchPositions: input: ReadOnlySpan<char> -> MatchPosition seq
     abstract member Match: input: ReadOnlySpan<char> -> SingleMatchResult
     abstract member Count: input: ReadOnlySpan<char> -> int
@@ -770,6 +771,12 @@ type RegexMatcher<
             loc: inref<Location>
         ) =
         let mintermId = _cache.MintermId(loc)
+        // let mintermId =
+        //     let i =
+        //         int (if loc.Reversed then loc.Input[loc.Position - 1] else loc.Input[loc.Position])
+        //     match i < 128 with
+        //     | true -> _ascii[i]
+        //     | false -> _nonAscii.Find(i)
         let dfaOffset = this.GetDeltaOffset(currentState, mintermId)
         let nextStateId = _dfaDelta[dfaOffset]
 
@@ -785,6 +792,37 @@ type RegexMatcher<
             let nextState = this.TryNextDerivative(currentState, mintermId, &loc)
             _dfaDelta[dfaOffset] <- nextState
             currentState <- nextState
+
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    member this.TakeTransition2
+        (
+            currentState: int,
+            loc: inref<Location>
+        ) =
+        let mintermId = _cache.MintermId(loc)
+        // let mintermId =
+        //     let i =
+        //         int (if loc.Reversed then loc.Input[loc.Position - 1] else loc.Input[loc.Position])
+        //     match i < 128 with
+        //     | true -> _ascii[i]
+        //     | false -> _nonAscii.Find(i)
+        let dfaOffset = this.GetDeltaOffset(currentState, mintermId)
+        let nextStateId = _dfaDelta[dfaOffset]
+
+        if
+            // existing transition in dfa
+            nextStateId > 0
+        then
+            nextStateId
+        else
+
+        // new transition
+        if obj.ReferenceEquals(null, _stateArray[nextStateId]) then
+            let nextState = this.TryNextDerivative(currentState, mintermId, &loc)
+            _dfaDelta[dfaOffset] <- nextState
+            nextState
+        else
+            nextStateId
 
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
@@ -1176,13 +1214,13 @@ type RegexMatcher<
             else
                 false
 
-    member this.HandleNullableRev(flags:RegexStateFlags,acc: byref<SharedResizeArrayStruct<int>>,loc:Location,currentStateId:int) =
+    member this.HandleNullableRev(flags:RegexStateFlags,acc: byref<SharedResizeArrayStruct<int>>,currPosition:int,currentStateId:int) =
         if StateFlags.isPendingNullable flags then
             let span = _stateArray[currentStateId].PendingNullablePositions.Span
             for i = span.Length - 1 downto 0 do
-                acc.Add (span[i] + loc.Position)
+                acc.Add (span[i] + currPosition)
         else
-            acc.Add loc.Position
+            acc.Add currPosition
 
     member this.HandleNullableFwd(flags:RegexStateFlags,currentMax:byref<int>,loc,currentStateId) =
         if StateFlags.isPendingNullable flags then
@@ -1202,7 +1240,7 @@ type RegexMatcher<
         ) : unit =
         let flags = _flagsArray[currentStateId]
         if this.StateIsNullable(flags, &loc, currentStateId) then
-            this.HandleNullableRev(flags,&acc,loc,currentStateId)
+            this.HandleNullableRev(flags,&acc,loc.Position,currentStateId)
         if loc.Position > 0 then
             this.TakeTransitionWithAnchors(flags, &currentStateId, &loc)
             loc.Position <- loc.Position - 1
@@ -1220,12 +1258,12 @@ type RegexMatcher<
         let mutable looping = true
         let mutable currentStateId = DFA_TR_rev
 
-        // let _flagsSpan = _flagsArray.AsSpan()
-        // let _dfaDeltaSpan = _dfaDelta.AsSpan()
         // only consider anchors in the start
-        this.TakeStepWithAnchors(&acc,&loc,&currentStateId)
+        if StateFlags.cannotBeCached _flagsArray[currentStateId] then
+            this.TakeStepWithAnchors(&acc,&loc,&currentStateId)
 
         while looping do
+            // let dfaState = _stateArray[currentStateId]
             let flags = _flagsArray[currentStateId]
 #if SKIP
             if (StateFlags.canSkipInitial flags && this.TrySkipInitialRev(&loc, &currentStateId))
@@ -1237,7 +1275,7 @@ type RegexMatcher<
             else
 #endif
             if this.StateIsNullable(flags, &loc, currentStateId) then
-                this.HandleNullableRev(flags,&acc,loc,currentStateId)
+                this.HandleNullableRev(flags,&acc,loc.Position,currentStateId)
 
             if loc.Position > 0 then
                 this.TakeTransition( &currentStateId, &loc)
@@ -1257,14 +1295,13 @@ type RegexMatcher<
         let mutable looping = true
         let mutable currentStateId = DFA_TR_rev
 
-        let _flagsSpan = _flagsArray.AsSpan()
-        let _dfaDeltaSpan = _dfaDelta.AsSpan()
         // only consider anchors in the start
-        this.TakeStepWithAnchors(&acc,&loc,&currentStateId)
+        if StateFlags.cannotBeCached _flagsArray[currentStateId] then
+            this.TakeStepWithAnchors(&acc,&loc,&currentStateId)
 
         while looping do
-            let flags = _flagsSpan[currentStateId]
-            let _ = _stateArray[currentStateId]
+            let flags = _flagsArray[currentStateId]
+            // let _ = _stateArray[currentStateId]
 #if SKIP
             if (StateFlags.canSkipInitial flags && this.TrySkipInitialRev(&loc, &currentStateId))
 
@@ -1275,7 +1312,7 @@ type RegexMatcher<
             else
 #endif
             if this.StateIsNullable(flags, &loc, currentStateId) then
-                this.HandleNullableRev(flags,&acc,loc,currentStateId)
+                this.HandleNullableRev(flags,&acc,loc.Position,currentStateId)
 
             if loc.Position > 0 then
                 this.TakeTransition( &currentStateId, &loc)
@@ -1421,9 +1458,6 @@ type RegexMatcher<
                 if currStart >= nextValidStart then
                     loc.Position <- currStart
                     let matchEnd = this.getMatchEnd(&loc)
-                    // match matchEnd with
-                    // | -2 -> failwith "found bug in match"
-                    // | _ ->
                     matches.Add({ MatchPosition.Index = currStart; Length = (matchEnd - currStart) })
                     nextValidStart <- matchEnd
             acc.Dispose()
@@ -1492,7 +1526,9 @@ type RegexMatcher<
 
     member this.Cache = box _cache :?> RegexCache<uint64>
     member this.CacheObj = _cache
+    member this.InternalOptimizations = _initialOptimizations
     member this.AttemptCanonicalize n = _canonicalize n
+    override this.Test(input) = this.llmatch_all(input)
 
 module Helpers =
     let rec createMatcher
@@ -1550,11 +1586,11 @@ module Helpers =
             else
             m
 
-        | _ ->
+        | n ->
             // ideally subsume the minterms to 64 or below
             let solver = BitVectorSolver(bddMinterms, charsetSolver)
-            let uintbuilder = RegexBuilder(converter, solver, charsetSolver, options)
-            let rawNode = (Minterms.transform bddBuilder uintbuilder charsetSolver solver) symbolicBddnode
+            let tsetbuilder = RegexBuilder(converter, solver, charsetSolver, options)
+            let rawNode = (Minterms.transform bddBuilder tsetbuilder charsetSolver solver) symbolicBddnode
 
             let cache =
                 Sbre.RegexCache<BitVector>(
@@ -1562,30 +1598,31 @@ module Helpers =
                     charsetSolver,
                     bddMinterms,
                     _rawPattern = rawNode,
-                    _builder = uintbuilder,
+                    _builder = tsetbuilder,
                     _bddbuilder= bddBuilder
                 )
 
             let m = RegexMatcher(rawNode, cache, options)
 
-            let backToBdd = Minterms.transformBack uintbuilder bddBuilder solver charsetSolver m.RawPatternObj
-            let _ = backToBdd |> Minterms.compute symbolicBuilder
-            // if not (refEq (m.RawPatternObj) (rawNode)) then
-            //     let backToBdd = Minterms.transformBack uintbuilder bddBuilder solver charsetSolver (m.RawPatternObj)
-            //     let recomputedMinterms = backToBdd |> Minterms.compute symbolicBuilder
-            //     // TODO: analyze this
-            //     // if recomputedMinterms.Length <> bddMinterms.Length then
-            //     //     let oldprettymts = bddMinterms |> Array.map charsetSolver.PrettyPrint
-            //     //     let prettymts = recomputedMinterms |> Array.map charsetSolver.PrettyPrint
-            //     //     failwith $"reduced minterms from {bddMinterms.Length} to {recomputedMinterms.Length}, {rawNode} ==> {m.RawPattern}\nold:%A{oldprettymts}\nremaining: %A{prettymts}"
-            //     createMatcher(
-            //         bddBuilder,
-            //         recomputedMinterms,
-            //         charsetSolver,
-            //         converter,
-            //         backToBdd,
-            //         symbolicBuilder)
-            // else
+            let backToBdd = Minterms.transformBack tsetbuilder bddBuilder solver charsetSolver m.RawPatternObj
+            let newMinterms = backToBdd |> Minterms.compute symbolicBuilder
+            if not (refEq (m.RawPatternObj) (rawNode)) then
+                let backToBdd = Minterms.transformBack tsetbuilder bddBuilder solver charsetSolver (m.RawPatternObj)
+                let recomputedMinterms = backToBdd |> Minterms.compute symbolicBuilder
+                // TODO: analyze this
+                // if recomputedMinterms.Length <> bddMinterms.Length then
+                //     let oldprettymts = bddMinterms |> Array.map charsetSolver.PrettyPrint
+                //     let prettymts = recomputedMinterms |> Array.map charsetSolver.PrettyPrint
+                //     failwith $"reduced minterms from {bddMinterms.Length} to {recomputedMinterms.Length}, {rawNode} ==> {m.RawPattern}\nold:%A{oldprettymts}\nremaining: %A{prettymts}"
+                createMatcher(
+                    bddBuilder,
+                    recomputedMinterms,
+                    charsetSolver,
+                    converter,
+                    backToBdd,
+                    symbolicBuilder,
+                    options)
+            else
             m
 
             // failwith $"bitvector too large, size: {n}"
@@ -1595,13 +1632,18 @@ module Helpers =
 [<Sealed>]
 type Regex(pattern: string, [<Optional; DefaultParameterValue(null:SbreOptions)>] options: SbreOptions) =
     inherit GenericRegexMatcher()
-    let pattern = pattern.Replace("⊤", @"[\s\S]")
+
+
     let options = if obj.ReferenceEquals(options,null) then SbreOptions() else options
+
+    let pattern = pattern.Replace("⊤", @"[\s\S]")
+
     // experimental parser!
+    let ecma = if options.UseEcma then RegexOptions.ECMAScript else RegexOptions.None
     let regexTree =
         ExtendedRegexParser.Parse(
             pattern,
-            RegexOptions.ExplicitCapture ||| RegexOptions.NonBacktracking ||| RegexOptions.Multiline ||| RegexOptions.CultureInvariant,
+            RegexOptions.ExplicitCapture ||| RegexOptions.NonBacktracking ||| RegexOptions.Multiline ||| RegexOptions.CultureInvariant ||| ecma,
             CultureInfo.InvariantCulture
         )
     let charsetSolver = CharSetSolver()
@@ -1638,6 +1680,9 @@ type Regex(pattern: string, [<Optional; DefaultParameterValue(null:SbreOptions)>
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     override this.EnumerateMatches(input) = matcher.EnumerateMatches(input)
+
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    override this.Test(input) = matcher.Test(input)
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     override this.Matches(input) = matcher.Matches(input)

@@ -92,6 +92,11 @@ let rec determineWordBorderNodeKind (b:RegexBuilder<BDD>) (css:CharSetSolver) (l
     | RegexNodeKind.PositiveLookaround ->
         let edgeChild = node.Child(edgeIdx)
         determineWordBorderNodeKind b css left edgeChild
+    | RegexNodeKind.Loop ->
+        // if node.M > 0 then
+        //     if RegexCharClass.IsBoundaryWordChar node.Ch then Some true
+        //     else Some false
+        None
     | _ -> None
 
 let toLeft (b:RegexBuilder<BDD>) (css:CharSetSolver) (outer:RegexNode array) idx =

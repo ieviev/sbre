@@ -397,6 +397,18 @@ type Rebar2() =
             "/mnt/g/repos/rebar/benchmarks/haystacks/opensubtitles/en-sampled.txt" |> System.IO.File.ReadAllText
         )
 
+
+type Rebar3() =
+    inherit
+        Jobs.TestSbreAllPatternsCountSpans(
+            [
+               // System.IO.File.ReadAllText("/mnt/sdc4/repos/rebar/benchmarks/regexes/wild/date.txt").Trim()
+               System.IO.File.ReadAllText("/home/ian/f/myrepos/presentations/2024-03-20-dotnet/src/test.txt").Trim()
+            ],
+            let all = "/mnt/ice/repos/rebar/benchmarks/haystacks/rust-src-tools-3b0d4813.txt" |> System.IO.File.ReadAllText
+            all
+        )
+
 type Rebar6() =
     inherit
         Jobs.TestSbreAllPatternsCountSpans(

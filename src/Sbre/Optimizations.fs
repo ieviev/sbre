@@ -3,6 +3,7 @@ module rec Sbre.Optimizations
 open System.Buffers
 open System.Collections.Generic
 open System.Text.RuntimeRegexCopy
+open System.Text.RuntimeRegexCopy.Symbolic
 open Sbre.Algorithm
 open Sbre.Types
 open Sbre.Pat
@@ -76,6 +77,18 @@ type OverrideRegex =
 let printPrefixSets (cache: RegexCache<_>) (sets: uint64 list) =
     sets
     |> Seq.map cache.PrettyPrintMinterm
+    |> Seq.map (fun v ->
+        match v with
+        | @"[^\n]" -> "."
+        // | c when c.Length > 12 -> "φ" // dont expand massive sets
+        | c when c.Length > 25 -> "φ" // dont expand massive sets
+        | c -> c
+    )
+    |> String.concat ";"
+
+let printPrefixSets2 (cache: RegexCache<_>) (sets: BitVector list) =
+    sets
+    |> Seq.map (fun v -> (box cache.Solver :?> BitVectorSolver).PrettyPrint(v, cache.CharsetSolver) )
     |> Seq.map (fun v ->
         match v with
         | @"[^\n]" -> "."
@@ -199,6 +212,15 @@ let rec calcPotentialMatchStart
         // let tempList = ResizeArray()
         let tempList = new SharedResizeArray<_>(128)
 
+#if DEBUG
+        let backToBdd node =
+            Minterms.transformBack
+                cache.Builder
+                cache.BddBuilder
+                cache.Solver
+                cache.CharsetSolver
+                node
+#endif
         let rec loop(acc: 't list) =
             tempList.Clear()
             if nodes.Count > options.FindPotentialStartSizeLimit || acc.Length > options.MaxPrefixLength || nodes.Count = 0 then
@@ -207,6 +229,12 @@ let rec calcPotentialMatchStart
                 let shouldExit = nodes |> Seq.exists (_.CanBeNullable)
 
                 if shouldExit then
+#if DEBUG
+                    // let p =
+                    //     nodes
+                    //     |> Seq.map (fun v -> v.CanBeNullable, backToBdd(v).ToStringLong())
+                    //     |> Seq.toArray
+#endif
                     acc |> List.rev
                 else
 

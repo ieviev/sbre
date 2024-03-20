@@ -25,13 +25,13 @@ open Sbre.Test
 //     for i = 1 to 1000 do
 //         suite.Sbre() |> ignore
 
-// let suite = Paper.Rebar1()
-// for pat in suite.Patterns do
-//     suite.Pattern <- pat
-//     suite.Setup()
-//     for i = 1 to 1000 do
-//         suite.Sbre() |> ignore
-//
+let suite = Paper.Rebar3()
+for pat in suite.Patterns do
+    suite.Pattern <- pat
+    suite.Setup()
+    for i = 1 to 1000 do
+        suite.Sbre() |> ignore
+
 
 
 // let pref = Optimizations.Prefix2()
@@ -74,24 +74,24 @@ let ab = 1
 // "(.*φ&.*&~(.*):.*)&φ.*)(?=():⊤*&.*):⊤*))"
 
 
-
-open FParsec
-// let parse1 = CharParsers.run Parser.Syntax.r_regex "ab(cd|ef)"
-
-// let pattern = """~(\T*(\n\T*){2})&\T*g\T*&~(\T*")&[A-Za-z]{5}\T*"""
-// let pattern = """[A-Za-z]{5}\T*"""
-let pattern = """static &.*(?=.*\s[A-Z]\w+\()&(?<!//.*).*&.*(?=~(\T*(\n\T*){6})\})"""
-let parse1 = CharParsers.run Parser.Syntax.r_regex pattern
-// let parse1 = CharParsers.run Parser.Syntax.r_regex "ab→cd"
-// let parse1 = CharParsers.run Parser.Syntax.r_regex "^.*$"
-
-stdout.WriteLine pattern
-match parse1 with
-| ParserResult.Success(res,_,position) ->
-    stdout.WriteLine $"%A{res}"
-    stdout.WriteLine (Pattern.toString res)
-| _ ->
-    stdout.WriteLine (string parse1)
+//
+// open FParsec
+// // let parse1 = CharParsers.run Parser.Syntax.r_regex "ab(cd|ef)"
+//
+// // let pattern = """~(\T*(\n\T*){2})&\T*g\T*&~(\T*")&[A-Za-z]{5}\T*"""
+// // let pattern = """[A-Za-z]{5}\T*"""
+// let pattern = """static &.*(?=.*\s[A-Z]\w+\()&(?<!//.*).*&.*(?=~(\T*(\n\T*){6})\})"""
+// let parse1 = CharParsers.run Parser.Syntax.r_regex pattern
+// // let parse1 = CharParsers.run Parser.Syntax.r_regex "ab→cd"
+// // let parse1 = CharParsers.run Parser.Syntax.r_regex "^.*$"
+//
+// stdout.WriteLine pattern
+// match parse1 with
+// | ParserResult.Success(res,_,position) ->
+//     stdout.WriteLine $"%A{res}"
+//     stdout.WriteLine (Pattern.toString res)
+// | _ ->
+//     stdout.WriteLine (string parse1)
 
 
 

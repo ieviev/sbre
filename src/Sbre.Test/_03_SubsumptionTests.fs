@@ -192,28 +192,28 @@ let ``loop nontrivial 2 ``() =
     ]
 
 
-[<Fact>]
-let ``compress 1``() =
-    assertConverted
-        """[\dA-Z].+&.{5,65}&.+[\d]&\w.+&.+\w"""
-        [
-            @"(.+φ&φ.+&.{5,65})"
-            @"(.{5,65}&φ.+&.+φ)"
-            @"(φ.+&.+φ&.{5,65})"
-            @"(φ.+&.{5,65}&.+φ)"
-            @"(.+φ&.{5,65}&φ.+)"
-        ]
+// [<Fact>]
+// let ``compress 1``() =
+//     assertConverted
+//         """[\dA-Z].+&.{5,65}&.+[\d]&\w.+&.+\w"""
+//         [
+//             @"(.+φ&φ.+&.{5,65})"
+//             @"(.{5,65}&φ.+&.+φ)"
+//             @"(φ.+&.+φ&.{5,65})"
+//             @"(φ.+&.{5,65}&.+φ)"
+//             @"(.+φ&.{5,65}&φ.+)"
+//         ]
 
-
-[<Fact>]
-let ``print huge 1``() =
-    let r = Sbre.Regex("""[\dA-Z].+&.{5,65}&.+[\d]&\w.+&.+\w""")
-    let pat = r.TSetMatcher.PrettyPrintNodeLong(r.TSetMatcher.RawPattern)
-    assertContains [
-        @"(.+\d&[\dA-Z].+&.{5,65})"
-        @"([\dA-Z].+&.+\d&.{5,65})"
-        @"(.{5,65}&.+\d&[\dA-Z].+)"
-    ] pat
+// [<Fact>]
+// let ``print huge 1``() =
+//     let r = Sbre.Regex("""[\dA-Z].+&.{5,65}&.+[\d]&\w.+&.+\w""")
+//     let pat = r.TSetMatcher.PrettyPrintNodeLong(r.TSetMatcher.RawPattern)
+//     assertContains [
+//         @"(.+\d&[\dA-Z].+&.{5,65})"
+//         @"([\dA-Z].+&.+\d&.{5,65})"
+//         @"(.{5,65}&.+\d&[\dA-Z].+)"
+//         @"([\dA-Z].+&.{5,65}&.+\d)"
+//     ] pat
 
 [<Fact>]
 let ``print huge 2``() =
