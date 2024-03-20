@@ -45,7 +45,7 @@ type SbreOptions() =
             FindLookaroundPrefix=true,
             FindPotentialStartSizeLimit=5000,
             UsePrefixOptimizations=true,
-            InitialDfaCapacity=1024,
+            InitialDfaCapacity=512,
             MaxPrefixLength = 20,
             UseEcma=false
         )

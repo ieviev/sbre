@@ -1158,7 +1158,7 @@ type TestAllEnginesAllPatternsMatchOnly(patterns: string list, input: string) =
         this.None_Regex <- System.Text.RegularExpressions.Regex(this.Pattern, opts_None)
         // this.NonBack_Regex <- System.Text.RegularExpressions.Regex(this.Pattern, opts_NonBacktracking)
         this.Compiled_Regex <- System.Text.RegularExpressions.Regex(this.Pattern, opts_Compiled)
-        this.Sbre_Regex <- Regex(this.Pattern)
+        this.Sbre_Regex <- Regex(this.Pattern, SbreOptions.HighThroughputDefaults)
 
 
     // [<Benchmark(Description = "NonBacktrack")>]
@@ -1169,20 +1169,13 @@ type TestAllEnginesAllPatternsMatchOnly(patterns: string list, input: string) =
     member this.Compiled() =
         this.Compiled_Regex.Count(inputText)
 
-    // [<Benchmark(Description = "Sbre")>]
-    // member this.Sbre() =
-    //     this.Sbre_Regex.Count(inputText)
-
-    //
-    // [<Benchmark(Description = "None")>]
-    // member this.None() =
-    //     this.None_Regex.Count(inputText)
+    [<Benchmark(Description = "None")>]
+    member this.None() =
+        this.None_Regex.Count(inputText)
 
     [<Benchmark(Description = "Sbre")>]
     member this.Sbre() =
         this.Sbre_Regex.Count(inputText)
-        // this.Sbre_Regex.TSetMatcher.llmatch_all(inputText).size
-
     //
 
 
@@ -1462,7 +1455,7 @@ type TestSbreAllPatternsMatchOnly(patterns: (string) list, input: string) =
 
     [<GlobalSetup>]
     member this.Setup() =
-        let regex = Regex(this.Pattern)
+        let regex = Regex(Parser.parsePattern this.Pattern, SbreOptions.HighThroughputDefaults)
         let matcher = regex.Matcher :?> RegexMatcher<TSet>
         this.CompiledEngine <- matcher
         ()

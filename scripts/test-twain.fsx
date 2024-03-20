@@ -65,10 +65,36 @@ let ifContainsThenContains =
 
 
 
-let s = allMatches (String.concat "&" [ 
-    @"~(\T*\n\n\T*)"
-    @"\T*Huck\T*" 
-    @"(\T*ch\T*→.*c.*)" 
-])
+// let s = allMatches (String.concat "&" [ 
+//     @"~(\T*\n\n\T*)"
+//     @"\T*Huck\T*" 
+//     @"(\T*ch\T*→.*c.*)" 
+// ])
 
-s.Length
+let query =
+    String.concat "&" [ 
+        """^.*$"""
+        """(.*Huck.*|.*Finn.*)""" 
+        """(.*Huck.*→.*book.*)"""
+        """(.*river.*→.*Finn.*)""" 
+]
+
+let results = allMatches (query) |> Seq.iter (fun v -> printfn $"{v.Index}: {v.Value}")
+
+let s = 
+    allMatches (query)
+    |> Seq.iter (fun v -> printfn $"{v.Index}: {v.Value}")
+
+    // |> Seq.map (fun v -> v.Index, v.Value)
+    // |> Seq.toArray
+
+
+let paragraph_query =
+    String.concat "&" [ 
+        """(?<=\n\n|\A)~(|\T*\n\n\T*)(?=\n\n|\z)"""
+        """(\T*Huck\T*|\T*Finn\T*)""" 
+        """(\T*Huck\T*→\T*book\T*)"""
+        """(\T*river\T*→\T*Finn\T*)""" 
+]
+
+let pg_results = allMatches (paragraph_query) |> Seq.iter (fun v -> printfn $"{v.Index}: {v.Value}")

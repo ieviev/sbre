@@ -15,11 +15,12 @@
         <Compile Include="Optimizations.fs" />
         <Compile Include="Learning.fs" />
         <Compile Include="Program.fs" />
-        <Content Include="data\**\*.*" CopyToOutputDirectory="PreserveNewest"/>
+        <Content Include="data\**\*.*" CopyToOutputDirectory="PreserveNewest" />
     </ItemGroup>
 
     <ItemGroup>
       <ProjectReference Include="..\Sbre\Sbre.fsproj" />
+      <ProjectReference Include="..\Sbre.Parser\Sbre.Parser.fsproj" />
     </ItemGroup>
 
     <ItemGroup>

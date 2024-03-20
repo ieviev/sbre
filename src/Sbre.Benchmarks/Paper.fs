@@ -495,9 +495,41 @@ type CounterMatchTimeRegexes() =
 
 type SampleRegexes() =
     inherit
-        // Jobs.TestSbreAllPatternsMatchOnly(
-        Jobs.TestSbreAllPatternsCountSpans(
+        // Jobs.TestAllEnginesAllPatternsMatchOnly(
+        Jobs.TestSbreAllPatternsMatchOnly(
+        // Jobs.TestSbreAllPatternsCountSpans(
             [
+               // """^(.*Huck.*&.*book.*)$"""
+               // String.concat "&" [
+               //          """(?<=\n\n|\A)~(|\T*\n\n\T*)(?=\n\n|\z)"""
+               //          """(\T*Huck\T*|\T*Finn\T*)"""
+               //          """(\T*Huck\T*→\T*book\T*)"""
+               //          """(\T*river\T*→\T*Finn\T*)"""
+               //  ]
+               // String.concat "&" [
+               //          """^.*$"""
+               //          """(.*Huck.*|.*Finn.*)"""
+               //          """(.*Huck.*→.*book.*)"""
+               //          """(.*river.*→.*Finn.*)"""
+               //  ]
+
+
+
+
+               // """~(\T*\n\n\T*)"""
+               // """~(\T*\n\n\T*)&\T*Huck\T*"""
+               // """~(\T*\n\n\T*)&\T*Huck\T*&\T*Finn\T*"""
+               // """~(\T*\n\n\T*)&\T*Huck\T*&\T*Finn\T*"""
+               // """\T*Huck\T*&\T*Finn\T*"""
+
+               // @".*Huck.*Finn.*|.*Finn.*Huck.*"
+               // @".*Huck.*"
+               // @".*Huck.*(?=Finn)"
+               // @"(?<=Huck).*Finn.*"
+               // @".*Huck(?=.*Finn)"
+               // @"(?<=Huck.*)Finn.*"
+
+               // "Tom.{10,25}river|river.{10,25}Tom"
                // """\b\w+\b"""
                // """\b[0-9A-Za-z_]+\b"""
                // """(?<=\W)\w+(?=\W)"""
@@ -522,7 +554,7 @@ type SampleRegexes() =
                // "[a-zA-Z]+ing"
                // "\s[a-zA-Z]{0,12}ing\s"
                // "\s([A-Za-z]awyer|[A-Za-z]inn)\s"
-               """["'][^"']{0,30}[?!\.]["']"""
+               // """["'][^"']{0,30}[?!\.]["']"""
                // """\b\w+nn\b"""
                // -----------------
                // """(?<=\W)\w+nn(?=\W)"""

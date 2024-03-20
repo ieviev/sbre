@@ -100,14 +100,13 @@ module RegexNodeFlagsExtensions =
         member this.CanBeNullable = byte (this &&& RegexNodeFlags.CanBeNullableFlag) <> 0uy
 
         member this.ContainsLookaround =
-            byte (this &&& RegexNodeFlags.ContainsLookaroundFlag) <> 0uy
+            (this &&& RegexNodeFlags.ContainsLookaroundFlag) = RegexNodeFlags.ContainsLookaroundFlag
 
         member this.HasSuffixLookahead =
-            byte (this &&& RegexNodeFlags.HasSuffixLookaheadFlag) <> 0uy
+            (this &&& RegexNodeFlags.HasSuffixLookaheadFlag) = RegexNodeFlags.HasSuffixLookaheadFlag
 
         member this.HasPrefixLookbehind =
-            byte (this &&& RegexNodeFlags.HasPrefixLookbehindFlag) <> 0uy
-        // member this.HasCounter = (this &&& RegexNodeFlags.HasCounterFlag) = RegexNodeFlags.HasCounterFlag
+            (this &&& RegexNodeFlags.HasPrefixLookbehindFlag) = RegexNodeFlags.HasPrefixLookbehindFlag
         member this.DependsOnAnchor =
             (this &&& RegexNodeFlags.DependsOnAnchorFlag) = RegexNodeFlags.DependsOnAnchorFlag
 
