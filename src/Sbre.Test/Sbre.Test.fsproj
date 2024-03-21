@@ -27,10 +27,10 @@
         <Compile Include="_13_OptimizationTests.fs" />
         <Compile Include="_14_LinearLookaroundTests.fs" />
         <Compile Include="_15_FormalTests.fs" />
+        <Compile Include="_16_NegationTests.fs" />
         <Compile Include="BenchmarkTests.fs" />
         <Compile Include="RegexLibTests.fs" />
         <Compile Include="CaptureTests.fs" />
-        <Compile Include="NegationTests.fs" />
         
         <Compile Include="Program.fs" />
     </ItemGroup>

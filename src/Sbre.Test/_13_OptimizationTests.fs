@@ -64,7 +64,7 @@ let ``calc reverse prefix 3``() =
 
 [<Fact>]
 let ``calc reverse prefix 4``() =
-    assertPotentialStart @"~(⊤*\n\n⊤*)&⊤*Huck⊤*" [@"[\nk];[\nck];[\ncku];[\nHcku]"]
+    assertPotentialStart @"~(⊤*\n\n⊤*)&⊤*Huck⊤*" [@"[\nk];[\nck];.;."]
     // really should be "k;c;u;H", but why?
 
 

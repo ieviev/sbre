@@ -1169,7 +1169,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             let createNode(inner: RegexNode< 't >) =
                 match inner with
                 | _ when refEq _uniques._false inner -> _uniques._trueStar // ~(⊥) -> ⊤*
-                | StarLoop _ -> _uniques._false // ~(R*) -> ⊥
+                // | StarLoop _ -> _uniques._false // ~(R*) -> ⊥ (not valid)
                 | Epsilon -> _uniques._truePlus // ~(ε) -> ⊤+
                 | _ ->
                     let mutable flags = Flags.inferNot inner

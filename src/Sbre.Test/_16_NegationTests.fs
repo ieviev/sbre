@@ -1,11 +1,18 @@
 [<Xunit.Collection("Sequential")>]
-module Sbre.Test.NegationTests
+module Sbre.Test._16_NegationTests
 
 open Sbre
 open Xunit
 open Common
 //
 #if DEBUG
+
+[<Fact>]
+let ``negation 1: ~(.*b) can cross over multiple lines``() =
+    assertAllLLmatches
+        """(a⊤*&(~(a.*)|.*b>))"""
+        "a_____a____________________b\n" [ (0, 29) ]
+
 
 // TODO: reimplement
 [<Fact>]
@@ -133,6 +140,7 @@ let ``test3``() =
     assertAllLLmatchTexts pattern sampleCode2 [
         "get, set" ; "get, set"
     ]
+
 
 
 
