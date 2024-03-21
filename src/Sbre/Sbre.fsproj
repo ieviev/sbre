@@ -33,7 +33,7 @@
     <DefineConstants>$(DefineConstants);SKIP</DefineConstants>
     <DefineConstants>$(DefineConstants);SKIP_ACTIVE</DefineConstants>
     <DefineConstants>$(DefineConstants);SKIP_PREFIX</DefineConstants>
-<!--    <DefineConstants>$(DefineConstants);SKIP_EXPERIMENTAL</DefineConstants>-->
+    <!--    <DefineConstants>$(DefineConstants);SKIP_EXPERIMENTAL</DefineConstants>-->
   </PropertyGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Sbre.Test" />
@@ -59,12 +59,12 @@
     <PackageOutputPath>./nupkg</PackageOutputPath>
     <Authors>ieviev</Authors>
     <Title>$(ProjectName)</Title>
-    <Version>0.2.10</Version>
+    <Version>0.2.11</Version>
   </PropertyGroup>
   <ItemGroup>
     <!-- nuget pack -->
 <!--    <ProjectReference Include="..\RuntimeRegexCopy\RuntimeRegexCopy.csproj" PrivateAssets="all" />-->
-     <ProjectReference Include="..\RuntimeRegexCopy\RuntimeRegexCopy.csproj" /> 
+       <ProjectReference Include="..\RuntimeRegexCopy\RuntimeRegexCopy.csproj" /> 
   </ItemGroup>
   <ItemGroup>
     <Content Include="$(MSBuildThisFileDirectory)../RuntimeRegexCopy/bin/Release/net8.0/RuntimeRegexCopy.dll">

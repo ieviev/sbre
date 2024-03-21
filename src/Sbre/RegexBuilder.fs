@@ -670,6 +670,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
 
             match node1, node2 with
             | n1, n2 when refEq n1 n2 -> n1
+            | Not(node=n1), n2 | n2, Not(node=n1) when refEq n1 n2 -> _uniques._false
             | n, falseNode | falseNode, n when refEq falseNode _uniques._false -> falseNode
             | n, trueStarNode | trueStarNode, n when refEq _uniques._trueStar trueStarNode -> n
             | n, Epsilon | Epsilon, n -> if n.CanNotBeNullable then _uniques._false else createCached(key)

@@ -74,7 +74,7 @@ let ``a conversion 1.7``() = assertConverted "a&b.*" [ "⊥" ]
 let ``derivative neg lookaround 2``() =
     assertRawDerivative "((?<=.*).*&~(.*A.*))" "A" [
         @"⊥"
-        @"(~(.*)&.*)"
+        // @"(~(.*)&.*)"
         // "(~(.*)&(.*|(?<=.*).*))"
         // @"(~(.*)&((?<=.*).*|.*))"
         // @"((.*|(?<=.*).*)&~(.*))"
