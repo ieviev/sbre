@@ -25,7 +25,16 @@ open Sbre.Test
 //     for i = 1 to 1000 do
 //         suite.Sbre() |> ignore
 
-let suite = Paper.Rebar3()
+// let suite = Paper.Rebar3()
+// for pat in suite.Patterns do
+//     suite.Pattern <- pat
+//     suite.Setup()
+//     for i = 1 to 1000 do
+//         suite.Sbre() |> ignore
+//
+
+
+let suite = WebappSamples.App1()
 for pat in suite.Patterns do
     suite.Pattern <- pat
     suite.Setup()

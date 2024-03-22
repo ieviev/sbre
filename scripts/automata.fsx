@@ -49,6 +49,7 @@ let getMovesFrom (regexEngine:Sbre.Regex) (node:RegexNode<_>) =
 
 // let r = Sbre.Regex(@"\s[a-zA-Z]{0,12}ing\s")
 let r = Sbre.Regex(".*Huck.*|.*Saw.*")
+printTransitions r r.TSetMatcher.RawPattern
 let initialState = r.TSetMatcher.RawPattern
 let movesFromInitial = getMovesFrom r initialState
 let movesFromInitial2 = printTransitions r initialState

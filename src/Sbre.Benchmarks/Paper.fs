@@ -571,17 +571,6 @@ type SampleRegexes() =
 
 
 
-let paragraphWords = ["Huck"; "Finn"; "Tom"; "Sawyer"; "Usually"; ]
-
-type ParagraphRegexes() =
-    inherit
-        Jobs.TestAllEnginesAllPatternsParagraphSeparate(
-            ["Huck"; "Finn"; "Tom"; "Sawyer"; "Usually"],
-            fullInput
-        )
-
-
-
 
 
 let lineWords =
@@ -596,7 +585,6 @@ let lineWords =
 
 let inLine n =
     "",
-    // Permutations.permuteAltInLine lineWords[0..n],
     Permutations.permuteConjInLine lineWords[0..n],
     Permutations.permuteLookaheadInLine lineWords[0..n]
 

@@ -33,7 +33,6 @@ type SbreOptions() =
     /// default: false, attempt to optimize lookaround prefixes.
     /// can be expensive with unbounded lookarounds
     member val FindLookaroundPrefix = false with get, set
-    ///
     member val FindPotentialStartSizeLimit = 500 with get, set
     member val UsePrefixOptimizations = true with get, set
     member val UseEcma = false with get, set
@@ -58,6 +57,17 @@ type SbreOptions() =
             UsePrefixOptimizations=false
         )
 
+    static member WebappDefaults =
+            SbreOptions(
+                CanonicalizeStates = false,
+                FindPotentialStartSizeLimit = 1,
+                MaxPrefixLength = 1,
+                CompressPattern = false,
+                FindLookaroundPrefix = false,
+                UsePrefixOptimizations = false,
+                InitialDfaCapacity = 512
+            );
+
 type UnicodeConditions = System.Text.RegularExpressions.Symbolic.UnicodeCategoryConditions
 
 module BDD =
@@ -66,13 +76,15 @@ module BDD =
         let mutable remainingSet = bdd
         let mutable addedSets = ""
         let css = Static.charsetSolver
-        let initial =
-            Static.charsetSolver.PrettyPrint(remainingSet)
-                .Replace("~",@"\~")
+        let initial = Static.charsetSolver.PrettyPrint(remainingSet)
         let isInverted = initial.StartsWith("[^")
+        let symbolsToEscape = System.String([|
+            '('; ')'; '&'; '~'; '.'; '|'; '^'; '$'
+        |])
         match initial with
         | @"[^\n]" -> "."
         | @"." -> "\."
+        | c when symbolsToEscape.Contains(c) -> $@"\{c}"
         | _ when initial.Length <= 20 -> initial
         | _ ->
 

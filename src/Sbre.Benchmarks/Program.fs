@@ -72,6 +72,8 @@ let main argv =
     // dbgSample()
 
     match Environment.GetCommandLineArgs() |> Seq.last with
+    | "app1" -> BenchmarkRunner.Run(typeof<WebappSamples.App1>,config) |> ignore
+    // ---
     | "prefix1" -> BenchmarkRunner.Run(typeof<Optimizations.Prefix1>,config) |> ignore
     // ---
     | "learning1" -> BenchmarkRunner.Run(typeof<Learning.Learning1>,config) |> ignore
@@ -149,7 +151,6 @@ let main argv =
     | "paper-pg-2" -> BenchmarkRunner.Run(typeof<Paper.ParagraphLong2Word>,config) |> ignore
     | "paper-pg-3" -> BenchmarkRunner.Run(typeof<Paper.ParagraphLong3Word>,config) |> ignore
     | "paper-pg-4" -> BenchmarkRunner.Run(typeof<Paper.ParagraphLong4Word>,config) |> ignore
-    | "paper-pg-all" -> BenchmarkRunner.Run(typeof<Paper.ParagraphRegexes>,config) |> ignore
 
     // words in line (no change in first (?))
     | "paper-line-1" -> BenchmarkRunner.Run(typeof<Paper.WordsLine1>,config) |> ignore
