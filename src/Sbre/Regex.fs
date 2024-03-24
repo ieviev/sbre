@@ -15,30 +15,7 @@ open Sbre.Types
 open Sbre.Pat
 open System.Runtime.InteropServices
 
-[<Struct>]
-type MatchResult = {
-    Value: string
-    Index: int
-    Length: int
-}
 
-[<Struct>]
-type SingleMatchResult = {
-    Success: bool
-    Value: string
-    Index: int
-    Length: int
-}
-
-[<CLIMutable>]
-[<Struct>]
-type MatchPosition = {
-    Index: int
-    Length: int
-} with
-
-    member this.GetText(input: ReadOnlySpan<char>) =
-        input.Slice(this.Index, this.Length).ToString()
 
 [<AbstractClass>]
 type GenericRegexMatcher() =

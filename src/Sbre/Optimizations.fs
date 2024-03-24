@@ -9,6 +9,43 @@ open Sbre.Types
 open Sbre.Pat
 open System
 
+
+module Overrides =
+    let locateStringsUtf16 (acc:SharedResizeArrayStruct<MatchPosition>) (input:ReadOnlySpan<char>) (str:ReadOnlySpan<char>) =
+        let mutable looping = true
+        let mutable currPos = 0
+        let inputLen = input.Length
+        let strLen = str.Length
+        let limit = inputLen - str.Length
+        while looping do
+            match input.Slice(currPos).IndexOf(str, StringComparison.Ordinal) with
+            | -1 -> looping <- false
+            | n ->
+                let start = currPos + n
+                acc.Add({ MatchPosition.Index = start; Length = strLen })
+                currPos <- start + strLen
+                // if currPos > limit then
+                //     looping <- false
+
+    let locateStringsByte (acc:SharedResizeArrayStruct<MatchPosition>) (input:ReadOnlySpan<byte>) (str:ReadOnlySpan<byte>) =
+        let mutable looping = true
+        let mutable currPos = 0
+        let inputLen = input.Length
+        let strLen = str.Length
+        let limit = inputLen - strLen
+        while looping do
+            match input.Slice(currPos).IndexOf(str) with
+            | -1 -> looping <- false
+            | n ->
+                let start = currPos + n
+                acc.Add({ MatchPosition.Index = start; Length = strLen })
+                currPos <- start + strLen
+                // if currPos > limit then
+                //     looping <- false
+
+
+
+
 [<RequireQualifiedAccess>]
 type InitialOptimizations<'t> =
     | NoOptimizations
@@ -24,8 +61,6 @@ type InitialOptimizations<'t> =
     | SearchValuesPrefix of prefix: Memory<MintermSearchValues<'t>> * transitionNodeId: int
     /// potential start prefix from searchvalues
     | SearchValuesPotentialStart of prefix: Memory<MintermSearchValues<'t>> * tsetprefix: Memory<'t>
-
-
 
 
 type ActiveBranchOptimizations<'t> =

@@ -12,9 +12,7 @@ open System.Globalization
 
 // run (many1 Parsers.r_regex) "ab(cd|ef)"
 // run (r_regex) "[ab\]cabc]"
-
 // let pat1 = "ab(cd|ef)"
-//
 // let test = run pcharset "(123)"
 
 let logicOperator = (anyOf [ '→'; '≡'; '≢'; ])

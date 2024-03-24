@@ -363,6 +363,15 @@ type TwainRegexesMatchOnly() =
         )
 
 
+type RebarSample() =
+    inherit
+        Jobs.TestAllEnginesAllPatternsMatchOnlyRebar(
+
+            """Sherlock Holmes"""
+            ,
+            "/mnt/ice/repos/rebar/benchmarks/haystacks/opensubtitles/en-sampled.txt"
+        )
+
 
 type Rebar1() =
     inherit

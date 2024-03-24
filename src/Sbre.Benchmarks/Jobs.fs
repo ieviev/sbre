@@ -1178,7 +1178,84 @@ type TestAllEnginesAllPatternsMatchOnly(patterns: string list, input: string) =
         this.Sbre_Regex.Count(inputText)
     //
 
+[<MemoryDiagnoser(false)>]
+[<ShortRunJob>]
+[<AbstractClass>]
+[<HideColumns([| "" |])>]
+type TestAllEnginesAllPatternsMatchOnlyRebar(pattern: string, input: string) =
+    do AppContext.SetData("REGEX_NONBACKTRACKING_MAX_AUTOMATA_SIZE", 1_000_000)
+    let utf16Input = input |> System.IO.File.ReadAllText
+    let utf8Input = input |> System.IO.File.ReadAllBytes
+    let opts_None =
+        Text.RegularExpressions.RegexOptions.None
+        ||| Text.RegularExpressions.RegexOptions.ExplicitCapture
+    let opts_NonBacktracking =
+        Text.RegularExpressions.RegexOptions.NonBacktracking
+        ||| Text.RegularExpressions.RegexOptions.ExplicitCapture
+    let opts_Compiled =
+        Text.RegularExpressions.RegexOptions.Compiled
+        ||| Text.RegularExpressions.RegexOptions.ExplicitCapture
 
+    member val Utf16Pattern: string = pattern with get, set
+    member val Utf8Pattern: byte[] = Text.Encoding.UTF8.GetBytes(pattern) with get, set
+
+    member val None_Regex: System.Text.RegularExpressions.Regex = Unchecked.defaultof<_> with get, set
+
+    member val NonBack_Regex: System.Text.RegularExpressions.Regex =
+        Unchecked.defaultof<_> with get, set
+
+    member val Compiled_Regex: System.Text.RegularExpressions.Regex =
+        Unchecked.defaultof<_> with get, set
+
+    member val Sbre_Regex: Regex = Unchecked.defaultof<_>  with get, set
+
+    [<GlobalSetup>]
+    member this.Setup() =
+        // this.None_Regex <- System.Text.RegularExpressions.Regex(this.Pattern, opts_None)
+        // // this.NonBack_Regex <- System.Text.RegularExpressions.Regex(this.Pattern, opts_NonBacktracking)
+        // this.Compiled_Regex <- System.Text.RegularExpressions.Regex(this.Pattern, opts_Compiled)
+        // this.Sbre_Regex <- Regex(this.Pattern, SbreOptions.HighThroughputDefaults)
+        ()
+
+
+    [<Benchmark(Description = "LiteralUtf16")>]
+    member this.LiteralUtf16() =
+        use acc = new SharedResizeArrayStruct<MatchPosition>(512)
+        let r =
+            Optimizations.Overrides.locateStringsUtf16
+                acc
+                utf16Input
+                this.Utf16Pattern
+        ()
+
+    [<Benchmark(Description = "LiteralByte")>]
+        member this.LiteralByte() =
+            use acc = new SharedResizeArrayStruct<MatchPosition>(512)
+            let r =
+                Optimizations.Overrides.locateStringsByte
+                    acc
+                    utf8Input
+                    this.Utf8Pattern
+            ()
+
+    // [<Benchmark(Description = "NonBacktrack")>]
+    // member this.Symbolic() =
+    //     this.NonBack_Regex.Count(inputText)
+
+    // [<Benchmark(Description = "Compiled")>]
+    // member this.Compiled() =
+    //     use acc = new SharedResizeArrayStruct<MatchPosition>(512)
+    //     Optimizations.Overrides.locateStringsUtf16
+    //     this.Compiled_Regex.Count(utf16Input)
+    //
+    // [<Benchmark(Description = "None")>]
+    // member this.None() =
+    //     this.None_Regex.Count(utf16Input)
+    //
+    // [<Benchmark(Description = "Sbre")>]
+    // member this.Sbre() =
+    //     this.Sbre_Regex.Count(utf16Input)
+    //
 
 
 

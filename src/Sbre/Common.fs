@@ -1,5 +1,6 @@
 namespace Sbre
 
+open System
 open System.Globalization
 
 
@@ -142,3 +143,29 @@ module BDD =
                 if isInverted then $"[{inv}{orig}]" else
                 orig
             else $"[{inv}{addedSets}{orig}]"
+
+
+
+[<Struct>]
+type MatchResult = {
+    Value: string
+    Index: int
+    Length: int
+}
+
+[<Struct>]
+type SingleMatchResult = {
+    Success: bool
+    Value: string
+    Index: int
+    Length: int
+}
+
+[<CLIMutable>]
+[<Struct>]
+type MatchPosition = {
+    Index: int
+    Length: int
+} with
+    member this.GetText(input: ReadOnlySpan<char>) =
+        input.Slice(this.Index, this.Length).ToString()

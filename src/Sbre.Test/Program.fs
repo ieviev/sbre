@@ -9,7 +9,6 @@ open Sbre.Benchmarks
 open Sbre.Parser
 open Sbre.Test
 
-//
 // let suite = Paper.SampleRegexes()
 // for pat in suite.Patterns do
 //     suite.Pattern <- pat
@@ -33,14 +32,20 @@ open Sbre.Test
 //         suite.Sbre() |> ignore
 //
 
+//
+// let suite = WebappSamples.App1()
+// for pat in suite.Patterns do
+//     suite.Pattern <- pat
+//     suite.Setup()
+//     for i = 1 to 1000 do
+//         suite.Sbre() |> ignore
 
-let suite = WebappSamples.App1()
-for pat in suite.Patterns do
-    suite.Pattern <- pat
-    suite.Setup()
-    for i = 1 to 1000 do
-        suite.Sbre() |> ignore
 
+let suite = Paper.RebarSample()
+suite.Setup()
+for i = 1 to 1000 do
+    suite.LiteralByte()
+    suite.LiteralUtf16()
 
 
 // let pref = Optimizations.Prefix2()
@@ -101,9 +106,6 @@ let ab = 1
 //     stdout.WriteLine (Pattern.toString res)
 // | _ ->
 //     stdout.WriteLine (string parse1)
-
-
-
     // let pattern = ".*A.*→.*B.*"
 
 

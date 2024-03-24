@@ -133,8 +133,8 @@ let main argv =
     | "count-c" -> BenchmarkRunner.Run(typeof<Paper.CounterCompileTimeRegexes>,config) |> ignore
     | "count-m" -> BenchmarkRunner.Run(typeof<Paper.CounterMatchTimeRegexes>,config) |> ignore
     | "s" -> BenchmarkRunner.Run(typeof<Paper.SampleRegexes>,config) |> ignore
-
-
+    // ---
+    | "r" -> BenchmarkRunner.Run(typeof<Paper.RebarSample>,config) |> ignore
     | "rebar1" -> BenchmarkRunner.Run(typeof<Paper.Rebar1>,config) |> ignore
     | "rebar1ru" -> BenchmarkRunner.Run(typeof<Paper.Rebar1Ru>,config) |> ignore
     | "rebar2" -> BenchmarkRunner.Run(typeof<Paper.Rebar2>,config) |> ignore
