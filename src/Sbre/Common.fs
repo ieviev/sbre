@@ -36,11 +36,11 @@ type SbreOptions() =
     member val FindLookaroundPrefix = false with get, set
     member val FindPotentialStartSizeLimit = 500 with get, set
     member val UsePrefixOptimizations = true with get, set
-    member val UseEcma = false with get, set
+    member val UseUnicode = true with get, set
     member val UseByteOptimizations = true with get, set
     member val UseUtf16Optimizations = true with get, set
 
-    static member HighThroughputDefaults =
+    static member HighThroughputAscii =
         SbreOptions(
             CanonicalizeStates=false,
             CompressPattern=true,
@@ -49,7 +49,18 @@ type SbreOptions() =
             UsePrefixOptimizations=true,
             InitialDfaCapacity=512,
             MaxPrefixLength = 20,
-            UseEcma=false
+            UseUnicode=false
+        )
+    static member HighThroughputUnicode =
+        SbreOptions(
+            CanonicalizeStates=false,
+            CompressPattern=true,
+            FindLookaroundPrefix=true,
+            FindPotentialStartSizeLimit=5000,
+            UsePrefixOptimizations=true,
+            InitialDfaCapacity=512,
+            MaxPrefixLength = 20,
+            UseUnicode=true
         )
     static member LearningDefaults =
         SbreOptions(

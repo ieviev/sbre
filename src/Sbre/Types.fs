@@ -1054,11 +1054,14 @@ module Memory =
         Memory.forall (fun v -> int v < 128 ) mem
 
     let inline tryConvertToAscii (mem: Memory<char>) =
-        if Memory.forall (fun v -> int v < 128 ) mem then
+        if Memory.forall (fun v -> (int v) < 128 || (int v) = 8490 ) mem then
             use mutable acc = new SharedResizeArrayStruct<byte>(16)
             let mutable e = mem.Span.GetEnumerator()
             while e.MoveNext() do
-                let r: byte = byte e.Current
+                let r: byte =
+                    match e.Current with
+                    | 'K' -> byte 'k'
+                    | _ -> byte e.Current
                 acc.Add(r)
             ValueSome (acc.AllocateArray().AsMemory())
         else

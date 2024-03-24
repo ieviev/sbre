@@ -25,6 +25,7 @@ type MintermSearchValues<'t> =
     val SearchValuesSize: int
     val CharactersInMinterm: Memory<char> option
     val Solver: ISolver<'t>
+    member this.CanUseAscii() = not (isNull this.SearchValuesByte)
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.Contains(chr: char) =

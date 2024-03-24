@@ -79,28 +79,7 @@ public ref struct ExtendedRegexParser
         _ignoreNextParen = false;
     }
 
-    /// <summary>Gets the culture to use based on the specified options.</summary>
-    public static CultureInfo GetTargetCulture(RegexOptions options)
-    {
-        return (options & RegexOptions.CultureInvariant) != 0
-            ? CultureInfo.InvariantCulture
-            : CultureInfo.CurrentCulture;
-    }
-
-    public static RegexOptions ParseOptionsInPattern(string pattern, RegexOptions options)
-    {
-        using var parser = new ExtendedRegexParser(pattern, options,
-            CultureInfo
-                .InvariantCulture, // since we won't perform case conversions, culture doesn't matter in this case.
-            new Hashtable(), 0, null, stackalloc int[OptionStackDefaultSize]);
-        // We don't really need to Count the Captures, but this method will already do a quick
-        // pass through the pattern, and will scan the options found and return them as an out
-        // parameter, so we use that to get out the pattern inline options.
-        parser.CountCaptures(out var foundOptionsInPattern);
-        parser.Reset(options);
-        return foundOptionsInPattern;
-    }
-
+  
     public static RegexTree Parse(string pattern, RegexOptions options, CultureInfo culture)
     {
         using var parser = new ExtendedRegexParser(pattern, options, culture, new Hashtable(), 0, null,
@@ -130,21 +109,6 @@ public ref struct ExtendedRegexParser
             options, parser._hasIgnoreCaseBackreferenceNodes ? culture : null);
     }
 
-    /// <summary>
-    /// This static call constructs a flat concatenation node given a replacement pattern.
-    /// </summary>
-    public static RegexReplacement ParseReplacement(string pattern, RegexOptions options, Hashtable caps, int capsize,
-        Hashtable capnames)
-    {
-        var culture = (options & RegexOptions.CultureInvariant) != 0
-            ? CultureInfo.InvariantCulture
-            : CultureInfo.CurrentCulture;
-        using var parser = new ExtendedRegexParser(pattern, options, culture, caps, capsize, capnames,
-            stackalloc int[OptionStackDefaultSize]);
-        var root = parser.ScanReplacement();
-        var regexReplacement = new RegexReplacement(pattern, root, caps);
-        return regexReplacement;
-    }
 
     /// <summary>
     /// Escapes all metacharacters (including |,(,),[,{,|,^,$,*,+,?,\, spaces and #)
@@ -1836,10 +1800,6 @@ public ref struct ExtendedRegexParser
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, Q, S, 0, S, 0
     };
 
-// #if NET7_0_OR_GREATER
-    // private static readonly IndexOfAnyValues<char> s_metachars = IndexOfAnyValues.Create("\t\n\f\r #$()*+.?[\\^{|");
-    // private static int IndexOfMetachar(ReadOnlySpan<char> input) => input.IndexOfAny(s_metachars);
-// #else
     private static int IndexOfMetachar(ReadOnlySpan<char> input)
     {
         for (var i = 0; i < input.Length; i++)

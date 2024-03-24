@@ -172,7 +172,8 @@ module private BuilderHelpers =
 /// reuses nodes and ensures reference equality
 [<Sealed>]
 type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
-    (converter: RegexNodeConverter, solver: ISolver< 't >, bcss: CharSetSolver, options:SbreOptions) as b =
+    (
+        converter: RegexNodeConverter, solver: ISolver< 't >, bcss: CharSetSolver, options:SbreOptions) as b =
     static let _createInfo flags containsMinterms pendingNullables =
         RegexNodeInfo<'t>(NodeFlags = flags, SubsumedByMinterm = containsMinterms, PendingNullables=pendingNullables)
 
@@ -433,13 +434,11 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
     let mutable _prefixCache: Dictionary<RegexNode<'t>, InitialStartset<'t>> =
         Dictionary(_refComparer)
 
-    // let mutable _uniquesDict : Dictionary<RegexNode<BDD>,RegexNode<'t>> = Dictionary<RegexNode<BDD>,RegexNode<'t>>(_bddrefComparer)
-
-    // let _or_derivatives = HashSet(_refComparer)
-    // let _and_derivatives = HashSet(_refComparer)
-    // let _and_complements = HashSet(_refComparer)
-    // let _or_loop_dict = Dictionary<struct(RegexNode<'t>*RegexNode<'t>),int>(_concatCacheComparer)
-    // let _or_values = ResizeArray()
+    let shouldOverrideIfNotUnicode =
+        dict [|
+            RegexCharClass.CharsToStringClass("KkK"), RegexCharClass.CharsToStringClass("Kk")
+            RegexCharClass.DigitClass, RegexCharClass.CharsToStringClass("0123456789")
+        |]
 
 
     member this.truePlus = _uniques._truePlus
@@ -481,7 +480,13 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
         // --
 
     member this.setFromNode(node: RegexNode) =
-        let bdd = converter.CreateBDDFromSetString(node.Str)
+        let adjustedSetString =
+            if not options.UseUnicode then
+                match shouldOverrideIfNotUnicode.TryGetValue(node.Str) with
+                | true, v -> v
+                | _ -> node.Str
+            else node.Str
+        let bdd = converter.CreateBDDFromSetString(adjustedSetString)
         let a2 = solver.ConvertFromBDD(bdd, bcss)
         if solver.IsFull(a2) then
             _uniques._true

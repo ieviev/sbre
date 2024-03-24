@@ -28,6 +28,7 @@ let main argv =
 
     match Environment.GetCommandLineArgs() |> Seq.last with
     | "b" -> BenchmarkRunner.Run(typeof<ByteMode.Bytes1>,config) |> ignore
+    | "b2" -> BenchmarkRunner.Run(typeof<ByteMode.Bytes2>,config) |> ignore
     // --
     | "app1" -> BenchmarkRunner.Run(typeof<WebappSamples.App1>,config) |> ignore
     // ---

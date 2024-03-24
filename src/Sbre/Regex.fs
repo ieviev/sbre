@@ -16,7 +16,6 @@ open Sbre.Pat
 open System.Runtime.InteropServices
 
 
-
 [<AbstractClass>]
 type GenericRegexMatcher() =
     abstract member IsMatch: input: ReadOnlySpan<char> -> bool
@@ -534,7 +533,7 @@ type RegexMatcher<
 
     let _prefixSets =
         match _utf16InitialOptimizations with
-        | InitialOptimizations.SearchValuesPotentialStart(prefix,_) ->
+        | InitialOptimizations.SearchValuesPotentialStart(prefix) ->
             prefix.ToArray() |> Array.rev
         | InitialOptimizations.SearchValuesPrefix(prefix, _) ->
             prefix.ToArray() |> Array.rev
@@ -1001,7 +1000,7 @@ type RegexMatcher<
             | ValueNone -> // no matches remaining
                 loc.Position <- 0
                 false
-        | InitialOptimizations.SearchValuesPotentialStart (prefix,_) ->
+        | InitialOptimizations.SearchValuesPotentialStart (prefix) ->
 #if SKIP_PREFIX
             let skipResult = this.TrySkipInitialRevWeightedChar &loc
 #else
@@ -1025,14 +1024,17 @@ type RegexMatcher<
                 currentStateId <- transitionNodeId
                 loc.Position <- resultStart
                 true
-        | InitialOptimizations.StringPrefixCaseIgnore(_,tailSet, prefix,_, transitionNodeId) ->
+        | InitialOptimizations.StringPrefixCaseIgnore(prefix,isAscii, transitionNodeId) ->
             let mutable resultStart = loc.Position
             let mutable found = false
+            let lastChar = prefix.Span[prefix.Length-1]
+            let lowChar = Char.ToLowerInvariant lastChar
+            let upChar = Char.ToUpperInvariant lastChar
             let prefixSpan = prefix.Span.Slice(0,prefix.Length-1)
             let textSpan = loc.Input
             while not found  do
                 let mutable slice = textSpan.Slice(0, resultStart)
-                resultStart <- slice.LastIndexOfAny(tailSet)
+                resultStart <- slice.LastIndexOfAny(lowChar,upChar)
                 if resultStart = -1 then found <- true else
                 slice <- textSpan.Slice(0, resultStart)
                 match slice.EndsWith(prefixSpan, StringComparison.OrdinalIgnoreCase) with
@@ -1051,7 +1053,7 @@ type RegexMatcher<
         | _ -> false
 
     member this.TrySkipInitialRevByte(loc:byref<Location<byte>>, currentStateId:byref<int>) : bool =
-        match _utf16InitialOptimizations with
+        match _byteInitialOptimizations with
         | InitialOptimizations.SearchValuesPrefix (prefix,transitionNodeId) ->
 #if SKIP_PREFIX
             let skipResult = this.TrySkipInitialRevWeightedByte &loc
@@ -1067,7 +1069,7 @@ type RegexMatcher<
             | ValueNone -> // no matches remaining
                 loc.Position <- 0
                 false
-        | InitialOptimizations.SearchValuesPotentialStart (prefix,_) ->
+        | InitialOptimizations.SearchValuesPotentialStart (prefix) ->
 #if SKIP_PREFIX
             let skipResult = this.TrySkipInitialRevWeightedByte &loc
 #else
@@ -1082,40 +1084,15 @@ type RegexMatcher<
                 loc.Position <- 0
                 false
         | InitialOptimizations.StringPrefix(prefix, transitionNodeId) ->
-            failwith "todo"
-            // let slice = loc.Input.Slice(0, loc.Position)
-            // let resultStart = slice.LastIndexOf(prefix.Span)
-            // if resultStart = -1 then
-            //     loc.Position <- Location.final loc
-            //     false
-            // else
-            //     currentStateId <- transitionNodeId
-            //     loc.Position <- resultStart
-            //     true
-        | InitialOptimizations.StringPrefixCaseIgnore(_,tailSet, prefix,_, transitionNodeId) ->
-            failwith "todo"
-            // let mutable resultStart = loc.Position
-            // let mutable found = false
-            // let prefixSpan = prefix.Span.Slice(0,prefix.Length-1)
-            // let textSpan = loc.Input
-            // while not found  do
-            //     let mutable slice = textSpan.Slice(0, resultStart)
-            //     resultStart <- slice.LastIndexOfAny(tailSet)
-            //     if resultStart = -1 then found <- true else
-            //     slice <- textSpan.Slice(0, resultStart)
-            //     match slice.EndsWith(prefixSpan, StringComparison.OrdinalIgnoreCase) with
-            //     | true ->
-            //         resultStart <- resultStart - prefix.Span.Length + 1
-            //         found <- true
-            //     | _ -> ()
-            //
-            // if resultStart = -1 then
-            //     loc.Position <- Location.final loc
-            //     false
-            // else
-            //     currentStateId <- transitionNodeId
-            //     loc.Position <- resultStart
-            //     true
+            let slice = loc.Input.Slice(0, loc.Position)
+            let resultStart = slice.LastIndexOf(prefix.Span)
+            if resultStart = -1 then
+                loc.Position <- Location.final loc
+                false
+            else
+                currentStateId <- transitionNodeId
+                loc.Position <- resultStart
+                true
         | _ -> false
 
 
@@ -1225,15 +1202,11 @@ type RegexMatcher<
         currentStateId:byref<int>,
         acc: byref<SharedResizeArrayStruct<int>>) : bool =
 
-
         if StateFlags.hasActiveBranchOptimizations flags then
-
             let dfaState = _stateArray[currentStateId]
             match dfaState.ActiveOptimizationsByte with
             | LimitedSkipOnePath(distance, _, failPred, skipToEndTransitionId, cachedTransitions) ->
-
                 if distance > loc.Position then // no more matches
-                // loc.Position <- Location.final loc
                     false
                 else
                     let startPos = loc.Position - distance
@@ -1266,30 +1239,6 @@ type RegexMatcher<
                         currentStateId <- tempStateId
                         loc.Position <- loc.Position - 1
                         true
-            | LimitedSkip(distance, successPred, termTransitionId, failPred, skipToEndTransitionId) ->
-                false
-                // if distance > loc.Position then // no more matches
-                //     // loc.Position <- Location.final loc
-                //     false
-                // else
-                //     let limitedSlice = loc.Input.Slice(loc.Position - distance, distance)
-                //     match _cache.TryNextIndexRightToLeft(&limitedSlice,failPred) with
-                //     | -1 ->
-                //         loc.Position <- loc.Position - distance
-                //         currentStateId <- skipToEndTransitionId
-                //         // let newState = _stateArray[currentStateId]
-                //         true
-                //     | idx ->
-                //         match successPred.Contains(limitedSlice[idx]) with
-                //         | true ->
-                //             let newPos = loc.Position - distance + idx
-                //             loc.Position <- newPos
-                //             currentStateId <- termTransitionId
-                //             true
-                //         | _ ->
-                //             let newPos = loc.Position - distance + idx
-                //             loc.Position <- newPos
-                //             false // mark nullable
             | NoOptimizations -> false
             | SkippableLookahead _ -> false
             | LimitedSkip2Chars _ -> false
@@ -1314,15 +1263,12 @@ type RegexMatcher<
         currentStateId:byref<int>,
         acc: byref<SharedResizeArrayStruct<int>>) : bool =
 
-
         if StateFlags.hasActiveBranchOptimizations flags then
 
             let dfaState = _stateArray[currentStateId]
             match dfaState.ActiveOptimizationsChar with
             | LimitedSkipOnePath(distance, _, failPred, skipToEndTransitionId, cachedTransitions) ->
-
                 if distance > loc.Position then // no more matches
-                // loc.Position <- Location.final loc
                     false
                 else
                     let startPos = loc.Position - distance
@@ -1355,30 +1301,6 @@ type RegexMatcher<
                         currentStateId <- tempStateId
                         loc.Position <- loc.Position - 1
                         true
-            | LimitedSkip(distance, successPred, termTransitionId, failPred, skipToEndTransitionId) ->
-                false
-                // if distance > loc.Position then // no more matches
-                //     // loc.Position <- Location.final loc
-                //     false
-                // else
-                //     let limitedSlice = loc.Input.Slice(loc.Position - distance, distance)
-                //     match _cache.TryNextIndexRightToLeft(&limitedSlice,failPred) with
-                //     | -1 ->
-                //         loc.Position <- loc.Position - distance
-                //         currentStateId <- skipToEndTransitionId
-                //         // let newState = _stateArray[currentStateId]
-                //         true
-                //     | idx ->
-                //         match successPred.Contains(limitedSlice[idx]) with
-                //         | true ->
-                //             let newPos = loc.Position - distance + idx
-                //             loc.Position <- newPos
-                //             currentStateId <- termTransitionId
-                //             true
-                //         | _ ->
-                //             let newPos = loc.Position - distance + idx
-                //             loc.Position <- newPos
-                //             false // mark nullable
             | NoOptimizations -> false
             | SkippableLookahead _ -> false
             | LimitedSkip2Chars _ -> false
@@ -1494,7 +1416,6 @@ type RegexMatcher<
             this.TakeStepWithAnchorsByte(&acc,&loc,&currentStateId)
 
         while looping do
-            // let dfaState = _stateArray[currentStateId]
             let flags = _flagsArray[currentStateId]
 #if SKIP
             // if false
@@ -1643,7 +1564,7 @@ type RegexMatcher<
                         let start = currPos + n
                         acc.Add({ MatchPosition.Index = start; Length = textLength })
                         currPos <- start + textLength
-        | OverrideRegex.FixedLengthStringCaseIgnore (headSet,s, ascii) ->
+        | OverrideRegex.FixedLengthStringCaseIgnore (s, ascii) ->
             let pspan = s.Span
             let mutable looping = true
             let mutable currPos = 0
@@ -1662,7 +1583,7 @@ type RegexMatcher<
             else
                 while looping do
                     let slice = tspan.Slice(currPos)
-                    let start = slice.IndexOfAny(headSet)
+                    let start = slice.IndexOf(pspan.Slice(0,1), StringComparison.OrdinalIgnoreCase)
                     if start = -1 then looping <- false else
                     match slice.Slice(start).StartsWith(pspan, StringComparison.OrdinalIgnoreCase) with
                     | false -> currPos <- currPos + start + 1
@@ -1676,8 +1597,8 @@ type RegexMatcher<
         match overridden with
         | OverrideRegex.FixedLengthString s ->
             Overrides.locateStringsByte acc loc.Input s.Span
-        | OverrideRegex.FixedLengthStringCaseIgnore (headSet,s, ascii) ->
-            failwith "todo"
+        | OverrideRegex.FixedLengthStringCaseIgnore (s, ascii) ->
+            failwith "todo case insensitive byte search"
             // let pspan = s.Span
             // let mutable looping = true
             // let mutable currPos = 0
@@ -1924,11 +1845,10 @@ type Regex(pattern: string, [<Optional; DefaultParameterValue(null:SbreOptions)>
     let pattern = pattern.Replace("⊤", @"[\s\S]")
 
     // experimental parser!
-    let ecma = if options.UseEcma then RegexOptions.ECMAScript else RegexOptions.None
     let regexTree =
         ExtendedRegexParser.Parse(
             pattern,
-            RegexOptions.ExplicitCapture ||| RegexOptions.NonBacktracking ||| RegexOptions.Multiline ||| RegexOptions.CultureInvariant ||| ecma,
+            RegexOptions.ExplicitCapture ||| RegexOptions.NonBacktracking ||| RegexOptions.Multiline ||| RegexOptions.CultureInvariant,
             CultureInfo.InvariantCulture
         )
     let charsetSolver = CharSetSolver()

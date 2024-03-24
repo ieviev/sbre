@@ -117,8 +117,9 @@ let assertPotentialStart (pattern:string) (expectedPatterns: string seq) =
             (fun node -> matcher.GetOrCreateState(node).Flags)
             matcher.Cache matcher.ReversePattern matcher.ReverseTrueStarredPattern
     match optimizations with
-    | Optimizations.InitialOptimizations.SearchValuesPotentialStart(_,prefix) ->
-        let prefixString = Optimizations.printPrefixSets matcher.Cache (prefix.ToArray() |> Seq.toList)
+    | Optimizations.InitialOptimizations.SearchValuesPotentialStart(prefix) ->
+        let mtarr = prefix.ToArray() |> Array.map (fun v -> v.Minterm)
+        let prefixString = Optimizations.printPrefixSets matcher.Cache (mtarr |> Seq.toList)
         Assert.Contains(prefixString,expectedPatterns)
     | _ -> failwith $"invalid optimization result: {optimizations}"
 
@@ -138,7 +139,7 @@ let assertPrefixLength pattern expected =
             (fun node -> matcher.GetOrCreateState(node).Flags)
             matcher.Cache matcher.ReversePattern matcher.ReverseTrueStarredPattern
     match optimizations with
-    | Optimizations.InitialOptimizations.SearchValuesPotentialStart(prefix,_) ->
+    | Optimizations.InitialOptimizations.SearchValuesPotentialStart(prefix) ->
         Assert.Equal(expected, prefix.Length)
     | Optimizations.InitialOptimizations.SearchValuesPrefix(prefix,_) ->
         Assert.Equal(expected, prefix.Length)
@@ -177,7 +178,7 @@ let assertBvSetsPrefix pattern expected =
     | Optimizations.InitialOptimizations.SearchValuesPrefix(prefix, transId) ->
         let prefixString = Optimizations.printPrefixSets2 matcher.Cache (prefix.ToArray() |> Seq.map (fun v -> v.Minterm) |>  Seq.toList)
         Assert.Equal(expected, prefixString)
-    | Optimizations.InitialOptimizations.SearchValuesPotentialStart(prefix, transId) ->
+    | Optimizations.InitialOptimizations.SearchValuesPotentialStart(prefix) ->
         let prefixString = Optimizations.printPrefixSets2 matcher.CacheObj (prefix.ToArray() |> Seq.map (fun v -> v.Minterm) |>  Seq.toList)
         Assert.Equal(expected, prefixString)
     | _ -> failwith $"invalid optimization result: {optimizations}"
@@ -235,27 +236,6 @@ let assertRevStates (pattern:string) (input:string) (expectedRegexesList:string 
     ()
 
 
-let assertLimitedSkip (pattern:string) (der1c:char) (lambda: _ -> unit) =
-    let regex = Regex(pattern)
-    let matcher = regex.TSetMatcher
-    let c = matcher.Cache
-    let getder = (fun (mt,node) ->
-        let loc = Pat.Location.getNonInitial()
-        matcher.CreateDerivative(&loc, mt,node)
-    )
-    let der1 = getder(c.CharToMinterm(der1c), matcher.ReverseTrueStarredPattern)
-    let optimizations =
-        Optimizations.tryGetLimitedSkip
-            regex.Options
-            getder
-            (fun node -> matcher.GetOrCreateState(node).Flags)
-            (fun node -> matcher.GetOrCreateState(node).Id)
-            (fun node -> matcher.GetOrCreateState(node).Startset)
-            matcher.Cache matcher.ReverseTrueStarredPattern der1
-    match optimizations with
-    | Some (Optimizations.ActiveBranchOptimizations.LimitedSkip(distance=dist; successPred = succPred; failPred = failPred)) ->
-        lambda (dist, c.PrettyPrintMinterm(succPred.Minterm), c.PrettyPrintMinterm(failPred.Minterm))
-    | _ -> failwith "invalid optimization result"
 
 
 // let assertNullability (regex:Regex) (input:string) (expectedRegexesList:string list list)  =

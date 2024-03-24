@@ -863,7 +863,7 @@ type TestAllEnginesAllPatternsMatchOnly(patterns: string list, input: string) =
         this.None_Regex <- System.Text.RegularExpressions.Regex(this.Pattern, opts_None)
         // this.NonBack_Regex <- System.Text.RegularExpressions.Regex(this.Pattern, opts_NonBacktracking)
         this.Compiled_Regex <- System.Text.RegularExpressions.Regex(this.Pattern, opts_Compiled)
-        this.Sbre_Regex <- Regex(this.Pattern, SbreOptions.HighThroughputDefaults)
+        this.Sbre_Regex <- Regex(this.Pattern, SbreOptions.HighThroughputAscii)
 
 
     // [<Benchmark(Description = "NonBacktrack")>]
@@ -1061,7 +1061,7 @@ type TestSbreAllPatternsMatchOnly(patterns: (string) list, input: string) =
 
     [<GlobalSetup>]
     member this.Setup() =
-        let regex = Regex(Parser.parsePattern this.Pattern, SbreOptions.HighThroughputDefaults)
+        let regex = Regex(Parser.parsePattern this.Pattern, SbreOptions.HighThroughputAscii)
         let matcher = regex.Matcher :?> RegexMatcher<TSet>
         this.CompiledEngine <- matcher
         ()
@@ -1088,7 +1088,7 @@ type TestSbreAllPatternsCountSpans(patterns: (string) list, input: string) =
 
     [<GlobalSetup>]
     member this.Setup() =
-        let opts = SbreOptions.HighThroughputDefaults
+        let opts = SbreOptions.HighThroughputAscii
         let regex = Regex(this.Pattern,opts)
         // let matcher = regex.Matcher :?> RegexMatcher<TSet>
         this.CompiledEngine <- regex
@@ -1132,6 +1132,36 @@ type TestSbreByte(patterns: string list, filePath: string, sbreOptions:SbreOptio
         for m in matches do
             ()
 
+[<MemoryDiagnoser(false)>]
+[<ShortRunJob>]
+[<AbstractClass>]
+[<HideColumns([| "" |])>]
+type TestSbreLarge(patterns: string list, filePath: string, sbreOptions:SbreOptions) =
+    let utf8Input = filePath |> System.IO.File.ReadAllBytes
+    let utf16Input = utf8Input |> System.Text.Encoding.UTF8.GetChars
+    // member val CompiledEngine: Sbre.RegexMatcher<TSet> = Unchecked.defaultof<_> with get, set
+    member val CompiledEngine: Sbre.Regex = Unchecked.defaultof<_> with get, set
+    member this.Patterns: System.Collections.Generic.IEnumerable<string> = patterns
+    [<ParamsSource("Patterns")>]
+    member val Pattern: string = "" with get, set
+
+    [<GlobalSetup>]
+    member this.Setup() =
+        let regex = Regex(this.Pattern,sbreOptions)
+        this.CompiledEngine <- regex
+        ()
+
+    [<Benchmark(Description = "Utf16")>]
+    member this.SbreUtf16() =
+        use matches = this.CompiledEngine.MatchPositions(utf16Input)
+        for m in matches do
+            ()
+
+    [<Benchmark(Description = "Byte")>]
+    member this.SbreByte() =
+        use matches = this.CompiledEngine.MatchPositions(utf8Input)
+        for m in matches do
+            ()
 
 
 [<MemoryDiagnoser(false)>]
