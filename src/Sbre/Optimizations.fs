@@ -2,6 +2,7 @@ module rec Sbre.Optimizations
 
 open System.Buffers
 open System.Collections.Generic
+open System.Text
 open System.Text.RuntimeRegexCopy
 open System.Text.RuntimeRegexCopy.Symbolic
 open Sbre.Algorithm
@@ -27,7 +28,7 @@ module Overrides =
                 // if currPos > limit then
                 //     looping <- false
 
-    let locateStringsByte (acc:SharedResizeArrayStruct<MatchPosition>) (input:ReadOnlySpan<byte>) (str:ReadOnlySpan<byte>) =
+    let locateStringsByte (acc:SharedResizeArrayStruct<MatchPosition>) (input:ReadOnlySpan<byte>) (str:Span<byte>) =
         let mutable looping = true
         let mutable currPos = 0
         let inputLen = input.Length
@@ -40,21 +41,18 @@ module Overrides =
                 let start = currPos + n
                 acc.Add({ MatchPosition.Index = start; Length = strLen })
                 currPos <- start + strLen
-                // if currPos > limit then
-                //     looping <- false
-
 
 
 
 [<RequireQualifiedAccess>]
-type InitialOptimizations<'t> =
+type InitialOptimizations<'t, 'tchar when 'tchar : struct and 'tchar :> IEquatable<'tchar>> =
     | NoOptimizations
     /// ex. Twain ==> (ε|Twain)
-    | StringPrefix of prefix: Memory<char> * transitionNodeId: int
+    | StringPrefix of prefix: Memory<'tchar> * transitionNodeId: int
     | StringPrefixCaseIgnore of
-        headSet: SearchValues<char> *
-        tailSet: SearchValues<char> *
-        prefix: Memory<char> *
+        headSet: SearchValues<'tchar> *
+        tailSet: SearchValues<'tchar> *
+        prefix: Memory<'tchar> *
         isAscii: bool *
         transitionNodeId: int
     /// | StringPrefixCaseIgnore of engine:System.Text.RegularExpressions.Regex * transitionNodeId:int
@@ -63,7 +61,7 @@ type InitialOptimizations<'t> =
     | SearchValuesPotentialStart of prefix: Memory<MintermSearchValues<'t>> * tsetprefix: Memory<'t>
 
 
-type ActiveBranchOptimizations<'t> =
+type ActiveBranchOptimizations<'t, 'tchar when 'tchar : struct and 'tchar :> IEquatable<'tchar>> =
     | SkippableLookahead of a: int
     | LimitedSkip of
         distance: int *
@@ -83,9 +81,6 @@ type ActiveBranchOptimizations<'t> =
         failPred: MintermSearchValues<'t> *
         skipToEndTransitionId: int *
         cachedTransitions: int[]
-
-
-    | PossibleStringPrefix of prefix: Memory<char> * transitionNodeId: int
     | NoOptimizations
 
 
@@ -101,11 +96,11 @@ type LengthLookup<'t> =
 
 /// override for trivial literal string search
 [<RequireQualifiedAccess>]
-type OverrideRegex =
-    | FixedLengthString of string: Memory<char>
+type OverrideRegex<'tchar when 'tchar : struct and 'tchar :> IEquatable<'tchar>> =
+    | FixedLengthString of string: Memory<'tchar>
     | FixedLengthStringCaseIgnore of
-        firstSet: SearchValues<char> *
-        string: Memory<char> *
+        firstSet: SearchValues<'tchar> *
+        string: Memory<'tchar> *
         isAscii: bool
 
 #if DEBUG
@@ -340,17 +335,16 @@ let rec applyPrefixSetsWhileNotNullable
 
 let findInitialOptimizations
     (options:SbreOptions)
-    getNonInitialDerivative
+    (getNonInitialDerivative: 't * RegexNode<'t> -> RegexNode<'t>)
     (nodeToId: RegexNode<'t> -> int)
     (nodeToStateFlags: RegexNode<'t> -> RegexStateFlags)
     (c: RegexCache<'t>)
     (node: RegexNode<'t>)
-    (trueStarredNode: RegexNode<'t>)
+    (trueStarredNode: RegexNode<'t>): InitialOptimizations<'t,char>
     =
         match Optimizations.calcPrefixSets getNonInitialDerivative nodeToStateFlags c node with
         | prefix when prefix.Length > 1 ->
             let mts = c.Minterms()
-
             let singleCharPrefixes =
                 prefix
                 |> Seq.map (fun v ->
@@ -377,7 +371,6 @@ let findInitialOptimizations
                         c
                         trueStarredNode
                         (List.take singleCharPrefixes.Length prefix)
-
                 InitialOptimizations.StringPrefix(singleCharPrefixes, nodeToId applied)
             else
 
@@ -430,10 +423,10 @@ let findInitialOptimizations
                         (List.take caseInsensitivePrefixes.Length prefix)
 
                 let tailSet =
-                    prefix |> List.head |> c.MintermSearchValues |> (fun v -> v.SearchValues)
+                    prefix |> List.head |> c.MintermSearchValues |> (fun v -> v.SearchValuesUtf16)
 
                 let headSet =
-                    prefix |> List.last |> c.MintermSearchValues |> (fun v -> v.SearchValues)
+                    prefix |> List.last |> c.MintermSearchValues |> (fun v -> v.SearchValuesUtf16)
 
                 let allAscii = caseInsensitivePrefixes |> Memory.forall Char.IsAscii
 
@@ -465,6 +458,20 @@ let findInitialOptimizations
                 InitialOptimizations.SearchValuesPotentialStart(searchPrefix, Memory(Seq.toArray potentialStart))
             | _ -> InitialOptimizations.NoOptimizations
 
+
+let convertInitialOptimizations (initOpts:InitialOptimizations<'t,char>) : InitialOptimizations<'t,byte> =
+    match initOpts with
+    | InitialOptimizations.NoOptimizations -> InitialOptimizations.NoOptimizations
+    | InitialOptimizations.StringPrefix(prefix, transitionNodeId) ->
+        match prefix |> Memory.tryConvertToAscii with
+        | ValueSome s -> InitialOptimizations.StringPrefix(s, transitionNodeId)
+        | _ -> InitialOptimizations.NoOptimizations
+    | InitialOptimizations.StringPrefixCaseIgnore(headSet, tailSet, prefix, isAscii, transitionNodeId) ->
+        failwith "todo byte optimizations"
+    | InitialOptimizations.SearchValuesPrefix(prefix, transitionNodeId) ->
+        InitialOptimizations.SearchValuesPrefix(prefix, transitionNodeId)
+    | InitialOptimizations.SearchValuesPotentialStart(prefix, tsetprefix) ->
+        InitialOptimizations.SearchValuesPotentialStart(prefix, tsetprefix)
 
 let tryGetLimitedSkip
     (options:SbreOptions)
@@ -958,12 +965,12 @@ let inferLengthLookup
     )
 
 let inferOverrideRegex
-    (initialOptimizations: InitialOptimizations<'t>)
+    (initialOptimizations: InitialOptimizations<'t,'tchar>)
     (lengthLookup: LengthLookup<'t>)
     (c: RegexCache<'t>)
     (node: RegexNode<'t>)
     (reverseNode: RegexNode<'t>)
-    : OverrideRegex option
+    : OverrideRegex<char> option
     =
     if node.DependsOnAnchor || node.HasZerowidthHead ||
        reverseNode.DependsOnAnchor || reverseNode.HasZerowidthHead then
@@ -979,4 +986,19 @@ let inferOverrideRegex
             fl = prefix.Length
             ->
             Some(OverrideRegex.FixedLengthString(prefix))
+        | _ -> None
+
+
+let convertOverrideRegex (initOpts:OverrideRegex<char> option) : OverrideRegex<byte> option =
+    match initOpts with
+    | None -> None
+    | Some (OverrideRegex.FixedLengthString(s)) ->
+        match Memory.tryConvertToAscii s with
+        | ValueSome ascii -> Some (OverrideRegex.FixedLengthString(ascii))
+        | _ -> None
+    | Some (OverrideRegex.FixedLengthStringCaseIgnore(fs,str,isAscii)) ->
+        match Memory.tryConvertToAscii str with
+        | ValueSome ascii ->
+            let head = SearchValues.Create([|ascii.Span[0]|])
+            Some (OverrideRegex.FixedLengthStringCaseIgnore(head,ascii,true))
         | _ -> None

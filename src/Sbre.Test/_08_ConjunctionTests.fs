@@ -340,7 +340,7 @@ ALWAYS hunt strawberries with a dog--and a lantern--"
 [<Fact>]
 let ``reverse startset test 1``() =
     let m = Regex(Permutations.permuteConjInParagraph [ "c[abci]*i";])
-    let r = m.MatchPositions("aaa caaiaa bbb\n\n") |> Seq.toArray
+    let r = m.MatchPositions("aaa caaiaa bbb\n\n").AllocateArray() |> Seq.toArray
     Assert.Equal(1,r.Length)
 
 
@@ -377,8 +377,7 @@ let ``implication 2 ``() =
     let pattern = @"\n~(⊤*\n\n⊤*)\n&~(⊤*honor⊤*)"
     let matcher1 = Regex(pattern)
     let result1 =
-        matcher1.MatchPositions(shortPg2)
-        |> Seq.toArray
+        matcher1.MatchPositions(shortPg2).AllocateArray()
     Assert.Equal(1, result1.Length)
 
 [<Fact>]

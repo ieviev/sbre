@@ -7,8 +7,6 @@ open BenchmarkDotNet.Running
 open Sbre.Benchmarks
 
 module private Helpers =
-    // let sample_mariomka = __SOURCE_DIRECTORY__ + "/data/mariomka-benchmark.txt" |> File.ReadAllText
-    // let sample_mtwain = __SOURCE_DIRECTORY__ + "/data/mtent12.txt" |> File.ReadAllText
     let sample_inputText = __SOURCE_DIRECTORY__ + "/data/input-text.txt" |> File.ReadAllText
     let pattern_mariomkauri = """[\w]+://[^/\s?#]+[^\s?#]+(?:\?[^\s#]*)?(?:#[^\s]*)?"""
     let pattern_mariomkaemail = """[\w\.+-]+@[\w\.-]+\.[\w\.-]+"""
@@ -18,60 +16,19 @@ module private Helpers =
     let pattern = pattern_mtwain1
 
 
-open Helpers
-
 let config =
     DefaultConfig.Instance
         .WithSummaryStyle(DefaultConfig.Instance.SummaryStyle.WithMaxParameterColumnWidth(60))
-
-let dbgSample() =
-    let reg = System.Text.RegularExpressions.Regex("Twain")
-    for i = 0 to 1000 do
-        reg.Matches(sample_inputText).Count |> ignore
-
-
-let dbgSbre() =
-
-    // let t = Paper.DebugSbre3()
-    let t = Paper.CounterMatchTimeRegexes()
-    // t.Pattern <-
-    //     t.Patterns
-    //     |> Seq.take 3
-    //     |> Seq.head
-
-    for p in t.Patterns |> Seq.take 3 do
-        t.Setup()
-        t.Pattern <- p
-        for i = 0 to 200 do
-            t.Sbre() |> ignore
-
-
-// let dbgNonb() =
-
-//     let t = Paper.TestNonbacktrackingByte()
-//     t.Setup()
-//     for i = 1 to 1 do
-//         let c = t.Symbolic()
-//         stdout.WriteLine $"GOT {c}"
-//         ()
-
-
-
-
-
-
 
 [<EntryPoint>]
 let main argv =
 
 #if DEBUG
-    // dbgSbre()
 #endif
-    // dbgSbre()
-    // dbgNonb()
-    // dbgSample()
 
     match Environment.GetCommandLineArgs() |> Seq.last with
+    | "b" -> BenchmarkRunner.Run(typeof<ByteMode.Bytes1>,config) |> ignore
+    // --
     | "app1" -> BenchmarkRunner.Run(typeof<WebappSamples.App1>,config) |> ignore
     // ---
     | "prefix1" -> BenchmarkRunner.Run(typeof<Optimizations.Prefix1>,config) |> ignore
@@ -107,9 +64,7 @@ let main argv =
 
     // ----
     | "paper-short-1" -> BenchmarkRunner.Run(typeof<Paper.ParagraphShort1Word>,config) |> ignore
-    | "paper-conj-1" -> BenchmarkRunner.Run(typeof<Paper.ParagraphConjunction1>,config) |> ignore
     | "paper-complex-1" -> BenchmarkRunner.Run(typeof<Paper.ParagraphComplexRegex1>,config) |> ignore
-    | "paper-inner-1" -> BenchmarkRunner.Run(typeof<Paper.ParagraphInnerMatch1>,config) |> ignore
     | "paper-basic-1" -> BenchmarkRunner.Run(typeof<Paper.Basic1>,config) |> ignore
     | "paper-basic-2" -> BenchmarkRunner.Run(typeof<Paper.Basic2>,config) |> ignore
     | "paper-basic-3" -> BenchmarkRunner.Run(typeof<Paper.Basic3>,config) |> ignore
@@ -134,7 +89,7 @@ let main argv =
     | "count-m" -> BenchmarkRunner.Run(typeof<Paper.CounterMatchTimeRegexes>,config) |> ignore
     | "s" -> BenchmarkRunner.Run(typeof<Paper.SampleRegexes>,config) |> ignore
     // ---
-    | "r" -> BenchmarkRunner.Run(typeof<Paper.RebarSample>,config) |> ignore
+
     | "rebar1" -> BenchmarkRunner.Run(typeof<Paper.Rebar1>,config) |> ignore
     | "rebar1ru" -> BenchmarkRunner.Run(typeof<Paper.Rebar1Ru>,config) |> ignore
     | "rebar2" -> BenchmarkRunner.Run(typeof<Paper.Rebar2>,config) |> ignore

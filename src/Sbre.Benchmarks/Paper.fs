@@ -52,15 +52,7 @@ type ParagraphLong4Word() =
 
 
 
-type ParagraphConjunction1() =
-    inherit
-        Jobs.AllRegexesInParagraphSeparate(
-            // [  @"(?i)(?=[a-z]*a)(?=[a-z]*b)(?=[a-z]*c)(?=[a-z]*d)[a-z]*"  ],
-            // Permutations.permuteConjInParagraph [ @"(?:(?i)\s([a-z]*a[a-z]*&[a-z]*b[a-z]*&[a-z]*c[a-z]*&[a-z]*d[a-z]*))" ],
-            [@"King[\s\S]*Arthur[\s\S]*his"],
-            @"King~(⊤*\n\n⊤*)his&⊤*Arthur⊤*",
-            fullInput
-        )
+
 
 type ParagraphComplexRegex1() =
     inherit
@@ -80,13 +72,6 @@ type ParagraphComplexRegex2() =
 
 
 
-type ParagraphInnerMatch1() =
-    inherit
-        Jobs.MatchInParagraphSeparate(
-            @"occ[\s\S]*ing",
-            @"occ~(⊤*\n\n⊤*)ing",
-            fullInput
-        )
 
 
 type Basic1() =

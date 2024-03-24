@@ -20,7 +20,8 @@ type MintermSearchValues<'t> =
     val Mode: MintermSearchMode
     val Minterms: 't[]
     val Minterm: 't
-    val SearchValues: SearchValues<char>
+    val SearchValuesUtf16: SearchValues<char>
+    val SearchValuesByte: SearchValues<byte>
     val SearchValuesSize: int
     val CharactersInMinterm: Memory<char> option
     val Solver: ISolver<'t>
@@ -28,12 +29,86 @@ type MintermSearchValues<'t> =
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.Contains(chr: char) =
         match this.Mode with
-        | MintermSearchMode.SearchValues -> this.SearchValues.Contains(chr)
-        | MintermSearchMode.InvertedSearchValues -> not(this.SearchValues.Contains(chr))
+        | MintermSearchMode.SearchValues -> this.SearchValuesUtf16.Contains(chr)
+        | MintermSearchMode.InvertedSearchValues -> not(this.SearchValuesUtf16.Contains(chr))
         | MintermSearchMode.TSet ->
             let mtid = this.Classifier.GetMintermID(int chr)
             let charminterm = this.Minterms[mtid]
             this.Solver.elemOfSet this.Minterm charminterm
+        | _ -> failwith ""
+
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    member this.Contains(b: byte) =
+        match this.Mode with
+        | MintermSearchMode.SearchValues -> this.SearchValuesByte.Contains(b)
+        | MintermSearchMode.InvertedSearchValues -> not(this.SearchValuesByte.Contains(b))
+        | MintermSearchMode.TSet ->
+            let mtid = this.Classifier.GetMintermID(int b)
+            let charminterm = this.Minterms[mtid]
+            this.Solver.elemOfSet this.Minterm charminterm
+        | _ -> failwith ""
+
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    member this.TryNextIndexRightToLeftByte
+        (
+            slice: inref<ReadOnlySpan<byte>>
+        ) : int =
+        match this.Mode with
+        | MintermSearchMode.SearchValues ->
+            slice.LastIndexOfAny(this.SearchValuesByte)
+        | MintermSearchMode.InvertedSearchValues ->
+            slice.LastIndexOfAnyExcept(this.SearchValuesByte)
+        | MintermSearchMode.TSet ->
+            let mutable fnd = false
+            let mutable i = slice.Length - 1
+            while not fnd && i >= 0 do
+                if this.Contains(slice[i]) then
+                    fnd <- true
+                    i <- i + 1
+                i <- i - 1
+            i
+        | _ -> failwith ""
+
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    member this.TryNextIndexLeftToRightByte
+        (
+            slice: ReadOnlySpan<byte>
+        ) =
+        match this.Mode with
+        | MintermSearchMode.SearchValues ->
+            slice.IndexOfAny(this.SearchValuesByte)
+        | MintermSearchMode.InvertedSearchValues ->
+            slice.IndexOfAnyExcept(this.SearchValuesByte)
+        | MintermSearchMode.TSet ->
+            let mutable fnd = false
+            let mutable i = 0
+            while not fnd && i < slice.Length do
+                if this.Contains(slice[i]) then
+                    fnd <- true
+                    i <- i - 1
+                i <- i + 1
+            if not fnd then -1 else i
+        | _ -> failwith "impossible"
+
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    member this.TryNextIndexRightToLeftChar
+        (
+            slice: inref<ReadOnlySpan<char>>
+        ) : int =
+        match this.Mode with
+        | MintermSearchMode.SearchValues ->
+            slice.LastIndexOfAny(this.SearchValuesUtf16)
+        | MintermSearchMode.InvertedSearchValues ->
+            slice.LastIndexOfAnyExcept(this.SearchValuesUtf16)
+        | MintermSearchMode.TSet ->
+            let mutable fnd = false
+            let mutable i = slice.Length - 1
+            while not fnd && i >= 0 do
+                if this.Contains(slice[i]) then
+                    fnd <- true
+                    i <- i + 1
+                i <- i - 1
+            i
         | _ -> failwith ""
 
     override this.ToString() =
@@ -51,7 +126,8 @@ type MintermSearchValues<'t> =
             Mode = MintermSearchMode.TSet
             Minterms = minterms
             Minterm = tset
-            SearchValues = Unchecked.defaultof<_>
+            SearchValuesUtf16 = Unchecked.defaultof<_>
+            SearchValuesByte = Unchecked.defaultof<_>
             CharactersInMinterm = None
             Solver = solver
             SearchValuesSize = 0
@@ -63,11 +139,19 @@ type MintermSearchValues<'t> =
                 MintermSearchMode.InvertedSearchValues
             else
                 MintermSearchMode.SearchValues
+
+        let byteSearchValues =
+            match Memory.tryConvertToAscii(characters) with
+            | ValueSome (chars) ->
+                SearchValues.Create(chars.Span)
+            | _ ->
+                Unchecked.defaultof<_>
         {
             Mode = mode
             Minterm = tset
             CharactersInMinterm = Some characters
-            SearchValues = SearchValues.Create(characters.Span)
+            SearchValuesUtf16 = SearchValues.Create(characters.Span)
+            SearchValuesByte = byteSearchValues
             Minterms = Unchecked.defaultof<_>
             Classifier = Unchecked.defaultof<_>
             Solver = solver
@@ -146,7 +230,7 @@ type RegexCache<
         StartsetHelpers.tryGetMintermChars (_solver, predStartsets, minterms, startset)
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    member this.HasMintermPrefix(loc: byref<Location>, setPrefix: ReadOnlySpan<'t>) : bool =
+    member this.HasMintermPrefix(loc: byref<Location<_>>, setPrefix: ReadOnlySpan<'t>) : bool =
         let mutable couldBe = true
         let mutable i = 0
         let inputSpan = loc.Input.Slice(loc.Position)
@@ -227,16 +311,16 @@ type RegexCache<
 
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    member this.TryNextIndexRightToLeft
+    member this.TryNextIndexRightToLeftChar
         (
             slice: inref<ReadOnlySpan<char>>,
             set: MintermSearchValues<_>
         ) : int =
         match set.Mode with
         | MintermSearchMode.SearchValues ->
-            slice.LastIndexOfAny(set.SearchValues)
+            slice.LastIndexOfAny(set.SearchValuesUtf16)
         | MintermSearchMode.InvertedSearchValues ->
-            slice.LastIndexOfAnyExcept(set.SearchValues)
+            slice.LastIndexOfAnyExcept(set.SearchValuesUtf16)
         | MintermSearchMode.TSet ->
             let mutable fnd = false
             let mutable i = slice.Length - 1
@@ -248,6 +332,7 @@ type RegexCache<
             i
         | _ -> failwith ""
 
+
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.TryNextIndexLeftToRight
         (
@@ -256,9 +341,9 @@ type RegexCache<
         ) =
         match set.Mode with
         | MintermSearchMode.SearchValues ->
-            slice.IndexOfAny(set.SearchValues)
+            slice.IndexOfAny(set.SearchValuesUtf16)
         | MintermSearchMode.InvertedSearchValues ->
-            slice.IndexOfAnyExcept(set.SearchValues)
+            slice.IndexOfAnyExcept(set.SearchValuesUtf16)
         | MintermSearchMode.TSet ->
             let mutable fnd = false
             let mutable i = 0
@@ -274,7 +359,7 @@ type RegexCache<
 
     member this.TryNextStartsetLocationArrayReversed
         (
-            loc: inref<Location>,
+            loc: inref<Location<_>>,
             setSpan: ReadOnlySpan<MintermSearchValues<'t>>
         ) =
         assert loc.Reversed
@@ -291,13 +376,13 @@ type RegexCache<
             skipping <- false
             let slice = inputSpan.Slice(0, currpos)
             let sharedIndex =
-                this.TryNextIndexRightToLeft(&slice,searchValues)
+                this.TryNextIndexRightToLeftChar(&slice,searchValues)
             resultEnd <- ValueSome(sharedIndex + 1)
 
         while skipping do
             let slice = inputSpan.Slice(0, currpos)
             let sharedIndex =
-                this.TryNextIndexRightToLeft(&slice,searchValues)
+                this.TryNextIndexRightToLeftChar(&slice,searchValues)
 
             if sharedIndex = -1 then
                 skipping <- false
@@ -324,7 +409,7 @@ type RegexCache<
         resultEnd
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    member this.MintermForLocation(loc: Location) : _ =
+    member this.MintermForLocation(loc: Location<_>) : _ =
         let mutable pos = loc.Position
 
         if loc.Reversed then
@@ -333,7 +418,7 @@ type RegexCache<
         this.Classify(loc.Input[pos])
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    member this.CurrentChar(loc: Location) : _ =
+    member this.CurrentChar(loc: Location<_>) : _ =
         let mutable pos = loc.Position
 
         if loc.Reversed then
@@ -345,7 +430,7 @@ type RegexCache<
             ValueSome loc.Input[pos]
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    member this.PrevChar(loc: Location) : _ =
+    member this.PrevChar(loc: Location<_>) : _ =
         let mutable pos = loc.Position
 
         if not loc.Reversed then
@@ -357,12 +442,20 @@ type RegexCache<
             ValueSome loc.Input[pos]
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    member this.MintermId(loc: Location) : _ =
+    member this.MintermIdChar(loc: Location<char>) : int =
         let i =
             int (if loc.Reversed then loc.Input[loc.Position - 1] else loc.Input[loc.Position])
         match i < 128 with
         | true -> _ascii[i]
         | false -> _nonAscii.Find(i)
+
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    member this.MintermIdByte(loc: Location<byte>) : int =
+        let i =
+            int (if loc.Reversed then loc.Input[loc.Position - 1] else loc.Input[loc.Position])
+        match i < 128 with
+        | true -> _ascii[i]
+        | false -> 0 // all other chars
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.MintermIsInverted(mt: 't) : _ = _solver.isElemOfSet (mt, minterms[0])

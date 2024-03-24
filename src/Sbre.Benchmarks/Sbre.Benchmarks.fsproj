@@ -16,6 +16,7 @@
         <Compile Include="Optimizations.fs" />
         <Compile Include="Learning.fs" />
         <Compile Include="WebappSamples.fs" />
+        <Compile Include="ByteMode.fs" />
         <Compile Include="Program.fs" />
         <Content Include="data\**\*.*" CopyToOutputDirectory="PreserveNewest" />
     </ItemGroup>

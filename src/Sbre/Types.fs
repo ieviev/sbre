@@ -37,8 +37,8 @@ type LocationKind =
 /// A location in s is a pair ⟨s, i⟩, where −1 ≤ i ≤ |s |
 [<DebuggerDisplay("{DebugDisplay()}")>]
 [<Struct; IsByRefLike>]
-type Location = {
-    Input: ReadOnlySpan<char>
+type Location<'TChar when 'TChar : struct > = {
+    Input: ReadOnlySpan<'TChar>
     mutable Position: int32
     mutable Reversed: bool
 } with
@@ -62,7 +62,7 @@ type Location = {
                 let inserted = this.Input.ToString().Insert(this.Position, "|")
                 $"%s{this.Input[this.Position].ToString()}, %s{inserted}, %i{this.Position}"
         else
-            $"%c{this.Input[this.Position]}, %i{this.Position}"
+            $"{this.Input[this.Position]}, %i{this.Position}"
 
 #endif
 
@@ -788,25 +788,10 @@ module Enumerator =
         hash
 
 
-module Memory =
-    let inline forall ([<InlineIfLambda>] f) (mem: Memory<'t>) =
-        let span = mem.Span
-        let mutable e = span.GetEnumerator()
-        let mutable forall = true
-
-        while forall && e.MoveNext() do
-            forall <- f e.Current
-        forall
-
-    let inline exists ([<InlineIfLambda>] f) (mem: Memory<'t>) =
-        let span = mem.Span
-        let mutable e = span.GetEnumerator()
-        let mutable exists = false
-        while not exists && e.MoveNext() do
-            exists <- f e.Current
-        exists
 
 
+    // let canUseByte =
+    //         (Memory.forall (fun v -> Text.Encoding.UTF8.GetByteCount(Array.singleton v) = 1 ) characters)
 
 
 
@@ -962,8 +947,7 @@ type SharedResizeArrayStruct<'t> =
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.AsSpan() = this.pool.AsSpan(0, this.size)
-
-    member this.AsArray() = this.pool.AsSpan(0, this.size).ToArray()
+    member this.AllocateArray() : 't[] = this.pool.AsSpan(0, this.size).ToArray()
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.Dispose() = ArrayPool.Shared.Return(this.pool)
@@ -1064,7 +1048,21 @@ type RefSet<'t when 't: comparison> =
     private new(src_set: ImmutableHashSet<'t>) = { inner = src_set }
 
 
+module Memory =
 
+    let inline isValidAscii (mem: Memory<char>) =
+        Memory.forall (fun v -> int v < 128 ) mem
+
+    let inline tryConvertToAscii (mem: Memory<char>) =
+        if Memory.forall (fun v -> int v < 128 ) mem then
+            use mutable acc = new SharedResizeArrayStruct<byte>(16)
+            let mutable e = mem.Span.GetEnumerator()
+            while e.MoveNext() do
+                let r: byte = byte e.Current
+                acc.Add(r)
+            ValueSome (acc.AllocateArray().AsMemory())
+        else
+            ValueNone
 
 
 // source:Set<'t>

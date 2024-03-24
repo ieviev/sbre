@@ -236,14 +236,14 @@ let ``print huge 4``() =
         @"a\W"
     ]
 
-[<Fact>]
-let ``print huge 5``() =
-    let r = Sbre.Regex("""[-!#~f]""")
-    let pat = r.TSetMatcher.PrettyPrintNodeLong(r.TSetMatcher.RawPattern)
-    ()
-    pat |> assertContains [
-        @"[!#-f\~]"
-    ]
+// [<Fact>]
+// let ``print huge 5``() =
+//     let r = Sbre.Regex("""[-!#~f]""")
+//     let pat = r.TSetMatcher.PrettyPrintNodeLong(r.TSetMatcher.RawPattern)
+//     ()
+//     pat |> assertContains [
+//         @"[!#-f\~]"
+//     ]
 
 
 

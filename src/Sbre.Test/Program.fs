@@ -41,11 +41,14 @@ open Sbre.Test
 //         suite.Sbre() |> ignore
 
 
-let suite = Paper.RebarSample()
-suite.Setup()
-for i = 1 to 1000 do
-    suite.LiteralByte()
-    suite.LiteralUtf16()
+let suite = Sbre.Benchmarks.ByteMode.Bytes1()
+for pat in suite.Patterns do
+    suite.Pattern <- pat
+    suite.Setup()
+    for i = 1 to 1000 do
+        suite.SbreByte() |> ignore
+
+
 
 
 // let pref = Optimizations.Prefix2()

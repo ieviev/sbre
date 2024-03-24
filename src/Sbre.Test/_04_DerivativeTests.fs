@@ -133,7 +133,7 @@ let testPartDerivativeFromLocationMultiple
 let testPartDerivativesLoc
     (
         pattern: string,
-        loc: Location,
+        loc: Location<_>,
         expectedDerivatives: string list
     )
     =

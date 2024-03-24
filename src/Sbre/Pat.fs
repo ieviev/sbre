@@ -262,32 +262,32 @@ let (|AllSameHead|_|) (nodes: seq<RegexNode<_>>) =
 
 
 module Location =
-    let getDefault() : Location = { Input = ReadOnlySpan.Empty; Reversed = false; Position = 0 }
-    let getNonInitial() : Location = { Input = "abc".AsSpan() ; Reversed = false; Position = 1 }
-    let inline create (str: string) (p: int32) : Location = { Input = str.AsSpan(); Position = p; Reversed = false }
-    let inline createSpan (str: ReadOnlySpan<char>) (p: int32) : Location = { Input = str; Position = p; Reversed = false }
-    let inline clone (loc:inref<Location>) : Location =
+    let getDefault() : Location<_> = { Input = ReadOnlySpan.Empty; Reversed = false; Position = 0 }
+    let getNonInitial() : Location<_> = { Input = "abc".AsSpan() ; Reversed = false; Position = 1 }
+    let inline create (str: string) (p: int32) : Location<_> = { Input = str.AsSpan(); Position = p; Reversed = false }
+    let inline createSpan (str: ReadOnlySpan<char>) (p: int32) : Location<_> = { Input = str; Position = p; Reversed = false }
+    let inline clone (loc:inref<Location<_>>) : Location<_> =
         { Input = loc.Input ; Position = loc.Position ; Reversed = loc.Reversed }
-    let inline createSpanRev (str: ReadOnlySpan<char>) (p: int32) (forwards:bool) : Location = {
+    let inline createSpanRev (str: ReadOnlySpan<char>) (p: int32) (forwards:bool) : Location<_> = {
         Input = str; Position = p; Reversed = not forwards
     }
-    let inline createReversedSpan (str: ReadOnlySpan<char>) : Location = {
+    let inline createReversedSpan (str: ReadOnlySpan<'t>) : Location<'t> = {
         Input = str; Position = str.Length; Reversed = true
     }
 
-    let inline isFinal (loc: Location) =
+    let inline isFinal (loc: Location<_>) =
         loc.Reversed && loc.Position = 0
         || not loc.Reversed && loc.Position = loc.Input.Length
 
-    let inline isEdge (loc: Location) =
+    let inline isEdge (loc: Location<_>) =
         loc.Position = 0 || loc.Position = loc.Input.Length
 
-    let inline nextPosition (loc: Location) =
+    let inline nextPosition (loc: Location<_>) =
         match loc.Reversed with
         | true -> (loc.Position - 1)
         | _ -> (loc.Position + 1 )
 
-    let inline final (loc: Location) =
+    let inline final (loc: Location<_>) =
         match loc.Reversed with
         | true -> 0
         | _ -> loc.Input.Length

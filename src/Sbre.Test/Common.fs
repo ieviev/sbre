@@ -41,7 +41,7 @@ let der1Rev (reg: Regex) (input: string) =
     let der1 = matcher.CreateDerivative  (  &location, cache.MintermForLocation(location), node)
     der1
 
-let der1rawlocs (reg: Regex) (location: Location) =
+let der1rawlocs (reg: Regex) (location: Location<_>) =
     let matcher = reg.TSetMatcher
     let cache = matcher.Cache
     let node = matcher.RawPattern
@@ -294,15 +294,16 @@ let assertDfaFirstNullable (pattern:string) (input:string) (firstNull)  =
     let regex = Regex(pattern)
     let matcher = regex.TSetMatcher
     let mutable loc = Location.createSpanRev (input.AsSpan()) input.Length false
-    let result = matcher.DfaEndPosition(&loc,1)
+    let result = matcher.DfaEndPositionChar(&loc,1)
     failwith "todo"
 
 
 let assertDfaMatches (pattern:string) (input:string) (expected: (int*int) list)  =
     let regex = Regex(pattern)
     let matcher = regex.TSetMatcher
-    let result = matcher.MatchPositions(input)
-    Assert.Equal(expected, result |> Seq.map (fun v -> v.Index,v.Length))
+    use result = matcher.MatchPositions(input)
+    let r = result.AllocateArray()
+    Assert.Equal(expected, r |> Seq.map (fun v -> v.Index,v.Length))
 
 
 
@@ -348,7 +349,7 @@ let assertNullablePositions (pattern:string) (input:string) (expected) =
     let mutable loc = Location.createReversedSpan (input.AsSpan())
     use mutable acc = new SharedResizeArrayStruct<int>(100)
     matcher.CollectReverseNullablePositions(&acc,&loc)
-    Assert.Equal<int>(expected, acc.AsArray())
+    Assert.Equal<int>(expected, acc.AllocateArray())
 
 let printAllDerivatives (pattern:string) (input:string) (expected: string list list) =
     let regex = Regex(pattern)
@@ -375,7 +376,7 @@ let getDfaMatchEnd (pattern:string) (input:string) (startPos:int)  =
 let getFirstLLmatch (pattern:string) (input:string) =
     let regex = Regex(pattern)
     let matcher = regex.TSetMatcher
-    let llmatches = matcher.llmatch_all(input).AsArray()
+    let llmatches = matcher.llmatch_all(input).AllocateArray()
     let firstmatch =
         if Array.isEmpty llmatches then failwith $"did not match!: {pattern}"
         llmatches[0]
@@ -476,7 +477,7 @@ let assertMatchEndNoLookback (pattern:string) (input:string) (startPos:int) (exp
     let matchStart = startPos
     loc.Position <- matchStart
     loc.Reversed <- false
-    let endPos = matcher.DfaEndPosition(&loc,R_id)
+    let endPos = matcher.DfaEndPositionChar(&loc,R_id)
     assertEqual expectedEndPos endPos
 
 

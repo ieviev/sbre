@@ -37,6 +37,8 @@ type SbreOptions() =
     member val FindPotentialStartSizeLimit = 500 with get, set
     member val UsePrefixOptimizations = true with get, set
     member val UseEcma = false with get, set
+    member val UseByteOptimizations = true with get, set
+    member val UseUtf16Optimizations = true with get, set
 
     static member HighThroughputDefaults =
         SbreOptions(
@@ -169,3 +171,21 @@ type MatchPosition = {
 } with
     member this.GetText(input: ReadOnlySpan<char>) =
         input.Slice(this.Index, this.Length).ToString()
+
+module Memory =
+    let inline forall ([<InlineIfLambda>] f) (mem: Memory<'t>) =
+        let span = mem.Span
+        let mutable e = span.GetEnumerator()
+        let mutable forall = true
+
+        while forall && e.MoveNext() do
+            forall <- f e.Current
+        forall
+
+    let inline exists ([<InlineIfLambda>] f) (mem: Memory<'t>) =
+        let span = mem.Span
+        let mutable e = span.GetEnumerator()
+        let mutable exists = false
+        while not exists && e.MoveNext() do
+            exists <- f e.Current
+        exists

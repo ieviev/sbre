@@ -334,7 +334,7 @@ let ``line loop test``() =
     let input = "\naaa\n\nbbb\n\nccc\n\n"
     let matcher = Regex(@"(?:.+\n)+\n")
     // let result = matcher.MatchPositions(input) |> Seq.toArray
-    let result = matcher.MatchPositions(input) |> Seq.toArray
+    let result = matcher.MatchPositions(input).AllocateArray() |> Seq.toArray
     // Assert.Equal(Some "a------b", result)
     Assert.Equal(3, result.Length)
 
@@ -356,7 +356,7 @@ when an unknown versions of Lorem Ipsum.
 [<Fact>]
 let ``web app debug``() =
     let matcher = Regex(@"~(.*\d\d.*)&[a-zA-Z\d]{8,}")
-    let result = matcher.MatchPositions("y tej55zhA25wXu8bvQxFxt o") |> Seq.toArray
+    let result = matcher.MatchPositions("y tej55zhA25wXu8bvQxFxt o").AllocateArray() |> Seq.toArray
     Assert.Equal(1, result.Length)
 
 
@@ -372,7 +372,7 @@ let ``web app test 1``() =
 let ``web app test 2``() =
     let input = webAppSample
     let matcher = Regex(@".*[a-z].*&.*[A-Z].*&.*\d.*&[a-zA-Z\d]{8,}&~(.*\d\d.*)")
-    let result = matcher.MatchPositions("y tej55zhA25wXu8bvQxFxt o") |> Seq.toArray
+    let result = matcher.MatchPositions("y tej55zhA25wXu8bvQxFxt o").AllocateArray() |> Seq.toArray
     Assert.Equal(1, result.Length)
 
 
@@ -383,7 +383,7 @@ let ``web app test 3``() =
     let matcher =
         Regex(@"\((⊤*A⊤*B⊤*C⊤*|⊤*A⊤*C⊤*B⊤*|⊤*B⊤*A⊤*C⊤*|⊤*B⊤*C⊤*A⊤*|⊤*C⊤*A⊤*B⊤*|⊤*C⊤*B⊤*A⊤*)\)")
 
-    let result = matcher.MatchPositions("(A----B----C)") |> Seq.toArray
+    let result = matcher.MatchPositions("(A----B----C)").AllocateArray() |> Seq.toArray
     Assert.Equal(1, result.Length)
 
 let webAppSample2 =
