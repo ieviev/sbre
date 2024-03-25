@@ -9,6 +9,7 @@ open System.Collections.Immutable
 open System.Runtime.CompilerServices
 open System.Text.RuntimeRegexCopy.Symbolic
 open System.Diagnostics
+open Sbre.Common
 
 exception UnsupportedPatternException of string
 
@@ -864,65 +865,7 @@ type SharedResizeArray<'t when 't: equality>(initialSize: int) =
 
 
 
-[<Struct; IsByRefLike>]
-type SharedResizeArrayStruct<'t> =
-    val mutable size: int
-    val mutable limit: int
-    val mutable pool: 't array
 
-    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    member this.Add(item) =
-        if this.size = this.limit then
-            this.Grow()
-
-        this.pool[this.size] <- item
-        this.size <- this.size + 1
-
-    member this.Grow() =
-        let newLimit = this.limit * 2
-        let newArray = ArrayPool.Shared.Rent(newLimit)
-        Array.Copy(this.pool, newArray, this.size)
-        ArrayPool.Shared.Return(this.pool)
-        this.pool <- newArray
-        this.limit <- this.limit * 2
-
-    member this.Clear() = this.size <- 0
-
-    member this.Contains(item) =
-        let mutable e = this.pool.AsSpan(0, this.size).GetEnumerator()
-        let mutable found = false
-
-        while not found && e.MoveNext() do
-            found <- obj.ReferenceEquals(e.Current, item)
-
-        found
-
-    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    member this.GetEnumerator() =
-        let mutable e = this.pool.AsSpan(0, this.size).GetEnumerator()
-        e
-
-    member this.Length = this.size
-
-    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    member this.AsSpan() = this.pool.AsSpan(0, this.size)
-    member this.AllocateArray() : 't[] = this.pool.AsSpan(0, this.size).ToArray()
-    member this.RentMemory() : Memory<'t> =
-        this.pool.AsMemory(0, this.size)
-
-    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    member this.Dispose() = ArrayPool.Shared.Return(this.pool)
-
-    interface IDisposable with
-        [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-        member this.Dispose() = this.Dispose()
-
-    new(initialSize: int) =
-        {
-            size = 0
-            limit = initialSize
-            pool = ArrayPool.Shared.Rent(initialSize)
-        }
 
 
 /// set with canonical reference comparisons

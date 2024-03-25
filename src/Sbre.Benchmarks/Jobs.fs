@@ -5,6 +5,7 @@ open System
 open System.Threading
 open BenchmarkDotNet.Attributes
 open Sbre
+open Sbre.Common
 open Sbre.Pat
 open Sbre.Types
 

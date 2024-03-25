@@ -28,7 +28,7 @@ let _der4 = mkder 'i' _der3 // "ε" // "|a|bba"
 
 
 let wasds =
-    use pos = Sbre
+    use pos = Sbre.Regex()
     ()
 
 // |aabba -> ⊥

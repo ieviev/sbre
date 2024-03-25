@@ -7,6 +7,7 @@ open System.Collections
 open System.Text.RuntimeRegexCopy.Symbolic
 open Sbre
 open Sbre.Algorithm
+open Sbre.Common
 open Sbre.Pat
 open Sbre.Types
 open Xunit

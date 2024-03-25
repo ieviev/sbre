@@ -17,27 +17,10 @@ open System.Runtime.InteropServices
 open Sbre.Common
 open Sbre.Cache
 
-[<AbstractClass>]
-type GenericRegexMatcher() =
-    abstract member IsMatch: input: ReadOnlySpan<char> -> bool
-    abstract member Replace: input: ReadOnlySpan<char> * replacement: ReadOnlySpan<char> -> string
-    abstract member Matches: input: ReadOnlySpan<char> -> MatchResult seq
-    abstract member EnumerateMatches: input: ReadOnlySpan<char> -> Span<MatchPosition>
-
-    abstract member MatchPositions:
-        input: ReadOnlySpan<char> -> SharedResizeArrayStruct<MatchPosition>
-
-    abstract member MatchPositions:
-        input: ReadOnlySpan<byte> -> SharedResizeArrayStruct<MatchPosition>
-
-    abstract member Match: input: ReadOnlySpan<char> -> SingleMatchResult
-
-    abstract member Count: input: ReadOnlySpan<char> -> int
-    abstract member Count: input: ReadOnlySpan<byte> -> int
 
 
 [<Sealed>]
-type MatchState<'t when 't :> IEquatable<'t> and 't: equality>(node: RegexNode<'t>) =
+type internal MatchState<'t when 't :> IEquatable<'t> and 't: equality>(node: RegexNode<'t>) =
     member val Id = -1 with get, set
     member val Node = node with get, set
     member val Startset: 't = Unchecked.defaultof<'t> with get, set
@@ -856,12 +839,12 @@ type RegexMatcher<'t when 't: struct and 't :> IEquatable<'t> and 't: equality>
         count
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    member this.CreateStartset(state: MatchState<'t>, initial: bool) =
+    member internal this.CreateStartset(state: MatchState<'t>, initial: bool) =
         _createStartset (state, initial)
 
     /// initialize regex in DFA
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    member this.GetOrCreateState(node: RegexNode<'t>) : MatchState<'t> =
+    member internal this.GetOrCreateState(node: RegexNode<'t>) : MatchState<'t> =
         _getOrCreateState (reverseTrueStarredNode, node, false)
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
@@ -887,7 +870,7 @@ type RegexMatcher<'t when 't: struct and 't :> IEquatable<'t> and 't: equality>
 
 
 #if DEBUG
-    member this.GetStateAndFlagsById(stateId: int) = _stateArray[stateId]
+    member internal this.GetStateAndFlagsById(stateId: int) = _stateArray[stateId]
 #endif
 
 
@@ -2035,7 +2018,7 @@ type RegexMatcher<'t when 't: struct and 't :> IEquatable<'t> and 't: equality>
             this.DfaEndPositionByte(&loc, stateId)
         | _ -> this.DfaEndPositionByte(&loc, DFA_R_noPrefix)
 
-    member this.llmatch_all_override
+    member internal this.llmatch_all_override
         (
             acc: byref<SharedResizeArrayStruct<MatchPosition>>,
             loc: byref<Location<_>>,
@@ -2093,7 +2076,7 @@ type RegexMatcher<'t when 't: struct and 't :> IEquatable<'t> and 't: equality>
                             currPos <- currPos + start + textLength
 
 
-    member this.llmatch_all_override_byte
+    member internal this.llmatch_all_override_byte
         (
             acc: byref<SharedResizeArrayStruct<MatchPosition>>,
             loc: byref<Location<byte>>,
@@ -2222,7 +2205,7 @@ type RegexMatcher<'t when 't: struct and 't :> IEquatable<'t> and 't: equality>
     member this.RawPatternWithoutLookback = _stateArray[DFA_R_noPrefix].Node
     member this.ReversePattern = reverseNode
     member this.Cache = _cache
-    member this.InternalOptimizations = _utf16InitialOptimizations
+    member internal this.InternalOptimizations = _utf16InitialOptimizations
     member this.AttemptCanonicalize n = _canonicalize n
 
 module internal Helpers =

@@ -1,24 +1,11 @@
 namespace Sbre
 
 open System
+open System.Buffers
 open System.Globalization
+open System.Runtime.CompilerServices
 
 
-module Common =
-
-    /// same as obj.ReferenceEquals(x, y) but checks for reference type
-    let inline refEq x y =
-        LanguagePrimitives.PhysicalEquality x y
-
-
-#if DEBUG
-
-    open System.Text.RuntimeRegexCopy.Symbolic
-    let mutable debuggerSolver: ISolver<uint64> option = None
-#else
-    open System.Text.RuntimeRegexCopy.Symbolic
-    let mutable debuggerSolver: ISolver<uint64> option = None
-#endif
 
 [<RequireQualifiedAccess>]
 module internal Static =
@@ -248,3 +235,98 @@ module internal Ptr =
 
 
 
+module Common =
+
+    [<Struct; IsByRefLike>]
+    type SharedResizeArrayStruct<'t> =
+        val mutable size: int
+        val mutable limit: int
+        val mutable pool: 't array
+
+        [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+        member this.Add(item) =
+            if this.size = this.limit then
+                this.Grow()
+
+            this.pool[this.size] <- item
+            this.size <- this.size + 1
+
+        member this.Grow() =
+            let newLimit = this.limit * 2
+            let newArray = ArrayPool.Shared.Rent(newLimit)
+            Array.Copy(this.pool, newArray, this.size)
+            ArrayPool.Shared.Return(this.pool)
+            this.pool <- newArray
+            this.limit <- this.limit * 2
+
+        member this.Clear() = this.size <- 0
+
+        member this.Contains(item) =
+            let mutable e = this.pool.AsSpan(0, this.size).GetEnumerator()
+            let mutable found = false
+
+            while not found && e.MoveNext() do
+                found <- obj.ReferenceEquals(e.Current, item)
+
+            found
+
+        [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+        member this.GetEnumerator() =
+            let mutable e = this.pool.AsSpan(0, this.size).GetEnumerator()
+            e
+
+        member this.Length = this.size
+
+        [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+        member this.AsSpan() = this.pool.AsSpan(0, this.size)
+        member this.AllocateArray() : 't[] = this.pool.AsSpan(0, this.size).ToArray()
+        member this.RentMemory() : Memory<'t> =
+            this.pool.AsMemory(0, this.size)
+
+        [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+        member this.Dispose() = ArrayPool.Shared.Return(this.pool)
+
+        interface IDisposable with
+            [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+            member this.Dispose() = this.Dispose()
+
+        new(initialSize: int) =
+            {
+                size = 0
+                limit = initialSize
+                pool = ArrayPool.Shared.Rent(initialSize)
+            }
+
+    /// same as obj.ReferenceEquals(x, y) but checks for reference type
+    let inline refEq x y =
+        LanguagePrimitives.PhysicalEquality x y
+
+
+
+#if DEBUG
+
+    open System.Text.RuntimeRegexCopy.Symbolic
+    let mutable debuggerSolver: ISolver<uint64> option = None
+#else
+    open System.Text.RuntimeRegexCopy.Symbolic
+    let mutable debuggerSolver: ISolver<uint64> option = None
+#endif
+
+
+    [<AbstractClass>]
+    type GenericRegexMatcher() =
+        abstract member IsMatch: input: ReadOnlySpan<char> -> bool
+        abstract member Replace: input: ReadOnlySpan<char> * replacement: ReadOnlySpan<char> -> string
+        abstract member Matches: input: ReadOnlySpan<char> -> MatchResult seq
+        abstract member EnumerateMatches: input: ReadOnlySpan<char> -> Span<MatchPosition>
+
+        abstract member MatchPositions:
+            input: ReadOnlySpan<char> -> SharedResizeArrayStruct<MatchPosition>
+
+        abstract member MatchPositions:
+            input: ReadOnlySpan<byte> -> SharedResizeArrayStruct<MatchPosition>
+
+        abstract member Match: input: ReadOnlySpan<char> -> SingleMatchResult
+
+        abstract member Count: input: ReadOnlySpan<char> -> int
+        abstract member Count: input: ReadOnlySpan<byte> -> int

@@ -26,10 +26,10 @@ let getMatcher (pat:string) =
     let matcher = regex.Matcher :?> RegexMatcher<TSet>
     matcher
 
-let assertPatternIn (expectedResults:string list) (state:MatchState<'t>) =
-    let node = state.Node
-    let nodestr = node.ToString()
-    Assert.Contains(nodestr , expectedResults)
+// let assertPatternIn (expectedResults:string list) (state:MatchState<'t>) =
+//     let node = state.Node
+//     let nodestr = node.ToString()
+//     Assert.Contains(nodestr , expectedResults)
 
 // [<Fact>]
 // let ``dfa derivative 01`` () =
