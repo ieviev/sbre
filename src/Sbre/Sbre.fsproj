@@ -6,6 +6,7 @@
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
     <Tailcalls>true</Tailcalls>
     <OutputType>Library</OutputType>
+    <OtherFlags>$(OtherFlags) --optimize+ --extraoptimizationloops:1</OtherFlags>
     <NoWarn>9</NoWarn>
     <!-- dont warn unused -->
     <!--    <NoWarn>FS1182</NoWarn>-->

@@ -109,21 +109,21 @@ let twain_ranges_2() =
         (matches1|> Seq.map (fun v -> struct (v.Index,v.Length)))
         (matches2 |> Seq.map (fun v -> struct (v.Index,v.Length)))
 
-[<Fact>]
-let leipzig_count() =
-    let pat = @"\s[a-zA-Z]{0,12}ing\s"
-
-    let slice = (File.ReadAllText("/mnt/ice/repos/rebar/benchmarks/haystacks/imported/leipzig-3200.txt"))
-    let matches2 = (Sbre.Regex(pat).Matches(slice)) |> Seq.toArray
-
-    assertEqual 55248 matches2.Length
-
-[<Fact>]
-let leipzig_count_2() =
-    let pat = @".{0,2}(Huckleberry|Sawyer|Finn|Tom)"
-    let slice = (File.ReadAllText("/mnt/ice/repos/rebar/benchmarks/haystacks/imported/leipzig-3200.txt"))
-    let matches2 = (Sbre.Regex(pat).Matches(slice)) |> Seq.toArray
-    assertEqual 2598 matches2.Length
+// [<Fact>]
+// let leipzig_count() =
+//     let pat = @"\s[a-zA-Z]{0,12}ing\s"
+//
+//     let slice = (File.ReadAllText("/mnt/ice/repos/rebar/benchmarks/haystacks/imported/leipzig-3200.txt"))
+//     let matches2 = (Sbre.Regex(pat).Matches(slice)) |> Seq.toArray
+//
+//     assertEqual 55248 matches2.Length
+//
+// [<Fact>]
+// let leipzig_count_2() =
+//     let pat = @".{0,2}(Huckleberry|Sawyer|Finn|Tom)"
+//     let slice = (File.ReadAllText("/mnt/ice/repos/rebar/benchmarks/haystacks/imported/leipzig-3200.txt"))
+//     let matches2 = (Sbre.Regex(pat).Matches(slice)) |> Seq.toArray
+//     assertEqual 2598 matches2.Length
 
 
 
@@ -202,39 +202,47 @@ let ``line test 2``() =
     Assert.Equal(r[1].Length, 71)
 
 
-// let rebar_input_5k =
-//     "/mnt/g/repos/rebar/benchmarks/haystacks/opensubtitles/en-sampled.txt"
-//     |> File.ReadLines
-//     |> Seq.take 5000
-//     |> String.concat "\n"
+let rebar_input_5k =
+    "/mnt/ice/repos/rebar/benchmarks/haystacks/opensubtitles/en-sampled.txt"
+    |> File.ReadLines
+    |> Seq.take 5000
+    |> String.concat "\n"
 //
-// [<Fact>]
-// let rebar_counts_1() =
-//     assertEqual 1833 (Sbre.Regex("[A-Za-z]{8,13}").Count(rebar_input_5k))
+[<Fact>]
+let rebar_counts_1() =
+
+    assertEqual 1833 (Sbre.Regex("[A-Za-z]{8,13}").Count(rebar_input_5k))
+
 //
-//
+
+[<Fact>]
+let rebar_byte_1() =
+    let input = "/mnt/ice/repos/rebar/benchmarks/haystacks/opensubtitles/en-sampled.txt"
+    let pattern = "Sherlock Holmes"
+    assertEqual 513 (Sbre.Regex(pattern,SbreOptions.HighThroughputAscii).Count(File.ReadAllBytes input))
+
+[<Fact>]
+let rebar_byte_2() =
+    let input = "/mnt/ice/repos/rebar/benchmarks/haystacks/opensubtitles/zh-sampled.txt"
+    let pattern = "夏洛克·福尔摩斯|约翰华生|阿德勒|雷斯垂德|莫里亚蒂教授"
+    assertEqual 207 (Sbre.Regex(pattern,SbreOptions.HighThroughputAscii).Count(File.ReadAllText input))
+
+
+[<Fact>]
+let rebar_byte_3() =
+    let input = @"/mnt/ice/repos/rebar/benchmarks/haystacks/opensubtitles/en-medium.txt"
+    let pattern =
+        "/mnt/ice/repos/rebar/benchmarks/regexes/dictionary/english/length-15.txt"
+        |> System.IO.File.ReadAllText
+        |> (fun v -> v.Trim().Split("\n"))
+        |> String.concat "|"
+    assertEqual 1 (Sbre.Regex(pattern,SbreOptions.HighThroughputAscii).Count(File.ReadAllBytes input))
+
+
 
 
 #endif
 
-
-// let [<Literal>] SampleFile = "/home/ian/f/ttu/iti0303-regexp-text-extraction/ExtractText/data/training-samples/CongressBills-Date.json"
-// type CongressProvider = FSharp.Data.JsonProvider<SampleFile>
-// let ctx_congress = CongressProvider.GetSample()
-
-
-// [<Fact>]
-// let ``learning sample 1``() =
-//     if true then () else
-//     let r = Regex(@"(?<=( |`|\-|\n|3)⊤*).*&\w.*&.*\w")
-//     // let r = Regex(@"(?<=( |`|\-|\n|3).*).*&\w.*\w")
-//     // let r = Regex(@"(?<=( |`|\-|\n|3).*).*&\w.*\w")
-
-//     for sample in ctx_congress.Examples do
-//         let ms = r.Matches(sample.String)
-//         ()
-//     ()
-//     // Assert.Equal(15, r.Length)
 
 
 

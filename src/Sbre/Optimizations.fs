@@ -12,12 +12,10 @@ open System
 
 
 module Overrides =
-    let locateStringsUtf16 (acc:SharedResizeArrayStruct<MatchPosition>) (input:ReadOnlySpan<char>) (str:ReadOnlySpan<char>) =
+    let locateStringsUtf16 (acc:byref<SharedResizeArrayStruct<MatchPosition>>) (input:ReadOnlySpan<char>) (str:ReadOnlySpan<char>) =
         let mutable looping = true
         let mutable currPos = 0
-        let inputLen = input.Length
         let strLen = str.Length
-        let limit = inputLen - str.Length
         while looping do
             match input.Slice(currPos).IndexOf(str, StringComparison.Ordinal) with
             | -1 -> looping <- false
@@ -28,7 +26,7 @@ module Overrides =
                 // if currPos > limit then
                 //     looping <- false
 
-    let locateStringsByte (acc:SharedResizeArrayStruct<MatchPosition>) (input:ReadOnlySpan<byte>) (str:Span<byte>) =
+    let locateStringsByte (acc:byref<SharedResizeArrayStruct<MatchPosition>>) (input:ReadOnlySpan<byte>) (str:Span<byte>) =
         let mutable looping = true
         let mutable currPos = 0
         let inputLen = input.Length
@@ -282,7 +280,8 @@ let rec calcPotentialMatchStart
         let prefixStartNode = getPrefixNode cache startNode
         nodes.Add(prefixStartNode) |> ignore
         redundant.Add(prefixStartNode) |> ignore
-        loop []
+        let sets = loop []
+        sets
 
 
 
@@ -422,7 +421,8 @@ let findInitialOptimizations
                     node
             with
             | potentialStart when potentialStart.Length > 0 ->
-                let searchPrefix = potentialStart |> Seq.map c.MintermSearchValues |> Seq.toArray |> Memory
+                let searchPrefix =
+                    potentialStart |> Seq.map c.MintermSearchValues |> Seq.toArray |> Memory
                 InitialOptimizations.SearchValuesPotentialStart(searchPrefix)
             | _ -> InitialOptimizations.NoOptimizations
 

@@ -928,7 +928,7 @@ type TestAllEnginesAllPatternsMatchOnlyRebar(pattern: string, input: string) =
         use mutable acc = new SharedResizeArrayStruct<MatchPosition>(512)
         let r =
             Optimizations.Overrides.locateStringsUtf16
-                acc
+                &acc
                 utf16Input
                 this.Utf16Pattern
         ()
@@ -938,7 +938,7 @@ type TestAllEnginesAllPatternsMatchOnlyRebar(pattern: string, input: string) =
             use mutable acc = new SharedResizeArrayStruct<MatchPosition>(512)
             let r =
                 Optimizations.Overrides.locateStringsByte
-                    acc
+                    &acc
                     utf8Input
                     this.Utf8Pattern
             ()
@@ -1120,17 +1120,19 @@ type TestSbreByte(patterns: string list, filePath: string, sbreOptions:SbreOptio
         this.CompiledEngine <- regex
         ()
 
-    [<Benchmark(Description = "Utf16")>]
-    member this.SbreUtf16() =
-        use matches = this.CompiledEngine.MatchPositions(utf16Input)
-        for m in matches do
-            ()
+    // [<Benchmark(Description = "Utf16")>]
+    // member this.SbreUtf16() =
+    //     this.CompiledEngine.Count(utf16Input)
+    //     // use matches = this.CompiledEngine.MatchPositions(utf16Input)
+    //     // for m in matches do
+    //     //     ()
 
     [<Benchmark(Description = "Byte")>]
     member this.SbreByte() =
-        use matches = this.CompiledEngine.MatchPositions(utf8Input)
-        for m in matches do
-            ()
+        this.CompiledEngine.Count(utf8Input)
+        // use matches = this.CompiledEngine.MatchPositions(utf8Input)
+        // for m in matches do
+        //     ()
 
 [<MemoryDiagnoser(false)>]
 [<ShortRunJob>]

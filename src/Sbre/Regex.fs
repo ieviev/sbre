@@ -26,6 +26,7 @@ type GenericRegexMatcher() =
     abstract member MatchPositions: input: ReadOnlySpan<byte> -> SharedResizeArrayStruct<MatchPosition>
     abstract member Match: input: ReadOnlySpan<char> -> SingleMatchResult
     abstract member Count: input: ReadOnlySpan<char> -> int
+    abstract member Count: input: ReadOnlySpan<byte> -> int
 
 
 [<Sealed>]
@@ -72,7 +73,6 @@ type RegexMatcher<
     let _mintermsLog = BitOperations.Log2(uint64 _minterms.Length) + 1
     let mutable _dfaDelta: int[] = Array.init (InitialDfaStateCapacity <<< _mintermsLog) (fun _ -> 0) // 0 : initial state
     let mutable _revStartStates: int[] = Array.init (10 <<< _mintermsLog) (fun _ -> 0) // 0 : initial state
-
 
     let rec _isNullable(loc: inref<Location<_>>, node: RegexNode<'t>) : bool =
         // short-circuit
@@ -333,10 +333,6 @@ type RegexMatcher<
             let canon_inner = _canonicalize inner
             let mknode = (fun _ -> _cache.Builder.mkNot(canon_inner) )
             _cache.Builder.GetCanonical(node, mkLang node, mknode)
-        // | LookAround(regexNode, lookBack, relativeTo, pendingNullables, regexNodeInfo) ->
-        //     let canon_inner = _canonicalize regexNode
-        //     let mknode = (fun _ -> _cache.Builder.mkLookaround(canon_inner,lookBack,relativeTo,pendingNullables) )
-        //     _cache.Builder.GetCanonical(node, mkLang node, mknode)
         | LookAround _ -> node
         | Begin | End
         | Epsilon -> node
@@ -388,14 +384,12 @@ type RegexMatcher<
                 if n > 25 then
                     state.Flags <- state.Flags ||| RegexStateFlags.CanSkipFlag
             | MintermSearchMode.SearchValues, n  ->
-                if _minterms.Length > 60 then () else
+                // if _minterms.Length > 60 then () else
                 if n < 64 then
                     state.Flags <- state.Flags ||| RegexStateFlags.CanSkipFlag
                 else ()
             | _ -> ()
         else
-            // if initial then
-            //     state.Flags <- state.Flags ||| RegexStateFlags.CanSkipFlag
             ()
 
 
@@ -416,9 +410,6 @@ type RegexMatcher<
             let nodeFlags = node.GetFlags()
 
             if _stateArray.Length = state.Id then
-                // if _stateArray.Length > 50000 then
-                // if _stateArray.Length > 100000 then
-                // if _stateArray.Length > 1000000 then
                 if _stateArray.Length > options.MaxDfaCapacity then
                     failwith "Maximum allowed state space reached! increase SbreOptions.MaxDfaSize if this is intended"
 
@@ -462,9 +453,6 @@ type RegexMatcher<
                             state.Node
                 match limitedSkip with
                 | Some ls ->
-                    // match state.MintermSearchValues.Mode with
-                    // | MintermSearchMode.Inver
-                    // | MintermSearchMode.SearchValues ->
                     state.ActiveOptimizationsChar <- ls
                     state.Flags <-
                         state.Flags |||
@@ -653,7 +641,36 @@ type RegexMatcher<
 
     /// counts the number of matches
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    override this.Count(input) = this.llmatch_all_count_only input
+    override this.Count(input:ReadOnlySpan<char>) =
+        use mutable results = this.llmatch_all(input)
+        results.size
+
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    override this.Count(input:ReadOnlySpan<byte>) =
+        match _byteRegexOverride with
+        | Some _override ->
+            use mutable results = this.llmatch_all_byte(input)
+            results.size
+        | _ ->
+            this.llmatch_all_count_only(input)
+
+
+    member this.llmatch_all_count_only(input: ReadOnlySpan<byte>) : int =
+        let mutable loc = Location.createReversedSpan input
+        use mutable acc = new SharedResizeArrayStruct<int>(64)
+        this.CollectReverseNullablePositionsByte(&acc, &loc)
+        loc.Reversed <- false
+        let startSpans = acc.AsSpan()
+        let mutable count = 0
+        for i = startSpans.Length - 1 downto 0 do
+            let currStart = startSpans[i]
+            if currStart >= loc.Position then
+                loc.Position <- currStart
+                let matchEnd = this.getMatchEndByte(&loc)
+                // let matchEnd = this.DfaEndPositionByte(&loc, DFA_R_noPrefix)
+                count <- count + 1
+                loc.Position <- matchEnd
+        count
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.CreateStartset(state: MatchState<'t>, initial: bool) =
@@ -811,6 +828,27 @@ type RegexMatcher<
             _dfaDelta[dfaOffset] <- nextState
             currentState <- nextState
 
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    member this.TakeMintermTransition
+        (
+            currentState: byref<int>,
+            mintermId: int,
+            loc: inref<Location<'tchar>>
+        ) =
+        let dfaOffset = this.GetDeltaOffset(currentState, mintermId)
+        let nextStateId = _dfaDelta[dfaOffset]
+        if
+            // existing transition in dfa
+            nextStateId > 0
+        then
+            currentState <- nextStateId
+        else
+        // new transition
+        if obj.ReferenceEquals(null, _stateArray[nextStateId]) then
+            let nextState = this.TryNextDerivative(currentState, mintermId, &loc)
+            _dfaDelta[dfaOffset] <- nextState
+            currentState <- nextState
+
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.StateIsNullable
@@ -869,7 +907,12 @@ type RegexMatcher<
                 this.HandleNullableFwd(flags, &currentMax, loc.Position, currentStateId)
 
             if loc.Position < loc.Input.Length then
-                this.TakeTransitionChar(&currentStateId, &loc)
+                let mintermId =
+                    let i = int loc.Input[loc.Position]
+                    match i < 128 with
+                    | true -> _ascii[int i]
+                    | false -> _nonAscii.Find(i)
+                this.TakeMintermTransition(&currentStateId, mintermId, &loc)
                 loc.Position <- loc.Position + 1
             else
                 looping <- false
@@ -891,16 +934,20 @@ type RegexMatcher<
                 looping <- false
             else
 
-            // todo byte skipping
-            // if StateFlags.canSkipLeftToRight flags &&
-            //    this.TrySkipActiveFwd(flags,&loc,&currentStateId) then () else
+            if StateFlags.canSkipLeftToRight flags &&
+               this.TrySkipActiveFwdByte(flags,&loc,&currentStateId) then () else
 
             // set max nullability after skipping
             if this.StateIsNullable(flags, &loc, currentStateId) then
                 this.HandleNullableFwd(flags, &currentMax, loc.Position, currentStateId)
 
             if loc.Position < loc.Input.Length then
-                this.TakeTransitionByte(&currentStateId, &loc)
+                let mintermId =
+                    let i = loc.Input[loc.Position]
+                    match i < 128uy with
+                    | true -> _ascii[int i]
+                    | false -> 0
+                this.TakeMintermTransition(&currentStateId, mintermId, &loc)
                 loc.Position <- loc.Position + 1
             else
                 looping <- false
@@ -1093,7 +1140,21 @@ type RegexMatcher<
                 currentStateId <- transitionNodeId
                 loc.Position <- resultStart
                 true
-        | _ -> false
+        | _ ->
+            let dfaState = _stateArray[currentStateId]
+            let msv = dfaState.MintermSearchValues
+            let slice = loc.Input.Slice(0, loc.Position)
+            let resultStart = msv.TryNextIndexRightToLeftByte(&slice)
+            if resultStart = -1 then
+                loc.Position <- Location.final loc
+                false
+            else
+                loc.Position <- resultStart + 1
+                this.TakeTransitionByte(&currentStateId,&loc)
+                loc.Position <- resultStart
+                true
+
+            // false
 
 
     member this.TrySkipActiveFwd(flags:RegexStateFlags, loc: byref<Location<char>>, currentStateId:byref<int>) =
@@ -1195,6 +1256,103 @@ type RegexMatcher<
             loc.Position <- loc.Position + sharedIndex
             sharedIndex <> 0
 
+    member this.TrySkipActiveFwdByte(flags:RegexStateFlags, loc: byref<Location<byte>>, currentStateId:byref<int>) =
+        let dfaState = _stateArray[currentStateId]
+
+        if StateFlags.hasActiveBranchOptimizations flags then
+            match dfaState.ActiveOptimizationsChar with
+            | LimitedSkipOnePath(distance, _, failPred, _, cachedTransitions) ->
+                let maxLen = loc.Input.Length
+                if distance + loc.Position >= maxLen then // no more matches
+                    false
+                else
+                    let endPos = loc.Position + distance
+                    let limitedSlice =
+                        if endPos > maxLen then loc.Input.Slice(loc.Position) else
+                        loc.Input.Slice(loc.Position,distance)
+
+                    match failPred.TryNextIndexLeftToRightByte(limitedSlice) with
+                    | -1 -> false
+                    | idx ->
+                        if idx = 0 then false else
+                        let nskipped = idx
+                        let mutable tempStateId = currentStateId
+                        // lazily cache the skip transitions
+                        match cachedTransitions.Span[nskipped] with
+                        | -1 ->
+                            for i = 0 to nskipped - 1 do
+                                let _ = _flagsArray[tempStateId]
+                                this.TakeTransitionByte(&tempStateId, &loc)
+                            cachedTransitions.Span[nskipped] <- tempStateId
+                        | v ->
+                            tempStateId <- v
+                        loc.Position <- loc.Position + nskipped
+                        this.TakeTransitionByte(&tempStateId, &loc)
+                        currentStateId <- tempStateId
+                        loc.Position <- loc.Position + 1
+                        true
+            | LimitedSkip2Chars(distance, _, failPred, _, cachedTransitions) ->
+                let maxLen = loc.Input.Length
+                if distance + loc.Position >= maxLen then // no more matches
+                    false
+                else
+                    let endPos = loc.Position + distance
+                    let limitedSlice =
+                        if endPos > maxLen then loc.Input.Slice(loc.Position) else
+                        loc.Input.Slice(loc.Position,distance)
+
+                    let skipResult =
+
+                        match failPred.TryNextIndexLeftToRightByte(limitedSlice) with
+                        | -1 ->
+                            let slice2 = loc.Input.Slice(loc.Position,distance + 2)
+                            let pos2 = failPred.TryNextIndexLeftToRightByte(slice2)
+                            this.TakeTransitionByte(&currentStateId, &loc)
+                            loc.Position <- loc.Position + 1
+                            this.TakeTransitionByte(&currentStateId, &loc)
+                            loc.Position <- loc.Position + 1
+                            pos2 - 2
+                        | n -> n
+
+
+                    match skipResult with
+                    | -1 ->
+                        false
+                    | idx ->
+
+                        if idx = 0 then false else
+                        let nskipped = idx
+                        let mutable tempStateId = currentStateId
+                        loc.Position <- loc.Position + 1
+                        // lazily cache the skip transitions
+                        match cachedTransitions[nskipped] with
+                        | -1 ->
+                            for i = 0 to nskipped do
+                                let _ = _flagsArray[tempStateId]
+                                this.TakeTransitionByte(&tempStateId, &loc)
+                            cachedTransitions[nskipped] <- tempStateId
+                        | n ->
+                            tempStateId <- n
+
+                        loc.Position <- loc.Position + (nskipped - 2)
+                        // let n1 = _stateArray[tempStateId]
+                        this.TakeTransitionByte(&tempStateId, &loc)
+                        currentStateId <- tempStateId
+                        // let n2 = _stateArray[tempStateId]
+                        loc.Position <- loc.Position + 1
+                        true
+            | _ ->
+                false
+        else
+        // default single char skip
+        let sharedIndex = dfaState.MintermSearchValues.TryNextIndexLeftToRightByte(loc.Input.Slice(loc.Position))
+        match sharedIndex with
+        | -1 ->
+            loc.Position <- Location.final loc
+            false
+        | _ ->
+            loc.Position <- loc.Position + sharedIndex
+            sharedIndex <> 0
 
     member this.TrySkipActiveRevByte(
         flags:RegexStateFlags,
@@ -1246,6 +1404,7 @@ type RegexMatcher<
             let tmp_loc = loc.Position
             let dfaState = _stateArray[currentStateId]
             let slice = loc.Input.Slice(0,loc.Position)
+            // if not (dfaState.MintermSearchValues.CanUseAscii()) then false else
             match dfaState.MintermSearchValues.TryNextIndexRightToLeftByte(&slice) with
             | -1 -> loc.Position <- Location.final loc
             | n -> loc.Position <- n + 1
@@ -1367,7 +1526,7 @@ type RegexMatcher<
     member this.CollectReverseNullablePositions
         (
             acc: byref<SharedResizeArrayStruct<int>>,
-            loc: byref<Location<_>>
+            loc: byref<Location<char>>
         ) : unit =
         assert (loc.Position > -1)
         assert (loc.Reversed = true)
@@ -1395,7 +1554,12 @@ type RegexMatcher<
                 this.HandleNullableRev(flags,&acc,loc.Position,currentStateId)
 
             if loc.Position > 0 then
-                this.TakeTransitionChar( &currentStateId, &loc)
+                let mintermId =
+                    let i = int loc.Input[loc.Position - 1]
+                    match i < 128 with
+                    | true -> _ascii[int i]
+                    | false -> _nonAscii.Find(i)
+                this.TakeMintermTransition(&currentStateId, mintermId, &loc)
                 loc.Position <- loc.Position - 1
             else
                 looping <- false
@@ -1427,10 +1591,15 @@ type RegexMatcher<
             else
 #endif
             if this.StateIsNullable(flags, &loc, currentStateId) then
-                this.HandleNullableRev(flags,&acc,loc.Position,currentStateId)
+                this.HandleNullableRev(flags,&acc,loc.Position, currentStateId)
 
             if loc.Position > 0 then
-                this.TakeTransitionByte( &currentStateId, &loc)
+                let mintermId =
+                    let i = loc.Input[loc.Position - 1]
+                    match i < 128uy with
+                    | true -> _ascii[int i]
+                    | false -> 0
+                this.TakeMintermTransition(&currentStateId, mintermId, &loc)
                 loc.Position <- loc.Position - 1
             else
                 looping <- false
@@ -1528,25 +1697,23 @@ type RegexMatcher<
         this.DfaEndPositionChar(&loc, DFA_R_noPrefix)
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    member this.getMatchEnd(loc: byref<Location<_>>) : int =
+    member this.getMatchEnd(loc: byref<Location<char>>) : int =
         match _lengthLookup with
         | LengthLookup.FixedLength fl -> loc.Position + fl
         | LengthLookup.FixedLengthPrefixMatchEnd (fl,stateId) ->
             loc.Position <- loc.Position + fl
             this.DfaEndPositionChar(&loc, stateId)
-        // makes no real difference
-        // | FixedLengthSetLookup lookup when loc.Position <> 0 ->
-        //     let mutable found = false
-        //     let mutable lengthResult = 0
-        //     let mutable i = 0
-        //     while not found && i < lookup.Length do
-        //         let struct(pref,len) = lookup[i]
-        //         if _cache.HasMintermPrefix(&loc,pref.Span) then
-        //             found <- true
-        //             lengthResult <- len
-        //         i <- i + 1
-        //     lengthResult
         | _ -> this.DfaEndPositionChar(&loc, DFA_R_noPrefix)
+
+
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    member this.getMatchEndByte(loc: byref<Location<byte>>) : int =
+        match _lengthLookup with
+        | LengthLookup.FixedLength fl -> loc.Position + fl
+        | LengthLookup.FixedLengthPrefixMatchEnd (fl,stateId) ->
+            loc.Position <- loc.Position + fl
+            this.DfaEndPositionByte(&loc, stateId)
+        | _ -> this.DfaEndPositionByte(&loc, DFA_R_noPrefix)
 
     member this.llmatch_all_override(acc:byref<SharedResizeArrayStruct<MatchPosition>>, loc: byref<Location<_>>, overridden:OverrideRegex<char>) =
         let tspan = loc.Input
@@ -1593,10 +1760,9 @@ type RegexMatcher<
 
 
     member this.llmatch_all_override_byte(acc:byref<SharedResizeArrayStruct<MatchPosition>>, loc: byref<Location<byte>>, overridden:OverrideRegex<byte>) =
-        let tspan = loc.Input
         match overridden with
         | OverrideRegex.FixedLengthString s ->
-            Overrides.locateStringsByte acc loc.Input s.Span
+            Overrides.locateStringsByte &acc loc.Input s.Span
         | OverrideRegex.FixedLengthStringCaseIgnore (s, ascii) ->
             failwith "todo case insensitive byte search"
             // let pspan = s.Span
@@ -1644,7 +1810,8 @@ type RegexMatcher<
                 let currStart = startSpans[i]
                 if currStart >= nextValidStart then
                     loc.Position <- currStart
-                    let matchEnd = this.DfaEndPositionByte(&loc, DFA_R_noPrefix)
+                    let matchEnd = this.getMatchEndByte(&loc)
+                    // let matchEnd = this.DfaEndPositionByte(&loc, DFA_R_noPrefix)
                     matches.Add({ MatchPosition.Index = currStart; Length = (matchEnd - currStart) })
                     nextValidStart <- matchEnd
             acc.Dispose()
@@ -1672,22 +1839,6 @@ type RegexMatcher<
             acc.Dispose()
         matches
 
-
-    member this.llmatch_all_count_only(input: ReadOnlySpan<char>) : int =
-        let mutable loc = Location.createReversedSpan input
-        use mutable acc = new SharedResizeArrayStruct<int>(64)
-        this.CollectReverseNullablePositions(&acc, &loc)
-        loc.Reversed <- false
-        let startSpans = acc.AsSpan()
-        let mutable count = 0
-        for i = startSpans.Length - 1 downto 0 do
-            let currStart = startSpans[i]
-            if currStart >= loc.Position then
-                loc.Position <- currStart
-                let matchEnd = this.getMatchEnd(&loc)
-                count <- count + 1
-                loc.Position <- matchEnd
-        count
 
     /// return just the positions of matches without allocating the result
     override this.MatchPositions(input:ReadOnlySpan<char>) : SharedResizeArrayStruct<MatchPosition> = (this.llmatch_all input)
@@ -1875,7 +2026,8 @@ type Regex(pattern: string, [<Optional; DefaultParameterValue(null:SbreOptions)>
         )
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    override this.Count(input) = matcher.Count(input)
+    override this.Count(input:ReadOnlySpan<char>) = matcher.Count(input)
+    override this.Count(input:ReadOnlySpan<byte>) = matcher.Count(input)
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     override this.IsMatch(input) = matcher.IsMatch(input)
