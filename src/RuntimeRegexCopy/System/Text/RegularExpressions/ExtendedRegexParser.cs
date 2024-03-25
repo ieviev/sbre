@@ -391,6 +391,16 @@ public ref struct ExtendedRegexParser
                         ? new RegexNode(RegexNodeKind.Set, _options & ~RegexOptions.IgnoreCase, RegexCharClass.AnyClass)
                         : new RegexNode(RegexNodeKind.Notone, _options & ~RegexOptions.IgnoreCase, '\n');
                     break;
+                case '_':
+                    // NEG: negate the concat instead
+                    if (_options.HasFlag(RegexOptions.Negated))
+                    {
+                        _concatenation!.Options |= RegexOptions.Negated;
+                        _options &= ~RegexOptions.Negated;
+                    }
+                    _unit = new RegexNode(RegexNodeKind.Set, _options & ~RegexOptions.IgnoreCase,
+                        RegexCharClass.AnyClass);
+                    break;
                 case '{':
                 case '*':
                 case '+':
@@ -1448,6 +1458,8 @@ public ref struct ExtendedRegexParser
                 return '\r';
             case 't':
                 return '\t';
+            case '_':
+                return '_';
             case 'v':
                 return '\u000B';
             case 'c':
@@ -1790,13 +1802,13 @@ public ref struct ExtendedRegexParser
     /// <summary>For categorizing ASCII characters.</summary>
     private static ReadOnlySpan<byte> Category => new byte[]
     {
-        // 0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F  0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F
+     // 0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F  0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F
         0, 0, 0, 0, 0, 0, 0, 0, 0, X, X, 0, X, X, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        //    !  "  #  $  %  &  '  (  )  *  +  ,  -  .  /  0  1  2  3  4  5  6  7  8  9  :  ;  <  =  >  ?
+     //    !  "  #  $  %  &  '  (  )  *  +  ,  -  .  /  0  1  2  3  4  5  6  7  8  9  :  ;  <  =  >  ?
         X, 0, 0, Z, S, 0, S, 0, S, S, Q, Q, 0, 0, S, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, Q,
-        // @  A  B  C  D  E  F  G  H  I  J  K  L  M  N  O  P  Q  R  S  T  U  V  W  X  Y  Z  [  \  ]  ^  _
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, S, S, 0, S, 0,
-        // '  a  b  c  d  e  f  g  h  i  j  k  l  m  n  o  p  q  r  s  t  u  v  w  x  y  z  {  |  }  ~
+     // @  A  B  C  D  E  F  G  H  I  J  K  L  M  N  O  P  Q  R  S  T  U  V  W  X  Y  Z  [  \  ]  ^  _
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, S, S, 0, S, S,
+     // '  a  b  c  d  e  f  g  h  i  j  k  l  m  n  o  p  q  r  s  t  u  v  w  x  y  z  {  |  }  ~
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, Q, S, 0, S, 0
     };
 

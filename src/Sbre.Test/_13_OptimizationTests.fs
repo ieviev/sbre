@@ -44,7 +44,7 @@ let ``calc reverse prefix 1``() =
     let matcher = regex.TSetMatcher
     let getflags = (fun node -> matcher.GetOrCreateState(node).Flags)
     let getder = (fun (mt,node) ->
-        let loc = Pat.Location.getNonInitial()
+        let loc = Location.getNonInitial()
         matcher.CreateDerivative(&loc, mt,node)
     )
     let prefix =
@@ -82,7 +82,7 @@ let ``calc potential start 1``() =
     let matcher = regex.TSetMatcher
     let getflags = (fun node -> matcher.GetOrCreateState(node).Flags)
     let getder = (fun (mt,node) ->
-        let loc = Pat.Location.getNonInitial()
+        let loc = Location.getNonInitial()
         matcher.CreateDerivative(&loc, mt,node)
     )
     let prefix =

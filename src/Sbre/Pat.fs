@@ -1,8 +1,6 @@
 /// patterns, helpers
 module rec Sbre.Pat
 
-open System.Collections.Generic
-open System.Collections.Immutable
 open System.Runtime.CompilerServices
 open System.Text.RuntimeRegexCopy.Symbolic
 open Sbre.Types
@@ -12,10 +10,6 @@ open System
 module Extensions =
     type ISolver<'t> with
 
-        /// si ∈ [[ψ]]
-        /// - i.e. location si is elem of Singleton ψ
-        /// - (location is smaller than singleton)
-        /// - predicate matches location
         [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
         member this.isElemOfSet(predicate: 't, locationMinterm: 't) =
             not (this.IsEmpty(this.And(locationMinterm, predicate)))
@@ -31,7 +25,6 @@ module Extensions =
         [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
         member this.contains(larger: 't) (smaller: 't) =
             let overlapped = this.And(smaller,larger)
-            // smaller = overlapped
             match box overlapped, box smaller with
             | (:? uint64 as ov), (:? uint64 as sm) -> ov = sm
             | (:? BDD as ov), (:? BDD as sm) -> ov = sm
@@ -59,16 +52,6 @@ module Solver =
         (smaller: 'd): bool =
             let overlapped = solver.And(smaller,larger)
             obj.ReferenceEquals((box smaller),(box overlapped)) || smaller = overlapped
-
-
-
-    // let inline not' predicate = ~~~predicate
-    // // let inline isEmpty (predicate:TSet) = predicate = LanguagePrimitives.GenericZero
-    // let inline mapOr (s:ISolver<^t>) ([<InlineIfLambda>]f: 'a -> ^t) xs: ^t =
-    //     let mutable startset = s.Empty
-    //     for x in xs do
-    //         startset <- s.Or(startset,f x)
-    //     startset
 
     let inline mergeOrWithEnumerator
         (s:ISolver<^t>)
@@ -127,7 +110,7 @@ let rec loopSubsumesBranch (solver:ISolver<'t>) (largePred: 't) (node:RegexNode<
         if largePred = pred2 then true
         elif containsv then true
         else false
-    | Concat (head,tail,k_) ->
+    | Concat (head,tail,_) ->
         if loopSubsumesBranch solver largePred head then
             loopSubsumesBranch solver largePred tail
         else false
@@ -228,76 +211,23 @@ let (|BoundedLoop|_|) (node: RegexNode<_>) =
     | _ -> ValueNone
 
 [<return: Struct>]
-let (|CounterNode|_|) (node: RegexNode<_>) =
-    match node with
-    | (BoundedLoop as loop) | Concat(head=(BoundedLoop) as loop; tail=_)  -> ValueSome(loop)
-    | _ -> ValueNone
-
-
-[<return: Struct>]
 let (|ZeroboundSetLoop|_|) (node: RegexNode<_>) =
     match node with
     | Loop(node=Singleton pred;low=0;) -> ValueSome(pred)
     | _ -> ValueNone
 
 
-[<return: Struct>]
-let (|AllSameHead|_|) (nodes: seq<RegexNode<_>>) =
-    let mutable allsame = true
-    let mutable headRef : RegexNode<_> = Unchecked.defaultof<_>
-    nodes
-    |> Seq.pairwise
-    |> Seq.iter (fun (prev, v) ->
-        match prev, v with
-        | Concat(head = head1; tail = _), Concat(head = head2; tail = _) ->
-            if not (obj.ReferenceEquals(head1, head2)) then
-                allsame <- false
-            else
-                headRef <- head1
-        | _ -> allsame <- false
-    )
-    if allsame then
-        ValueSome(headRef)
-    else ValueNone
 
-
-module Location =
-    let getDefault() : Location<_> = { Input = ReadOnlySpan.Empty; Reversed = false; Position = 0 }
-    let getNonInitial() : Location<_> = { Input = "abc".AsSpan() ; Reversed = false; Position = 1 }
-    let inline create (str: string) (p: int32) : Location<_> = { Input = str.AsSpan(); Position = p; Reversed = false }
-    let inline createSpan (str: ReadOnlySpan<char>) (p: int32) : Location<_> = { Input = str; Position = p; Reversed = false }
-    let inline clone (loc:inref<Location<_>>) : Location<_> =
-        { Input = loc.Input ; Position = loc.Position ; Reversed = loc.Reversed }
-    let inline createSpanRev (str: ReadOnlySpan<char>) (p: int32) (forwards:bool) : Location<_> = {
-        Input = str; Position = p; Reversed = not forwards
-    }
-    let inline createReversedSpan (str: ReadOnlySpan<'t>) : Location<'t> = {
-        Input = str; Position = str.Length; Reversed = true
-    }
-
-    let inline isFinal (loc: Location<_>) =
-        loc.Reversed && loc.Position = 0
-        || not loc.Reversed && loc.Position = loc.Input.Length
-
-    let inline isEdge (loc: Location<_>) =
-        loc.Position = 0 || loc.Position = loc.Input.Length
-
-    let inline nextPosition (loc: Location<_>) =
-        match loc.Reversed with
-        | true -> (loc.Position - 1)
-        | _ -> (loc.Position + 1 )
-
-    let inline final (loc: Location<_>) =
-        match loc.Reversed with
-        | true -> 0
-        | _ -> loc.Input.Length
-
-/// same as obj.ReferenceEquals(x, y)
+/// same as obj.ReferenceEquals(x, y) but checks for reference type
 let inline refEq x y =
-    // obj.ReferenceEquals(x, y)
-    // obj.ReferenceEquals(x, y)
     LanguagePrimitives.PhysicalEquality x y
 
 /// same pointer location
 let inline same(x:inref<_>, y:inref<_>) =
     Runtime.CompilerServices.Unsafe.AreSame(&x,&y)
+
+let inline ifNull ([<InlineIfLambda>] initFn) (value) =
+    if obj.ReferenceEquals(value, null) then
+        initFn()
+    else
+        value

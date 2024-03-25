@@ -66,11 +66,37 @@ type Location<'TChar when 'TChar : struct > = {
 
 #endif
 
-[<Struct>]
-type InitialStartset<'t> =
-    | Uninitialized
-    | Unoptimized
-    | MintermArrayPrefix of prefix: Memory<'t> * loopTerminator: Memory<'t>
+module Location =
+    let getDefault() : Location<_> = { Input = ReadOnlySpan.Empty; Reversed = false; Position = 0 }
+    let getNonInitial() : Location<_> = { Input = "abc".AsSpan() ; Reversed = false; Position = 1 }
+    let inline create (str: string) (p: int32) : Location<_> = { Input = str.AsSpan(); Position = p; Reversed = false }
+    let inline createSpan (str: ReadOnlySpan<char>) (p: int32) : Location<_> = { Input = str; Position = p; Reversed = false }
+    let inline clone (loc:inref<Location<_>>) : Location<_> =
+        { Input = loc.Input ; Position = loc.Position ; Reversed = loc.Reversed }
+    let inline createSpanRev (str: ReadOnlySpan<char>) (p: int32) (forwards:bool) : Location<_> = {
+        Input = str; Position = p; Reversed = not forwards
+    }
+    let inline createReversedSpan (str: ReadOnlySpan<'t>) : Location<'t> = {
+        Input = str; Position = str.Length; Reversed = true
+    }
+
+    let inline isFinal (loc: Location<_>) =
+        loc.Reversed && loc.Position = 0
+        || not loc.Reversed && loc.Position = loc.Input.Length
+
+    let inline isEdge (loc: Location<_>) =
+        loc.Position = 0 || loc.Position = loc.Input.Length
+
+    let inline nextPosition (loc: Location<_>) =
+        match loc.Reversed with
+        | true -> (loc.Position - 1)
+        | _ -> (loc.Position + 1 )
+
+    let inline final (loc: Location<_>) =
+        match loc.Reversed with
+        | true -> 0
+        | _ -> loc.Input.Length
+
 
 
 [<Flags>]
@@ -78,17 +104,11 @@ type RegexNodeFlags =
     | None = 0uy
     | CanBeNullableFlag = 1uy
     | IsAlwaysNullableFlag = 2uy
-    | HasZerowidthHeadFlag = 64uy
     | ContainsLookaroundFlag = 4uy
     | DependsOnAnchorFlag = 8uy
     | HasSuffixLookaheadFlag = 16uy
     | HasPrefixLookbehindFlag = 32uy
-// | IsSuffixLookahead = 16uy
-// | ContainsEpsilonFlag = 8uy
-// | HasCounterFlag = 16uy
-
-// | IsImmediateLookaroundFlag = 64uy
-// | IsAnchorFlag = 128uy
+    | HasZerowidthHeadFlag = 64uy
 
 
 [<AutoOpen>]
@@ -111,24 +131,6 @@ module RegexNodeFlagsExtensions =
             (this &&& RegexNodeFlags.DependsOnAnchorFlag) = RegexNodeFlags.DependsOnAnchorFlag
 
 
-//
-// [<Flags>]
-// type RegexStateFlags =
-//     | None = 0
-//     | InitialFlag = 1
-//     | DeadendFlag = 2
-//     | CanBeNullableFlag = 4
-//     | CanSkipFlag = 8
-//     | HasPrefixFlag = 16
-//     | ContainsLookaroundFlag = 32
-//     | HasCounterFlag = 64
-//     | UseDotnetOptimizations = 128
-//     | ContainsInitialFlag = 256
-//     | AlwaysNullableFlag = 512
-//     | ActiveBranchOptimizations = 1024
-//     | IsPendingNullableFlag = 2048
-//     | DependsOnAnchor = 4096
-
 [<Flags>]
 type RegexStateFlags =
     | None = 0s
@@ -149,7 +151,6 @@ type RegexStateFlags =
 // todo: fixed length
 // todo: can be subsumed
 // todo: singleton loop
-
 
 
 [<RequireQualifiedAccess>]
@@ -224,8 +225,7 @@ module RegexStateFlagsExtensions =
         [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
         member this.IsPendingNullable =
             this &&& RegexStateFlags.IsPendingNullableFlag = RegexStateFlags.IsPendingNullableFlag
-        // [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-        // member this.HasCounter = this &&& RegexStateFlags.HasCounterFlag = RegexStateFlags.HasCounterFlag
+
         [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
         member this.ContainsInitial =
             this &&& RegexStateFlags.ContainsInitialFlag = RegexStateFlags.ContainsInitialFlag
@@ -260,10 +260,6 @@ type RegexNodeInfo<'tset when 'tset :> IEquatable<'tset> and 'tset: equality>() 
 
     member inline this.CanBeNullable =
         this.NodeFlags &&& RegexNodeFlags.CanBeNullableFlag = RegexNodeFlags.CanBeNullableFlag
-
-    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-    member this.CanNotBeNullable() =
-        (this.NodeFlags &&& RegexNodeFlags.CanBeNullableFlag) = RegexNodeFlags.None
 
     member inline this.ContainsLookaround =
         this.NodeFlags &&& RegexNodeFlags.ContainsLookaroundFlag = RegexNodeFlags.ContainsLookaroundFlag
@@ -300,7 +296,6 @@ type RegexNode<'tset when 'tset :> IEquatable<'tset> and 'tset: equality> =
         info: RegexNodeInfo<'tset>
     | Begin
     | End
-
 
 
     override this.ToString() =
@@ -759,61 +754,18 @@ module Enumerator =
 
         hash
 
-    let inline getSharedHash2(e: RegexNode<_> Memory) =
-        let mutable hash = 0
-        let span = e.Span
-
-        for n in span do
-            // hash <- HashCode.Combine(hash,LanguagePrimitives.PhysicalHash n)
-            hash <- hash ^^^ LanguagePrimitives.PhysicalHash n
-
-        hash
-
     let inline getSharedHash3(e: RegexNode<_> Span) =
         let mutable hash = 0
-
         for n in e do
             hash <- hash ^^^ LanguagePrimitives.PhysicalHash n
-
-        hash
-
-    let inline getSharedHashRs(e: RefSet<_> Memory) =
-        let mutable hash = 0
-        let span = e.Span
-
-        for n in span do
-            // hash <- HashCode.Combine(hash,LanguagePrimitives.PhysicalHash n)
-            hash <- hash ^^^ LanguagePrimitives.PhysicalHash n
-
         hash
 
 
 
-
-    // let canUseByte =
-    //         (Memory.forall (fun v -> Text.Encoding.UTF8.GetByteCount(Array.singleton v) = 1 ) characters)
-
-
-
-
-//
-// type TSet = BitVector
-// type TSolver = ISolver<TSet>
-
-// type TSolver = BitVectorSolver
-
-//
-// type TSet = BitVector
-// type TSolver = BitVectorSolver
 
 type TSet = uint64
 type TSolver = UInt64Solver
 
-// type TSet = uint32
-// type TSolver = UInt32Solver
-
-// type TSet = uint16
-// type TSet = byte
 
 [<Sealed>]
 type SharedResizeArray<'t when 't: equality>(initialSize: int) =
@@ -972,7 +924,7 @@ type RefSet<'t when 't: comparison> =
             member this.Equals(xs, ys) =
                 xs.Length = ys.Length && xs.Span.SequenceEqual(ys.Span)
 
-            member this.GetHashCode(x) = Enumerator.getSharedHashRs x
+            member this.GetHashCode(x) = Memory.getCombinedHash x
         }
 
     static let _cache = Dictionary<ImmutableHashSet<'t>, RefSet<'t>>()
@@ -1058,14 +1010,18 @@ module Memory =
             use mutable acc = new SharedResizeArrayStruct<byte>(16)
             let mutable e = mem.Span.GetEnumerator()
             while e.MoveNext() do
-                let r: byte =
-                    match e.Current with
-                    | 'K' -> byte 'k'
-                    | _ -> byte e.Current
+                let r: byte = byte e.Current
                 acc.Add(r)
             ValueSome (acc.AllocateArray().AsMemory())
         else
             ValueNone
 
+    let inline forceConvertToAscii (mem: Memory<char>) =
+        use mutable acc = new SharedResizeArrayStruct<byte>(16)
+        let mutable e = mem.Span.GetEnumerator()
+        while e.MoveNext() do
+            let r: byte = byte e.Current
+            if r < 128uy then
+                acc.Add(r)
+        acc.AllocateArray().AsMemory()
 
-// source:Set<'t>

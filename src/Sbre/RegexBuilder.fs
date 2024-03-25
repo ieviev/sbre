@@ -204,7 +204,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             member this.Equals(xs, ys) =
                 xs.Length = ys.Length &&
                 xs.Span.SequenceEqual(ys.Span)
-            member this.GetHashCode(x) = Enumerator.getSharedHash2 x
+            member this.GetHashCode(x) = Memory.getCombinedHash x
         }
 
     let _concatCacheComparer: IEqualityComparer<struct (RegexNode<'t> * RegexNode<'t >)> =
@@ -431,9 +431,6 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
 
         |}
 
-    let mutable _prefixCache: Dictionary<RegexNode<'t>, InitialStartset<'t>> =
-        Dictionary(_refComparer)
-
     let shouldOverrideIfNotUnicode =
         dict [|
             RegexCharClass.CharsToStringClass("KkK"), RegexCharClass.CharsToStringClass("Kk")
@@ -445,7 +442,6 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
     member this.trueStar = _uniques._trueStar
     member this.uniques = _uniques
     member this.anchors = _anchors
-    member this.PrefixCache = _prefixCache
     member this.LanguageCache = _combineLanguageCache
 
     member this.CanonicalCache = _canonicalCache

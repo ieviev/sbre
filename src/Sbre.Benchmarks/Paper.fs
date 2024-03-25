@@ -448,6 +448,19 @@ type Rebar10() =
         )
 
 
+
+type Rebar12() =
+    inherit
+        Jobs.TestSbreAllPatternsWithCompileTime(
+            [
+                __SOURCE_DIRECTORY__ + "/../Sbre.Test/data/length-15.txt"
+                |> System.IO.File.ReadAllText
+                |> (fun v -> v.Trim().Split("\n"))
+                |> String.concat "|"
+            ],
+            String.replicate 200 "A"
+        )
+
 type Rebar14() =
     inherit
         Jobs.TestAllEnginesAllPatternsMatchOnly(

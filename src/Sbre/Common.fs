@@ -200,3 +200,20 @@ module Memory =
         while not exists && e.MoveNext() do
             exists <- f e.Current
         exists
+
+    let inline getCombinedHash(e: 't Memory) =
+        let mutable hash = 0
+        let span = e.Span
+        for n in span do
+            hash <- hash ^^^ LanguagePrimitives.PhysicalHash n
+        hash
+
+#nowarn "9"
+
+module Ptr =
+    open FSharp.NativeInterop
+    let inline stackalloc<^a when ^a: unmanaged>(length: int) : Span< ^a > =
+        let p = NativePtr.toVoidPtr (NativePtr.stackalloc< ^a> length)
+        Span< ^a>(p, length)
+
+

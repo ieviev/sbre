@@ -25,6 +25,8 @@ type MintermSearchValues<'t> =
     val SearchValuesSize: int
     val CharactersInMinterm: Memory<char> option
     val Solver: ISolver<'t>
+
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.CanUseAscii() = not (isNull this.SearchValuesByte)
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
@@ -146,7 +148,8 @@ type MintermSearchValues<'t> =
             | ValueSome (chars) ->
                 SearchValues.Create(chars.Span)
             | _ ->
-                Unchecked.defaultof<_>
+                SearchValues.Create(Memory.forceConvertToAscii(characters).Span)
+                // Unchecked.defaultof<_>
         {
             Mode = mode
             Minterm = tset

@@ -26,7 +26,7 @@ type StringPrefix(pattern:string) =
     let matcher = regex.TSetMatcher
     // find optimized prefix for regex
     let getder = (fun (mt,node) ->
-        let loc = Pat.Location.getNonInitial()
+        let loc = Location.getNonInitial()
         matcher.CreateDerivative(&loc, mt,node)
     )
 

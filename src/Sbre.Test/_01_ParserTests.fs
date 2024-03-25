@@ -3,6 +3,7 @@ module Sbre.Test._01_ParserTests
 
 open System.Globalization
 open System.Text.RuntimeRegexCopy
+open Sbre.Parser
 open Xunit
 
 
@@ -37,8 +38,6 @@ let ``conjunction parse test 1: c..&..t`` () =
 
 [<Fact>]
 let ``conjunction parse test 2: aa&bb`` () =
-
-    // should be impossible but will not check
     let capture = parseExtended "aa&bb"
     let node = capture.Root.Child(0)
 
@@ -52,7 +51,6 @@ let ``conjunction parse test 2: aa&bb`` () =
 
 [<Fact>]
 let ``conjunction parse test 3`` () =
-
     // working recursively with other groups
     let capture = parseExtended @"(ca..)&(...s)"
     let node = capture.Root.Child(0)
@@ -328,6 +326,36 @@ let ``negation parse test 15: multiset~c`` () =
         node.Child(1).Options.HasFlag(RegexOptions.Negated) // ~c
     ]
     |> Seq.iteri(fun i x -> Assert.True(x, $"condition index {i} failed\n{capture.Root}"))
+
+
+
+
+//
+// [<Fact>]
+// let ``custom parser 01`` () =
+//     let input =
+//         __SOURCE_DIRECTORY__ + "/../Sbre.Test/data/length-15.txt"
+//         |> System.IO.File.ReadAllText
+//         |> (fun v -> v.Trim().Split("\n"))
+//         |> String.concat "|"
+//
+//     let node = Sbre.Parser.parseAsData input
+//     let min = minimize node
+//     let asStr = Pattern.toString min
+//
+//     ()
+//
+//
+// [<Fact>]
+// let ``custom parser 02`` () =
+//     let input = "helloasd|weaweasd"
+//     let node = Sbre.Parser.parseAsData input
+//     let min = minimize node
+//     let asStr = Pattern.toString min
+//     asStr |> Common.assertContains [
+//         "(hello|weawe)asd"
+//     ]
+//     ()
 
 
 

@@ -99,6 +99,7 @@ let main argv =
     | "rebar5" -> BenchmarkRunner.Run(typeof<Paper.Rebar5>,config) |> ignore
     | "rebar6" -> BenchmarkRunner.Run(typeof<Paper.Rebar6>,config) |> ignore
     | "rebar10" -> BenchmarkRunner.Run(typeof<Paper.Rebar10>,config) |> ignore
+    | "rebar12" -> BenchmarkRunner.Run(typeof<Paper.Rebar12>,config) |> ignore
     | "rebar14" -> BenchmarkRunner.Run(typeof<Paper.Rebar14>,config) |> ignore
 
 

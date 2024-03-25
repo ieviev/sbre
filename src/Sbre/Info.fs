@@ -7,16 +7,6 @@ module
 open System
 open Sbre.Types
 
-#nowarn "9"
-
-module Ptr =
-    open FSharp.NativeInterop
-
-    let inline stackalloc< ^a when ^a: unmanaged>(length: int) : Span< ^a > =
-        let p = NativePtr.toVoidPtr (NativePtr.stackalloc< ^a> length)
-        Span< ^a>(p, length)
-
-
 
 type Flag = RegexNodeFlags
 

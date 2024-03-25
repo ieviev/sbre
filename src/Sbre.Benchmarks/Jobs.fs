@@ -1046,7 +1046,7 @@ type TestSbreAllPatternsWithCompileTime(patterns: (string) list, input: string, 
 
     [<Benchmark(Description = "Sbre")>]
     member this.Sbre() =
-        Sbre.Regex(this.Pattern,options).Matches(inputText) |> Seq.toArray
+        Sbre.Regex(Parser.processString this.Pattern,options).Matches(inputText) |> Seq.toArray
 
 [<MemoryDiagnoser(false)>]
 [<ShortRunJob>]
@@ -1061,7 +1061,7 @@ type TestSbreAllPatternsMatchOnly(patterns: (string) list, input: string) =
 
     [<GlobalSetup>]
     member this.Setup() =
-        let regex = Regex(Parser.parsePattern this.Pattern, SbreOptions.HighThroughputAscii)
+        let regex = Regex(Parser.processString this.Pattern, SbreOptions.HighThroughputAscii)
         let matcher = regex.Matcher :?> RegexMatcher<TSet>
         this.CompiledEngine <- matcher
         ()

@@ -272,40 +272,6 @@ let ``exit range test 1``() =
 let ``exit range test 2``() = assertFirstMatchText @"a+" " aaa " "aaa"
 
 
-
-
-
-
-
-[<Fact>]
-let ``reverse pattern 1``() =
-    let startLocation = Pat.Location.create "1aA" 0
-
-
-    // let res = RegexNode.matchEnd (m.Cache,startLocation , ValueNone, m.ReversePattern)
-
-    // let m_rev = Matcher(@".{3,3}(?<=1.*)(?<=a.*)(?<=A.*)")
-    // let p1 = m_rev.RawPattern
-    //
-    // let m = Matcher(@"(?=.*A)(?=.*a)(?=.*1).{3,3}")
-    // let p2 = m.ReversePattern
-
-    // let res_rev = RegexNode.matchEnd (m_rev.Cache,startLocation , ValueNone, m_rev.RawPattern)
-    let a = 1
-    // Assert.Equal(p2,p1)
-    ()
-
-// [<Fact>]
-// let ``reverse pattern 2``() =
-//     let mutable startLocation = Pat.Location.create "1aA" 0
-//     let m = Regex(@"(?=.*A)(?=.*a)(?=.*1).{3,3}")
-//     let m_rev = Regex(@".{3,3}(?<=1.*)(?<=a.*)(?<=A.*)")
-//     let res = m_rev.FindMatchEnd("1aA")
-//     ()
-
-
-
-
 [<Fact>]
 let ``negation range test 1``() =
     assertFirstMatchText @"~(⊤*\d\d⊤*)" "Aa11aBaAA" "Aa1"
@@ -723,6 +689,15 @@ let ``skip test 3.1``() =
 let ``skip test 3.2``() =
     assertAllLLmatches """a[^a]{0,5}a""" """ a____a """ [1,6]
 
+
+
+[<Fact>]
+let ``custom syntax test 01``() =
+    assertAllLLmatchTexts """_*a_*""" "bbabb" [ "bbabb" ]
+
+[<Fact>]
+let ``custom syntax test 02``() =
+    assertAllLLmatchTexts """a\_b*""" "a_b" [ "a_b" ]
 
 
 

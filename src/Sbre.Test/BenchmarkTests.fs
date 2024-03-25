@@ -215,29 +215,28 @@ let rebar_counts_1() =
 
 //
 
-[<Fact>]
-let rebar_byte_1() =
-    let input = "/mnt/ice/repos/rebar/benchmarks/haystacks/opensubtitles/en-sampled.txt"
-    let pattern = "Sherlock Holmes"
-    assertEqual 513 (Sbre.Regex(pattern,SbreOptions.HighThroughputAscii).Count(File.ReadAllBytes input))
+// [<Fact>]
+// let rebar_byte_1() =
+//     let input = "/mnt/ice/repos/rebar/benchmarks/haystacks/opensubtitles/en-sampled.txt"
+//     let pattern = "Sherlock Holmes"
+//     assertEqual 513 (Sbre.Regex(pattern,SbreOptions.HighThroughputAscii).Count(File.ReadAllBytes input))
+//
+// [<Fact>]
+// let rebar_byte_2() =
+//     let input = "/mnt/ice/repos/rebar/benchmarks/haystacks/opensubtitles/zh-sampled.txt"
+//     let pattern = "夏洛克·福尔摩斯|约翰华生|阿德勒|雷斯垂德|莫里亚蒂教授"
+//     assertEqual 207 (Sbre.Regex(pattern,SbreOptions.HighThroughputAscii).Count(File.ReadAllText input))
 
-[<Fact>]
-let rebar_byte_2() =
-    let input = "/mnt/ice/repos/rebar/benchmarks/haystacks/opensubtitles/zh-sampled.txt"
-    let pattern = "夏洛克·福尔摩斯|约翰华生|阿德勒|雷斯垂德|莫里亚蒂教授"
-    assertEqual 207 (Sbre.Regex(pattern,SbreOptions.HighThroughputAscii).Count(File.ReadAllText input))
 
-
-[<Fact>]
-let rebar_byte_3() =
-    let input = @"/mnt/ice/repos/rebar/benchmarks/haystacks/opensubtitles/en-medium.txt"
-    let pattern =
-        "/mnt/ice/repos/rebar/benchmarks/regexes/dictionary/english/length-15.txt"
-        |> System.IO.File.ReadAllText
-        |> (fun v -> v.Trim().Split("\n"))
-        |> String.concat "|"
-    assertEqual 1 (Sbre.Regex(pattern,SbreOptions.HighThroughputAscii).Count(File.ReadAllBytes input))
-
+// [<Fact>]
+// let rebar_byte_3() =
+//     let input = @"/mnt/ice/repos/rebar/benchmarks/haystacks/opensubtitles/en-medium.txt"
+//     let pattern =
+//         "/mnt/ice/repos/rebar/benchmarks/regexes/dictionary/english/length-15.txt"
+//         |> System.IO.File.ReadAllText
+//         |> (fun v -> v.Trim().Split("\n"))
+//         |> String.concat "|"
+//     assertEqual 1 (Sbre.Regex(pattern,SbreOptions.HighThroughputAscii).Count(File.ReadAllBytes input))
 
 
 

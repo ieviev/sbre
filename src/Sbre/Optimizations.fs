@@ -431,13 +431,15 @@ let convertInitialOptimizations (initOpts:InitialOptimizations<'t,char>) : Initi
     match initOpts with
     | InitialOptimizations.NoOptimizations -> InitialOptimizations.NoOptimizations
     | InitialOptimizations.StringPrefix(prefix, transitionNodeId) ->
-        match prefix |> Memory.tryConvertToAscii with
-        | ValueSome s -> InitialOptimizations.StringPrefix(s, transitionNodeId)
-        | _ -> InitialOptimizations.NoOptimizations
+        // match prefix |> Memory.tryConvertToAscii with
+        // | ValueSome s -> InitialOptimizations.StringPrefix(s, transitionNodeId)
+        // | _ -> InitialOptimizations.NoOptimizations
+        InitialOptimizations.StringPrefix(Memory.forceConvertToAscii prefix, transitionNodeId)
     | InitialOptimizations.SearchValuesPrefix(prefix, transitionNodeId) ->
-        if prefix |> Memory.forall (_.CanUseAscii() ) then
-            InitialOptimizations.SearchValuesPrefix(prefix, transitionNodeId)
-        else InitialOptimizations.NoOptimizations
+        // if prefix |> Memory.forall (_.CanUseAscii() ) then
+        //     InitialOptimizations.SearchValuesPrefix(prefix, transitionNodeId)
+        // else InitialOptimizations.NoOptimizations
+        InitialOptimizations.SearchValuesPrefix(prefix, transitionNodeId)
     | InitialOptimizations.SearchValuesPotentialStart(prefix) ->
         if prefix |> Memory.forall (_.CanUseAscii() ) then
             InitialOptimizations.SearchValuesPotentialStart(prefix)
