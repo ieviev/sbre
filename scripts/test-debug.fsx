@@ -13,9 +13,8 @@ let r = Sbre.Regex("Twain")
 let m = r.TSetMatcher
 
 let mkder (symbol: char) node =
-    let unused = Pat.Location.getNonInitial ()
     let tset = m.Cache.CharToMinterm(symbol)
-    m.CreateDerivative(&unused, tset, node)
+    m.CreateNonInitialDerivative(tset,node)
 
 fsi.AddPrinter<RegexNode<uint64>>(fun v -> v.ToString())
 
@@ -26,6 +25,11 @@ let _der2 = mkder 'w' _der1 //  "ba"  (remember |abba)
 let _der3 = mkder 'a' _der2 // "a" // "a|bba"
 let _der4 = mkder 'i' _der3 // "ε" // "|a|bba"
 
+
+
+let wasds =
+    use pos = Sbre
+    ()
 
 // |aabba -> ⊥
 // a|abba -> abba

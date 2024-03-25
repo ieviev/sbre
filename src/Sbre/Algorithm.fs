@@ -1,4 +1,4 @@
-module rec Sbre.Algorithm
+module internal rec Sbre.Algorithm
 
 open Sbre.Types
 

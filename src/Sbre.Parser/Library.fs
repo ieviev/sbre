@@ -44,7 +44,11 @@ type Pattern =
 
 
 
-let rec minimizeOrLeft (strings:string seq) =
+let rec minimizeOrLeft (patterns:Pattern seq) =
+    let strings =
+        patterns |> Seq.choose (function Pattern.String v -> Some v | _ -> None)
+    let others =
+        patterns |> Seq.choose (function Pattern.String _ -> None | v -> Some v)
     let grouped =
         strings
         |> Seq.groupBy (fun v ->
@@ -64,15 +68,16 @@ let rec minimizeOrLeft (strings:string seq) =
             | Some (chr) ->
                 let left = Pattern.String $"%c{chr}"
                 let right =
-                    minimizeOrLeft (group |> Seq.map (fun v -> v[1..]))
+                    minimizeOrLeft (group |> Seq.map (fun v -> Pattern.String v[1..]))
                     |> Seq.toList
                     |> Pattern.Or
                 yield Pattern.Concat [
                     left
                     right
                 ]
-
     }
+    |> Seq.append others
+    |> Seq.toList
 
 
 let rec minimizeOrRight (patterns:Pattern seq) : Pattern list =
@@ -117,8 +122,11 @@ let rec minimizeOrRight (patterns:Pattern seq) : Pattern list =
 let rec minimize (pat:Pattern) =
     match pat with
     | Pattern.Or(nodes) ->
-        minimizeOrRight (nodes)
+        minimizeOrLeft (nodes)
+
         |> Pattern.mkOr
+        // minimizeOrRight (nodes)
+        // |> Pattern.mkOr
     | Pattern.Concat(nodes) ->
         match nodes with
         | [ Pattern.Concat [h1; Pattern.String tail1 ]; Pattern.String tail2 ] ->
@@ -209,7 +217,8 @@ let processString (pattern:string) =
     let parseResult = run Syntax.r_regex pattern
     match parseResult with
     | ParserResult.Success(res,_,_) -> Pattern.toString (res)
-    | ParserResult.Failure(errs,_,_) -> failwith errs
+    | ParserResult.Failure(errs,s1,s2) ->
+        failwith $"{errs}\npattern:{pattern}"
 
 
 

@@ -25,11 +25,6 @@ type StringPrefix(pattern:string) =
     let regex = Sbre.Regex(pattern)
     let matcher = regex.TSetMatcher
     // find optimized prefix for regex
-    let getder = (fun (mt,node) ->
-        let loc = Location.getNonInitial()
-        matcher.CreateDerivative(&loc, mt,node)
-    )
-
     let charToTSet (chr:char) = matcher.Cache.CharToMinterm(chr)
     // let isElemOfSet (tset1:TSet) (tset2:TSet) = Solver.elemOfSet tset1 tset2
 

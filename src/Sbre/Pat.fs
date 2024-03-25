@@ -1,5 +1,5 @@
 /// patterns, helpers
-module rec Sbre.Pat
+module internal rec Sbre.Pat
 
 open System.Runtime.CompilerServices
 open System.Text.RuntimeRegexCopy.Symbolic
@@ -217,10 +217,6 @@ let (|ZeroboundSetLoop|_|) (node: RegexNode<_>) =
     | _ -> ValueNone
 
 
-
-/// same as obj.ReferenceEquals(x, y) but checks for reference type
-let inline refEq x y =
-    LanguagePrimitives.PhysicalEquality x y
 
 /// same pointer location
 let inline same(x:inref<_>, y:inref<_>) =

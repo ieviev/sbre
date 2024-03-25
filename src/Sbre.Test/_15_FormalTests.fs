@@ -4,7 +4,6 @@ module Sbre.Test._15_FormalTests
 open System.Buffers
 open Sbre
 open Sbre.Benchmarks.Jobs
-open Sbre.CountingSet
 open Sbre.Info
 open Sbre.Optimizations
 open Sbre.Types

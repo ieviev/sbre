@@ -68,7 +68,7 @@ type Location<'TChar when 'TChar : struct > = {
 
 module Location =
     let getDefault() : Location<_> = { Input = ReadOnlySpan.Empty; Reversed = false; Position = 0 }
-    let getNonInitial() : Location<_> = { Input = "abc".AsSpan() ; Reversed = false; Position = 1 }
+    // let getNonInitial() : Location<_> = { Input = "abc".AsSpan() ; Reversed = false; Position = 1 }
     let inline create (str: string) (p: int32) : Location<_> = { Input = str.AsSpan(); Position = p; Reversed = false }
     let inline createSpan (str: ReadOnlySpan<char>) (p: int32) : Location<_> = { Input = str; Position = p; Reversed = false }
     let inline clone (loc:inref<Location<_>>) : Location<_> =
@@ -785,6 +785,13 @@ type SharedResizeArray<'t when 't: equality>(initialSize: int) =
         pool[size] <- item
         size <- size + 1
 
+    member this.Item
+        with get(i:int) = pool[i]
+        and set (i:int) v = pool[i] <- v
+
+    //
+    // pool[index]
+
     member this.Clear() = size <- 0
 
     member this.Contains(item) =
@@ -900,6 +907,8 @@ type SharedResizeArrayStruct<'t> =
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.AsSpan() = this.pool.AsSpan(0, this.size)
     member this.AllocateArray() : 't[] = this.pool.AsSpan(0, this.size).ToArray()
+    member this.RentMemory() : Memory<'t> =
+        this.pool.AsMemory(0, this.size)
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member this.Dispose() = ArrayPool.Shared.Return(this.pool)

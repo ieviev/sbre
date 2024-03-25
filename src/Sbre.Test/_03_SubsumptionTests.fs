@@ -7,7 +7,6 @@ module Sbre.Test._03_SubsumptionTests
 open System
 open System.Text.RuntimeRegexCopy.Symbolic
 open Sbre
-open Sbre.CountingSet
 open Sbre.Info
 open Sbre.Pat
 open Sbre.Types

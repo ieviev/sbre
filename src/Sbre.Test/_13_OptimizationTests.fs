@@ -6,7 +6,6 @@ open System.IO
 open System.Runtime.Intrinsics.X86
 open Sbre
 open Sbre.Benchmarks.Jobs
-open Sbre.CountingSet
 open Sbre.Info
 open Sbre.Optimizations
 open Sbre.Types
@@ -43,10 +42,7 @@ let ``calc reverse prefix 1``() =
     let regex = Regex("Twain")
     let matcher = regex.TSetMatcher
     let getflags = (fun node -> matcher.GetOrCreateState(node).Flags)
-    let getder = (fun (mt,node) ->
-        let loc = Location.getNonInitial()
-        matcher.CreateDerivative(&loc, mt,node)
-    )
+    let getder = matcher.CreateNonInitialDerivative
     let prefix =
         Optimizations.calcPrefixSets getder getflags matcher.Cache matcher.ReversePattern
     let prefixString = Optimizations.printPrefixSets matcher.Cache prefix
@@ -81,10 +77,7 @@ let ``calc potential start 1``() =
     let regex = Regex("Tom|Sawyer|Huckleberry|Finn")
     let matcher = regex.TSetMatcher
     let getflags = (fun node -> matcher.GetOrCreateState(node).Flags)
-    let getder = (fun (mt,node) ->
-        let loc = Location.getNonInitial()
-        matcher.CreateDerivative(&loc, mt,node)
-    )
+    let getder = matcher.CreateNonInitialDerivative
     let prefix =
         Optimizations.calcPotentialMatchStart regex.Options getder getflags matcher.Cache matcher.ReversePattern
     let prefixString = Optimizations.printPrefixSets matcher.Cache prefix

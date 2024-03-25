@@ -7,7 +7,6 @@ open System.Collections
 open System.Text.RuntimeRegexCopy.Symbolic
 open Sbre
 open Sbre.Algorithm
-open Sbre.CountingSet
 open Sbre.Pat
 open Sbre.Types
 open Xunit
@@ -78,10 +77,7 @@ let applyPrefix pattern =
     let regex = Regex(pattern)
     let matcher = regex.TSetMatcher
     let getflags = (fun node -> matcher.GetOrCreateState(node).Flags)
-    let getder = (fun (mt,node) ->
-        let loc = Location.getNonInitial()
-        matcher.CreateDerivative(&loc, mt,node)
-    )
+    let getder = matcher.CreateNonInitialDerivative
     let prefix = Optimizations.calcPrefixSets getder getflags matcher.Cache matcher.ReversePattern
     let applied = Optimizations.applyPrefixSets getder matcher.Cache matcher.ReverseTrueStarredPattern prefix
     applied
@@ -89,10 +85,7 @@ let applyPrefix pattern =
 let getInitOptimizations pattern =
     let regex = Regex(pattern)
     let matcher = regex.TSetMatcher
-    let getder = (fun (mt,node) ->
-        let loc = Location.getNonInitial()
-        matcher.CreateDerivative(&loc, mt,node)
-    )
+    let getder = matcher.CreateNonInitialDerivative
     let optimizations =
         Optimizations.findInitialOptimizations
             regex.Options
@@ -105,10 +98,7 @@ let getInitOptimizations pattern =
 let assertPotentialStart (pattern:string) (expectedPatterns: string seq) =
     let regex = Regex(pattern)
     let matcher = regex.TSetMatcher
-    let getder = (fun (mt,node) ->
-        let loc = Location.getNonInitial()
-        matcher.CreateDerivative(&loc, mt,node)
-    )
+    let getder = matcher.CreateNonInitialDerivative
     let optimizations =
         Optimizations.findInitialOptimizations
             regex.Options
@@ -127,10 +117,7 @@ let assertPotentialStart (pattern:string) (expectedPatterns: string seq) =
 let assertPrefixLength pattern expected =
     let regex = Regex(pattern)
     let matcher = regex.TSetMatcher
-    let getder = (fun (mt,node) ->
-        let loc = Location.getNonInitial()
-        matcher.CreateDerivative(&loc, mt,node)
-    )
+    let getder = matcher.CreateNonInitialDerivative
     let optimizations =
         Optimizations.findInitialOptimizations
             regex.Options
@@ -149,10 +136,7 @@ let assertPrefixLength pattern expected =
 let assertSetsPrefix pattern expected =
     let regex = Regex(pattern)
     let matcher = regex.TSetMatcher
-    let getder = (fun (mt,node) ->
-        let loc = Location.getNonInitial()
-        matcher.CreateDerivative(&loc, mt,node)
-    )
+    let getder = matcher.CreateNonInitialDerivative
     let optimizations =
         Optimizations.findInitialOptimizations
             regex.Options
@@ -169,27 +153,21 @@ let assertSetsPrefix pattern expected =
 let assertBvSetsPrefix pattern expected =
     let regex = Regex(pattern)
     let matcher = regex.Matcher :?> RegexMatcher<BitVector>
-    let getder = (fun (mt,node) ->
-        let loc = Location.getNonInitial()
-        matcher.CreateDerivative(&loc, mt,node)
-    )
+    let getder = matcher.CreateNonInitialDerivative
     let optimizations = matcher.InternalOptimizations
     match optimizations with
     | Optimizations.InitialOptimizations.SearchValuesPrefix(prefix, transId) ->
         let prefixString = Optimizations.printPrefixSets2 matcher.Cache (prefix.ToArray() |> Seq.map (fun v -> v.Minterm) |>  Seq.toList)
         Assert.Equal(expected, prefixString)
     | Optimizations.InitialOptimizations.SearchValuesPotentialStart(prefix) ->
-        let prefixString = Optimizations.printPrefixSets2 matcher.CacheObj (prefix.ToArray() |> Seq.map (fun v -> v.Minterm) |>  Seq.toList)
+        let prefixString = Optimizations.printPrefixSets2 matcher.Cache (prefix.ToArray() |> Seq.map (fun v -> v.Minterm) |>  Seq.toList)
         Assert.Equal(expected, prefixString)
     | _ -> failwith $"invalid optimization result: {optimizations}"
 
 let assertStringPrefix pattern expected =
     let regex = Regex(pattern)
     let matcher = regex.TSetMatcher
-    let getder = (fun (mt,node) ->
-        let loc = Location.getNonInitial()
-        matcher.CreateDerivative(&loc, mt,node)
-    )
+    let getder = matcher.CreateNonInitialDerivative
     let optimizations =
         Optimizations.findInitialOptimizations
             regex.Options
@@ -208,10 +186,7 @@ let assertOptimizationPrefixSets pattern expected =
     let regex = Regex(pattern)
     let matcher = regex.TSetMatcher
     let getflags = (fun node -> matcher.GetOrCreateState(node).Flags)
-    let getder = (fun (mt,node) ->
-        let loc = Location.getNonInitial()
-        matcher.CreateDerivative(&loc, mt,node)
-    )
+    let getder = matcher.CreateNonInitialDerivative
     let prefix =
         Optimizations.calcPrefixSets getder getflags matcher.Cache matcher.ReversePattern
     let prefixString = Optimizations.printPrefixSets matcher.Cache prefix

@@ -1,4 +1,4 @@
-module Sbre.CountingSet
+module internal Sbre.CountingSet
 
 open System.Collections.Generic
 open Sbre.Pat

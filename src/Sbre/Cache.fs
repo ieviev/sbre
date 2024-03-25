@@ -1,4 +1,4 @@
-namespace rec Sbre
+namespace rec Sbre.Cache
 
 open System
 open System.Buffers
@@ -6,6 +6,7 @@ open System.Collections.Generic
 open System.Runtime.CompilerServices
 open System.Text.RuntimeRegexCopy.Symbolic
 open Microsoft.FSharp.Core
+open Sbre
 open Sbre.Types
 open Sbre.Pat
 

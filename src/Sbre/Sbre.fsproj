@@ -42,7 +42,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Common.fs" />
-    <Compile Include="UInt16Solver.fs" />
+<!--    <Compile Include="UInt16Solver.fs" />-->
     <Compile Include="Types.fs" />
     <Compile Include="Pat.fs" />
     <Compile Include="Info.fs" />
@@ -50,7 +50,7 @@
     <Compile Include="Cache.fs" />
     <Compile Include="RegexNodeConverter.fs" />
     <Compile Include="Minterms.fs" />
-    <Compile Include="CountingSet.fs" />
+<!--    <Compile Include="CountingSet.fs" />-->
     <Compile Include="Algorithm.fs" />
     <Compile Include="Optimizations.fs" />
     <Compile Include="Msagl.fs" />
@@ -65,7 +65,8 @@
   <ItemGroup>
     <!-- nuget pack -->
 <!--    <ProjectReference Include="..\RuntimeRegexCopy\RuntimeRegexCopy.csproj" PrivateAssets="all" />-->
-       <ProjectReference Include="..\RuntimeRegexCopy\RuntimeRegexCopy.csproj" /> 
+       <ProjectReference Include="..\RuntimeRegexCopy\RuntimeRegexCopy.csproj" />
+       <ProjectReference Include="..\Sbre.Parser\Sbre.Parser.fsproj" /> 
   </ItemGroup>
   <ItemGroup>
     <Content Include="$(MSBuildThisFileDirectory)../RuntimeRegexCopy/bin/Release/net8.0/RuntimeRegexCopy.dll">

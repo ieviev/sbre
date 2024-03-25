@@ -26,7 +26,6 @@ type ParagraphLong1Word() =
         )
 
 
-
 type ParagraphLong2Word() =
     inherit
         Jobs.AllRegexesInParagraph(
@@ -507,12 +506,12 @@ type SampleRegexes() =
         // Jobs.TestSbreAllPatternsCountSpans(
             [
                // """^(.*Huck.*&.*book.*)$"""
-               // String.concat "&" [
-               //          """(?<=\n\n|\A)~(|\T*\n\n\T*)(?=\n\n|\z)"""
-               //          """(\T*Huck\T*|\T*Finn\T*)"""
-               //          """(\T*Huck\T*→\T*book\T*)"""
-               //          """(\T*river\T*→\T*Finn\T*)"""
-               //  ]
+               String.concat "&" [
+                        """(?<=\n\n|\A)~(|\T*\n\n\T*)(?=\n\n|\z)"""
+                        """(\T*Huck\T*|\T*Finn\T*)"""
+                        """(\T*Huck\T*→\T*book\T*)"""
+                        """(\T*river\T*→\T*Finn\T*)"""
+                ]
                // String.concat "&" [
                //          """^.*$"""
                //          """(.*Huck.*|.*Finn.*)"""

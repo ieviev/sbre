@@ -8,7 +8,6 @@ open Common
 open System
 open Sbre
 open Sbre.Algorithm
-open Sbre.CountingSet
 open Sbre.Info
 open Sbre.Pat
 open Sbre.Types

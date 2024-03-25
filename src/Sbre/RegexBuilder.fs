@@ -10,6 +10,7 @@ open System.Text.RuntimeRegexCopy
 open System.Text.RuntimeRegexCopy.Symbolic
 open Sbre.Info
 open Sbre.Pat
+open Sbre.Common
 open Sbre.Types
 open System.Linq
 
@@ -20,11 +21,6 @@ module
 #endif
     StartsetHelpers =
 
-    let bddSingleChar (bdd:BDD) =
-        let mutable ranges = BDDRangeConverter.ToRanges(bdd)
-        match ranges with
-        | [| (s,e) |] when s = e -> Some (char s)
-        | _ -> None
     let bddToStartsetChars(bdd: BDD) : PredStartset =
         let rcc = RegexCharClass()
         let mutable ranges = BDDRangeConverter.ToRanges(bdd)
@@ -32,7 +28,7 @@ module
         let mutable setTooBig = false
         let mutable i = 0u
         let sizeLimit = 1024u
-        let charArray = Array.zeroCreate<char> (int sizeLimit)
+        use charArray = new SharedResizeArray<char>(int sizeLimit)
 
         while e.MoveNext() && not setTooBig do
             let struct (rs, re) = e.Current :?> struct (uint32 * uint32)
@@ -46,11 +42,13 @@ module
                 if i >= sizeLimit then
                     setTooBig <- true
                 else
-                    charArray[int i] <- char j
+                    charArray.Add(char j)
+                    // charArray[int i] <- char j
                     i <- i + 1u
 
         let trimmed =
-            charArray.AsSpan().Slice(0, int i).ToArray()
+            // charArray.AsSpan().Slice(0, int i).ToArray()
+            charArray.AsArray()
 
         let ranges2 = PredStartset.Of(StartsetFlags.None, trimmed)
 
@@ -82,7 +80,7 @@ module
     let tryGetMintermChars
         (
             _solver: ISolver<'t>,
-            predStartsetArray: Types.PredStartset array,
+            predStartsetArray: PredStartset array,
             uintMinterms:'t array, //: 't array when 't: (static member Zero: 't) and 't: (static member (&&&) : 't * 't -> 't),
             startset: 't //: 't when 't: (static member Zero: 't) and 't: (static member (&&&) : 't * 't -> 't)
         )
@@ -96,7 +94,6 @@ module
         if shouldInvert then
             for i = 1 to predStartsetArray.Length - 1 do
                 let pureMt = uintMinterms[i]
-                // match _solver.isElemOfSet (startset,pureMt) with
                 match _solver.elemOfSet startset pureMt with
                 | true -> ()
                 | false ->
@@ -136,12 +133,12 @@ module
             else
                 Some (Memory(mergedCharSpan.Slice(0, totalLen).ToArray()))
 
-    let getMergedIndexOfSpan
+    let getMergedStartset
         (
             _solver: ISolver<'t>,
             predStartsetArray: Types.PredStartset array,
-            uintMinterms:'t array, //: 't array when 't: (static member Zero: 't) and 't: (static member (&&&) : 't * 't -> 't),
-            startset: 't //: 't when 't: (static member Zero: 't) and 't: (static member (&&&) : 't * 't -> 't)
+            uintMinterms:'t array,
+            startset: 't
         )
         : SearchValues<char> option
         =
@@ -246,6 +243,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
         }
 
     let _singletonCache: Dictionary< 't, RegexNode< 't > > = Dictionary()
+    let _charCache: Dictionary<char,'t> = Dictionary()
 
     let _loopCache: Dictionary<struct (RegexNode< 't > * int * int), RegexNode< 't >> =
         Dictionary()
@@ -269,6 +267,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
 
     let _combineLanguageCache: Dictionary<struct (RegexNode<'t> * RegexNode<'t>), (RegexNode<'t> * RegexNode<'t>) option> = Dictionary(_combineLanguageComparer)
 
+    let _canonicalSingletonCache: Dictionary<'t,RegexNode<'t>> = Dictionary(_singletonCache)
     let _canonicalCache: Dictionary<struct(bool*bool*Memory<RegexNode<'t>>), RegexNode<'t>> = Dictionary(_canonicalCacheComparer)
 
     let _orCache: Dictionary<RegexNode< 't >Memory, RegexNode< 't >> =
@@ -296,7 +295,6 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                         (RegexNodeFlags.IsAlwaysNullableFlag ||| RegexNodeFlags.CanBeNullableFlag ||| RegexNodeFlags.HasZerowidthHeadFlag)
                         solver.Full
                         RefSet.empty
-
             )
         _truePlus =
             RegexNode.Loop(
@@ -306,11 +304,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 info = _createInfo RegexNodeFlags.None solver.Full RefSet.empty
             )
         _wordChar = lazy b.setFromCharClass(RegexCharClass.WordClass)
-        // _wordChar = lazy b.setFromStr "[\w\u200C\u200D]"
-        // _nonWordChar = lazy b.setFromStr "[\W\u200C\u200D]"
         _nonWordChar = lazy b.setFromCharClass(RegexCharClass.NotWordClass)
-
-        // _nonWordChar = lazy b.setFromStr @"\W"
         _zAnchor = RegexNode<'t>.End
         _aAnchor = RegexNode<'t>.Begin
     |}
@@ -323,29 +317,25 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
     let _anchors =
         let nonWordLeft =
             lazy
-                let body = b.mkOr2(RegexNode<'t>.Begin, _uniques._nonWordChar.Value)
+                let body = b.mkOr2(_uniques._aAnchor, _uniques._nonWordChar.Value)
                 b.mkLookaround(body ,lookBack=true, rel=0, pendingNullable=RefSet.empty)
 
         let wordLeft =
             lazy
-                let body = b.mkOr2(RegexNode<'t>.Begin, _uniques._wordChar.Value)
+                let body = b.mkOr2(_uniques._aAnchor, _uniques._wordChar.Value)
                 b.mkLookaround( body,true, 0, RefSet.empty)
         let nonWordRight =
             lazy
-                let body = b.mkOr2(RegexNode<'t>.End, _uniques._nonWordChar.Value)
+                let body = b.mkOr2(_uniques._zAnchor, _uniques._nonWordChar.Value)
                 b.mkLookaround( body,false, 0, RefSet.empty)
 
         let wordRight =
             lazy
-                let body = b.mkOr2(RegexNode<'t>.End, _uniques._wordChar.Value)
+                let body = b.mkOr2(_uniques._zAnchor, _uniques._wordChar.Value)
                 b.mkLookaround( body,false, 0, RefSet.empty)
 
         {|
             _endZAnchor = lazy (failwith "todo: \Z anchor is not defined" : RegexNode<'t>)
-            //                        b.mkOr([
-            //     b.mkLookaround(_true,false,true)
-            //     b.mkLookaround(b.mkConcat2(b.one '\n',_true),false,true)
-            // ])
             _zAnchor = _uniques._zAnchor
 
             // \A ≡ (?<!⊤)
@@ -397,7 +387,6 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             _wordLeft = wordLeft
 
             // (?=\W)
-            // _nonWordRight = lazy b.mkLookaround(_uniques._nonWordChar.Value)
             // proper definition (?=\z|\W)
             _nonWordRight = nonWordRight
 
@@ -433,8 +422,10 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
 
     let shouldOverrideIfNotUnicode =
         dict [|
+            // this is shooting string literal performance in the foot if you don't care about the 'K'
             RegexCharClass.CharsToStringClass("KkK"), RegexCharClass.CharsToStringClass("Kk")
             RegexCharClass.DigitClass, RegexCharClass.CharsToStringClass("0123456789")
+            RegexCharClass.WordClass, RegexCharClass.ECMAWordClass
         |]
 
 
@@ -442,20 +433,26 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
     member this.trueStar = _uniques._trueStar
     member this.uniques = _uniques
     member this.anchors = _anchors
-    member this.LanguageCache = _combineLanguageCache
 
+    member this.CanonicalSingletonCache = _canonicalSingletonCache
     member this.CanonicalCache = _canonicalCache
-    // member this.UniquesDict = _uniquesDict
     member val CanonicalizeCallback : (RegexNode<'t> -> RegexNode<'t>)  option = None with get, set
 
+    member this.GetCanonicalSingleton(minterm:'t, mklang:unit -> Memory<RegexNode<'t>>) =
+        match this.CanonicalSingletonCache.TryGetValue(minterm) with
+        | true, v -> v
+        | _ ->
+            let node = this.one(minterm)
+            if (this.CanonicalSingletonCache.TryAdd(minterm, node)) then
+                let key = struct(false,false ,mklang())
+                this.CanonicalCache.TryAdd(key, node) |> ignore
+            node
+
     member this.GetCanonical(oldNode:RegexNode<'t>, ders:Memory<RegexNode<'t>>, mknode: unit -> RegexNode<'t>) =
-        // if refEq oldNode node then node else
         let key = struct(oldNode.DependsOnAnchor,oldNode.CanBeNullable , ders)
 
         match this.CanonicalCache.TryGetValue(key) with
         | true, v ->
-            // if not (refEq oldNode v) then
-            //     failwith $"canonicalized {oldNode} to {v}"
             oldNode.TryGetInfo |> ValueOption.iter (fun inf ->
                 inf.HasCanonicalForm <- Some v
             )
@@ -483,49 +480,35 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 | _ -> node.Str
             else node.Str
         let bdd = converter.CreateBDDFromSetString(adjustedSetString)
-        let a2 = solver.ConvertFromBDD(bdd, bcss)
-        if solver.IsFull(a2) then
-            _uniques._true
-        elif solver.IsEmpty(a2) then
-            _uniques._false
-        else
-            match _singletonCache.TryGetValue(a2) with
-            | true, v -> v
-            | _ ->
-                let v = RegexNode.Singleton(a2)
-                _singletonCache.Add(a2, v)
-                v
+        let mt = solver.ConvertFromBDD(bdd, bcss)
+        this.one(mt)
+
+
+    member this.charToMinterm(char: char) : 't =
+        match _charCache.TryGetValue(char) with
+        | true, v -> v
+        | _ ->
+            let bdd: BDD = bcss.CreateBDDFromChar char
+            let minterm = solver.ConvertFromBDD(bdd, bcss)
+            _charCache.Add(char,minterm)
+            minterm
 
     member this.one(char: char) : RegexNode< 't > =
-        let a1: BDD = bcss.CreateBDDFromChar char
-        let minterm = solver.ConvertFromBDD(a1, bcss)
-        this.one(minterm)
+        this.one(this.charToMinterm(char))
 
     member this.one(minterm: 't) : RegexNode< 't > =
         let mt = minterm
-
-        if solver.IsFull(mt) then
-            _uniques._true
-        elif solver.IsEmpty(mt) then
-            _uniques._false
-        else
-            match _singletonCache.TryGetValue(mt) with
-            | true, v -> v
-            | _ ->
-                let v = RegexNode.Singleton(mt)
-                _singletonCache.Add(mt, v)
-                v
-
-    member this.notOne(char: char) =
-        let a1: BDD = bcss.CreateBDDFromChar char
-        let a2 = solver.Not(solver.ConvertFromBDD(a1, bcss))
-
-        match _singletonCache.TryGetValue(a2) with
+        match _singletonCache.TryGetValue(mt) with
         | true, v -> v
         | _ ->
-            let v = RegexNode.Singleton(a2)
-            _singletonCache.Add(a2, v)
+            let v = RegexNode.Singleton(mt)
+            _singletonCache.Add(mt, v)
             v
+
+    member this.notOne(char: char) =
+        let mt = solver.Not(this.charToMinterm(char))
+        this.one(mt)
+
 
     member this.mkOr2 (node1: RegexNode<'t>, node2: RegexNode<'t>) : RegexNode<'t> =
         let key = ([|node1;node2|])
@@ -565,12 +548,14 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             | Loop(node=node;low=2;up=2), other | other, Loop(node=node;low=2;up=2) when refEq node other ->
                 // this.mkConcat2(node,this.mkOr2(Epsilon,node))
                 this.mkLoop(node, 1, 2)
-            // t(s?|sday) -> ts?day
+            // // t(s?|sday) -> t(s?day)?
             | Loop(node=node;low=0;up=1), Concat(head=chead1;tail=ctail1)
             | Concat(head=chead1;tail=ctail1), Loop(node=node;low=0;up=1)
                 when refEq node chead1 ->
                 let newHead = this.mkLoop(node, 0, 1)
-                this.mkConcat2(newHead, ctail1)
+                let newBody = this.mkConcat2(newHead, ctail1)
+                this.mkLoop(newBody, 0, 1)
+
             | Or(nodes=nodes) as orNode, other | other, (Or(nodes=nodes) as orNode) ->
                 if nodes.Contains(other) then orNode else
                 let arr = seq {yield! nodes;other}
@@ -667,8 +652,6 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
         match _andCache.TryGetValue(key) with
         | true, v -> v
         | _ ->
-            // if typeof<'t> = typeof<BDD> then createCached(key) else
-
             match node1, node2 with
             | n1, n2 when refEq n1 n2 -> n1
             | Not(node=n1), n2 | n2, Not(node=n1) when refEq n1 n2 -> _uniques._false
@@ -704,9 +687,6 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
 
         let mutable enumerating = true
         let mutable status = MkAndFlags.None
-        // _and_derivatives.Clear()
-        // _and_complements.Clear()
-        // let derivatives = _and_derivatives
         let derivatives = HashSet(_refComparer)
         let _and_complements = HashSet(_refComparer)
 
@@ -826,33 +806,6 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                     derivatives.Add(newNode2) |> ignore
                 )
 
-                // let grouped_tails =
-                //     derivatives
-                //     |> Seq.map (function Pat.SplitTail (h,d) -> h,d )
-                //     |> Seq.groupBy snd
-                //     |> Seq.toArray
-                // // SplitTail
-                // if grouped_tails.Length > 0 then
-                //     derivatives.Clear()
-                //     for (tail_key,group) in grouped_tails do
-                //         let group_arr = group |> Seq.toArray
-                //         if group_arr.Length = 1 then
-                //             let hd = fst group_arr[0]
-                //             let t = snd group_arr[0]
-                //             let newNode =
-                //                 if hd.Count = 0 then t
-                //                 else this.mkConcat2(this.mkConcatResizeArray(hd),tail_key)
-                //             derivatives.Add(newNode) |> ignore
-                //         else
-                //         let new_heads =
-                //             group_arr |> Seq.map (fun (fst,_) ->
-                //                 if fst.Count = 0 then _uniques._eps
-                //                 elif fst.Count = 1 then fst[0] else
-                //                 this.mkConcatResizeArray(fst)
-                //             )
-                //         let merged_heads = this.mkAnd(new_heads)
-                //         let new_concat = this.mkConcat2(merged_heads,tail_key)
-                //         derivatives.Add(new_concat) |> ignore
 
             let createNode(nodes: RegexNode<_>[]) =
                 match nodes with
@@ -932,10 +885,8 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
         let mutable zeroloops = 0
         use mutable singletonStarLoops = new SharedResizeArray<_>(key.Length)
         let mutable e = nodes.Span.GetEnumerator()
-        // let derivatives = HashSet(_refComparer) // _or_derivatives
-        // let derivatives = HashSet(_refComparer) // _or_derivatives
-        // let derivatives = HashSet(_refComparer) // _or_derivatives
         use mutable derivatives = new SharedResizeArray<_>(key.Length)
+        use mutable templist = new SharedResizeArray<RegexNode<'t>>(key.Length)
 
         while e.MoveNext() && enumerating do
             let rec handleNode(deriv: RegexNode<'t>) =
@@ -972,12 +923,12 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
         | MkOrFlags.IsTrueStar -> _uniques._trueStar
         | _ ->
 
-        if zeroloops > 1 then
+        if zeroloops > 0 then
             // remove loop duplicates
             // C{0,9}D  | C{0,8}D = C{0,9}D
             // _or_loop_dict.Clear()
             // _or_values.Clear()
-            let _or_loop_dict = Dictionary<struct(RegexNode<'t>*RegexNode<'t>),int>(_concatCacheComparer)
+            let _or_loop_dict = Dictionary<struct(RegexNode<'t>*RegexNode<'t>),struct(int*int)>(_concatCacheComparer)
             // let _or_values = ResizeArray()
             use _or_values = new SharedResizeArray<_>(derivatives.Length)
 
@@ -988,27 +939,52 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                     _or_values.Add(der)
                     let key = struct (body, tail)
                     match _or_loop_dict.TryGetValue(key) with
-                    | true, v -> _or_loop_dict[key] <- max v upper
-                    | _ -> _or_loop_dict.Add(struct (body, tail), upper)
+                    | true, (low,up) -> _or_loop_dict[key] <- struct(min low 0,max up upper)
+                    | _ -> _or_loop_dict.Add(struct (body, tail), struct(0,upper))
                 | Loop(low = 0; up = upper; node = body) when upper < Int32.MaxValue ->
                     _or_values.Add(der)
                     let key = struct (body, _uniques._eps)
                     match _or_loop_dict.TryGetValue(key) with
-                    | true, v -> _or_loop_dict[key] <- max v upper
-                    | _ -> _or_loop_dict.Add(struct (body, _uniques._eps), upper)
+                    | true, (low,up) -> _or_loop_dict[key] <- struct(min low 0,max up upper)
+                    | _ -> _or_loop_dict.Add(struct (body, _uniques._eps), struct(0,upper))
+                | Singleton pred ->
+                    _or_values.Add(der)
+                    let key = struct (der, _uniques._eps)
+                    match _or_loop_dict.TryGetValue(key) with
+                    | true,(low,up) -> _or_loop_dict[key] <- struct(min low 1,max up 1)
+                    | _ -> _or_loop_dict.Add(struct (der, _uniques._eps), struct(1,1))
+                | Concat(head = (Singleton pred) as body; tail = tail) ->
+                    _or_values.Add(der)
+                    let key = struct (body, tail)
+                    match _or_loop_dict.TryGetValue(key) with
+                    | true, (low,up) -> _or_loop_dict[key] <- struct(min low 1,max up 1)
+                    | _ -> _or_loop_dict.Add(struct (body, tail), struct(1,1))
                 | _ -> ()
 
             for der in _or_values do
                 match der with
                 | Concat(head = Loop(low = 0; up = upper; node = body); tail = tail) when upper < Int32.MaxValue ->
                     let key = struct (body, tail)
-                    let maxv = _or_loop_dict[key]
+                    let struct(minv,maxv) = _or_loop_dict[key]
                     if upper < maxv then
                         derivatives.Remove(der) |> ignore
                 | Loop(low = 0; up = upper; node = body) when upper < Int32.MaxValue ->
                     let key = struct (body, _uniques._eps)
-                    let maxv = _or_loop_dict[key]
+                    let struct(minv,maxv) = _or_loop_dict[key]
                     if upper < maxv then
+                        derivatives.Remove(der)
+                | Singleton pred ->
+                    let key = struct (der, _uniques._eps)
+                    let struct(minv,maxv) = _or_loop_dict[key]
+                    if 1 < maxv then
+                        derivatives.Remove(der)
+                    elif 1 > minv then
+                        derivatives.Remove(der)
+                | Concat(head = Singleton _ as body; tail = tail)  ->
+                    let key = struct (body, tail)
+                    // let keyEps = struct (body, _uniques._eps)
+                    let struct(minv,maxv) = _or_loop_dict[key]
+                    if 1 < maxv then
                         derivatives.Remove(der) |> ignore
                 | _ -> ()
 
@@ -1022,23 +998,28 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
 
         let mutable num_singletons = 0
         let merged =
-            derivatives.AsArray()
-            |> Seq.choose
-                   (function
+            templist.Clear()
+            for n in derivatives do
+                templist.Add(n)
+            let mutable ss = solver.Empty
+            for n in templist do
+                match n with
                 | Singleton p as d ->
                     num_singletons <- num_singletons + 1
                     derivatives.Remove(d)
-                    Some p
-                | _ -> None )
-            |> Seq.fold (fun acc v -> solver.Or(acc,v) ) solver.Empty
+                    ss <- solver.Or(p,ss)
+                | _ -> ()
+            ss
+
         if num_singletons > 0 then
             let merged2 = b.one(merged)
             derivatives.Add(merged2)
 
-
+        // todo: there is about 500MB worth of allocations here that need optimizing
         if options.CompressPattern then
             let mutable num_lookaheads = 0
             let mutable min_rel = Int32.MaxValue
+
             let merge_lookaheads =
                 derivatives.AsArray()
                 |> Seq.choose
@@ -1065,13 +1046,14 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                     derivatives.Add(merged) |> ignore
                     // failwith "todo"
 
-
             let grouped_heads =
                 derivatives.AsArray()
                 |> Seq.groupBy (fun v ->
                     match v with
                     | Concat(head = head; tail = tail) ->
                         Some head
+                    | Singleton _ ->
+                        Some v
                     | _ -> None
                 )
                 |> Seq.toArray
@@ -1089,15 +1071,18 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 | [| single |] ->
                     derivatives.Add(single) |> ignore
                 | mult ->
-                    let tmp = ResizeArray()
+                    templist.Clear()
                     let mutable headNode = Unchecked.defaultof<_>
                     for node in mult do
                         match node with
                         | Concat(head = head; tail = tail) ->
                             headNode <- head
-                            tmp.Add(tail)
+                            templist.Add(tail)
+                        | Singleton _ ->
+                            headNode <- node
+                            templist.Add(_uniques._eps)
                         | _ -> failwith "?"
-                    let newNode = this.mkOrSeq(tmp)
+                    let newNode = this.mkOrSeq(templist.AsArray())
                     let newNode2 = this.mkConcat2(headNode,newNode)
                     derivatives.Add(newNode2) |> ignore
             )
@@ -1128,7 +1113,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                         )
                     let merged_heads = this.mkOrSeq(new_heads)
                     let new_concat = this.mkConcat2(merged_heads,tail_key)
-                    derivatives.Add(new_concat) |> ignore
+                    derivatives.Add(new_concat)
 
 
 
@@ -1168,23 +1153,23 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                 v
 
     member this.mkNot(inner: RegexNode< 't >) =
-            let createNode(inner: RegexNode< 't >) =
-                match inner with
-                | _ when refEq _uniques._false inner -> _uniques._trueStar // ~(⊥) -> ⊤*
-                | _ when refEq _uniques._trueStar inner -> _uniques._false // ~(⊤*) -> ⊥
-                // | StarLoop _ -> _uniques._false // ~(R*) -> ⊥ (not valid)
-                | Epsilon -> _uniques._truePlus // ~(ε) -> ⊤+
-                | _ ->
-                    let mutable flags = Flags.inferNot inner
-                    Not(inner, this.CreateInfo(flags, inner.SubsumedByMinterm(solver),inner.PendingNullables))
-
-            let key = inner
-            match _notCache.TryGetValue(key) with
-            | true, v -> v
+        let createNode(inner: RegexNode< 't >) =
+            match inner with
+            | _ when refEq _uniques._false inner -> _uniques._trueStar // ~(⊥) -> ⊤*
+            | _ when refEq _uniques._trueStar inner -> _uniques._false // ~(⊤*) -> ⊥
+            | Epsilon -> _uniques._truePlus // ~(ε) -> ⊤+
+            | n when n.ContainsLookaround ->
+                raise (UnsupportedPatternException("lookarounds inside complement are not yet allowed"))
             | _ ->
-                let v = createNode key
-                _notCache.Add(key, v)
-                v
+                let mutable flags = Flags.inferNot inner
+                Not(inner, this.CreateInfo(flags, inner.SubsumedByMinterm(solver),inner.PendingNullables))
+        let key = inner
+        match _notCache.TryGetValue(key) with
+        | true, v -> v
+        | _ ->
+            let v = createNode key
+            _notCache.Add(key, v)
+            v
 
 
     member this.setFromStr(setPattern: string) =
@@ -1218,9 +1203,6 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
         match head, tail with
         | Epsilon, _ -> tail // ()R -> R
         | _, Epsilon -> head
-        // redundant anchor branches
-        // | End, tail when tail.CanNotBeNullable -> _uniques._false
-        // | Begin, tail when tail.CanNotBeNullable -> _uniques._false
         | n,_ | _,n when refEq n _uniques._false -> _uniques._false // ⊥R -> ⊥
         | _ ->
             let key = struct (head, tail)
@@ -1253,21 +1235,6 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                     let v = this.mkConcat2(newHead, tail2)
                     _concatCache.Add(key, v)
                     v
-                // | Singleton pred1, Concat(head=Loop(node=Singleton pred2;low=low;up=Int32.MaxValue);tail=tail2) when Solver.containsS solver pred2 pred1 ->
-                //     let dbg = 1
-                //     let v =
-                //         let flags = Flags.inferConcat head tail
-                //         let mergedMinterms = solver.Or(head.SubsumedByMinterm(solver),tail.SubsumedByMinterm(solver))
-                //         let info = this.CreateInfo(flags, mergedMinterms, RefSet.union head.PendingNullables tail.PendingNullables)
-                //         Concat(head, tail, info)
-                //
-                //     _concatCache.Add(key, v)
-                //     v
-                    // failwith "asd"
-                    // let newHead = this.mkLoop(head,incrLoop low 1, incrLoop up 1)
-                    // let v = this.mkConcat2(newHead, tail2)
-                    // _concatCache.Add(key, v)
-                    // v
                 // merge loops 3
                 | Loop(node=(Singleton pred1 as loopNode);low=low1;up=up1), Concat(head=Loop(node=Singleton pred2;low=low2;up=up2);tail=tail2) when pred1 = pred2 ->
                     let newHead = this.mkLoop(loopNode, incrLoop low1 low2, incrLoop up1 up2)
@@ -1299,7 +1266,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                         else createCached(head,tail)
                     else createCached(head,tail)
                 // .{0,20}⊤*
-                | Loop(loopBody,0,n,headinfo), SingletonStarLoop(p2) ->
+                | Loop(_,0,_,headinfo), SingletonStarLoop(p2) ->
                     let subMinterm = headinfo.SubsumedByMinterm
                     if Solver.containsS solver p2 subMinterm then tail
                     else createCached(head,tail)
@@ -1349,7 +1316,6 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                     _concatCache.Add(key, v)
                     v
                 | LookAround(node=Epsilon;lookBack=false;pendingNullables = _), tail when not tail.IsAlwaysNullable ->
-                    // Experimental
                     let v =
                         let flags = Flags.inferConcat head tail
                         let mergedMinterms = solver.Or(head.SubsumedByMinterm(solver),tail.SubsumedByMinterm(solver))
@@ -1357,68 +1323,6 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
                         Concat(head, tail, info)
                     _concatCache.Add(key, v)
                     v
-                    // createCached(head,tail)
-
-                // INNER LOOKAROUND
-#if REWRITE_INNER
-//                 // TODO: ⊤*(?<=aaa) not correct - this does not have the same semantics
-//                 // a(?<=[a-z]) to (a&(⊤*[a-z])
-//                 // [a-f]{3}((?<=bc)ijk)|(?<=cd)def))
-//                 // [a-f]{3}((?<=bc)ijk)|(?<=cd)def))
-//                 // aaa&(?=[a-z]{3})...
-//                 | head, LookAround(node=node;lookBack=true) when not (refEq head b.trueStar) ->
-//                     // only rewrite trivial examples!
-//                     let rewrite =
-//                         match node with
-//                         | Singleton _ ->
-//                             b.mkAnd([ head; b.mkConcat2(b.trueStar,node) ])
-//                         | Loop(node=Singleton _; low=0; up=1) ->
-//                             b.mkAnd([ head; b.mkConcat2(b.trueStar,node) ])
-//                         | _ ->
-//                             raise (UnsupportedPatternException("inner lookarounds are not yet supported!"))
-//                     _concatCache.Add(key, rewrite)
-//                     rewrite
-//                 // (?=[a-z])a to (a&([a-z]⊤*)
-//                 // (?=ab)a to (a&(?=ab)
-//                 | LookAround(node=lookbody;lookBack=false),tail  ->
-//                     // match tail with
-//                     // | SingletonStarLoop(_) ->
-//                     //     let v =
-//                     //         let flags = Flags.inferConcat head tail
-//                     //         let mergedMinterms = solver.Or(head.SubsumedByMinterm(solver),tail.SubsumedByMinterm(solver))
-//                     //         let info = this.CreateInfo(flags, mergedMinterms, RefSet.union head.PendingNullables tail.PendingNullables)
-//                     //         Concat(head, tail, info)
-//                     //     _concatCache.Add(key, v)
-//                     //     v
-//                     // | _ ->
-//
-//                     // only rewrite trivial examples!
-//                     let rewrite =
-//                         match lookbody with
-//                         // (?=1)11 ==> (11&1⊤*)
-//                         | Singleton _ -> b.mkAnd([ tail; b.mkConcat2(lookbody,b.trueStar) ])
-//                         | _ ->
-//                             // (?=[a-z])a
-//
-//                             // (?=⊤*), this just carries the nullability info
-//                             let unboundedLook = b.mkLookaround(b.trueStar,false,0,RefSet.empty)
-//
-//                             // a(?=⊤*)
-//                             let case1 = b.mkConcat2(tail, unboundedLook)
-//                             // [a-z]⊤*
-//                             let case2 = b.mkConcat2(lookbody,b.trueStar)
-//
-//                             let v = b.mkAnd([
-//                                 case1
-//                                 case2
-//                             ])
-//                             v
-//                     _concatCache.Add(key, rewrite)
-//                     rewrite
-// #else
-                // | LookAround(node=_;lookBack=false),other | other, LookAround(node=_;lookBack=true) when not (refEq other _uniques._trueStar ) ->
-                //     raise (UnsupportedPatternException("inner lookarounds are not supported"))
-#endif
                 | _ ->
                     let v =
                         let flags = Flags.inferConcat head tail
@@ -1511,7 +1415,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             if refEq this.anchors._dollarAnchor.Value node then
                 [],this.uniques._eps, [node]
             elif refEq this.anchors._caretAnchor.Value node then
-                failwith "aa"
+                raise (UnsupportedPatternException("unsupported lookaround/anchor in pattern"))
             else
                 [],node, []
         | _ -> [],node, []
@@ -1773,7 +1677,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
         | 0 -> Epsilon
         | 1 -> nodesCorrectOrder[0]
         | 2 -> this.mkConcat2 (nodesCorrectOrder[0], nodesCorrectOrder[1])
-        | rest ->
+        | _ ->
             let combined =
                 nodesCorrectOrder
                 |> Seq.rev
@@ -1791,8 +1695,7 @@ type RegexBuilder<'t when 't :> IEquatable< 't > and 't: equality  >
             match body, lower, upper with
             | _, 0, 0 -> Epsilon
             | _, 1, 1 -> body
-            // .*{0,1} -> .*
-            | Loop(node=node;low=0;up=Int32.MaxValue), 0, up ->
+            | Loop(node=_;low=0;up=Int32.MaxValue), 0, _ ->
                 body
             | _ ->
                 let flags = Flags.inferLoop (body, lower, upper)

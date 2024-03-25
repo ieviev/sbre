@@ -14,7 +14,8 @@ open Sbre.Optimizations
 open Sbre.Types
 open Sbre.Pat
 open System.Runtime.InteropServices
-
+open Sbre.Common
+open Sbre.Cache
 
 [<AbstractClass>]
 type GenericRegexMatcher() =
@@ -26,11 +27,11 @@ type GenericRegexMatcher() =
     abstract member MatchPositions:
         input: ReadOnlySpan<char> -> SharedResizeArrayStruct<MatchPosition>
 
-    /// aaabbbccc
     abstract member MatchPositions:
         input: ReadOnlySpan<byte> -> SharedResizeArrayStruct<MatchPosition>
 
     abstract member Match: input: ReadOnlySpan<char> -> SingleMatchResult
+
     abstract member Count: input: ReadOnlySpan<char> -> int
     abstract member Count: input: ReadOnlySpan<byte> -> int
 
@@ -43,7 +44,6 @@ type MatchState<'t when 't :> IEquatable<'t> and 't: equality>(node: RegexNode<'
     member val Flags: RegexStateFlags = RegexStateFlags.None with get, set
 
     // -- optimizations
-    // member val PendingNullablePositions: int[] = [||] with get, set
     member val PendingNullablePositions: Memory<int> = Unchecked.defaultof<_> with get, set
 
     // member val PendingNullablePositions: Set<int> = Set.empty with get, set
@@ -52,9 +52,7 @@ type MatchState<'t when 't :> IEquatable<'t> and 't: equality>(node: RegexNode<'
 
     member val ActiveOptimizationsByte: ActiveBranchOptimizations<'t, byte> =
         ActiveBranchOptimizations.NoOptimizations with get, set
-    // member val StartsetChars: SearchValues<char> = Unchecked.defaultof<_> with get, set
     member val MintermSearchValues: MintermSearchValues<'t> = Unchecked.defaultof<_> with get, set
-// member val StartsetIsInverted: bool = Unchecked.defaultof<_> with get, set
 
 
 [<Sealed>]
@@ -152,44 +150,19 @@ type RegexMatcher<'t when 't: struct and 't :> IEquatable<'t> and 't: equality>
                 | false -> _createNonInitialDerivative (loc_pred, _cache.Builder.mkConcat2 (R, R_decr))
             // Derx (R | S) = Derx (R) | Derx (S)
             | Or(xs, _) ->
-                let pool = ArrayPool<RegexNode<'t>>.Shared
-                let rentedArray = pool.Rent(xs.Count)
-                use mutable e = xs.GetEnumerator()
-                let mutable i = 0
-                let mutable count = 0
-
-                while e.MoveNext() do
-                    let der = _createNonInitialDerivative (loc_pred, e.Current)
-
+                use mutable derivatives = new SharedResizeArrayStruct<RegexNode<'t>>(16)
+                for n in xs do
+                    let der = _createNonInitialDerivative (loc_pred, n)
                     if not (refEq _cache.False der) then
-                        rentedArray[count] <- der
-                        count <- count + 1
-
-                    i <- i + 1
-
-                let mem = rentedArray.AsMemory(0, count)
-                mem.Span.Sort(physComparison)
+                        derivatives.Add(der)
+                derivatives.AsSpan().Sort(physComparison)
+                let mem = derivatives.RentMemory()
                 let res = _cache.Builder.mkOr (&mem)
-                pool.Return(rentedArray)
                 res
 
             // Derx (R & S) = Derx (R) & Derx (S)
             | And(xs, _) ->
-                // optimized
-                // let pool = ArrayPool<RegexNode<TSet>>.Shared
-                // let rentedArray = pool.Rent(xs.Count)
-                // use mutable e = xs.GetEnumerator()
-                // let mutable i = 0
-                // while e.MoveNext() do
-                //     rentedArray[i] <- _createDerivative(&loc, loc_pred, e.Current)
-                //     i <- i + 1
-                // let mem = rentedArray.AsMemory(0,i)
-                // mem.Span.Sort(physComparison)
-                // let res = _cache.Builder.mkAnd(&mem)
-                // pool.Return(rentedArray)
-                // res
-                // orig
-                let derivatives = ResizeArray()
+                use mutable derivatives = new SharedResizeArrayStruct<RegexNode<'t>>(16)
                 let mutable foundFalse = false
 
                 for n in xs do
@@ -203,7 +176,7 @@ type RegexMatcher<'t when 't: struct and 't :> IEquatable<'t> and 't: equality>
                 if foundFalse then
                     _cache.False
                 else
-                    let result = _cache.Builder.mkAnd (derivatives)
+                    let result = _cache.Builder.mkAnd (derivatives.AllocateArray())
                     result
             // Derx(~R) = ~Derx (R)
             | Not(inner, _) -> _cache.Builder.mkNot (_createNonInitialDerivative (loc_pred, inner))
@@ -253,7 +226,7 @@ type RegexMatcher<'t when 't: struct and 't :> IEquatable<'t> and 't: equality>
                     | false ->
                         match der_R with
                         // ⊤*\A special case - always known to be a match
-                        | Concat(head = TrueStar _cache.Solver; tail = Begin) ->
+                        | Concat(head = TrueStar _cache.Solver; tail = Begin | End) ->
                             _cache.Builder.mkLookaround (
                                 _cache.Eps,
                                 false,
@@ -354,20 +327,6 @@ type RegexMatcher<'t when 't: struct and 't :> IEquatable<'t> and 't: equality>
 
             // Derx (R & S) = Derx (R) & Derx (S)
             | And(xs, _) ->
-                // optimized
-                // let pool = ArrayPool<RegexNode<TSet>>.Shared
-                // let rentedArray = pool.Rent(xs.Count)
-                // use mutable e = xs.GetEnumerator()
-                // let mutable i = 0
-                // while e.MoveNext() do
-                //     rentedArray[i] <- _createDerivative(&loc, loc_pred, e.Current)
-                //     i <- i + 1
-                // let mem = rentedArray.AsMemory(0,i)
-                // mem.Span.Sort(physComparison)
-                // let res = _cache.Builder.mkAnd(&mem)
-                // pool.Return(rentedArray)
-                // res
-                // orig
                 let derivatives = ResizeArray()
                 let mutable foundFalse = false
 
@@ -483,16 +442,12 @@ type RegexMatcher<'t when 't: struct and 't :> IEquatable<'t> and 't: equality>
         result
 
 
-    and getNonInitialDerivative(mt, node) =
-        let loc = Location.getNonInitial ()
-        _createDerivative (&loc, mt, node)
 
 
     and mkLang node =
         _minterms
         |> Array.map (fun mt ->
-            let loc = Location.getNonInitial ()
-            _createDerivative (&loc, mt, node)
+            _createNonInitialDerivative(mt,node)
         )
 
 
@@ -519,12 +474,9 @@ type RegexMatcher<'t when 't: struct and 't :> IEquatable<'t> and 't: equality>
                 let languages = canonNodes |> Seq.map mkLang
                 let mergedLanguage = attemptMergeUnionLang _cache mkLang node languages
                 let mknode = (fun _ -> _cache.Builder.mkOrSeq (canonNodes))
-                // let mergedLanguage = mkLang node
-                // let mknode = (fun _ -> node)
                 _cache.Builder.GetCanonical(node, mergedLanguage, mknode)
-            | Singleton _ ->
-                let mknode = (fun _ -> node)
-                _cache.Builder.GetCanonical(node, mkLang node, mknode)
+            | Singleton pred ->
+                _cache.Builder.GetCanonicalSingleton(pred, (fun _ -> Memory.op_Implicit (mkLang node)))
             | Loop(regexNode, low, up, _) ->
                 let inner = _canonicalize regexNode
                 let mknode = (fun _ -> _cache.Builder.mkLoop (inner, low, up))
@@ -557,9 +509,7 @@ type RegexMatcher<'t when 't: struct and 't :> IEquatable<'t> and 't: equality>
                 |> Seq.map (fun minterm ->
                     match RegexNode.getCachedTransition (minterm, state.Node) with
                     | ValueSome v -> v
-                    | _ ->
-                        let mutable loc = Location.getNonInitial ()
-                        _createDerivative (&loc, minterm, state.Node)
+                    | _ -> _createNonInitialDerivative(minterm,state.Node)
                 )
 
             // let ders = Array.zip minterms derivatives
@@ -663,10 +613,7 @@ type RegexMatcher<'t when 't: struct and 't :> IEquatable<'t> and 't: equality>
                 let limitedSkip =
                     Optimizations.tryGetLimitedSkip
                         options
-                        (fun (mt, node) ->
-                            let mutable loc = Location.getNonInitial ()
-                            _createDerivative (&loc, mt, node)
-                        )
+                        _createNonInitialDerivative
                         (fun v -> _getOrCreateState(revTruestar, v, false).Flags)
                         (fun v -> _getOrCreateState(revTruestar, v, false).Id)
                         (fun v -> _getOrCreateState(revTruestar, v, false).Startset)
@@ -729,31 +676,23 @@ type RegexMatcher<'t when 't: struct and 't :> IEquatable<'t> and 't: equality>
 
 #if OPTIMIZE
     let _utf16InitialOptimizations =
-        if not options.UseUtf16Optimizations then
-            InitialOptimizations.NoOptimizations
-        else
-            Optimizations.findInitialOptimizations
-                options
-                (fun (mt, node) ->
-                    let mutable loc = Location.getNonInitial ()
-                    _createDerivative (&loc, mt, node)
-                )
-                (fun node -> _getOrCreateState(reverseTrueStarredNode, node, false).Id)
-                (fun node -> _getOrCreateState(reverseTrueStarredNode, node, false).Flags)
-                _cache
-                reverseNode
-                reverseTrueStarredNode
+        Optimizations.findInitialOptimizations
+            options
+            _createNonInitialDerivative
+            (fun node -> _getOrCreateState(reverseTrueStarredNode, node, false).Id)
+            (fun node -> _getOrCreateState(reverseTrueStarredNode, node, false).Flags)
+            _cache
+            reverseNode
+            reverseTrueStarredNode
 
-    let _byteInitialOptimizations: InitialOptimizations<'t, byte> =
-        if not options.UseByteOptimizations then
-            InitialOptimizations.NoOptimizations
-        else
+    let _byteInitialOptimizations =
+        lazy
             Optimizations.convertInitialOptimizations _utf16InitialOptimizations
 
     let _lengthLookup =
         Optimizations.inferLengthLookup
             (fun node -> _getOrCreateState(reverseTrueStarredNode, node, false).Id)
-            getNonInitialDerivative
+            _createNonInitialDerivative
             _cache
             _noprefix
 
@@ -765,7 +704,9 @@ type RegexMatcher<'t when 't: struct and 't :> IEquatable<'t> and 't: equality>
             R_canonical
             reverseNode
 
-    let _byteRegexOverride = Optimizations.convertOverrideRegex _regexOverride
+    let _byteRegexOverride =
+        lazy
+            Optimizations.convertOverrideRegex _regexOverride
 
     let _prefixSets =
         match _utf16InitialOptimizations with
@@ -824,14 +765,8 @@ type RegexMatcher<'t when 't: struct and 't :> IEquatable<'t> and 't: equality>
 
     override this.Match(input) : SingleMatchResult =
         let firstMatch = this.MatchPositions(input).AllocateArray()
-
         match firstMatch.Length = 0 with
-        | true -> {
-            Success = false
-            Value = ""
-            Index = 0
-            Length = 0
-          }
+        | true -> SingleMatchResult.Empty
         | false ->
             let result = firstMatch[0]
 
@@ -847,21 +782,13 @@ type RegexMatcher<'t when 't: struct and 't :> IEquatable<'t> and 't: equality>
         let sb = System.Text.StringBuilder()
         let mutable offset = 0
         let replacementCount = replacementPattern.Count("$0")
-        // let replacementBuilder = System.Text.StringBuilder()
-        // let replacementLength = replacementPattern.Length - (numOfReplacements * 2)
         let replacementString = replacementPattern.ToString()
 
         for result in this.MatchPositions(input) do
             let preceding = input.Slice(offset, result.Index - offset)
-
             let replacement =
                 if replacementCount > 0 then
-                    // let expectedSize = numOfReplacements*result.Length + replacementLength
-                    // let rentedarray = ArrayPool.Shared.Rent(expectedSize)
-                    // let rentedSlice = rentedarray.AsSpan()
-                    // replacementPattern.Replace(rentedSlice,"$0", "asd" )
-
-                    // suboptimal allocation
+                    // todo: allocation here
                     let textSlice = input.Slice(result.Index, result.Length).ToString()
                     let replacement = replacementString.Replace("$0", textSlice)
                     replacement.AsSpan()
@@ -893,8 +820,6 @@ type RegexMatcher<'t when 't: struct and 't :> IEquatable<'t> and 't: equality>
 
         mr
 
-
-
     /// counts the number of matches
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     override this.Count(input: ReadOnlySpan<char>) =
@@ -903,7 +828,7 @@ type RegexMatcher<'t when 't: struct and 't :> IEquatable<'t> and 't: equality>
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     override this.Count(input: ReadOnlySpan<byte>) =
-        match _byteRegexOverride with
+        match _byteRegexOverride.Value with
         | Some _override ->
             use mutable results = this.llmatch_all_byte (input)
             results.size
@@ -954,9 +879,10 @@ type RegexMatcher<'t when 't: struct and 't :> IEquatable<'t> and 't: equality>
 
         let targetState =
             this.GetOrCreateState(
-                this.CreateDerivative(&loc, minterm, _stateArray[currentState].Node)
+                match Location.isEdge loc with
+                | true -> this.CreateDerivative(&loc, minterm, _stateArray[currentState].Node)
+                | _ -> this.CreateNonInitialDerivative(minterm, _stateArray[currentState].Node)
             )
-
         targetState.Id
 
 
@@ -985,7 +911,7 @@ type RegexMatcher<'t when 't: struct and 't :> IEquatable<'t> and 't: equality>
             _revStartStates[dfaOffset] <- nextState
             currentState <- nextState
         else
-            // dont cache start at all
+            // dont cache start at all, only nullability changes here
             let nextState = this.TryNextDerivative(currentState, mtId, &loc)
             currentState <- nextState
 
@@ -1143,17 +1069,14 @@ type RegexMatcher<'t when 't: struct and 't :> IEquatable<'t> and 't: equality>
             node: RegexNode<'t>
         ) : RegexNode<'t> =
         let canonNode = node
-        // too expensive
-        // match node.TryGetInfo with
-        // | ValueSome info when info.IsCanonical -> node
-        // | _ ->
-        //     if node.DependsOnAnchor then node else
-        //     match loc.Kind with
-        //     | LocationKind.StartPos -> node
-        //     | LocationKind.Center -> _canonicalize node
-        //     | LocationKind.EndPos -> node
-        //     | _ -> failwith "?"
         _createDerivative (&loc, loc_pred, canonNode)
+
+    member this.CreateNonInitialDerivative<'tchar when 'tchar: struct>
+        (
+            loc_pred: 't,
+            node: RegexNode<'t>
+        ) : RegexNode<'t> =
+        _createNonInitialDerivative (loc_pred, node)
 
     /// end position with DFA
     member this.DfaEndPositionChar(loc: byref<Location<char>>, startStateId: int) : int32 =
@@ -1406,7 +1329,7 @@ type RegexMatcher<'t when 't: struct and 't :> IEquatable<'t> and 't: equality>
             loc: byref<Location<byte>>,
             currentStateId: byref<int>
         ) : bool =
-        match _byteInitialOptimizations with
+        match _byteInitialOptimizations.Value with
         | InitialOptimizations.SearchValuesPrefix(prefix, transitionNodeId) ->
 #if SKIP_PREFIX
             let skipResult = this.TrySkipInitialRevWeightedByte &loc
@@ -2180,33 +2103,6 @@ type RegexMatcher<'t when 't: struct and 't :> IEquatable<'t> and 't: equality>
         | OverrideRegex.FixedLengthString s -> Overrides.locateStringsByte &acc loc.Input s.Span
         | OverrideRegex.FixedLengthStringCaseIgnore(s, ascii) ->
             failwith "todo case insensitive byte search"
-    // let pspan = s.Span
-    // let mutable looping = true
-    // let mutable currPos = 0
-    // let textLength = s.Length
-    // // ascii in .net is implicitly vectorized - use it if possible
-    // if ascii then
-    //     while looping do
-    //         // LastIndexOf with ignore case is NOT VECTORIZED
-    //         match tspan.Slice(currPos).IndexOf(pspan, StringComparison.OrdinalIgnoreCase) with
-    //         | -1 -> looping <- false
-    //         | n ->
-    //             let start = currPos + n
-    //             acc.Add({ MatchPosition.Index = start; Length = textLength })
-    //             currPos <- start + textLength
-    // // case insensitive unicode is suboptimal for now
-    // else
-    //     while looping do
-    //         let slice = tspan.Slice(currPos)
-    //         let start = slice.IndexOfAny(headSet)
-    //         if start = -1 then looping <- false else
-    //         match slice.Slice(start).StartsWith(pspan, StringComparison.OrdinalIgnoreCase) with
-    //         | false -> currPos <- currPos + start + 1
-    //         | _ ->
-    //             acc.Add({ MatchPosition.Index = start; Length = textLength })
-    //             currPos <- currPos + start + textLength
-
-
 
     member this.llmatch_all_byte
         (input: ReadOnlySpan<byte>)
@@ -2215,7 +2111,7 @@ type RegexMatcher<'t when 't: struct and 't :> IEquatable<'t> and 't: equality>
         let mutable matches = new SharedResizeArrayStruct<MatchPosition>(256)
         let mutable loc = Location.createReversedSpan input
 
-        match _byteRegexOverride with
+        match _byteRegexOverride.Value with
         | Some regOverride -> this.llmatch_all_override_byte (&matches, &loc, regOverride)
         | _ ->
             let mutable acc = new SharedResizeArrayStruct<int>(512)
@@ -2230,7 +2126,6 @@ type RegexMatcher<'t when 't: struct and 't :> IEquatable<'t> and 't: equality>
                 if currStart >= nextValidStart then
                     loc.Position <- currStart
                     let matchEnd = this.getMatchEndByte (&loc)
-                    // let matchEnd = this.DfaEndPositionByte(&loc, DFA_R_noPrefix)
                     matches.Add(
                         { MatchPosition.Index = currStart; Length = (matchEnd - currStart) }
                     )
@@ -2287,9 +2182,8 @@ type RegexMatcher<'t when 't: struct and 't :> IEquatable<'t> and 't: equality>
 
     // accessors
     member this.TrueStarredPattern = box trueStarredNode :?> RegexNode<uint64>
-    member this.ReverseTrueStarredPattern = box reverseTrueStarredNode :?> RegexNode<uint64>
+    member this.ReverseTrueStarredPattern = reverseTrueStarredNode
     member this.RawPattern = R_canonical //:?> RegexNode<uint64>
-    member this.RawPatternObj = R_canonical
 
     member this.PrettyPrintNode(node) =
         let bddNode =
@@ -2325,17 +2219,13 @@ type RegexMatcher<'t when 't: struct and 't :> IEquatable<'t> and 't: equality>
 
         bddNode
 
-    member this.RawPatternWithoutLookback =
-        box _stateArray[DFA_R_noPrefix].Node :?> RegexNode<uint64>
-
-    member this.ReversePattern = box reverseNode :?> RegexNode<uint64>
-
-    member this.Cache = box _cache :?> RegexCache<uint64>
-    member this.CacheObj = _cache
+    member this.RawPatternWithoutLookback = _stateArray[DFA_R_noPrefix].Node
+    member this.ReversePattern = reverseNode
+    member this.Cache = _cache
     member this.InternalOptimizations = _utf16InitialOptimizations
     member this.AttemptCanonicalize n = _canonicalize n
 
-module Helpers =
+module internal Helpers =
     let rec createMatcher
         (
             bddBuilder: RegexBuilder<BDD>,
@@ -2362,7 +2252,7 @@ module Helpers =
 
 
             let cache =
-                Sbre.RegexCache<uint64>(
+                Sbre.Cache.RegexCache<uint64>(
                     solver,
                     charsetSolver,
                     bddMinterms,
@@ -2405,7 +2295,7 @@ module Helpers =
                 (Minterms.transform bddBuilder tsetbuilder charsetSolver solver) symbolicBddnode
 
             let cache =
-                Sbre.RegexCache<BitVector>(
+                Sbre.Cache.RegexCache<BitVector>(
                     solver,
                     charsetSolver,
                     bddMinterms,
@@ -2420,14 +2310,14 @@ module Helpers =
             //     Minterms.transformBack tsetbuilder bddBuilder solver charsetSolver m.RawPatternObj
             // let newMinterms = backToBdd |> Minterms.compute symbolicBuilder
 
-            if not (refEq (m.RawPatternObj) (rawNode)) then
+            if not (refEq (m.RawPattern) (rawNode)) then
                 let backToBdd =
                     Minterms.transformBack
                         tsetbuilder
                         bddBuilder
                         solver
                         charsetSolver
-                        (m.RawPatternObj)
+                        m.RawPattern
 
                 let recomputedMinterms = backToBdd |> Minterms.compute symbolicBuilder
                 // TODO: analyze this
@@ -2453,7 +2343,9 @@ type Regex
     (pattern: string, [<Optional; DefaultParameterValue(null: SbreOptions)>] options: SbreOptions) =
     inherit GenericRegexMatcher()
     let options = ifNull (fun _ -> SbreOptions()) options
-    let pattern = pattern.Replace("⊤", @"[\s\S]")
+    let pattern =
+        Sbre.Parser.processString
+            (pattern.Replace("⊤", @"[\s\S]"))
 
     // experimental parser!
     let regexTree =
@@ -2486,14 +2378,17 @@ type Regex
             options
         )
 
+    /// utf-16 match with unicode support
     override this.Count(input: ReadOnlySpan<char>) = matcher.Count(input)
-    /// aaabbbccc
+    /// ascii-only match over bytes
     override this.Count(input: ReadOnlySpan<byte>) = matcher.Count(input)
 
     override this.IsMatch(input) = matcher.IsMatch(input)
 
+    /// utf-16 match with unicode support
     override this.MatchPositions(input: ReadOnlySpan<char>) = matcher.MatchPositions(input)
 
+    /// ascii-only match over bytes
     override this.MatchPositions
         (input: ReadOnlySpan<byte>)
         : SharedResizeArrayStruct<MatchPosition> =
@@ -2503,7 +2398,8 @@ type Regex
     override this.Matches(input) = matcher.Matches(input)
     override this.Replace(input, replacement) = matcher.Replace(input, replacement)
     override this.Match(input) = matcher.Match(input)
-
+    /// internal regex matcher for debugging
     member this.Matcher: GenericRegexMatcher = matcher
     member this.Options: SbreOptions = options
+    /// internal regex matcher for debugging
     member this.TSetMatcher = matcher :?> RegexMatcher<uint64>

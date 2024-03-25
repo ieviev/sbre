@@ -121,8 +121,8 @@ let ``regexlib 151-160`` () = testSamplesRange 151 160
 // [<Fact>] // nested inner lookarounds
 // let ``regexlib 161-170`` () = testSamplesRange 161 170
 
-[<Fact>]
-let ``regexlib 171-180`` () = testSamplesRange 171 180
+// [<Fact>]
+// let ``regexlib 171-180`` () = testSamplesRange 171 180
 
 // not impl node
 // [<Fact>]

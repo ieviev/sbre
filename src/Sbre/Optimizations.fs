@@ -1,5 +1,10 @@
+#if RELEASE
+module internal rec Sbre.Optimizations
+#else
 module rec Sbre.Optimizations
+#endif
 
+open Sbre.Common
 open System.Buffers
 open System.Collections.Generic
 open System.Text
@@ -8,6 +13,7 @@ open System.Text.RuntimeRegexCopy.Symbolic
 open Sbre.Algorithm
 open Sbre.Types
 open Sbre.Pat
+open Sbre.Cache
 open System
 
 
@@ -221,7 +227,6 @@ let rec calcPotentialMatchStart
         let redundant = System.Collections.Generic.HashSet<RegexNode<'t>>(tsetComparer)
         redundant.Add(cache.False) |> ignore
         let nodes = HashSet(tsetComparer)
-        // let tempList = ResizeArray()
         let tempList = new SharedResizeArray<_>(128)
 
 #if DEBUG
@@ -251,31 +256,27 @@ let rec calcPotentialMatchStart
                     acc |> List.rev
                 else
 
-                    nodes
-                    |> Seq.map (getNonRedundantDerivatives getNonInitialDerivative cache redundant)
-                    |> Seq.iter (tempList.Add)
+                    let mutable ss = cache.Solver.Empty
+                    for n in nodes do
+                        let r = getNonRedundantDerivatives getNonInitialDerivative cache redundant n
+                        for n in r do
+                            ss <- cache.Solver.Or(ss,fst n)
+                        tempList.Add(r)
+                    // nodes
+                    // |> Seq.map (getNonRedundantDerivatives getNonInitialDerivative cache redundant)
+                    // |> Seq.iter (tempList.Add)
 
-                    let merged_pred =
-                        let mutable ss = cache.Solver.Empty
-                        for iseq in tempList do
-                            for n in iseq do
-                                ss <- cache.Solver.Or(ss,fst n)
-                        ss
-
-                    // let pretty =
-                    //     prefixDerivsList
-                    //     |> Seq.map (Array.map (fun (mt,node) ->
-                    //         cache.PrettyPrintMinterm(mt), node
-                    //     ))
-                    //     |> Seq.toArray
-                    // let prettymerged = cache.PrettyPrintMinterm(unbox merged_pred)
+                    // let merged_pred =
+                    //     let mutable ss = cache.Solver.Empty
+                    //     for iseq in tempList do
+                    //         for n in iseq do
+                    //             ss <- cache.Solver.Or(ss,fst n)
+                    //     ss
 
                     nodes.Clear()
-
                     for iseq in tempList do
                         iseq |> Seq.iter (fun v -> nodes.Add(snd v) |> ignore)
-
-                    loop (merged_pred :: acc)
+                    loop (ss :: acc)
 
         let prefixStartNode = getPrefixNode cache startNode
         nodes.Add(prefixStartNode) |> ignore
@@ -360,7 +361,6 @@ let findInitialOptimizations
     =
         match Optimizations.calcPrefixSets getNonInitialDerivative nodeToStateFlags c node with
         | prefix when prefix.Length > 1 ->
-            let mts = c.Minterms()
             let singleCharPrefixes =
                 prefix
                 |> Seq.map (fun v ->
@@ -431,14 +431,8 @@ let convertInitialOptimizations (initOpts:InitialOptimizations<'t,char>) : Initi
     match initOpts with
     | InitialOptimizations.NoOptimizations -> InitialOptimizations.NoOptimizations
     | InitialOptimizations.StringPrefix(prefix, transitionNodeId) ->
-        // match prefix |> Memory.tryConvertToAscii with
-        // | ValueSome s -> InitialOptimizations.StringPrefix(s, transitionNodeId)
-        // | _ -> InitialOptimizations.NoOptimizations
         InitialOptimizations.StringPrefix(Memory.forceConvertToAscii prefix, transitionNodeId)
     | InitialOptimizations.SearchValuesPrefix(prefix, transitionNodeId) ->
-        // if prefix |> Memory.forall (_.CanUseAscii() ) then
-        //     InitialOptimizations.SearchValuesPrefix(prefix, transitionNodeId)
-        // else InitialOptimizations.NoOptimizations
         InitialOptimizations.SearchValuesPrefix(prefix, transitionNodeId)
     | InitialOptimizations.SearchValuesPotentialStart(prefix) ->
         if prefix |> Memory.forall (_.CanUseAscii() ) then
@@ -521,34 +515,6 @@ let tryGetLimitedSkip
                     (acc |> List.rev), node
 
 
-            let findRemainingSkip (successPath) (startPath) remaining =
-                match remaining with
-                | [| (startMt,potentialPath) |] ->
-                    let path, skipToEndNode = loop startMt [] (potentialPath)
-                    if path.Length = 0 then None else
-                    let successSet = fst successPath
-
-                    let searchValuesSet = c.MintermSearchValues(successSet)
-
-                    match searchValuesSet.Mode with
-                    | MintermSearchMode.TSet -> None
-                    | _ ->
-                        let successNode = snd successPath
-                        let mergedPred = c.MintermSearchValues(c.Solver.Not(startMt))
-                        // Some(
-                        //     ActiveBranchOptimizations.LimitedSkip(
-                        //         distance = path.Length + 2,
-                        //         successPred = searchValuesSet,
-                        //         successTransitionId =
-                        //             nodeToId (successNode),
-                        //         failPred = mergedPred,
-                        //         skipToEndTransitionId = nodeToId skipToEndNode
-                        //     )
-                        // )
-                        None
-                | _ ->
-                    None
-
             let findRemainingSkipOneBranch (startPred1:'t,startNode1) remaining =
                 match remaining with
                 | [| (startMt,potentialPath) |] when startPred1 = startMt ->
@@ -596,31 +562,7 @@ let tryGetLimitedSkip
             // p1 = (2, (⊤*cb{0,5}a)?)
             // p2 = (4, (⊤*cb{0,5}|b{0,4})a)
             | [| p1; p2 |] when not (refEq (snd p1) c.False) && not (refEq (snd p2) c.False)  ->
-                // --
-                let immediatep1 = nonTermDerivatives (snd p1)
-                let immediatep2 = nonTermDerivatives (snd p2)
-                // p1 successful continue
-                if immediatep2 |> Array.contains (p1) && immediatep1.Length <= 1 then
-                    redundant.Add(snd p1) |> ignore
-                    let p2remain = immediatep2 |> Array.where (fun v -> v <> p1)
-                    findRemainingSkip p1 p2 p2remain
-                elif immediatep1 |> Array.contains (p2) && immediatep2.Length <= 1 then
-                    redundant.Add(snd p2) |> ignore
-                    let p1remain = immediatep1 |> Array.where (fun v -> v <> p2)
-                    findRemainingSkip p2 p1 p1remain
-                else
-#if SKIP_EXPERIMENTAL
-                    if immediatep1 = immediatep2 then
-                        let merged =
-                            // c.Solver.Not(c.Solver.Or(failTSet,c.Solver.Or(fst p1, fst p2)))
-                            c.Solver.Not(c.Solver.Or(fst p1, fst p2))
-                        let nonts = nonTSetDerivatives merged (snd p2)
-                        if not(c.Solver.IsFull(merged)) then
-                            findRemainingSkipOneBranchLeftToRight (merged) immediatep1
-                        else None
-                    else
-#endif
-                    None
+                None
             | [| p1 |] when not (refEq (snd p1) c.False) ->
                 let immediatep1 = nonTermDerivatives (snd p1)
                 findRemainingSkipOneBranch p1 immediatep1
@@ -742,13 +684,6 @@ let attemptMergeIntersectLang
 
                 let newNode = _cache.Builder.mkAnd2 (l1, l2)
                 _cache.Builder.GetCanonical(newNode, mkLang newNode, (fun v -> newNode))
-        // infinite loop danger
-        // let sublang1 = mkLang l1
-        // let sublang2 = mkLang l2
-        // // let merged = attemptMergeIntersectLang _cache mkLang oldNode [sublang1;sublang2]
-        // let mknode = (fun _ -> _cache.Builder.mkAnd2Direct(l1,l2) )
-        // let canonical = _cache.Builder.GetCanonical(oldNode,merged,mknode)
-        // canonical
         )
         |> Seq.toArray
     )

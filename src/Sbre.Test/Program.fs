@@ -17,12 +17,12 @@ open Sbre.Test
 //         suite.Sbre() |> ignore
 
 
-// let suite = Paper.Rebar10()
-// for pat in suite.Patterns do
-//     suite.Pattern <- pat
-//     suite.Setup()
-//     for i = 1 to 1000 do
-//         suite.Sbre() |> ignore
+let suite = Paper.Rebar12()
+for pat in suite.Patterns do
+    suite.Pattern <- pat
+    suite.Setup()
+    for i = 1 to 1000 do
+        suite.Sbre() |> ignore
 
 // let suite = Paper.Rebar3()
 // for pat in suite.Patterns do
@@ -41,12 +41,12 @@ open Sbre.Test
 //         suite.Sbre() |> ignore
 
 
-let suite = Sbre.Benchmarks.ByteMode.Bytes1()
-for pat in suite.Patterns do
-    suite.Pattern <- pat
-    suite.Setup()
-    for i = 1 to 1000 do
-        suite.SbreByte() |> ignore
+// let suite = Sbre.Benchmarks.ByteMode.Bytes1()
+// for pat in suite.Patterns do
+//     suite.Pattern <- pat
+//     suite.Setup()
+//     for i = 1 to 1000 do
+//         suite.SbreByte() |> ignore
 
 
 

@@ -3,7 +3,6 @@ module Sbre.Test._11_LookaroundTests
 
 open Sbre
 open Sbre.Benchmarks.Jobs
-open Sbre.CountingSet
 open Sbre.Types
 open Xunit
 open Common
