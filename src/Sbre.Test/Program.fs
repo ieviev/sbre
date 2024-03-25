@@ -17,12 +17,12 @@ open Sbre.Test
 //         suite.Sbre() |> ignore
 
 
-let suite = Paper.Rebar12()
-for pat in suite.Patterns do
-    suite.Pattern <- pat
-    suite.Setup()
-    for i = 1 to 1000 do
-        suite.Sbre() |> ignore
+// let suite = Paper.Rebar12()
+// for pat in suite.Patterns do
+//     suite.Pattern <- pat
+//     suite.Setup()
+//     for i = 1 to 1000 do
+//         suite.Sbre() |> ignore
 
 // let suite = Paper.Rebar3()
 // for pat in suite.Patterns do
@@ -112,6 +112,6 @@ let ab = 1
     // let pattern = ".*A.*→.*B.*"
 
 
-
-
+let rs = BenchmarkTests.stream_1()
+let r = 1
 

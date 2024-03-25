@@ -4,6 +4,8 @@ open System
 open System.Buffers
 open System.Collections.Generic
 open System.Globalization
+open System.IO
+open System.IO.MemoryMappedFiles
 open System.Numerics
 open System.Runtime.CompilerServices
 open System.Text.RuntimeRegexCopy.Symbolic
@@ -50,6 +52,10 @@ type RegexMatcher<'t when 't: struct and 't :> IEquatable<'t> and 't: equality>
     let mutable _flagsMem = _flagsArray.AsMemory()
     let _minterms: 't[] = _cache.Minterms()
     let _ascii: int[] = _cache.Ascii
+    let _byteAscii: int[] =
+        let arr = Array.zeroCreate 256
+        _ascii.CopyTo(arr.AsSpan())
+        arr
     let _nonAscii: BDD = _cache.NonAscii
     let _mintermsLog = BitOperations.Log2(uint64 _minterms.Length) + 1
 
@@ -821,7 +827,7 @@ type RegexMatcher<'t when 't: struct and 't :> IEquatable<'t> and 't: equality>
     member this.llmatch_all_count_only(input: ReadOnlySpan<byte>) : int =
         let mutable loc = Location.createReversedSpan input
         use mutable acc = new SharedResizeArrayStruct<int>(64)
-        this.CollectReverseNullablePositionsByte(&acc, &loc)
+        this.CollectReverseNullablePositionsByte(&acc, &loc, DFA_TR_rev) |> ignore
         loc.Reversed <- false
         let startSpans = acc.AsSpan()
         let mutable count = 0
@@ -1857,22 +1863,18 @@ type RegexMatcher<'t when 't: struct and 't :> IEquatable<'t> and 't: equality>
     member this.CollectReverseNullablePositionsByte
         (
             acc: byref<SharedResizeArrayStruct<int>>,
-            loc: byref<Location<byte>>
-        ) : unit =
+            loc: byref<Location<byte>>,
+            startStateId: int
+        ) : int =
         assert (loc.Position > -1)
         assert (loc.Reversed = true)
 
         let mutable looping = true
-        let mutable currentStateId = DFA_TR_rev
-
-        // only consider anchors in the start
-        if StateFlags.cannotBeCached _flagsArray[currentStateId] then
-            this.TakeStepWithAnchorsByte(&acc, &loc, &currentStateId)
+        let mutable currentStateId = startStateId
 
         while looping do
             let flags = _flagsArray[currentStateId]
 #if SKIP
-            // if false
             if
                 (StateFlags.canSkip flags)
                 && ((StateFlags.isInitial flags && this.TrySkipInitialRevByte(&loc, &currentStateId))
@@ -1887,15 +1889,12 @@ type RegexMatcher<'t when 't: struct and 't :> IEquatable<'t> and 't: equality>
             if loc.Position > 0 then
                 let mintermId =
                     let i = loc.Input[loc.Position - 1]
-
-                    match i < 128uy with
-                    | true -> _ascii[int i]
-                    | false -> 0
-
+                    _byteAscii[int i]
                 this.TakeMintermTransition(&currentStateId, mintermId, &loc)
                 loc.Position <- loc.Position - 1
             else
                 looping <- false
+        currentStateId
 
     member this.CollectReverseFirstNull
         (
@@ -2098,7 +2097,13 @@ type RegexMatcher<'t when 't: struct and 't :> IEquatable<'t> and 't: equality>
         | Some regOverride -> this.llmatch_all_override_byte (&matches, &loc, regOverride)
         | _ ->
             let mutable acc = new SharedResizeArrayStruct<int>(512)
-            this.CollectReverseNullablePositionsByte(&acc, &loc)
+
+            // only consider anchors in the start
+            let mutable initState = DFA_TR_rev
+            if StateFlags.cannotBeCached _flagsArray[initState] then
+                this.TakeStepWithAnchorsByte(&acc, &loc, &initState)
+
+            let _ = this.CollectReverseNullablePositionsByte(&acc, &loc, initState)
             loc.Reversed <- false
             let mutable nextValidStart = 0
             let startSpans = acc.AsSpan()
@@ -2116,6 +2121,76 @@ type RegexMatcher<'t when 't: struct and 't :> IEquatable<'t> and 't: equality>
                     nextValidStart <- matchEnd
 
             acc.Dispose()
+
+        matches
+
+    member this.llmatch_all_stream (input: MemoryMappedViewStream) =
+
+        // let BUFFER_SIZE = 4096
+        let BUFFER_SIZE = options.StreamBufferSize
+        let mutable buffer = ArrayPool.Shared.Rent(BUFFER_SIZE)
+        let mutable bufferSpan = buffer.AsSpan()
+        // /home/ian/f/ieviev/sbre/src/Sbre.Test/data/input-text.txt
+        let mutable matches = new SharedResizeArrayStruct<LongMatchPosition>(256)
+        let mutable acc_offset = new SharedResizeArrayStruct<int64>(512)
+        use mutable acc = new SharedResizeArrayStruct<int>(512)
+        let mutable currentState = DFA_TR_rev
+        let endPos = input.Seek(0, SeekOrigin.End)
+
+        // only consider anchors in the start
+        if StateFlags.cannotBeCached _flagsArray[currentState] then
+            input.Seek(-1,SeekOrigin.Current) |> ignore
+            let b = input.ReadByte()
+            let mutable loc = Location.createReversedSpan (Span.op_Implicit ((Array.singleton (byte b)).AsSpan()))
+            this.TakeStepWithAnchorsByte(&acc, &loc, &currentState)
+            input.Seek(-1,SeekOrigin.Current) |> ignore
+
+        while (input.Position > BUFFER_SIZE) do
+            // load chunk into memory
+            acc.Clear()
+            let curr_offset = input.Seek(-BUFFER_SIZE, SeekOrigin.Current)
+            input.ReadExactly(bufferSpan)
+            let mutable loc = Location.createReversedSpan (Span.op_Implicit bufferSpan)
+            let endStateId = this.CollectReverseNullablePositionsByte(&acc, &loc, currentState)
+            for p in acc do
+                // acc_offset.Add(input.Position + int64 p)
+                acc_offset.Add(curr_offset + int64 p)
+            // --
+            let p = input.Seek(-BUFFER_SIZE, SeekOrigin.Current) // --
+            currentState <- endStateId
+            ()
+        // process final part
+        let remainingSlice = bufferSpan.Slice(0,int input.Position)
+        let newpos = input.Seek(0, SeekOrigin.Begin)
+        input.ReadExactly(remainingSlice)
+        let mutable loc = Location.createReversedSpan (Span.op_Implicit remainingSlice)
+        let endStateId = this.CollectReverseNullablePositionsByte(&acc, &loc, currentState)
+        for p in acc do
+            acc_offset.Add(int64 p)
+
+        // get the matches
+        loc.Reversed <- false
+        let mutable nextValidStart = 0L
+        let startSpans = acc_offset.AsSpan()
+
+        for i = (startSpans.Length - 1) downto 0 do
+            let currStart = startSpans[i]
+            if currStart >= nextValidStart then
+                let target_start = currStart - input.Position
+                let _ = input.Seek(target_start, SeekOrigin.Current)
+                let currspansize =
+                    if currStart + int64 BUFFER_SIZE >= endPos then
+                        int (endPos - currStart)
+                    else BUFFER_SIZE
+                let currspan = bufferSpan.Slice(0,currspansize)
+                input.ReadExactly(currspan)
+                let mutable loc = Location.createReversedSpan (Span.op_Implicit currspan)
+                loc.Position <- 0
+                let matchEnd = int64 (this.getMatchEndByte(&loc)) + currStart
+                matches.Add(
+                    { LongMatchPosition.Index = currStart; Length = (matchEnd - currStart) }
+                )
+                nextValidStart <- matchEnd
 
         matches
 
@@ -2160,6 +2235,11 @@ type RegexMatcher<'t when 't: struct and 't :> IEquatable<'t> and 't: equality>
         (input: ReadOnlySpan<byte>)
         : SharedResizeArrayStruct<MatchPosition> =
         (this.llmatch_all_byte input)
+
+    override this.MatchPositions
+        (input: MemoryMappedViewStream)
+        : SharedResizeArrayStruct<LongMatchPosition> =
+        (this.llmatch_all_stream input)
 
     override this.EnumerateMatches(input) = (this.llmatch_all input).AsSpan()
 
@@ -2372,10 +2452,10 @@ type Regex
     override this.MatchPositions(input: ReadOnlySpan<char>) = matcher.MatchPositions(input)
 
     /// ascii-only match over bytes
-    override this.MatchPositions
-        (input: ReadOnlySpan<byte>)
-        : SharedResizeArrayStruct<MatchPosition> =
-        matcher.MatchPositions(input)
+    override this.MatchPositions (input: ReadOnlySpan<byte>) : SharedResizeArrayStruct<MatchPosition> = matcher.MatchPositions(input)
+
+    /// ascii-only match over byte stream
+    override this.MatchPositions (input: MemoryMappedViewStream) : SharedResizeArrayStruct<LongMatchPosition> = matcher.MatchPositions(input)
 
     override this.EnumerateMatches(input) = matcher.EnumerateMatches(input)
     override this.Matches(input) = matcher.Matches(input)

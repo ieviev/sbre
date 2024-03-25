@@ -2,6 +2,7 @@
 module Sbre.Test.BenchmarkTests
 
 open System.IO
+open System.IO.MemoryMappedFiles
 open Sbre
 open Sbre.Benchmarks.Jobs
 open Xunit
@@ -212,6 +213,29 @@ let rebar_input_5k =
 let rebar_counts_1() =
 
     assertEqual 1833 (Sbre.Regex("[A-Za-z]{8,13}").Count(rebar_input_5k))
+
+
+
+
+
+
+[<Fact>]
+let stream_1() =
+    let inputPath = __SOURCE_DIRECTORY__ + "/data/input-text.txt"
+    use mmap = MemoryMappedFile.CreateFromFile(inputPath)
+    let regex = Sbre.Regex("Huck|Saw", SbreOptions.HighThroughputAscii)
+    let vs = mmap.CreateViewStream()
+    use positions1 = regex.MatchPositions(vs)
+    use positions2 = regex.MatchPositions(File.ReadAllBytes inputPath)
+
+    let p1 = positions1.AllocateArray()
+    let p2 = positions2.AllocateArray()
+
+    assertAllEqual
+        (p1 |> Array.map (fun v -> int v.Index, int v.Length ))
+        (p2 |> Array.map (fun v -> int v.Index, int v.Length ))
+
+
 
 //
 

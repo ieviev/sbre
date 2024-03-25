@@ -9,6 +9,7 @@ open Microsoft.FSharp.Core
 open Sbre
 open Sbre.Types
 open Sbre.Pat
+open Sbre.Common
 
 type MintermSearchMode =
     | TSet = 0

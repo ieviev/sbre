@@ -2,9 +2,12 @@ namespace Sbre
 
 open System
 open System.Buffers
+open System.Diagnostics
 open System.Globalization
+open System.IO
+open System.IO.MemoryMappedFiles
 open System.Runtime.CompilerServices
-
+open System.Text.RuntimeRegexCopy.Symbolic
 
 
 [<RequireQualifiedAccess>]
@@ -27,30 +30,22 @@ type SbreOptions() =
     member val FindLookaroundPrefix = false with get, set
     // member val FindPotentialStartSizeLimit = 500 with get, set
     member val FindPotentialStartSizeLimit = 200 with get, set
-    member val UsePrefixOptimizations = true with get, set
     member val UseUnicode = true with get, set
+    member val StreamBufferSize = 65536 with get, set
 
     static member HighThroughputAscii =
         SbreOptions(
-            CanonicalizeStates = false,
-            CompressPattern = true,
             FindLookaroundPrefix = true,
             FindPotentialStartSizeLimit = 5000,
-            UsePrefixOptimizations = true,
             InitialDfaCapacity = 512,
-            MaxPrefixLength = 20,
             UseUnicode = false
         )
 
     static member HighThroughputUnicode =
         SbreOptions(
-            CanonicalizeStates = false,
-            CompressPattern = true,
             FindLookaroundPrefix = true,
             FindPotentialStartSizeLimit = 5000,
-            UsePrefixOptimizations = true,
             InitialDfaCapacity = 512,
-            MaxPrefixLength = 20,
             UseUnicode = true
         )
 
@@ -59,18 +54,15 @@ type SbreOptions() =
             CompressPattern = false,
             FindLookaroundPrefix = false,
             FindPotentialStartSizeLimit = 20,
-            InitialDfaCapacity = 4096,
-            UsePrefixOptimizations = false
+            InitialDfaCapacity = 4096
         )
 
     static member WebappDefaults =
         SbreOptions(
-            CanonicalizeStates = false,
             FindPotentialStartSizeLimit = 1,
             MaxPrefixLength = 1,
             CompressPattern = false,
             FindLookaroundPrefix = false,
-            UsePrefixOptimizations = false,
             InitialDfaCapacity = 512
         )
 
@@ -194,6 +186,8 @@ type MatchPosition = {
         let str = Text.Encoding.UTF8.GetString(bytes)
         str
 
+
+
 module internal Memory =
     let inline forall ([<InlineIfLambda>] f) (mem: Memory<'t>) =
         let span = mem.Span
@@ -237,7 +231,36 @@ module internal Ptr =
 
 module Common =
 
+
+    [<AutoOpen>]
+    module Extensions =
+        type ISolver<'t> with
+
+            [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+            member this.isElemOfSet(predicate: 't, locationMinterm: 't) =
+                not (this.IsEmpty(this.And(locationMinterm, predicate)))
+
+            [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+            member this.elemOfSet(predicate: 't) (locationMinterm: 't) =
+                not (this.IsEmpty(this.And(locationMinterm, predicate)))
+
+            [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+            member this.notElemOfSet(predicate: 't) (locationMinterm: 't) =
+                this.IsEmpty(this.And(locationMinterm, predicate))
+
+            [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+            member this.contains(larger: 't) (smaller: 't) =
+                let overlapped = this.And(smaller,larger)
+                match box overlapped, box smaller with
+                | (:? uint64 as ov), (:? uint64 as sm) -> ov = sm
+                | (:? BDD as ov), (:? BDD as sm) -> ov = sm
+                | (:? BitVector as ov), (:? BitVector as sm) -> ov = sm
+                | _ -> failwith "invalid set"
+
+
+
     [<Struct; IsByRefLike>]
+    [<DebuggerDisplay("{pool}")>]
     type SharedResizeArrayStruct<'t> =
         val mutable size: int
         val mutable limit: int
@@ -251,6 +274,7 @@ module Common =
             this.pool[this.size] <- item
             this.size <- this.size + 1
 
+
         member this.Grow() =
             let newLimit = this.limit * 2
             let newArray = ArrayPool.Shared.Rent(newLimit)
@@ -259,6 +283,7 @@ module Common =
             this.pool <- newArray
             this.limit <- this.limit * 2
 
+        [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
         member this.Clear() = this.size <- 0
 
         member this.Contains(item) =
@@ -312,6 +337,21 @@ module Common =
     let mutable debuggerSolver: ISolver<uint64> option = None
 #endif
 
+    [<Struct>]
+    type LongMatchPosition = {
+        Index: int64
+        Length: int64
+    } with
+        /// gets string from stream
+        member this.GetText(input: MemoryMappedViewStream) =
+            let moveby = this.Index - input.Position
+            let newpos = input.Seek(moveby, SeekOrigin.Current)
+            use span = new SharedResizeArrayStruct<byte>(int this.Length)
+            let slice = span.AsSpan().Slice(0, int this.Length)
+            input.ReadExactly(slice)
+            let str = Text.Encoding.UTF8.GetString(slice)
+            str
+
 
     [<AbstractClass>]
     type GenericRegexMatcher() =
@@ -326,7 +366,13 @@ module Common =
         abstract member MatchPositions:
             input: ReadOnlySpan<byte> -> SharedResizeArrayStruct<MatchPosition>
 
+        abstract member MatchPositions:
+            input: MemoryMappedViewStream -> SharedResizeArrayStruct<LongMatchPosition>
+
+
+
         abstract member Match: input: ReadOnlySpan<char> -> SingleMatchResult
 
         abstract member Count: input: ReadOnlySpan<char> -> int
         abstract member Count: input: ReadOnlySpan<byte> -> int
+

@@ -5,31 +5,7 @@ open System.Runtime.CompilerServices
 open System.Text.RuntimeRegexCopy.Symbolic
 open Sbre.Types
 open System
-
-[<AutoOpen>]
-module Extensions =
-    type ISolver<'t> with
-
-        [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-        member this.isElemOfSet(predicate: 't, locationMinterm: 't) =
-            not (this.IsEmpty(this.And(locationMinterm, predicate)))
-
-        [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-        member this.elemOfSet(predicate: 't) (locationMinterm: 't) =
-            not (this.IsEmpty(this.And(locationMinterm, predicate)))
-
-        [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-        member this.notElemOfSet(predicate: 't) (locationMinterm: 't) =
-            this.IsEmpty(this.And(locationMinterm, predicate))
-
-        [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
-        member this.contains(larger: 't) (smaller: 't) =
-            let overlapped = this.And(smaller,larger)
-            match box overlapped, box smaller with
-            | (:? uint64 as ov), (:? uint64 as sm) -> ov = sm
-            | (:? BDD as ov), (:? BDD as sm) -> ov = sm
-            | (:? BitVector as ov), (:? BitVector as sm) -> ov = sm
-            | _ -> failwith "invalid set"
+open Sbre.Common
 
 
 #nowarn "42"

@@ -346,39 +346,6 @@ type SbreInnerParagraph(words: string list, input: string) =
 
 
 
-let twoStepSearch (patterns:string list) (input:string) =
-    let results = ResizeArray()
-    let inputText = input
-    let paragraphRegex = @"(?:.+\n)+\n"
-    let inputSpan = inputText.AsSpan()
-    let opts  = System.Text.RegularExpressions.RegexOptions.None
-    let pgregex = System.Text.RegularExpressions.Regex(paragraphRegex, opts)
-    let regexes = [|
-        for word in patterns do
-            yield
-                System.Text.RegularExpressions.Regex(
-                    word,
-                    options = opts,
-                    matchTimeout = TimeSpan.FromMilliseconds(10_000.)
-                )
-    |]
-
-    let mutable entireParagraphIsMatch = true
-    let mutable e = pgregex.EnumerateMatches(inputText)
-
-    // enumerate paragraphs during match
-    while e.MoveNext() do
-        entireParagraphIsMatch <- true
-        let paragraphSpan = inputSpan.Slice(e.Current.Index, e.Current.Length)
-        // run multiple ismatch regexes on each paragraph
-        for reg in regexes do
-            if not (reg.IsMatch(paragraphSpan)) then
-                entireParagraphIsMatch <- false
-
-        if entireParagraphIsMatch then
-            results.Add({ Index = e.Current.Index - 1; Length = e.Current.Length })
-
-    results
 
 
 
