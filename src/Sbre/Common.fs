@@ -148,43 +148,7 @@ module internal BDD =
 
 
 
-[<Struct>]
-type MatchResult = {
-    Value: string
-    Index: int
-    Length: int
-}
 
-[<Struct>]
-type SingleMatchResult = {
-    Success: bool
-    Value: string
-    Index: int
-    Length: int
-} with
-
-    static member Empty = {
-        Success = false
-        Value = ""
-        Index = 0
-        Length = 0
-    }
-
-[<Struct>]
-type MatchPosition = {
-    Index: int
-    Length: int
-} with
-
-    /// gets string from char span
-    member this.GetText(input: ReadOnlySpan<char>) =
-        input.Slice(this.Index, this.Length).ToString()
-
-    /// gets UTF-8 decoded string from byte span
-    member this.GetText(input: ReadOnlySpan<byte>) : string =
-        let bytes = input.Slice(this.Index, this.Length)
-        let str = Text.Encoding.UTF8.GetString(bytes)
-        str
 
 
 
@@ -327,9 +291,7 @@ module Common =
         LanguagePrimitives.PhysicalEquality x y
 
 
-
 #if DEBUG
-
     open System.Text.RuntimeRegexCopy.Symbolic
     let mutable debuggerSolver: ISolver<uint64> option = None
 #else
@@ -338,19 +300,59 @@ module Common =
 #endif
 
     [<Struct>]
+    type MatchResult = {
+        Value: string
+        Index: int
+        Length: int
+    }
+
+    [<Struct>]
+    type SingleMatchResult = {
+        Success: bool
+        Value: string
+        Index: int
+        Length: int
+    } with
+
+        static member Empty = {
+            Success = false
+            Value = ""
+            Index = 0
+            Length = 0
+        }
+
+
+
+    [<Struct>]
+    type MatchPosition = {
+        Index: int
+        Length: int
+    } with
+
+        /// gets string from char span
+        member this.GetText(input: ReadOnlySpan<char>) =
+            input.Slice(this.Index, this.Length).ToString()
+
+        /// gets UTF-8 decoded string from byte span
+        member this.GetText(input: ReadOnlySpan<byte>) : string =
+            let bytes = input.Slice(this.Index, this.Length)
+            let str = Text.Encoding.UTF8.GetString(bytes)
+            str
+
+    [<Struct>]
     type LongMatchPosition = {
         Index: int64
-        Length: int64
+        Length: int
     } with
         /// gets string from stream
         member this.GetText(input: MemoryMappedViewStream) =
             let moveby = this.Index - input.Position
-            let newpos = input.Seek(moveby, SeekOrigin.Current)
-            use span = new SharedResizeArrayStruct<byte>(int this.Length)
-            let slice = span.AsSpan().Slice(0, int this.Length)
+            let _ = input.Seek(moveby, SeekOrigin.Current)
+            use span = new SharedResizeArrayStruct<byte>(this.Length)
+            let slice = span.pool.AsSpan().Slice(0, this.Length)
             input.ReadExactly(slice)
-            let str = Text.Encoding.UTF8.GetString(slice)
-            str
+            Text.Encoding.UTF8.GetString(slice)
+
 
 
     [<AbstractClass>]

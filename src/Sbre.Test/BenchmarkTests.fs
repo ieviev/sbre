@@ -236,6 +236,20 @@ let stream_1() =
         (p2 |> Array.map (fun v -> int v.Index, int v.Length ))
 
 
+[<Fact>]
+let stream_2() =
+    let inputPath = __SOURCE_DIRECTORY__ + "/data/input-text.txt"
+    use mmap =
+        "/mnt/sdc4/data/enwiki/enwiki-20240320-pages-meta-current9.xml-p2936261p4045402"
+        |> System.IO.MemoryMappedFiles.MemoryMappedFile.CreateFromFile
+    let opts = SbreOptions.HighThroughputAscii
+    let reg = Sbre.Regex(String.concat "&" [ @"(?<=<title>).*(?=</title>)" ], opts)
+    let vs = mmap.CreateViewStream()
+    use positions1 = reg.MatchPositions(vs)
+    let p1 = positions1.AllocateArray()
+    ()
+
+
 
 //
 

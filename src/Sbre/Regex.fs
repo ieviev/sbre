@@ -1889,7 +1889,9 @@ type RegexMatcher<'t when 't: struct and 't :> IEquatable<'t> and 't: equality>
             if loc.Position > 0 then
                 let mintermId =
                     let i = loc.Input[loc.Position - 1]
-                    _byteAscii[int i]
+                    match i < 128uy with
+                    | true -> _ascii[int i]
+                    | false -> 0
                 this.TakeMintermTransition(&currentStateId, mintermId, &loc)
                 loc.Position <- loc.Position - 1
             else
@@ -2126,16 +2128,14 @@ type RegexMatcher<'t when 't: struct and 't :> IEquatable<'t> and 't: equality>
 
     member this.llmatch_all_stream (input: MemoryMappedViewStream) =
 
-        // let BUFFER_SIZE = 4096
         let BUFFER_SIZE = options.StreamBufferSize
         let mutable buffer = ArrayPool.Shared.Rent(BUFFER_SIZE)
         let mutable bufferSpan = buffer.AsSpan()
-        // /home/ian/f/ieviev/sbre/src/Sbre.Test/data/input-text.txt
         let mutable matches = new SharedResizeArrayStruct<LongMatchPosition>(256)
         let mutable acc_offset = new SharedResizeArrayStruct<int64>(512)
         use mutable acc = new SharedResizeArrayStruct<int>(512)
         let mutable currentState = DFA_TR_rev
-        let endPos = input.Seek(0, SeekOrigin.End)
+        let _stream_end_pos = input.Seek(0, SeekOrigin.End)
 
         // only consider anchors in the start
         if StateFlags.cannotBeCached _flagsArray[currentState] then
@@ -2145,52 +2145,52 @@ type RegexMatcher<'t when 't: struct and 't :> IEquatable<'t> and 't: equality>
             this.TakeStepWithAnchorsByte(&acc, &loc, &currentState)
             input.Seek(-1,SeekOrigin.Current) |> ignore
 
+        // load chunks into memory
         while (input.Position > BUFFER_SIZE) do
-            // load chunk into memory
             acc.Clear()
             let curr_offset = input.Seek(-BUFFER_SIZE, SeekOrigin.Current)
             input.ReadExactly(bufferSpan)
             let mutable loc = Location.createReversedSpan (Span.op_Implicit bufferSpan)
             let endStateId = this.CollectReverseNullablePositionsByte(&acc, &loc, currentState)
             for p in acc do
-                // acc_offset.Add(input.Position + int64 p)
                 acc_offset.Add(curr_offset + int64 p)
-            // --
-            let p = input.Seek(-BUFFER_SIZE, SeekOrigin.Current) // --
+            input.Seek(-BUFFER_SIZE, SeekOrigin.Current) |> ignore
             currentState <- endStateId
-            ()
+
         // process final part
-        let remainingSlice = bufferSpan.Slice(0,int input.Position)
-        let newpos = input.Seek(0, SeekOrigin.Begin)
-        input.ReadExactly(remainingSlice)
-        let mutable loc = Location.createReversedSpan (Span.op_Implicit remainingSlice)
-        let endStateId = this.CollectReverseNullablePositionsByte(&acc, &loc, currentState)
-        for p in acc do
-            acc_offset.Add(int64 p)
+        do
+            acc.Clear()
+            let remainingSlice = bufferSpan.Slice(0,int input.Position)
+            let _ = input.Seek(0, SeekOrigin.Begin)
+            input.ReadExactly(remainingSlice)
+            let mutable loc = Location.createReversedSpan (Span.op_Implicit remainingSlice)
+            let _ = this.CollectReverseNullablePositionsByte(&acc, &loc, currentState)
+            for p in acc do
+                acc_offset.Add(int64 p)
 
         // get the matches
-        loc.Reversed <- false
         let mutable nextValidStart = 0L
         let startSpans = acc_offset.AsSpan()
-
         for i = (startSpans.Length - 1) downto 0 do
             let currStart = startSpans[i]
             if currStart >= nextValidStart then
                 let target_start = currStart - input.Position
                 let _ = input.Seek(target_start, SeekOrigin.Current)
                 let currspansize =
-                    if currStart + int64 BUFFER_SIZE >= endPos then
-                        int (endPos - currStart)
+                    if currStart + int64 BUFFER_SIZE >= _stream_end_pos then
+                        int (_stream_end_pos - currStart)
                     else BUFFER_SIZE
                 let currspan = bufferSpan.Slice(0,currspansize)
                 input.ReadExactly(currspan)
-                let mutable loc = Location.createReversedSpan (Span.op_Implicit currspan)
+                let mutable loc = Location.createFwdSpan (Span.op_Implicit currspan)
                 loc.Position <- 0
-                let matchEnd = int64 (this.getMatchEndByte(&loc)) + currStart
+                let matchEnd = (this.getMatchEndByte(&loc))
                 matches.Add(
-                    { LongMatchPosition.Index = currStart; Length = (matchEnd - currStart) }
+                    { LongMatchPosition.Index = currStart; Length = matchEnd }
                 )
-                nextValidStart <- matchEnd
+                nextValidStart <- (currStart + int64 matchEnd)
+
+        ArrayPool.Shared.Return(buffer)
 
         matches
 

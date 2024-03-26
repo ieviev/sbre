@@ -112,6 +112,7 @@ let ab = 1
     // let pattern = ".*A.*→.*B.*"
 
 
-let rs = BenchmarkTests.stream_1()
+// let rs = BenchmarkTests.stream_1()
+// let rs = BenchmarkTests.stream_2()
 let r = 1
 
