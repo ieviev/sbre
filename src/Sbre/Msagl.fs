@@ -1,4 +1,4 @@
-module Msagl
+module internal Msagl
 open Sbre
 open Sbre.Types
 

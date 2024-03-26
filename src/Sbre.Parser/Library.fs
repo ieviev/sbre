@@ -143,7 +143,7 @@ module Syntax =
     let str = pstring
     let ws = spaces
     let c = pchar
-    let logicChars = "→≡≢"
+    let logicChars = "→≡≢⊃"
     let requireEscaping = @"|&()\" + logicChars
     let unescaped chr: Parser<_,unit> = noneOf @"\" .>>? pchar chr
     // .>>.?
@@ -185,7 +185,7 @@ module Syntax =
         |>> function
             | (left,operator),right ->
                 match operator with
-                | '→' ->
+                | '→' | '⊃' ->
                     Pattern.Or [ Pattern.Not(left); right ]
                 | '≢' ->
                     Pattern.And [

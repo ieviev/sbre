@@ -47,7 +47,7 @@ module Overrides =
                 currPos <- start + strLen
 
 
-
+/// initial prefix optimizations
 [<RequireQualifiedAccess>]
 type InitialOptimizations<'t, 'tchar when 'tchar : struct and 'tchar :> IEquatable<'tchar>> =
     | NoOptimizations
@@ -59,9 +59,10 @@ type InitialOptimizations<'t, 'tchar when 'tchar : struct and 'tchar :> IEquatab
     /// potential start prefix from searchvalues
     | SearchValuesPotentialStart of prefix: Memory<MintermSearchValues<'t>>
 
-
+/// active dfa state optimizations
+/// e.g. a_*b can skip to position of 'b' after finding 'a'
 type ActiveBranchOptimizations<'t, 'tchar when 'tchar : struct and 'tchar :> IEquatable<'tchar>> =
-    | SkippableLookahead of a: int
+    | SkippableLookahead of todo: int
     | LimitedSkipOnePath of
         distance: int *
         skipPred: MintermSearchValues<'t> *
@@ -76,13 +77,15 @@ type ActiveBranchOptimizations<'t, 'tchar when 'tchar : struct and 'tchar :> IEq
         cachedTransitions: int[]
     | NoOptimizations
 
-
+/// the default option to find the match end is to match again in reverse
+/// often this is overkill and can be replaced with something simpler
 type LengthLookup<'t> =
     /// skip match end lookup entirely
     | FixedLength of length: int
     /// work in progress - maybe useless
     | FixedLengthSetLookup of lookup: (struct (Memory<'t> * int))[]
     /// skip some transitions as we already know where match starts
+    /// e.g. hello.*world starts looking at hello|->.*end
     | FixedLengthPrefixMatchEnd of prefixLength: int * transitionId: int
     /// default match end lookup
     | MatchEnd
@@ -223,7 +226,7 @@ let rec calcPotentialMatchStart
     =
     if startNode.DependsOnAnchor then
         []
-    else // this should never really happen
+    else
         let redundant = System.Collections.Generic.HashSet<RegexNode<'t>>(tsetComparer)
         redundant.Add(cache.False) |> ignore
         let nodes = HashSet(tsetComparer)
@@ -294,7 +297,6 @@ let rec applyPrefixSets
     (node: RegexNode<'t>)
     (sets: 't list)
     =
-    // assert (not node.ContainsLookaround)
     match sets with
     | [] -> node
     | head :: tail ->
@@ -310,7 +312,6 @@ let rec applyPrefixSetsWhileNotNullable
     if node.CanBeNullable then
         node, sets.Length
     else
-        // assert (not node.ContainsLookaround)
         match sets with
         | [] -> node, sets.Length
         | head :: tail ->

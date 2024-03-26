@@ -42,7 +42,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Common.fs" />
-<!--    <Compile Include="UInt16Solver.fs" />-->
+    <!--    <Compile Include="UInt16Solver.fs" />-->
     <Compile Include="Types.fs" />
     <Compile Include="Pat.fs" />
     <Compile Include="Info.fs" />
@@ -50,7 +50,7 @@
     <Compile Include="Cache.fs" />
     <Compile Include="RegexNodeConverter.fs" />
     <Compile Include="Minterms.fs" />
-<!--    <Compile Include="CountingSet.fs" />-->
+    <!--    <Compile Include="CountingSet.fs" />-->
     <Compile Include="Algorithm.fs" />
     <Compile Include="Optimizations.fs" />
     <Compile Include="Msagl.fs" />
@@ -60,16 +60,19 @@
     <PackageOutputPath>./nupkg</PackageOutputPath>
     <Authors>ieviev</Authors>
     <Title>$(ProjectName)</Title>
-    <Version>0.2.11</Version>
+    <Version>0.3.2</Version>
   </PropertyGroup>
   <ItemGroup>
     <!-- nuget pack -->
-<!--    <ProjectReference Include="..\RuntimeRegexCopy\RuntimeRegexCopy.csproj" PrivateAssets="all" />-->
-       <ProjectReference Include="..\RuntimeRegexCopy\RuntimeRegexCopy.csproj" />
-       <ProjectReference Include="..\Sbre.Parser\Sbre.Parser.fsproj" /> 
+    <ProjectReference Include="..\RuntimeRegexCopy\RuntimeRegexCopy.csproj" PrivateAssets="all" />
+    <!--       <ProjectReference Include="..\RuntimeRegexCopy\RuntimeRegexCopy.csproj" />-->
+    <ProjectReference Include="..\Sbre.Parser\Sbre.Parser.fsproj">
+      <ReferenceOutputAssembly>true</ReferenceOutputAssembly>
+      <IncludeAssets>Sbre.Parser.dll</IncludeAssets>
+    </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <Content Include="$(MSBuildThisFileDirectory)../RuntimeRegexCopy/bin/Release/net8.0/RuntimeRegexCopy.dll">
+    <Content Include="$(MSBuildThisFileDirectory)../RuntimeRegexCopy/bin/Release/net8.0/RuntimeRegexCopy.dll;$(MSBuildThisFileDirectory)../Sbre.Parser/bin/Release/net8.0/Sbre.Parser.dll;$(MSBuildThisFileDirectory)../Sbre.Parser/bin/Release/net8.0/FParsec.dll;$(MSBuildThisFileDirectory)../Sbre.Parser/bin/Release/net8.0/FParsecCS.dll">
       <Pack>true</Pack>
       <PackageCopyToOutput>true</PackageCopyToOutput>
       <PackagePath>lib/$(TargetFramework)/</PackagePath>

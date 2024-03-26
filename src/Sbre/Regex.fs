@@ -52,6 +52,8 @@ type RegexMatcher<'t when 't: struct and 't :> IEquatable<'t> and 't: equality>
     let mutable _flagsMem = _flagsArray.AsMemory()
     let _minterms: 't[] = _cache.Minterms()
     let _ascii: int[] = _cache.Ascii
+
+    // todo: see if maybe skipping the if/else brings some benefit
     let _byteAscii: int[] =
         let arr = Array.zeroCreate 256
         _ascii.CopyTo(arr.AsSpan())
@@ -129,7 +131,7 @@ type RegexMatcher<'t when 't: struct and 't :> IEquatable<'t> and 't: equality>
                 let inline decr x =
                     if x = Int32.MaxValue || x = 0 then x else x - 1
 
-                let case1 = low = 0 || info.IsAlwaysNullable = true || not (_nonInitialIsNullable (R))
+                let case1 = low = 0 || info.IsAlwaysNullable = true || not (_nonInitialIsNullable R)
                 let R_decr = _cache.Builder.mkLoop (R, decr low, decr up)
 
                 match case1 with
@@ -183,14 +185,14 @@ type RegexMatcher<'t when 't: struct and 't :> IEquatable<'t> and 't: equality>
                 let S' = _createNonInitialDerivative (loc_pred, tail)
 
 
-                if not (_nonInitialIsNullable (head)) then R'S
+                if not (_nonInitialIsNullable head) then R'S
                 else if refEq R'S _cache.False then S'
                 else _cache.Builder.mkOrSeq [| R'S; S' |]
             // Derx (R·S) = if Nullx (R) then Derx (R)·S|Derx (S) else Derx (R)·S
             | Concat(head, tail, _) ->
                 let R' = _createNonInitialDerivative (loc_pred, head)
                 let R'S = _cache.Builder.mkConcat2 (R', tail)
-                if _nonInitialIsNullable (head) then
+                if _nonInitialIsNullable head then
                     let S' = _createNonInitialDerivative (loc_pred, tail)
                     if refEq _cache.Builder.uniques._false S' then R'S
                     else if refEq R'S _cache.False then S'
@@ -209,7 +211,7 @@ type RegexMatcher<'t when 't: struct and 't :> IEquatable<'t> and 't: equality>
                 match der_R with
                 // start a new pending match
                 | _ when pendingNulls.IsEmpty ->
-                    match _nonInitialIsNullable (der_R) with
+                    match _nonInitialIsNullable der_R with
                     | true ->
                         _cache.Builder.mkLookaround (der_R, false, rel + 1, RefSet<int>.zeroList)
                     | false ->
@@ -330,7 +332,7 @@ type RegexMatcher<'t when 't: struct and 't :> IEquatable<'t> and 't: equality>
                 if foundFalse then
                     _cache.False
                 else
-                    let result = _cache.Builder.mkAnd (derivatives)
+                    let result = _cache.Builder.mkAnd derivatives
                     result
             // Derx(~R) = ~Derx (R)
             | Not(inner, _) -> _cache.Builder.mkNot (_createDerivative (&loc, loc_pred, inner))
@@ -346,14 +348,6 @@ type RegexMatcher<'t when 't: struct and 't :> IEquatable<'t> and 't: equality>
                 let R' = _createDerivative (&loc, loc_pred, head)
                 let R'S = _cache.Builder.mkConcat2 (R', tail)
                 let S' = _createDerivative (&loc, loc_pred, tail)
-
-                // let lookaheadEpsilon =
-                //     // small semantic detail when lookaround is not in the end
-                //     // ex. "1\b-2" \b has to be nullable immediately
-                //     match R' with
-                //     | LookAround(node=Epsilon;lookBack=false) -> false
-                //     | _ -> true
-
                 if not (_isNullable (&loc, head)) then R'S
                 else if refEq R'S _cache.False then S'
                 else _cache.Builder.mkOrSeq [| R'S; S' |]
@@ -447,7 +441,6 @@ type RegexMatcher<'t when 't: struct and 't :> IEquatable<'t> and 't: equality>
         | ValueSome info when info.HasCanonicalForm.IsSome -> info.HasCanonicalForm.Value
         | ValueSome info when not info.PendingNullables.IsEmpty -> node
         | _ ->
-        // if node.DependsOnAnchor || node.ContainsLookaround then node else
         if node.DependsOnAnchor then
             node
         else
@@ -462,7 +455,7 @@ type RegexMatcher<'t when 't: struct and 't :> IEquatable<'t> and 't: equality>
                 let canonNodes = nodes |> Seq.map _canonicalize |> Seq.toArray
                 let languages = canonNodes |> Seq.map mkLang
                 let mergedLanguage = attemptMergeUnionLang _cache mkLang node languages
-                let mknode = (fun _ -> _cache.Builder.mkOrSeq (canonNodes))
+                let mknode = (fun _ -> _cache.Builder.mkOrSeq canonNodes)
                 _cache.Builder.GetCanonical(node, mergedLanguage, mknode)
             | Singleton pred ->
                 _cache.Builder.GetCanonicalSingleton(pred, (fun _ -> Memory.op_Implicit (mkLang node)))
@@ -474,11 +467,11 @@ type RegexMatcher<'t when 't: struct and 't :> IEquatable<'t> and 't: equality>
                 let canonNodes = nodes |> Seq.map _canonicalize |> Seq.toArray
                 let languages = canonNodes |> Seq.map mkLang
                 let mergedLanguage = attemptMergeIntersectLang _cache mkLang node languages
-                let mknode = (fun _ -> _cache.Builder.mkAnd (canonNodes))
+                let mknode = (fun _ -> _cache.Builder.mkAnd canonNodes)
                 _cache.Builder.GetCanonical(node, mergedLanguage, mknode)
             | Not(node = inner) -> // node
                 let canon_inner = _canonicalize inner
-                let mknode = (fun _ -> _cache.Builder.mkNot (canon_inner))
+                let mknode = (fun _ -> _cache.Builder.mkNot canon_inner)
                 _cache.Builder.GetCanonical(node, mkLang node, mknode)
             | LookAround _ -> node
             | Begin
@@ -529,7 +522,7 @@ type RegexMatcher<'t when 't: struct and 't :> IEquatable<'t> and 't: equality>
                     ()
                 else
                     match setChars.Mode, setChars.SearchValuesSize with
-                    | MintermSearchMode.TSet, n ->
+                    | MintermSearchMode.TSet, _ ->
                         state.Flags <- state.Flags ||| RegexStateFlags.CanSkipFlag
                     | MintermSearchMode.InvertedSearchValues, n ->
                         if n > 25 then
@@ -812,16 +805,16 @@ type RegexMatcher<'t when 't: struct and 't :> IEquatable<'t> and 't: equality>
     /// counts the number of matches
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     override this.Count(input: ReadOnlySpan<char>) =
-        use mutable results = this.llmatch_all (input)
+        use mutable results = this.llmatch_all input
         results.size
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     override this.Count(input: ReadOnlySpan<byte>) =
         match _byteRegexOverride.Value with
         | Some _override ->
-            use mutable results = this.llmatch_all_byte (input)
+            use mutable results = this.llmatch_all_byte input
             results.size
-        | _ -> this.llmatch_all_count_only (input)
+        | _ -> this.llmatch_all_count_only input
 
 
     member this.llmatch_all_count_only(input: ReadOnlySpan<byte>) : int =
@@ -1916,7 +1909,6 @@ type RegexMatcher<'t when 't: struct and 't :> IEquatable<'t> and 't: equality>
 
         while looping do
             let flags = _flagsArray[currentStateId]
-            // let _ = _stateArray[currentStateId]
 #if SKIP
             if
                 (StateFlags.canSkipInitial flags
@@ -2184,7 +2176,7 @@ type RegexMatcher<'t when 't: struct and 't :> IEquatable<'t> and 't: equality>
                 input.ReadExactly(currspan)
                 let mutable loc = Location.createFwdSpan (Span.op_Implicit currspan)
                 loc.Position <- 0
-                let matchEnd = (this.getMatchEndByte(&loc))
+                let matchEnd = this.getMatchEndByte(&loc)
                 matches.Add(
                     { LongMatchPosition.Index = currStart; Length = matchEnd }
                 )
@@ -2373,7 +2365,7 @@ module internal Helpers =
             //     Minterms.transformBack tsetbuilder bddBuilder solver charsetSolver m.RawPatternObj
             // let newMinterms = backToBdd |> Minterms.compute symbolicBuilder
 
-            if not (refEq (m.RawPattern) (rawNode)) then
+            if not (refEq m.RawPattern rawNode) then
                 let backToBdd =
                     Minterms.transformBack
                         tsetbuilder

@@ -16,7 +16,7 @@ open System.Linq
 
 
 module
-#if !RELEASE
+#if RELEASE
     internal
 #endif
     StartsetHelpers =

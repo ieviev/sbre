@@ -1,4 +1,4 @@
-module Sbre.Minterms
+module internal Sbre.Minterms
 
 open System.Collections.Generic
 open System.Text.RuntimeRegexCopy.Symbolic
